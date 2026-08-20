@@ -133,8 +133,11 @@ let playing = false, speed = 1, last = 0, jobId = null, seenMtime = 0;
 let runJob = null, openWhenDone = false;
 // The first tab is the film of the dataflow — that scene exists to be rendered,
 // so it is shown as what it is rather than as a drawing you could scrub.
-const VIDEO_TAB = "video", VIDEO_SCENE = "dataflow";
+const VIDEO_TAB = "video", VIDEO_SCENE = "film";
 const sceneOf = tab => tab === VIDEO_TAB ? VIDEO_SCENE : tab;
+// The film stands in for the topology while it renders, and is judged empty
+// when there is nothing in the machines-and-messages picture to film.
+const frameOf = tab => tab === VIDEO_TAB ? "topology" : tab;
 // A scene is rendered once and then shown from disk; asked for again only if a
 // person asks, since a render costs minutes and always gives the same answer.
 const asked = new Set();
@@ -254,8 +257,8 @@ async function select(id){
   // Land on a scene with something in it: dataflow leads, but a token ring has
   // no dataflow, and opening on an empty picture teaches nothing.
   const order = tabsOf(RUN);
-  const worthShowing = order.filter(s => !(RUN.empty || []).includes(sceneOf(s)));
-  if (!scene || !order.includes(scene) || (RUN.empty || []).includes(sceneOf(scene)))
+  const worthShowing = order.filter(s => !(RUN.empty || []).includes(frameOf(s)));
+  if (!scene || !order.includes(scene) || (RUN.empty || []).includes(frameOf(scene)))
     scene = worthShowing[0] || order[0];
   t = Infinity; playing = false;
   drawRuns(); drawBody();
@@ -291,7 +294,7 @@ function drawBody(){
   for (const name of tabsOf(RUN)){
     const b = document.createElement("button");
     b.textContent = name; b.dataset.scene = name;
-    if ((RUN.empty || []).includes(sceneOf(name))){
+    if ((RUN.empty || []).includes(frameOf(name))){
       b.dataset.empty = "true";
       b.title = "this run has nothing to show here";
     }
@@ -337,7 +340,7 @@ function sync(){
 }
 
 const NOTHING_TO_SHOW = {
-  dataflow: "There is no film of this run: a video shows work moving through stages, " +
+  topology: "There is no film of this run: a video shows work moving through stages, " +
             "which is what a MapReduce does and a token ring does not.",
   gantt: "Nobody was busy for long enough to draw — occupancy shows time spent " +
          "working, and this run spent its time waiting on messages.",
@@ -346,8 +349,9 @@ const NOTHING_TO_SHOW = {
 };
 
 function tabsOf(run){
-  // dataflow is not a tab of its own: it is the video.
-  return [VIDEO_TAB].concat(Object.keys(run.scenes).filter(n => n !== VIDEO_SCENE));
+  // The film covers the topology and the dataflow, so neither is a tab: what
+  // is left are the views you read rather than watch.
+  return [VIDEO_TAB].concat(Object.keys(run.scenes).filter(n => n !== "dataflow"));
 }
 
 function videoUrl(){
@@ -358,7 +362,7 @@ function videoUrl(){
 // Rendering happens because you are looking at the scene, not because you asked
 // for it. Nothing here waits: the picture is live while the video is made.
 function maybeRender(){
-  if (!RUN || !STATE || (RUN.empty || []).includes(sceneOf(scene))) return;
+  if (!RUN || !STATE || (RUN.empty || []).includes(frameOf(scene))) return;
   if (scene !== VIDEO_TAB) return;        // the other tabs are drawings, on purpose
   const key = RUN.videoKeys && RUN.videoKeys[sceneOf(scene)];
   if (!key || videoUrl() || asked.has(key)) return;
@@ -372,7 +376,7 @@ function maybeRender(){
 }
 
 function paint(){
-  const f = RUN.scenes[sceneOf(scene)];
+  const f = RUN.scenes[frameOf(scene)];
   const url = videoUrl();
   const player = $("player"), svgEl = $("svg");
   // The video is the picture when there is one; the scrubbable drawing is what
@@ -385,13 +389,13 @@ function paint(){
   $("clock").textContent = (t === Infinity ? Math.round(f.durationMs) : Math.round(t)) + " ms";
   const controls = $("controls");
   if (controls) controls.style.display = showVideo ? "none" : "flex";
-  const blank = (RUN.empty || []).includes(sceneOf(scene));
+  const blank = (RUN.empty || []).includes(frameOf(scene));
   const rendering = !blank && scene === VIDEO_TAB && !url;
   const note = $("note");
   note.hidden = !(blank || rendering);
   if (blank){
-    const others = tabsOf(RUN).filter(s => !(RUN.empty || []).includes(sceneOf(s)));
-    note.textContent = (NOTHING_TO_SHOW[sceneOf(scene)] || "Nothing to draw here.") +
+    const others = tabsOf(RUN).filter(s => !(RUN.empty || []).includes(frameOf(s)));
+    note.textContent = (NOTHING_TO_SHOW[frameOf(scene)] || "Nothing to draw here.") +
         (others.length ? "  Try " + others.join(" or ") + "." : "");
   } else if (rendering){
     note.textContent = STATE && STATE.manim && !STATE.manim.ready

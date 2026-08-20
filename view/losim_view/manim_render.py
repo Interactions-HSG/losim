@@ -1,46 +1,76 @@
-"""Frame -> manim video.
+"""Frame -> manim film.
 
-Small on purpose: the shapes layer has already decided what to draw and when,
-so this only maps primitives to mobjects. manim is imported lazily, so the rest
-of the viewer works without it installed.
+The shapes layer has already decided what to draw and when; this decides how it
+moves. A message is not a line that appears — it is a packet that leaves one
+machine, crosses the gap for as long as the crossing really took, and arrives.
+That is the whole difference between a diagram and a film of a system running.
+
+manim is imported lazily, so the rest of the viewer works without it installed.
 """
 from __future__ import annotations
 
 from .shapes import Frame
 
+SCALE = 1.0 / 110.0            # frame units (1600x900) -> manim units
+PLAY_SECONDS = 16.0            # how long a run takes on screen, whatever its clock
+DEAD = "#E05252"
 
-def scene_for(frame: Frame, name: str = "LosimScene", module: str | None = None):
-    """Build a manim Scene subclass bound to this frame.
+
+def _xy(x: float, y: float) -> list[float]:
+    return [(x - 800) * SCALE, (450 - y) * SCALE, 0]
+
+
+def scene_for(frames, name: str = "LosimScene", module: str | None = None):
+    """Build a manim Scene playing one Frame, or several in sequence.
 
     manim only discovers scenes whose __module__ is the file it was given, so
     the generated class is stamped with the caller's module.
     """
-    from manim import (Scene, Text, Rectangle, Ellipse, Line, VGroup,   # noqa: F401
+    parts = [frames] if isinstance(frames, Frame) else list(frames)
+
+    from manim import (Scene, Text, Rectangle, Ellipse, Line, Dot, VGroup,   # noqa: F401
                        FadeIn, FadeOut, Write, ReplacementTransform, LaggedStart,
                        UP, WHITE)
 
-    SCALE = 1.0 / 110.0
-    PLAY_SECONDS = 14.0        # how long the simulated run takes on screen
-    DEAD = "#E05252"
-
     class LosimScene(Scene):
         def construct(self):
-            f = frame                     # already fitted by whoever built it
+            for i, f in enumerate(parts):
+                if i:
+                    self.play(*[FadeOut(m) for m in self.mobjects], run_time=0.4)
+                self.part(f)
+            self.wait(1.0)
+
+        # ------------------------------------------------------------ a part
+
+        def part(self, f: Frame):
+            from manim import Text, FadeIn, FadeOut, LaggedStart, ReplacementTransform
 
             if f.title:
-                t = Text(f.title, font_size=40, weight="BOLD")
-                self.play(Write(t)); self.wait(0.5); self.play(FadeOut(t))
+                # Placed in the frame's own coordinates, in the band fit() kept
+                # clear — the browser puts its heading in exactly that band, and
+                # a title floated to the edge lands on top of the first machine.
+                head = Text(f.title, font_size=32, weight="BOLD").move_to(_xy(800, 42))
+                sub = None
+                if f.subtitle:
+                    sub = Text(f.subtitle, font_size=17, color="#8A93A6")
+                    if sub.width > 12.0:
+                        sub.scale(12.0 / sub.width)
+                    sub.move_to(_xy(800, 82))
+                self.play(FadeIn(head, shift=UP * 0.1), run_time=0.5)
+                if sub:
+                    self.play(FadeIn(sub), run_time=0.3)
 
-            built = {id(s): self._build(s) for s in f}
+            messages = [s for s in f if s.kind == "arrow" and s.meta.get("arrivedAtMs") is not None]
+            scenery = [s for s in f if s not in messages]
+
+            built = {id(s): self._build(s) for s in scenery}
             showing: dict = {}
 
             def appear(s):
                 m = built[id(s)]
                 if m is None:
                     return None
-                key = None
-                if s.kind == "state":
-                    key = f"{s.meta.get('vm')}|{s.meta.get('key')}"
+                key = f"{s.meta.get('vm')}|{s.meta.get('key')}" if s.kind == "state" else None
                 # State is one badge that keeps being rewritten, not a pile of
                 # readings — so the number visibly moves.
                 if key is not None and key in showing:
@@ -51,47 +81,81 @@ def scene_for(frame: Frame, name: str = "LosimScene", module: str | None = None)
                     showing[key] = m
                 return FadeIn(m, shift=UP * 0.12)
 
-            static = [s for s in f if s.t_in <= 0]
-            timed = [s for s in f if s.t_in > 0]
-
-            base = [a for a in (appear(s) for s in static) if a is not None]
+            base = [a for a in (appear(s) for s in scenery if s.t_in <= 0) if a is not None]
             if base:
-                self.play(LaggedStart(*base, lag_ratio=0.06))
+                self.play(LaggedStart(*base, lag_ratio=0.05), run_time=1.2)
 
-            # A machine that dies must stop looking alive — losing the work IS
-            # the failure, so it may not be drawn the same as finishing it.
-            deaths = {}
-            for s in f:
-                if s.kind == "ellipse" and s.meta.get("diedAt", -1) >= 0 and built[id(s)] is not None:
-                    deaths.setdefault(float(s.meta["diedAt"]), []).append(built[id(s)])
-
-            # The clock on screen is the simulated clock: a gap in virtual time
-            # is a pause of proportional length, which is what makes an expensive
-            # phase look expensive rather than merely come later.
+            # Everything that has a time, in time order: messages in flight and
+            # the marks a run leaves behind, on one clock.
             span = max(1.0, f.duration_ms)
-            moments = sorted({s.t_in for s in timed} | set(deaths))
+            deaths = {float(s.meta["diedAt"]): built[id(s)]
+                      for s in scenery
+                      if s.kind == "ellipse" and s.meta.get("diedAt", -1) >= 0
+                      and built[id(s)] is not None}
+            timed = sorted([s for s in scenery if s.t_in > 0], key=lambda s: s.t_in)
+            moments = sorted({s.t_in for s in timed} | {m.t_in for m in messages} | set(deaths))
+
             prev = 0.0
-            for t_in in moments:
-                gap = (t_in - prev) / span * PLAY_SECONDS
+            for when in moments:
+                gap = (when - prev) / span * PLAY_SECONDS
                 if gap > 0.05:
-                    self.wait(min(gap, 2.5))
-                prev = t_in
-                group = [a for a in (appear(s) for s in timed if s.t_in == t_in) if a is not None]
-                # Simultaneous things animate together: concurrency should look concurrent.
-                for m in deaths.get(t_in, []):
-                    group.append(m.animate.set_color(DEAD))
-                if group:
-                    self.play(LaggedStart(*group, lag_ratio=0.1), run_time=0.6)
-            self.wait(1.2)
+                    self.wait(min(gap, 2.0))
+                prev = when
+
+                flights = [self._flight(s, span) for s in messages if s.t_in == when]
+                marks = [a for a in (appear(s) for s in timed if s.t_in == when) if a is not None]
+                if when in deaths:
+                    # Losing the work IS the failure; it may not look like finishing.
+                    marks.append(deaths[when].animate.set_color(DEAD))
+                if flights:
+                    self.play(*[anim for anim, _, _ in flights], *marks,
+                              run_time=max(rt for _, rt, _ in flights))
+                    for _, _, cleanup in flights:
+                        cleanup(self)
+                elif marks:
+                    self.play(LaggedStart(*marks, lag_ratio=0.1), run_time=0.5)
+
+        # ------------------------------------------------------- one message
+
+        def _flight(self, s, span: float):
+            """A packet leaving, crossing, arriving — and the trail it leaves."""
+            from manim import Dot, Line, Text, VGroup, FadeOut
+
+            start, end = _xy(s.x, s.y), _xy(s.x2, s.y2)
+            trail = Line(start, end, stroke_width=1.5, color=s.color, stroke_opacity=0.28)
+            if s.style == "control":
+                trail = trail.set_stroke(opacity=0.18)
+            packet = Dot(start, radius=0.075, color=s.color)
+            label = None
+            if s.text:
+                label = Text(s.text, font_size=13, color="#C9D1E0")
+                label.next_to(packet, direction=UP, buff=0.08)
+                group = VGroup(packet, label)
+            else:
+                group = packet
+            self.add(trail, group)
+
+            flight_ms = max(1.0, float(s.meta.get("arrivedAtMs", s.t_in)) - float(s.t_in))
+            run_time = min(2.0, max(0.35, flight_ms / span * PLAY_SECONDS))
+            anim = group.animate.shift([end[0] - start[0], end[1] - start[1], 0])
+
+            def cleanup(scene):
+                scene.remove(group)
+
+            return anim, run_time, cleanup
+
+        # -------------------------------------------------------- primitives
 
         def _build(self, s):
             from manim import Text, Rectangle, Ellipse, Line, VGroup
-            x, y = (s.x - 800) * SCALE, (450 - s.y) * SCALE
+            x, y, _ = _xy(s.x, s.y)
             if s.kind == "arrow":
-                x2, y2 = (s.x2 - 800) * SCALE, (450 - s.y2) * SCALE
+                x2, y2, _ = _xy(s.x2, s.y2)
                 line = Line([x, y, 0], [x2, y2, 0], stroke_width=2, color=s.color)
+                if s.style == "control":
+                    line = line.set_stroke(opacity=0.35)
                 if s.text:
-                    lbl = Text(s.text, font_size=14)
+                    lbl = Text(s.text, font_size=13)
                     lbl.move_to([(x + x2) / 2, (y + y2) / 2 + 0.12, 0])
                     return VGroup(line, lbl)
                 return line
@@ -117,9 +181,7 @@ def scene_for(frame: Frame, name: str = "LosimScene", module: str | None = None)
                 lbl.next_to(line, direction=[-1, 0, 0], buff=0.12)
                 return VGroup(line, lbl)
             if s.kind == "label":
-                lbl = Text(s.text, font_size=18, weight="BOLD")
-                lbl.move_to([x, y, 0])
-                return lbl
+                return Text(s.text, font_size=18, weight="BOLD").move_to([x, y, 0])
             box = Rectangle(width=max(0.15, s.w * SCALE), height=max(0.15, s.h * SCALE),
                             stroke_color=s.color, fill_color=s.color, fill_opacity=0.12,
                             stroke_width=2)

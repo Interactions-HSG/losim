@@ -29,11 +29,15 @@ def main(argv=None) -> int:
     from losim_view.shapes import Frame
     from losim_view.manim_render import scene_for
 
-    frame = Frame.from_json(json.loads(Path(a.frame).read_text()))
-    print(f"frame: {frame.scene} — {len(frame)} shapes, {frame.duration_ms:.0f} ms simulated",
-          flush=True)
-    for w in frame.warnings():
-        print(f"warning: {w}", flush=True)
+    payload = json.loads(Path(a.frame).read_text())
+    # One frame, or a film made of several parts played in order.
+    raw = payload["parts"] if isinstance(payload, dict) and "parts" in payload else [payload]
+    frames = [Frame.from_json(part) for part in raw]
+    for frame in frames:
+        print(f"part: {frame.scene} — {len(frame)} shapes, "
+              f"{frame.duration_ms:.0f} ms simulated", flush=True)
+        for w in frame.warnings():
+            print(f"warning: {w}", flush=True)
 
     from manim import config, tempconfig
     safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in a.name) or "scene"
@@ -42,7 +46,7 @@ def main(argv=None) -> int:
                      "verbosity": "WARNING", "progress_bar": "none"}):
         # The Frame is already fitted by the caller, so this only maps
         # primitives to mobjects — same shapes as the browser draws.
-        scene = scene_for(frame, name=safe)()
+        scene = scene_for(frames, name=safe)()
         scene.render()
         video = scene.renderer.file_writer.movie_file_path
 

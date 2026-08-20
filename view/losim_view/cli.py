@@ -32,7 +32,8 @@ def main(argv=None) -> int:
 
     r = sub.add_parser("render", help="a manim video, rendered in a sidecar")
     r.add_argument("trace")
-    r.add_argument("--scene", default="spacetime", choices=sorted(SCENES))
+    # "film" is the whole thing: the machines talking, then the flow that made.
+    r.add_argument("--scene", default="film", choices=sorted(SCENES) + ["film"])
     r.add_argument("--quality", default="l", choices=list("lmhp"))
     r.add_argument("--out", default="build/media")
     r.add_argument("--install", action="store_true",
@@ -106,7 +107,11 @@ def main(argv=None) -> int:
         out.mkdir(parents=True, exist_ok=True)
         # The Frame is the whole contract with the sidecar: it never sees the trace.
         frame_path = out / "frame.json"
-        frame_path.write_text(json.dumps(build(trace, a.scene).fit().to_json()))
+        if a.scene == "film":
+            parts = [build(trace, part).fit().to_json() for part in sidecar.FILM]
+            frame_path.write_text(json.dumps({"parts": parts}))
+        else:
+            frame_path.write_text(json.dumps(build(trace, a.scene).fit().to_json()))
         print(f"rendering {a.scene} in the {rt.kind} sidecar ({rt.detail})")
         video = rt.render(frame_path, a.scene, out, quality=a.quality, name=name,
                           log=lambda l: print("  " + l))

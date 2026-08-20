@@ -30,6 +30,10 @@ from . import manim_runtime, studio
 from .shapes import SCENES, build
 from .trace import Trace, load
 
+# The film: the machines and what passed between them, then — if the run had
+# stages worth summarising — the flow those messages added up to.
+FILM = ("topology", "dataflow")
+
 # What a student wants to read as a story of the run, in the order it happened.
 STORY_KINDS = ("boot", "send", "rpc_call", "drop", "log", "done", "kill", "restart",
                "freeze", "degrade", "spot_notice", "spot_reclaim", "rpc_timeout",
@@ -170,7 +174,7 @@ class Studio:
         return {
             "id": run_id, "name": tr.name, "meta": tr.meta, "mtime": p.stat().st_mtime,
             "scenes": scenes, "warnings": warnings, "empty": empty, "story": story,
-            "videoKeys": {name: f"{tr.name}_{name}" for name in SCENES},
+            "videoKeys": {name: f"{tr.name}_{name}" for name in list(SCENES) + ["film"]},
             "vms": tr.vms, "metrics": tr.metrics,
             "bill": {"pnl": tr.bill, "why": bill_mod.WHY, "buckets": bill_mod.BUCKETS},
         }
@@ -261,7 +265,7 @@ class Studio:
         return job
 
     def render(self, run_id: str, scene: str, quality: str = "l") -> Job:
-        if scene not in SCENES:
+        if scene not in SCENES and scene != "film":
             raise ValueError(f"unknown scene '{scene}'")
         if manim_runtime.best(self.root) is None and not manim_runtime.can_provision(self.root):
             raise RuntimeError("this machine cannot install manim: it has neither a "
@@ -272,7 +276,15 @@ class Studio:
         out = self.media / name
         out.mkdir(parents=True, exist_ok=True)
         frame_path = out / "frame.json"
-        frame_path.write_text(json.dumps(build(tr, scene).fit().to_json()))
+        if scene == "film":
+            parts = []
+            for part in FILM:
+                f = build(tr, part).fit()
+                if sum(1 for sh in f if sh.kind not in ("lane", "label")) >= 3:
+                    parts.append(f.to_json())
+            frame_path.write_text(json.dumps({"parts": parts or [build(tr, FILM[0]).fit().to_json()]}))
+        else:
+            frame_path.write_text(json.dumps(build(tr, scene).fit().to_json()))
 
         def work(job):
             log = job.log.append

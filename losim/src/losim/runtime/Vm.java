@@ -28,6 +28,8 @@ public final class Vm {
 
     public final List<Program> programs = new ArrayList<>();
     public final Map<Program, Ctx> contexts = new LinkedHashMap<>();
+    /** The last appearance this machine reported, so only changes are logged. */
+    public String lastVisual = null;
     public final List<Task> tasks = new ArrayList<>();
     public final List<Task> deferred = new ArrayList<>();
 

@@ -365,6 +365,27 @@ def topology(trace: Trace) -> Frame:
         angle = -math.pi / 2 + 2 * math.pi * i / n
         pos[vm] = (radius * math.cos(angle), radius * math.sin(angle))
 
+    # When each message landed, so the film can fly it across the gap it really
+    # took rather than at some invented speed: an RPC is matched to the handler
+    # that ran it, a plain message to the receive that logged it.
+    landed: dict[object, float] = {}
+    for e in trace.of_kind("handler_start"):
+        if e.get("call") is not None:
+            landed.setdefault(("call", e["call"]), e["t"])
+    recvs: dict[tuple, list[float]] = {}
+    for e in trace.of_kind("recv"):
+        recvs.setdefault((e.get("from"), e["vm"]), []).append(e["t"])
+
+    def arrival(e: dict) -> float:
+        if e.get("call") is not None and ("call", e["call"]) in landed:
+            return landed[("call", e["call"])]
+        queue = recvs.get((e.get("vm"), e.get("to")))
+        while queue:
+            t = queue.pop(0)
+            if t >= e["t"]:
+                return t
+        return e["t"]
+
     dead_at = {v["name"]: v.get("diedAt", -1) for v in trace.vms}
     for vm in vms:
         x, y = pos[vm]
@@ -380,20 +401,39 @@ def topology(trace: Trace) -> Frame:
         if a not in pos or b not in pos:
             continue
         (x1, y1), (x2, y2) = pos[a], pos[b]
-        f.add(Shape("arrow", x=x1, y=y1, x2=x2, y2=y2, text=_payload_text(e),
+        f.add(Shape("arrow", x=x1, y=y1, x2=x2, y2=y2, text=_clip(_payload_text(e), 22),
                     color=color_for(a), t_in=e["t"],
                     style="control" if e["kind"] == "rpc_call" else "data",
                     meta={"from": a, "to": b, "bytes": e.get("bytes"),
+                          "sentAtMs": e["t"], "arrivedAtMs": arrival(e),
                           "locality": e.get("locality")}))
 
-    for e in trace.of_kind("state"):
-        vm = e["vm"]
-        if vm not in pos:
-            continue
-        x, y = pos[vm]
-        f.add(Shape("state", x=x, y=y + 56, w=120, h=24,
-                    text=f"{e.get('key')}={default_visual(e.get('value'), 14).text}",
-                    color=STATE_COLOR, t_in=e["t"], meta={"vm": vm, "key": e.get("key")}))
+    # What a machine says about itself wins over what it happened to reveal: a
+    # program that implements Drawable has decided how its machine should look,
+    # and the card is rewritten in place each time it changes.
+    drawn = [e for e in trace.of_kind("machine") if e["vm"] in pos]
+    if drawn:
+        for e in drawn:
+            x, y = pos[e["vm"]]
+            f.add(Shape("state", x=x, y=y + 58, w=190, h=26,
+                        text=_clip(default_visual(e.get("visual"), 30).text, 30),
+                        color=STATE_COLOR, t_in=e["t"],
+                        meta={"vm": e["vm"], "key": "self",
+                              "program": e.get("program")}))
+    else:
+        # One row per field, not one badge per reading: two different fields of
+        # the same machine would otherwise be rewritten on top of each other.
+        rows: dict[tuple, int] = {}
+        for e in trace.of_kind("state"):
+            vm = e["vm"]
+            if vm not in pos:
+                continue
+            x, y = pos[vm]
+            row = rows.setdefault((vm, e.get("key")), len(
+                [k for k in rows if k[0] == vm]))
+            f.add(Shape("state", x=x, y=y + 58 + row * 28, w=150, h=24,
+                        text=f"{e.get('key')}={default_visual(e.get('value'), 14).text}",
+                        color=STATE_COLOR, t_in=e["t"], meta={"vm": vm, "key": e.get("key")}))
     return f
 
 

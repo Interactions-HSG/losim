@@ -55,6 +55,32 @@ public final class Runtime {
         return t;
     }
 
+    /**
+     * Let a machine redraw itself.
+     *
+     * A program that implements {@link losim.api.Drawable} decides how its
+     * machine looks, and it is asked again whenever it has just done something.
+     * Only a change is logged: the picture shows a machine being *rewritten*,
+     * which is the whole reason to draw its state rather than list its history.
+     */
+    public void redraw(Vm vm) {
+        for (Program p : vm.programs) {
+            if (!(p instanceof losim.api.Drawable d)) continue;
+            Object visual;
+            try {
+                visual = Values.render(d.visual());
+            } catch (RuntimeException e) {                // a broken visual is not a broken run
+                visual = "cannot draw: " + e;
+            }
+            String rendered = String.valueOf(visual);
+            if (rendered.equals(vm.lastVisual)) return;
+            vm.lastVisual = rendered;
+            kernel.log("machine", vm.name, "program", p.getClass().getSimpleName(),
+                    "visual", visual);
+            return;
+        }
+    }
+
     public void sleepMs(long ms) {
         Task t = current();
         Vm vm = vms.get(t.vm);
@@ -169,6 +195,7 @@ public final class Runtime {
                         if (cost > 0) sleepMs(cost);
                         h.method().invoke(h.program(), ctx, new VmRef(fromName), payload);
                         kernel.log("handler_end", to.name, "method", method, "bytes", 0L);
+                        redraw(to);
                     } catch (Throwable e) {
                         rethrow(to, e);
                     }
@@ -307,6 +334,7 @@ public final class Runtime {
                 if (loc == Network.Locality.CROSS_ZONE) { metrics.crossZoneBytes += outLen; to.crossZoneBytes += outLen; }
                 kernel.log("handler_end", to.name, "method", service.getSimpleName() + "." + serverMethod.getName(),
                         "call", id, "bytes", outLen, "result", Values.render(out));
+                redraw(to);
                 long back = net.latencyMs(loc, outLen, to.spec.netGbps(), kernel.rng());
                 kernel.schedule(back, "reply->" + fromName, () -> complete(id, out, null));
             } catch (Throwable e) {

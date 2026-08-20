@@ -54,6 +54,7 @@ public final class Ctx {
     public void log(String message) { rt.kernel().log("log", vm.name, "message", message); }
     public void reveal(String key, Object value) {
         rt.kernel().log("state", vm.name, "key", key, "value", Values.render(value));
+        rt.redraw(vm);                      // whatever it just revealed may have changed how it looks
     }
 
     // ---- fleet ----
