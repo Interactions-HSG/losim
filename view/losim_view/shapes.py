@@ -179,6 +179,26 @@ def _clip(text: str, n: int) -> str:
     return text if len(text) <= n else text[:n - 1] + "…"
 
 
+def _fold_marks(f: "Frame", axis: "TimeAxis", top: float, bottom: float,
+                label_y: float, word: str) -> None:
+    """Draw the folds, and say what each one skipped.
+
+    Two folds close together get their captions on separate rows: printed at the
+    same height they overlap into one unreadable smear, which is worse than not
+    labelling them at all — the reader cannot even tell there were two.
+    """
+    last_x, row = -1e9, 0
+    for x, skipped in axis.breaks:
+        f.add(Shape("lane", x=x, y=(top + bottom) / 2, w=2, h=bottom - top,
+                    text="", color=CONTROL_COLOR, style="control",
+                    meta={"skippedMs": round(skipped)}))
+        row = row + 1 if x - last_x < 170 else 0
+        last_x = x
+        f.add(Shape("label", x=x, y=label_y + row * 24, w=130, h=20,
+                    text=f"⋯ {_duration(skipped)} {word} ⋯", color=CONTROL_COLOR,
+                    meta={"skippedMs": round(skipped)}))
+
+
 def _thin_labels(arrows: list[Shape], dy: float = 22.0, per_char: float = 3.6) -> None:
     """Drop labels that would land on top of each other.
 
@@ -438,22 +458,30 @@ def topology(trace: Trace) -> Frame:
 
 
 def gantt(trace: Trace) -> Frame:
-    """Per-machine occupancy. This is the view where a straggler is obvious."""
+    """Per-machine occupancy: who was working, and who was only waiting."""
     f = Frame(title=f"{trace.name} — occupancy", scene="gantt",
-              subtitle="who was working, and when — on the run's own clock, "
-                       "which is where a straggler gives itself away")
+              subtitle="who was working, and when — a straggler holds its lane "
+                       "while the others sit idle")
     vms = trace.vm_names
-    row_gap = 64.0
+    row_gap = 74.0
     width = 1400.0
-    scale, end = _time_scale(trace, width)
-    f.duration_ms = end
+    axis = TimeAxis(trace, width)
+    f.duration_ms = axis.end
 
     y_of = {vm: i * row_gap for i, vm in enumerate(vms)}
     for vm, y in y_of.items():
-        f.add(Shape("lane", x=width / 2, y=y, w=width, h=34, text=vm,
+        f.add(Shape("lane", x=width / 2, y=y, w=width, h=30, text=vm,
                     color="#2A2F3A", meta={"vm": vm}))
 
+    # Idle is the point of this view, so a long wait is never hidden — but the
+    # work has to be visible too. A dominant lull is folded and *labelled* with
+    # how long it was, which says "nothing happened for five seconds" better
+    # than five seconds of empty width nobody can measure by eye.
+    floor = (len(vms) - 1) * row_gap
+    _fold_marks(f, axis, -row_gap / 2, floor + row_gap / 2, floor + row_gap * 0.8, "idle")
+
     open_calls: dict[str, list[dict]] = {}
+    blocks: list[Shape] = []
     for e in trace.events:
         vm = e.get("vm")
         if vm not in y_of:
@@ -462,26 +490,35 @@ def gantt(trace: Trace) -> Frame:
             open_calls.setdefault(vm, []).append(e)
         elif e["kind"] == "handler_end":
             stack = open_calls.get(vm) or []
-            start = None
-            for i, s in enumerate(stack):
-                if s.get("call") == e.get("call"):
-                    start = stack.pop(i)
+            start_e = None
+            for i, cand in enumerate(stack):
+                if cand.get("call") == e.get("call"):
+                    start_e = stack.pop(i)
                     break
-            if start is None and stack:
-                start = stack.pop(0)
-            if start is None:
+            if start_e is None and stack:
+                start_e = stack.pop(0)
+            if start_e is None:
                 continue
-            t0, t1 = start["t"], e["t"]
-            x0, x1 = t0 * scale, max(t1 * scale, t0 * scale + 3)
-            f.add(Shape("box", x=(x0 + x1) / 2, y=y_of[vm], w=max(3.0, x1 - x0), h=28,
-                        text=str(start.get("method", "")).split(".")[-1],
-                        color=color_for(vm), t_in=t0,
-                        meta={"vm": vm, "ms": t1 - t0, "method": start.get("method")}))
+            t0, t1 = start_e["t"], e["t"]
+            x0, x1 = axis(t0), max(axis(t1), axis(t0) + 4)
+            blocks.append(f.add(Shape("box", x=(x0 + x1) / 2, y=y_of[vm],
+                                      w=max(4.0, x1 - x0), h=26,
+                                      text=str(start_e.get("method", "")).split(".")[-1],
+                                      color=color_for(vm), t_in=t0,
+                                      meta={"vm": vm, "ms": t1 - t0,
+                                            "method": start_e.get("method")})))
+
+    # A caption wider than the block it sits on is a caption on top of its
+    # neighbours: the method is still on the shape for anyone who hovers.
+    for b in blocks:
+        if b.w < 7 * len(b.text):
+            b.meta = {**b.meta, "label": b.text}
+            b.text = ""
 
     for e in trace.of_kind("kill"):
         vm = e.get("vm")
         if vm in y_of:
-            f.add(Shape("chip", x=e["t"] * scale, y=y_of[vm], w=46, h=28, text="dead",
+            f.add(Shape("chip", x=axis(e["t"]), y=y_of[vm] - 22, w=46, h=20, text="dead",
                         color=DEAD_COLOR, t_in=e["t"], meta={"vm": vm}))
     return f
 
