@@ -1,0 +1,38 @@
+{
+  "name": "losim — decentralized systems lab",
+  "image": "mcr.microsoft.com/devcontainers/java:1-21-bookworm",
+
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": { "version": "3.11" }
+  },
+
+  // Build the framework and every lab so a fresh Codespace is ready to run.
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+
+  // The HTML player is served over HTTP, because file:// does not reach a
+  // browser running outside the container.
+  "forwardPorts": [8000],
+  "portsAttributes": {
+    "8000": { "label": "losim viewer", "onAutoForward": "notify" }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "ms-python.python",
+        "redhat.vscode-yaml"
+      ],
+      "settings": {
+        "java.configuration.updateBuildConfiguration": "automatic",
+        "java.format.settings.url": ".vscode/java-format.xml",
+        "files.exclude": { "**/out": true, "**/build/classes": true },
+        "yaml.schemas": { ".vscode/scenario.schema.json": "labs/**/*.yaml" }
+      }
+    }
+  },
+
+  "remoteEnv": {
+    "PYTHONPATH": "${containerWorkspaceFolder}/view"
+  }
+}

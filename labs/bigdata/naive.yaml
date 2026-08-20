@@ -1,0 +1,22 @@
+# The same terabyte, held whole. This one is supposed to fail.
+name: bigdata-naive
+seed: 3
+run_until: 600s
+codec: proto
+prices: ../prices/eu-central-1.yaml
+
+vms:
+  planner:
+    program: Planner
+    instance: m5.large
+  workers:
+    prefix: w
+    program: Naive               # holds the whole shard
+    instance: r5.xlarge
+    count: 6
+
+network:
+  latency: {mean: 10ms, stddev: 2ms}
+
+invariants:
+  - {name: every shard done, check: EveryShardDone}

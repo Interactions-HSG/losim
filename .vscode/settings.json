@@ -1,0 +1,13 @@
+{
+  // Labs compile against the jar, never against the simulator's sources —
+  // so students cannot accidentally edit the framework.
+  "java.project.referencedLibraries": ["build/losim.jar"],
+  "java.project.sourcePaths": [
+    "labs/hello_ring/src",
+    "labs/mapreduce/src", "labs/mapreduce/gen",
+    "labs/vector_clocks/src", "labs/vector_clocks/gen",
+    "labs/bigdata/src", "labs/bigdata/gen"
+  ],
+  "java.project.outputPath": "build/ide",
+  "python.analysis.extraPaths": ["view"]
+}

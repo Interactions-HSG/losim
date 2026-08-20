@@ -1,0 +1,26 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    { "label": "losim: build framework", "type": "shell", "command": "./build.sh",
+      "group": "build", "problemMatcher": [] },
+    { "label": "losim: build this lab", "type": "shell",
+      "command": "./lab.sh ${input:lab}", "group": "build", "problemMatcher": [] },
+    { "label": "losim: run this lab", "type": "shell",
+      "command": "./lab.sh ${input:lab} && java -cp build/losim.jar losim.cli.Main run labs/${input:lab}/${input:scenario} --cp labs/${input:lab}/out --out build/${input:lab}.json",
+      "group": { "kind": "test", "isDefault": true }, "problemMatcher": [] },
+    { "label": "losim: draw the last run", "type": "shell",
+      "command": "./view.sh view build/${input:lab}.json --out build/${input:lab}.html && ./serve.sh",
+      "problemMatcher": [] },
+    { "label": "losim: show the bill", "type": "shell",
+      "command": "./view.sh bill build/${input:lab}.json", "problemMatcher": [] },
+    { "label": "losim: run everything", "type": "shell", "command": "./run-all.sh",
+      "problemMatcher": [] }
+  ],
+  "inputs": [
+    { "id": "lab", "type": "pickString", "description": "which lab?",
+      "options": ["hello_ring", "mapreduce", "vector_clocks", "bigdata"],
+      "default": "hello_ring" },
+    { "id": "scenario", "type": "promptString", "description": "scenario file",
+      "default": "ring.yaml" }
+  ]
+}

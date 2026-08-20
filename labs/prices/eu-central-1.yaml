@@ -1,0 +1,27 @@
+# Prices are course data, not library data — edit here, never in the simulator.
+currency: CHF
+spot_discount: 0.7
+egress_per_gb: 0.01
+storage_per_gb_month: 0.10
+billing_minimum_seconds: 60
+build_per_program_month: 250
+revenue_per_job: 5.00
+sla_seconds: 10
+late_penalty_per_second: 0.50
+incident_per_rerun: 0.02
+incident_per_lost_item: 1.00
+
+instances:
+  t3.nano: 0.0060
+  t3.micro: 0.0120
+  t3.small: 0.0240
+  t3.medium: 0.0480
+  m5.large: 0.1150
+  m5.xlarge: 0.2300
+  m5.2xlarge: 0.4600
+  c5.large: 0.1020
+  c5.xlarge: 0.2040
+  c5.4xlarge: 0.8160
+  r5.large: 0.1520
+  r5.xlarge: 0.3040
+  i3.large: 0.1720
