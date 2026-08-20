@@ -31,8 +31,9 @@ from .shapes import SCENES, build
 from .trace import Trace, load
 
 # What a student wants to read as a story of the run, in the order it happened.
-STORY_KINDS = ("boot", "log", "done", "kill", "restart", "freeze", "degrade",
-               "spot_notice", "spot_reclaim", "rpc_timeout", "rpc_dropped", "oom", "nospace")
+STORY_KINDS = ("boot", "send", "rpc_call", "drop", "log", "done", "kill", "restart",
+               "freeze", "degrade", "spot_notice", "spot_reclaim", "rpc_timeout",
+               "rpc_dropped", "oom", "nospace")
 
 
 # A project that has one of these can be driven from the page. The assignment
@@ -132,20 +133,44 @@ class Studio:
             raise FileNotFoundError(run_id)
         return p
 
+    def videos(self) -> dict[str, str]:
+        """Videos already rendered, keyed by "<run name>_<scene>".
+
+        The page asks for this so it can show a scene that has been rendered
+        before instead of rendering it again — a video is expensive and, for a
+        given trace and scene, always the same.
+        """
+        out = {}
+        if not self.media.is_dir():
+            return out
+        for mp4 in self.media.glob("*/videos/*/*/*.mp4"):
+            out[mp4.parents[3].name] = "/media/" + str(mp4.relative_to(self.media))
+        return out
+
+    def video_key(self, run_id: str, scene: str) -> str:
+        tr = self._load(self._resolve(run_id), self._resolve(run_id).stat().st_mtime)
+        return f"{tr.name}_{scene}"
+
     def run_detail(self, run_id: str) -> dict:
         p = self._resolve(run_id)
         tr = self._load(p, p.stat().st_mtime)
-        scenes, warnings = {}, {}
+        scenes, warnings, empty = {}, {}, []
         for name in SCENES:
             f = build(tr, name).fit()
             scenes[name] = f.to_json()
             warnings[name] = f.warnings()
+            # Lanes and labels are the scene's own furniture. A scene that drew
+            # nothing else has nothing to say about this run — a dataflow view
+            # of a token ring, say — and saying so beats an empty canvas.
+            if sum(1 for sh in f if sh.kind not in ("lane", "label")) < 3:
+                empty.append(name)
         story = [{"t": e["t"], "kind": e["kind"], "vm": e.get("vm", ""),
                   "detail": e.get("detail", {})}
                  for e in tr.events if e["kind"] in STORY_KINDS]
         return {
             "id": run_id, "name": tr.name, "meta": tr.meta, "mtime": p.stat().st_mtime,
-            "scenes": scenes, "warnings": warnings, "story": story,
+            "scenes": scenes, "warnings": warnings, "empty": empty, "story": story,
+            "videoKeys": {name: f"{tr.name}_{name}" for name in SCENES},
             "vms": tr.vms, "metrics": tr.metrics,
             "bill": {"pnl": tr.bill, "why": bill_mod.WHY, "buckets": bill_mod.BUCKETS},
         }
@@ -238,9 +263,9 @@ class Studio:
     def render(self, run_id: str, scene: str, quality: str = "l") -> Job:
         if scene not in SCENES:
             raise ValueError(f"unknown scene '{scene}'")
-        rt = manim_runtime.best(self.root)
-        if rt is None:
-            raise RuntimeError("no manim sidecar is installed yet")
+        if manim_runtime.best(self.root) is None and not manim_runtime.can_provision(self.root):
+            raise RuntimeError("this machine cannot install manim: it has neither a "
+                               "working venv module nor docker")
         p = self._resolve(run_id)
         tr = self._load(p, p.stat().st_mtime)
         name = f"{tr.name}_{scene}"
@@ -251,6 +276,11 @@ class Studio:
 
         def work(job):
             log = job.log.append
+            # Asking for a video is asking for whatever it takes to make one.
+            rt = manim_runtime.best(self.root)
+            if rt is None:
+                log("setting up the renderer — this happens once, and takes a few minutes")
+                rt = manim_runtime.provision(self.root, None, log)
             log(f"rendering {scene} of {tr.name} via the {rt.kind} sidecar")
             video = rt.render(frame_path, scene, out, quality=quality, name=name, log=log)
             job.video = "/media/" + str(video.resolve().relative_to(self.media))
@@ -269,8 +299,10 @@ class Studio:
             "tasks": self.tasks(),
             "canRun": self.runner() is not None,
             "manim": manim_runtime.status(self.root),
+            "videos": self.videos(),
             "jobs": [j.as_json() for j in list(self.jobs.values())[-6:]],
             "scenes": sorted(SCENES),
+            "pageVersion": studio.version(),
             "root": str(self.root),
         }
 

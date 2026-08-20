@@ -103,17 +103,27 @@ class Frame:
             return 0, 0, FRAME_W, FRAME_H
         return min(xs), min(ys), max(xs), max(ys)
 
-    def fit(self, width: float = FRAME_W, height: float = FRAME_H, pad: float = 60.0) -> "Frame":
-        """Whatever is off-camera might as well not have been drawn."""
+    def fit(self, width: float = FRAME_W, height: float = FRAME_H, pad: float = 60.0,
+            top: float = 120.0) -> "Frame":
+        """Whatever is off-camera might as well not have been drawn.
+
+        `top` is headroom: the title and subtitle are drawn by the renderer at
+        the top of the canvas, and content scaled into that band ends up written
+        across them.
+        """
         x0, y0, x1, y1 = self.bounds()
         sw = max(1e-6, x1 - x0)
         sh = max(1e-6, y1 - y0)
-        scale = min((width - 2 * pad) / sw, (height - 2 * pad) / sh)
+        scale = min((width - 2 * pad) / sw, (height - top - pad) / sh)
+        # Centred in whatever room is left over, rather than pinned to a corner
+        # with the slack all on one side.
+        ox = (width - sw * scale) / 2 - x0 * scale
+        oy = top + (height - top - pad - sh * scale) / 2 - y0 * scale
         for s in self.shapes:
-            s.x = (s.x - x0) * scale + pad
-            s.y = (s.y - y0) * scale + pad
-            s.x2 = (s.x2 - x0) * scale + pad
-            s.y2 = (s.y2 - y0) * scale + pad
+            s.x = s.x * scale + ox
+            s.y = s.y * scale + oy
+            s.x2 = s.x2 * scale + ox
+            s.y2 = s.y2 * scale + oy
             s.w *= scale
             s.h *= scale
         return self
@@ -212,16 +222,28 @@ class TimeAxis:
     it skipped rather than quietly stretching or hiding it.
     """
 
-    def __init__(self, trace: Trace, width: float, fold_over: float = 1 / 12):
+    # A gap is only worth folding when it dominates the run *and* is long in
+    # its own right. Both conditions matter: a quarter of a 100 ms run is 25 ms,
+    # which is one message in flight, not a lull — folding that produced six
+    # "quiet" markers on a six-hop ring and squeezed the whole picture into a
+    # corner. At most three folds, so the axis never turns into a concertina.
+    FOLD_FRACTION = 0.25
+    FOLD_FLOOR_MS = 250.0
+    MAX_FOLDS = 3
+
+    def __init__(self, trace: Trace, width: float):
         end = max(1.0, float(trace.ended_ms))
         times = sorted({float(e["t"]) for e in trace.events} | {0.0, end})
-        threshold = end * fold_over
+        gaps = [b - a for a, b in zip(times, times[1:])]
+        threshold = max(end * self.FOLD_FRACTION, self.FOLD_FLOOR_MS)
+        worth_folding = sorted((g for g in gaps if g > threshold), reverse=True)
+        if len(worth_folding) > self.MAX_FOLDS:
+            threshold = worth_folding[self.MAX_FOLDS - 1]      # keep the longest few
         folded_width = width * 0.04                     # what a fold is worth on screen
         self.breaks: list[tuple[float, float]] = []     # (x, milliseconds skipped)
 
-        # First pass: how much *time* survives folding, so the rest can be scaled
-        # up to fill the width the folds gave back.
-        gaps = [b - a for a, b in zip(times, times[1:])]
+        # How much *time* survives folding, so the rest can be scaled up to fill
+        # the width the folds gave back.
         kept = sum(g for g in gaps if g <= threshold)
         folds = sum(1 for g in gaps if g > threshold)
         scale = max(1e-9, (width - folds * folded_width)) / max(1e-9, kept)
@@ -313,7 +335,9 @@ def spacetime(trace: Trace) -> Frame:
                                   "sentAtMs": t, "arrivedAtMs": arrived,
                                   "locality": e.get("locality")}))
         elif kind == "state":
-            f.add(Shape("state", x=x, y=y - 30, w=90, h=26,
+            # Close to its own lane: a badge floating midway between two lanes
+            # belongs, as far as a reader can tell, to either of them.
+            f.add(Shape("state", x=x, y=y - 16, w=84, h=20,
                         text=f"{e.get('key')}={default_visual(e.get('value'), 14).text}",
                         color=STATE_COLOR, t_in=t,
                         meta={"vm": vm, "key": e.get("key")}))
@@ -422,72 +446,137 @@ def gantt(trace: Trace) -> Frame:
 
 
 def dataflow(trace: Trace) -> Frame:
-    """The execution overview: phase lanes, left to right.
+    """The execution overview: what went in, who touched it, what came out.
 
-    Lanes are phases, not machines — so a colocated worker appears in both the
-    map lane and the reduce lane, and a local hand-off draws short while a
-    remote read draws long. The locality tiers become visible as arrow length.
+    Five columns, as in the MapReduce paper: the input splits, the workers that
+    mapped them, the intermediate data each one produced, the workers that
+    reduced it, and the result. Lanes are phases rather than machines, so a
+    worker that both maps and reduces appears twice — which is exactly what
+    colocation means, and what makes a local hand-off draw short.
+
+    Edges are what the trace says happened. The one exception is the shuffle,
+    drawn faintly from every intermediate to every reducer, because that fan is
+    what a shuffle *is* — and drawing it quietly keeps it from burying the rest.
     """
     f = Frame(title=f"{trace.name} — dataflow", scene="dataflow",
-              subtitle="lanes are phases; a machine may appear in more than one")
+              subtitle="input, the machines that touched it, and what came out")
 
-    methods = []
+    phases: list[str] = []
     for e in trace.of_kind("handler_start"):
         m = str(e.get("method", ""))
-        if m and m not in methods:
-            methods.append(m)
-    phases = methods or ["work"]
+        if m and m not in phases:
+            phases.append(m)
+    if not phases:
+        return f
 
-    col_gap = 340.0
-    row_gap = 110.0
-    x_of_phase = {p: i * col_gap for i, p in enumerate(phases)}
-
-    workers_in_phase: dict[str, list[str]] = {p: [] for p in phases}
+    workers: dict[str, list[str]] = {p: [] for p in phases}
     for e in trace.of_kind("handler_start"):
-        p = str(e.get("method", "work"))
-        if e["vm"] not in workers_in_phase.setdefault(p, []):
-            workers_in_phase[p].append(e["vm"])
+        p = str(e.get("method", ""))
+        if p in workers and e["vm"] not in workers[p]:
+            workers[p].append(e["vm"])
 
+    ROW = 96.0
+    COL = 360.0
+    # Beyond this a column is a wall of chips, and the whole picture shrinks to
+    # fit it — the columns are what carry the meaning, not the row count.
+    MAX_ROWS = 8
+
+    def column_y(n: int) -> list[float]:
+        """Rows centred on zero, so columns of different heights line up."""
+        return [(i - (n - 1) / 2) * ROW for i in range(n)]
+
+    def caption(x: float, text: str) -> None:
+        f.add(Shape("label", x=x, y=-((MAX_ROWS - 1) / 2) * ROW - 60, w=COL - 40, h=30,
+                    text=text, color="#C9D1E0"))
+
+    x = 0.0
     pos: dict[tuple[str, str], tuple[float, float]] = {}
-    for p, xs in x_of_phase.items():
-        for i, vm in enumerate(workers_in_phase.get(p, [])):
-            y = i * row_gap
-            pos[(p, vm)] = (xs, y)
-            f.add(Shape("ellipse", x=xs, y=y, w=150, h=70, text=vm, color=color_for(vm),
-                        meta={"vm": vm, "phase": p}))
-        f.add(Shape("label", x=xs, y=-90, w=col_gap - 40, h=30, text=p.split(".")[-1],
-                    color="#C9D1E0", meta={"phase": p}))
+    chips: dict[str, list[tuple[float, float]]] = {}
 
-    for e in trace.of_kind("handler_end"):
-        p = str(e.get("method", "work"))
-        key = (p, e["vm"])
-        if key not in pos:
-            continue
-        x, y = pos[key]
-        f.add(Shape("chip", x=x + 96, y=y, w=150, h=28, text=_payload_text(e),
-                    color=STATE_COLOR, t_in=e["t"],
-                    meta={"vm": e["vm"], "phase": p, "bytes": e.get("bytes")}))
+    # ---------------------------------------------------------------- input
+    calls = [e for e in trace.of_kind("rpc_call", "send")
+             if str(e.get("method", "")) == phases[0] and e.get("to")]
+    if calls:
+        caption(x, "input")
+        ys = column_y(min(len(calls), MAX_ROWS))
+        for e, y in zip(calls, ys):
+            f.add(Shape("box", x=x, y=y, w=210, h=34, text=_clip(_payload_text(e), 20),
+                        color=color_for(e.get("to")), t_in=e["t"],
+                        meta={"to": e.get("to"), "bytes": e.get("bytes")}))
+            chips.setdefault("input", []).append((x, y))
+        if len(calls) > MAX_ROWS:
+            f.add(Shape("label", x=x, y=ys[-1] + ROW * 0.7, w=210, h=24,
+                        text=f"+{len(calls) - MAX_ROWS} more", color=CONTROL_COLOR))
+        x += COL
 
-    ordered = list(x_of_phase)
-    for i in range(len(ordered) - 1):
-        a, b = ordered[i], ordered[i + 1]
-        for va in workers_in_phase.get(a, []):
-            for vb in workers_in_phase.get(b, []):
-                (x1, y1), (x2, y2) = pos[(a, va)], pos[(b, vb)]
-                local = va == vb
-                f.add(Shape("arrow", x=x1 + 75, y=y1, x2=x2 - 75, y2=y2,
-                            color=CONTROL_COLOR if local else color_for(va),
-                            style="control" if local else "data",
-                            text="local" if local else "",
-                            meta={"from": va, "to": vb, "local": local}))
+    # --------------------------------------------------- a column per phase
+    for pi, phase in enumerate(phases):
+        caption(x, phase.split(".")[-1].replace("Service", ""))
+        ys = column_y(len(workers[phase]))
+        for vm, y in zip(workers[phase], ys):
+            pos[(phase, vm)] = (x, y)
+            f.add(Shape("ellipse", x=x, y=y, w=150, h=68, text=vm, color=color_for(vm),
+                        meta={"vm": vm, "phase": phase}))
+        x += COL
+
+        # what that phase produced, one chip per worker, in its own column
+        produced = {}
+        for e in trace.of_kind("handler_end"):
+            if str(e.get("method", "")) == phase and e["vm"] in workers[phase]:
+                produced.setdefault(e["vm"], e)          # the first is enough to show
+        if produced:
+            last = pi == len(phases) - 1
+            caption(x, "each machine's answer" if last else "intermediate")
+            for vm, e in produced.items():
+                _, y = pos[(phase, vm)]
+                f.add(Shape("chip", x=x, y=y, w=230, h=30, text=_clip(_payload_text(e), 22),
+                            color=STATE_COLOR, t_in=e["t"],
+                            meta={"vm": vm, "phase": phase, "bytes": e.get("bytes")}))
+                chips.setdefault(phase, []).append((x, y))
+            x += COL
+
+    # ---------------------------------------------------------------- edges
+    first = phases[0]
+    for (cx, cy), e in zip(chips.get("input", []), calls):
+        wx, wy = pos.get((first, e["to"]), (cx + COL, cy))
+        f.add(Shape("arrow", x=cx + 105, y=cy, x2=wx - 78, y2=wy, color=color_for(e["to"]),
+                    t_in=e["t"], meta={"to": e["to"]}))
+
+    for phase in phases:
+        for vm, (wx, wy) in ((vm, pos[(phase, vm)]) for vm in workers[phase]):
+            if any(abs(cy - wy) < 1 for _, cy in chips.get(phase, [])):
+                f.add(Shape("arrow", x=wx + 78, y=wy, x2=wx + COL - 118, y2=wy,
+                            color=color_for(vm), meta={"vm": vm}))
+
+    for a, b in zip(phases, phases[1:]):
+        for cx, cy in chips.get(a, []):
+            for vm in workers[b]:
+                wx, wy = pos[(b, vm)]
+                # The shuffle, drawn as texture: it is many-to-many by nature,
+                # and at full strength it hides everything it crosses.
+                f.add(Shape("arrow", x=cx + 118, y=cy, x2=wx - 78, y2=wy,
+                            color=CONTROL_COLOR, style="control",
+                            meta={"shuffle": True, "to": vm}))
+
+    done = list(trace.of_kind("done"))
+    if done:
+        caption(x, "the result")
+        e = done[-1]
+        f.add(Shape("box", x=x, y=0, w=250, h=40, text=_clip(_payload_text(e), 24),
+                    color=STATUS_COLORS["ok"], t_in=e["t"], meta={"vm": e.get("vm")}))
+        for _, (wx, wy) in ((vm, pos[(phases[-1], vm)]) for vm in workers[phases[-1]]):
+            f.add(Shape("arrow", x=wx + COL - 110, y=wy, x2=x - 130, y2=0,
+                        color=STATUS_COLORS["ok"], style="control", t_in=e["t"], meta={}))
     return f
 
 
+# Order matters: this is the order the tabs appear in and the order a viewer
+# meets them. Dataflow leads because it is the picture of the work itself.
 SCENES = {
+    "dataflow": dataflow,
     "spacetime": spacetime,
     "topology": topology,
     "gantt": gantt,
-    "dataflow": dataflow,
 }
 
 

@@ -44,9 +44,49 @@ def _():
     assert TRACES, "no traces in build/ — run the labs first"
     for t in TRACES:
         tr = load(t)
+        drew = 0
         for scene in shapes.SCENES:
             f = shapes.build(tr, scene).fit()
-            assert len(f) > 0, f"{t.name}/{scene} produced nothing"
+            drew += len(f) > 0
+            # A scene may legitimately have nothing to say about a run — a token
+            # ring has no dataflow — and the studio says so rather than showing
+            # a blank canvas. What must never happen is a scene that throws.
+        assert drew, f"{t.name}: no scene drew anything at all"
+
+
+@test("two installs of the renderer do not race each other")
+def _():
+    import threading
+    from losim_view import manim_runtime as mr
+    root = Path(tempfile.mkdtemp())
+    (root / "build").mkdir()
+    started, order = threading.Semaphore(0), []
+
+    def slow(_root, _kind, log):
+        order.append("start")
+        time.sleep(1.5)
+        order.append("end")
+        return mr.Runtime("venv", "pretend", root)
+
+    real = mr._provision
+    mr._provision = slow
+    try:
+        def go():
+            started.release()
+            try:
+                mr.provision(root, None, lambda _l: None)
+            except Exception:                             # noqa: BLE001
+                pass
+        threads = [threading.Thread(target=go) for _ in range(2)]
+        for th in threads:
+            th.start()
+        for th in threads:
+            th.join(30)
+        # Serialised, not interleaved: "start, end, start, end", never
+        # "start, start" — two pip installs into one virtualenv corrupt it.
+        assert order[:2] == ["start", "end"], order
+    finally:
+        mr._provision = real
 
 
 @test("colour is deterministic and never uses hash()")
@@ -474,6 +514,21 @@ def _():
         assert job["state"] == "done", job
         assert job["runId"], "a finished run must say what it produced"
         assert _get(base, "/api/run/" + job["runId"])["scenes"], "the trace it wrote does not draw"
+    finally:
+        srv.shutdown()
+
+
+@test("a tab left open notices the framework changed under it")
+def _():
+    srv, base = _studio()
+    try:
+        served = _get(base, "/api/state")["pageVersion"]
+        assert served == studio.version(), (served, studio.version())
+        assert served in studio.page(), "the page does not carry its own version"
+        # A page whose version differs from the sidecar's must reload rather
+        # than keep polling an API it no longer matches.
+        js = re.search(r"<script>(.*)</script>", studio.page(), re.S).group(1)
+        assert "location.reload" in js and "pageVersion" in js
     finally:
         srv.shutdown()
 

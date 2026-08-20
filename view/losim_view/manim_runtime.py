@@ -23,6 +23,7 @@ import shutil
 import subprocess
 import sys
 import sysconfig
+import time
 from dataclasses import dataclass
 from importlib.util import find_spec
 from pathlib import Path
@@ -195,8 +196,37 @@ def can_provision(root: Path) -> list[str]:
 
 
 def provision(root: Path, kind: str | None = None, log: Log = _noop) -> Runtime:
-    """Install a sidecar. Slow and network-bound, so it is always explicit."""
+    """Install a sidecar. Slow and network-bound, so two askers must not race.
+
+    The setup script starts an install in the background while a student reads;
+    pressing Render a minute later must join that install rather than start a
+    second one on top of it.
+    """
     root = Path(root).resolve()
+    lock = root / VENV_DIR.parent / ".manim-installing"
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        lock.mkdir()
+    except FileExistsError:
+        log("an install is already running — waiting for it")
+        for _ in range(900):                             # up to fifteen minutes
+            time.sleep(1)
+            if not lock.exists():
+                break
+        rt = best(root)
+        if rt is not None:
+            log(f"the other install finished: {rt.detail}")
+            return rt
+        log("the other install did not finish; starting one")
+        shutil.rmtree(lock, ignore_errors=True)
+        lock.mkdir(exist_ok=True)
+    try:
+        return _provision(root, kind, log)
+    finally:
+        shutil.rmtree(lock, ignore_errors=True)
+
+
+def _provision(root: Path, kind: str | None, log: Log) -> Runtime:
     options = can_provision(root)
     if kind is not None and kind not in ("venv", "docker"):
         raise RuntimeError(f"unknown sidecar '{kind}' — expected venv or docker")
