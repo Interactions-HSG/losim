@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import itertools
 import json
+import sys
 import threading
 import time
 import traceback
@@ -328,23 +329,42 @@ def _handler(app: Studio):
         def log_message(self, fmt, *args):                # quiet: the page is the output
             pass
 
+        def handle_one_request(self):
+            # A browser that navigates away, reloads, or seeks in a video simply
+            # stops reading. That is not an error in the server, and printing a
+            # stack trace for it buries the errors that are.
+            try:
+                super().handle_one_request()
+            except (BrokenPipeError, ConnectionResetError):
+                self.close_connection = True
+
         # ---------------------------------------------------------- replies
 
         def _send(self, code: int, body: bytes, ctype: str, extra: dict | None = None):
-            self.send_response(code)
-            self.send_header("Content-Type", ctype)
-            self.send_header("Content-Length", str(len(body)))
-            self.send_header("Cache-Control", "no-store")
-            for k, v in (extra or {}).items():
-                self.send_header(k, v)
-            self.end_headers()
-            if self.command != "HEAD":
-                self.wfile.write(body)
+            try:
+                self.send_response(code)
+                self.send_header("Content-Type", ctype)
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "no-store")
+                for k, v in (extra or {}).items():
+                    self.send_header(k, str(v))
+                self.end_headers()
+                if self.command != "HEAD":
+                    self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError):
+                self.close_connection = True
 
         def _json(self, obj, code: int = 200):
             self._send(code, json.dumps(obj).encode(), "application/json")
 
         def _fail(self, e: Exception, code: int = 400):
+            # Say what actually went wrong, where it went wrong. A 500 whose
+            # cause is only ever sent to a browser that has already gone away
+            # is a bug nobody can see.
+            if code >= 500:
+                print(f"losim studio: {self.command} {self.path} — "
+                      f"{e.__class__.__name__}: {e}", file=sys.stderr)
+                traceback.print_exc()
             self._json({"error": str(e) or e.__class__.__name__}, code)
 
         def _body(self) -> dict:
@@ -401,7 +421,32 @@ def _handler(app: Studio):
                 return self._json({"error": "not found"}, 404)
             ctype = {".mp4": "video/mp4", ".png": "image/png",
                      ".svg": "image/svg+xml"}.get(p.suffix, "application/octet-stream")
-            self._send(200, p.read_bytes(), ctype, {"Accept-Ranges": "none"})
+            size = p.stat().st_size
+            # Video players ask for ranges: to start playing before the file has
+            # arrived, and for every seek. Answering the whole file to a range
+            # request makes a player re-fetch and cancel, which is where those
+            # broken pipes came from.
+            start, end = 0, size - 1
+            head = self.headers.get("Range", "")
+            partial = head.startswith("bytes=") and "-" in head
+            if partial:
+                lo, _, hi = head[len("bytes="):].split(",")[0].partition("-")
+                try:
+                    if lo:
+                        start = min(int(lo), size - 1)
+                        end = min(int(hi), size - 1) if hi else size - 1
+                    elif hi:                                  # bytes=-N: the last N
+                        start = max(0, size - int(hi))
+                except ValueError:
+                    partial = False
+                if start > end:
+                    partial = False
+            with p.open("rb") as fh:
+                fh.seek(start)
+                body = fh.read(end - start + 1) if partial else fh.read()
+            self._send(206 if partial else 200, body, ctype,
+                       {"Accept-Ranges": "bytes",
+                        **({"Content-Range": f"bytes {start}-{end}/{size}"} if partial else {})})
 
     return Handler
 

@@ -533,6 +533,47 @@ def _():
         srv.shutdown()
 
 
+@test("a video is served in the pieces a player asks for")
+def _():
+    srv, base = _studio()
+    try:
+        videos = _get(base, "/api/state")["videos"]
+        if not videos:
+            print("       (no rendered video to serve — skipped)", end="")
+            return
+        url = sorted(videos.values())[0]
+        whole = urllib.request.urlopen(base + url)
+        size = int(whole.headers["Content-Length"])
+        whole.read()
+        assert whole.headers["Accept-Ranges"] == "bytes"
+        # A player starts before the file has arrived and re-asks on every seek.
+        # Answering the whole file to a range request makes it fetch and cancel,
+        # which is what filled the terminal with broken pipes.
+        req = urllib.request.Request(base + url, headers={"Range": "bytes=10-109"})
+        part = urllib.request.urlopen(req)
+        assert part.status == 206, part.status
+        assert part.headers["Content-Range"] == f"bytes 10-109/{size}"
+        assert len(part.read()) == 100
+    finally:
+        srv.shutdown()
+
+
+@test("a browser hanging up is not an error")
+def _():
+    import socket
+    srv, base = _studio()
+    try:
+        host, port = "127.0.0.1", srv.server_port
+        for path in ("/api/state", "/"):
+            s = socket.create_connection((host, port))
+            s.sendall(f"GET {path} HTTP/1.1\r\nHost: x\r\n\r\n".encode())
+            s.close()                                     # gone before reading
+        # The server has to still be there, and still answering.
+        assert _get(base, "/api/state")["scenes"]
+    finally:
+        srv.shutdown()
+
+
 @test("an id survives the trip through a URL")
 def _():
     # encodeURIComponent on a whole id turns its separator into %2F, and the
