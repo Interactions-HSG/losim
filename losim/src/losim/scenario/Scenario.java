@@ -37,6 +37,7 @@ public final class Scenario {
         public String topology = "mesh";
         public double meanMs = 20, stddevMs = 5, loss = 0;
         public double crossZoneFactor = 3.0;
+        public final List<String[]> slowLinks = new ArrayList<>();   // {from, to, extraMs}
     }
 
     public static final class FaultSpec {

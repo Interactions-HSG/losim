@@ -42,6 +42,7 @@ public final class Sim {
         net.stddevMs = scenario.network.stddevMs;
         net.loss = scenario.network.loss;
         net.crossZoneFactor = scenario.network.crossZoneFactor;
+        for (String[] l : scenario.network.slowLinks) net.slowLink(l[0], l[1], Long.parseLong(l[2]));
 
         Codec codec = scenario.codec.equals("record") ? RecordCodec.INSTANCE : ProtoCodec.INSTANCE;
         Runtime rt = new Runtime(kernel, net, codec);

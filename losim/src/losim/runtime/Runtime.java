@@ -143,7 +143,8 @@ public final class Runtime {
             kernel.log("drop", from.name, "to", to.name, "type", payload.getClass().getSimpleName());
             return;
         }
-        long latency = net.latencyMs(loc, wireLen, from.spec.netGbps(), kernel.rng());
+        long latency = net.latencyMs(loc, wireLen, from.spec.netGbps(), kernel.rng())
+                + net.extraFor(from.name, to.name);
         kernel.schedule(latency, "deliver->" + to.name, () -> deliver(from.name, to, payload, wireLen));
     }
 
@@ -245,7 +246,8 @@ public final class Runtime {
 
         boolean lost = net.blocked(from.name, toVm) || net.dropped(loc, kernel.rng());
         if (!lost) {
-            long latency = net.latencyMs(loc, wireLen, from.spec.netGbps(), kernel.rng());
+            long latency = net.latencyMs(loc, wireLen, from.spec.netGbps(), kernel.rng())
+                    + net.extraFor(from.name, toVm);
             kernel.schedule(latency, "req->" + toVm, () -> serve(id, from.name, to, service, serverMethod, arg, loc));
         } else {
             metrics.rpcDropped++;

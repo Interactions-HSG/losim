@@ -40,6 +40,10 @@ public final class ScenarioLoader {
             if (net.opt("topology") != null) s.network.topology = requireOneOf(net.get("topology"), "mesh", "ring");
             if (net.opt("loss") != null) s.network.loss = fraction(net.get("loss"));
             if (net.opt("cross_zone_factor") != null) s.network.crossZoneFactor = net.get("cross_zone_factor").number();
+            Node slow = net.opt("slow_links");
+            if (slow != null) for (Node l : slow.list())
+                s.network.slowLinks.add(new String[]{
+                        l.get("from").str(), l.get("to").str(), String.valueOf(l.get("extra").millis())});
             Node lat = net.opt("latency");
             if (lat != null) {
                 if (lat.opt("mean") != null) s.network.meanMs = lat.get("mean").millis();

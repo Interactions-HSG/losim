@@ -17,6 +17,22 @@ public final class Network {
 
     private final List<Set<String>> partitions = new ArrayList<>();
 
+    /**
+     * Extra delay on one direction of one link.
+     *
+     * Real networks are not uniform, and a message that arrives late while its
+     * own reply arrives on time is how causal delivery stops being theoretical.
+     */
+    private final java.util.Map<String, Long> extraLatency = new java.util.LinkedHashMap<>();
+
+    public void slowLink(String from, String to, long extraMs) {
+        extraLatency.put(from + "->" + to, extraMs);
+    }
+
+    public long extraFor(String from, String to) {
+        return extraLatency.getOrDefault(from + "->" + to, 0L);
+    }
+
     public void partition(List<Set<String>> groups) {
         partitions.clear();
         for (Set<String> g : groups) partitions.add(new LinkedHashSet<>(g));
