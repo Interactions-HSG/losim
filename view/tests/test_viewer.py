@@ -1,5 +1,6 @@
 """Tests for the viewer. It must draw any lab's trace without knowing the lab."""
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -345,6 +346,59 @@ for (const [name, f] of Object.entries(frames))
   for (const t of [0, f.durationMs / 2, f.durationMs, Infinity])
     try { drawFrame(mk("svg"), f, t); }
     catch (e) { console.error(`${name} at ${t}: ${e.message}`); process.exit(1); }
+""")
+        r = subprocess.run(["node", str(d / "check.js"), str(d)], capture_output=True, text=True)
+        assert r.returncode == 0, r.stderr.strip() or r.stdout.strip()
+
+
+@test("every panel of the studio draws for every lab")
+def _():
+    if not shutil.which("node"):
+        print("       (node absent — the browser check needs it)", end="")
+        return
+    srv, base = _studio()
+    try:
+        state = _get(base, "/api/state")
+        runs = {r["id"]: _get(base, "/api/run/" + r["id"]) for r in state["runs"]}
+    finally:
+        srv.shutdown()
+    page = studio.page()
+    js = re.search(r"<script>(.*)</script>", page, re.S).group(1)
+    with tempfile.TemporaryDirectory() as d:
+        d = Path(d)
+        (d / "studio.js").write_text(js)
+        (d / "payload.json").write_text(json.dumps({"state": state, "runs": runs}))
+        # A stub DOM that rejects "undefined" and "NaN" reaching the page: the
+        # failure this catches is a panel reading a field the trace does not
+        # have, which renders as a plausible-looking but wrong picture.
+        (d / "check.js").write_text("""
+const fs = require("fs"), dir = process.argv[2];
+const P = JSON.parse(fs.readFileSync(dir + "/payload.json", "utf8"));
+const mk = (tag) => ({ tag, children: [], dataset: {}, style: {}, attrs: {},
+    textContent: "", value: "1000", onclick: null, oninput: null,
+    setAttribute(k, v){ if (v === undefined || Number.isNaN(v))
+        throw new Error(`<${tag} ${k}="${v}">`); this.attrs[k] = v; },
+    appendChild(c){ this.children.push(c); return c; },
+    set innerHTML(v){ const bad = String(v).match(/.{0,50}(undefined|NaN).{0,25}/);
+        if (bad) throw new Error(`${tag}: ${bad[0]}`); this._html = v; },
+    get innerHTML(){ return this._html || ""; } });
+const nodes = {};
+global.document = { createElementNS: () => mk("g"), createElement: mk,
+                    getElementById: (id) => nodes[id] || (nodes[id] = mk(id)) };
+global.performance = { now: () => 0 };
+global.requestAnimationFrame = () => {};
+global.setInterval = () => {};
+global.alert = (m) => { throw new Error("alert: " + m); };
+global.fetch = async (p) => ({ json: async () => p === "/api/state" ? P.state
+    : P.runs[decodeURIComponent(p.replace("/api/run/", ""))] });
+(async () => {
+  eval(fs.readFileSync(dir + "/studio.js", "utf8"));
+  await new Promise(r => setTimeout(r, 50));
+  for (const [id, run] of Object.entries(P.runs)) {
+    await select(id);
+    for (const s of Object.keys(run.scenes)) { scene = s; sync(); paint(); }
+  }
+})().catch(e => { console.error(e.message); process.exit(1); });
 """)
         r = subprocess.run(["node", str(d / "check.js"), str(d)], capture_output=True, text=True)
         assert r.returncode == 0, r.stderr.strip() or r.stdout.strip()
