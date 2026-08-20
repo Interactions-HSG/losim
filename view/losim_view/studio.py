@@ -88,10 +88,11 @@ _PAGE = r"""<!doctype html>
     <h2>runs</h2>
     <div id="runs"></div>
     <p class="dim" style="font-size:12px;margin-top:14px">
-      Run a lab in the terminal — this page notices when the trace changes.</p>
+      Run a task in the terminal — this page notices when the trace changes.</p>
   </aside>
   <div class="stage">
-    <div id="body"><div class="empty">Nothing has run yet. Try <code>./run-all.sh</code>.</div></div>
+    <div id="body"><div class="empty">Nothing has run yet.<br>
+      Run a task in the terminal — <code>./losim run starter</code> — and it appears here.</div></div>
   </div>
 </main>
 <script>
