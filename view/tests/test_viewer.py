@@ -270,7 +270,8 @@ def _():
 def _():
     srv, base = _studio()
     try:
-        for bad in ("/api/run/../../../etc/passwd", "/media/../../etc/passwd",
+        for bad in ("/api/run/0/../../../etc/passwd", "/media/../../etc/passwd",
+                    "/api/run/../../../etc/passwd", "/api/run/9/x.json",
                     "/api/run/losim/src/losim/cli/Main.java"):
             try:
                 urllib.request.urlopen(base + bad)

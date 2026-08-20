@@ -72,7 +72,7 @@ class Studio:
         sorts of JSON around, and the page is not the place to complain.
         """
         seen: dict[str, dict] = {}
-        for d in self.watch:
+        for i, d in enumerate(self.watch):
             if not d.exists():
                 continue
             for p in sorted(d.rglob("*.json")):
@@ -83,7 +83,10 @@ class Studio:
                     tr = self._load(p, st.st_mtime)
                 except Exception:                        # noqa: BLE001
                     continue
-                key = str(p.relative_to(self.root)) if p.is_relative_to(self.root) else str(p)
+                # An id is "<which watched directory>/<path inside it>", never a
+                # path from this machine: it goes in a URL, and it is the only
+                # thing the server will resolve.
+                key = f"{i}/{p.relative_to(d)}"
                 seen[key] = {
                     "id": key, "name": tr.name, "path": key,
                     "mtime": st.st_mtime, "seed": tr.meta.get("seed"),
@@ -103,8 +106,12 @@ class Studio:
         return tr
 
     def _resolve(self, run_id: str) -> Path:
-        p = (self.root / run_id).resolve()
-        if not any(p.is_relative_to(w) for w in self.watch) or not p.is_file():
+        which, _, rel = run_id.partition("/")
+        if not which.isdigit() or int(which) >= len(self.watch) or not rel:
+            raise FileNotFoundError(run_id)
+        base = self.watch[int(which)]
+        p = (base / rel).resolve()
+        if not p.is_relative_to(base) or not p.is_file():
             raise FileNotFoundError(run_id)
         return p
 
