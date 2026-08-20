@@ -103,6 +103,14 @@ public final class Main {
     static void verify(Map<String, String> opt) throws Exception {
         String cp = opt.get("cp");
         if (cp == null) throw new IllegalArgumentException("verify needs --cp <classes>");
+        // Nothing to check is not the same as nothing wrong: an empty directory
+        // means the compile produced no classes, and passing here would report
+        // success for code that does not exist.
+        if (Verifier.classCount(Path.of(cp)) == 0) {
+            System.err.println("no classes in " + cp + " — nothing was compiled, so there is "
+                    + "nothing to verify");
+            System.exit(1);
+        }
         List<String> problems = Verifier.verifyTree(Path.of(cp));
         if (problems.isEmpty()) { System.out.println("ok: no nondeterminism found in " + cp); return; }
         for (String p : problems) System.err.println(p);

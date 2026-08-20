@@ -46,6 +46,14 @@ public final class Verifier {
 
     private Verifier() {}
 
+    /** How many classes are actually there — nothing to check is not a pass. */
+    public static long classCount(Path classesDir) throws Exception {
+        if (!Files.isDirectory(classesDir)) return 0;
+        try (Stream<Path> s = Files.walk(classesDir)) {
+            return s.filter(p -> p.toString().endsWith(".class")).count();
+        }
+    }
+
     public static List<String> verifyTree(Path classesDir) throws Exception {
         List<String> problems = new ArrayList<>();
         if (!Files.isDirectory(classesDir)) return List.of(classesDir + ": not a directory");

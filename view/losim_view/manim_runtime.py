@@ -230,7 +230,51 @@ def _stream(argv: list[str], log: Log, cwd: Path | None = None) -> None:
         raise RuntimeError(f"{argv[0]} failed:\n" + "\n".join(tail[-12:]))
 
 
+# pycairo ships no Linux wheel: pip compiles it, which needs a C compiler and
+# the cairo and pango headers. On a fresh Codespace none of that is present, so
+# `pip install manim` fails on metadata generation with an error about missing
+# compilers — which reads like a broken package rather than a missing apt line.
+APT_DEPS = ["build-essential", "pkg-config", "libcairo2-dev", "libpango1.0-dev"]
+
+
+def _missing_build_deps() -> list[str]:
+    if sys.platform != "linux" or not shutil.which("apt-get"):
+        return []                                        # only Debian is handled here
+    missing = []
+    if not (shutil.which("cc") or shutil.which("gcc")):
+        missing.append("build-essential")
+    pkg_config = shutil.which("pkg-config")
+    if not pkg_config:
+        return missing + ["pkg-config", "libcairo2-dev", "libpango1.0-dev"]
+    for dev, mod in (("libcairo2-dev", "cairo"), ("libpango1.0-dev", "pango")):
+        if subprocess.run([pkg_config, "--exists", mod], capture_output=True).returncode != 0:
+            missing.append(dev)
+    return missing
+
+
+def _apt_install(packages: list[str], log: Log) -> None:
+    sudo = [] if os.geteuid() == 0 else ["sudo", "-n"]
+    if sudo and not shutil.which("sudo"):
+        raise RuntimeError(_apt_hint(packages))
+    log(f"manim needs {', '.join(packages)} to build — installing them")
+    env_prefix = ["env", "DEBIAN_FRONTEND=noninteractive"]
+    try:
+        _stream(sudo + env_prefix + ["apt-get", "update", "-qq"], log)
+        _stream(sudo + env_prefix + ["apt-get", "install", "-y", "--no-install-recommends",
+                                     *packages], log)
+    except RuntimeError as e:
+        raise RuntimeError(f"{e}\n\n{_apt_hint(packages)}") from e
+
+
+def _apt_hint(packages: list[str]) -> str:
+    return ("install these first, then try again:\n"
+            f"  sudo apt-get install -y {' '.join(packages)}")
+
+
 def _provision_venv(root: Path, log: Log) -> Runtime:
+    missing = _missing_build_deps()
+    if missing:
+        _apt_install(missing, log)
     target = root / VENV_DIR
     if not _venv_python(root).exists():
         _stream([sys.executable, "-m", "venv", str(target)], log)
