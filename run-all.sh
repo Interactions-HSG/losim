@@ -49,4 +49,4 @@ done
 echo "  wrote build/wordcount-bill.txt and build/wordcount-bill.svg"
 
 echo
-echo "all labs ran; open build/*.html"
+echo "all labs ran; open build/*.html — or ./serve.sh to watch them in the studio"

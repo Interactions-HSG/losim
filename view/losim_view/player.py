@@ -11,6 +11,95 @@ import json
 from .shapes import Frame
 
 
+# Shared with the observatory page, so a scene drawn live and a scene drawn in a
+# saved file are the same picture — the same discipline that keeps the video and
+# the browser in agreement.
+DRAW_JS = r"""const NS = "http://www.w3.org/2000/svg";
+const FG = "#C9D1E0";
+
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function el(name, attrs, text){
+  const n = document.createElementNS(NS, name);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (text !== undefined) n.textContent = text;
+  return n;
+}
+
+function drawFrame(svg, f, t){
+  svg.innerHTML = "";
+  const defs = el("defs");
+  const m = el("marker", {id:"a", viewBox:"0 0 10 10", refX:9, refY:5,
+                          markerWidth:6, markerHeight:6, orient:"auto"});
+  m.appendChild(el("path", {d:"M 0 0 L 10 5 L 0 10 z", fill:FG}));
+  defs.appendChild(m); svg.appendChild(defs);
+  svg.appendChild(el("rect", {width:"100%", height:"100%", fill:"#0E1117"}));
+  svg.appendChild(el("text", {x:30, y:42, fill:FG, "font-size":22, "font-weight":700}, f.title));
+  svg.appendChild(el("text", {x:30, y:66, fill:"#8A93A6", "font-size":14}, f.subtitle));
+
+  // State is a badge that gets rewritten, not a pile of readings: only the
+  // newest value for a given (vm, key) is on screen, so the number visibly moves.
+  const newestState = new Map();
+  for (const s of f.shapes){
+    if (s.kind !== "state" || s.t_in > t) continue;
+    const key = (s.meta.vm || "") + "|" + (s.meta.key || "");
+    const prev = newestState.get(key);
+    if (!prev || s.t_in >= prev.t_in) newestState.set(key, s);
+  }
+  const visibleStates = new Set(newestState.values());
+
+  for (const s of f.shapes){
+    if (s.t_in > t) continue;
+    if (s.kind === "state" && !visibleStates.has(s)) continue;
+    // messages fade after they land, so the picture does not silt up
+    let op = 1;
+    if (s.kind === "arrow" && s.t_in > 0){
+      const age = t - s.t_in;
+      const life = Math.max(40, f.durationMs * 0.06);
+      op = age > life ? 0.18 : 1;
+    }
+    svg.appendChild(shape(s, op, t));
+  }
+}
+
+function shape(s, op, t){
+  const g = el("g", {opacity: op});
+  const dash = s.style === "control" ? {"stroke-dasharray":"6 5"} : {};
+  if (s.kind === "arrow"){
+    g.appendChild(el("line", Object.assign({x1:s.x, y1:s.y, x2:s.x2, y2:s.y2,
+        stroke:s.color, "stroke-width":2, "marker-end":"url(#a)"}, dash)));
+    if (s.text) g.appendChild(el("text", {x:(s.x+s.x2)/2, y:(s.y+s.y2)/2-6, fill:FG,
+        "font-size":12, "text-anchor":"middle"}, s.text));
+  } else if (s.kind === "ellipse"){
+    const dead = s.meta && s.meta.diedAt >= 0 && t >= s.meta.diedAt;
+    const col = dead ? "#E05252" : s.color;
+    g.appendChild(el("ellipse", {cx:s.x, cy:s.y, rx:s.w/2, ry:s.h/2,
+        fill: col+"22", stroke: col, "stroke-width":2}));
+    g.appendChild(el("text", {x:s.x, y:s.y+5, fill:FG, "font-size":15,
+        "text-anchor":"middle"}, s.text + (dead ? " ✝" : "")));
+    if (s.meta && s.meta.instance)
+      g.appendChild(el("text", {x:s.x, y:s.y+22, fill:"#8A93A6", "font-size":11,
+          "text-anchor":"middle"}, s.meta.instance));
+  } else if (s.kind === "lane"){
+    g.appendChild(el("line", {x1:s.x-s.w/2, y1:s.y, x2:s.x+s.w/2, y2:s.y,
+        stroke:"#2A2F3A", "stroke-width":Math.max(1,s.h)}));
+    g.appendChild(el("text", {x:s.x-s.w/2-8, y:s.y+5, fill:FG, "font-size":14,
+        "text-anchor":"end"}, s.text));
+  } else if (s.kind === "label"){
+    g.appendChild(el("text", {x:s.x, y:s.y, fill:FG, "font-size":16,
+        "font-weight":600, "text-anchor":"middle"}, s.text));
+  } else {
+    const rx = s.kind === "box" ? 6 : 12;
+    g.appendChild(el("rect", {x:s.x-s.w/2, y:s.y-s.h/2, width:Math.max(2,s.w),
+        height:Math.max(2,s.h), rx:rx, fill:s.color+"22", stroke:s.color, "stroke-width":1.5}));
+    if (s.text) g.appendChild(el("text", {x:s.x, y:s.y+4, fill:FG, "font-size":12,
+        "text-anchor":"middle"}, s.text));
+  }
+  if (s.meta) { const tip = el("title"); tip.textContent = JSON.stringify(s.meta); g.appendChild(tip); }
+  return g;
+}
+"""
+
+
 def render(frames: dict[str, Frame], title: str, meta: dict) -> str:
     payload = {
         "title": title,
@@ -18,7 +107,7 @@ def render(frames: dict[str, Frame], title: str, meta: dict) -> str:
         "scenes": {name: f.to_json() for name, f in frames.items()},
     }
     data = json.dumps(payload, separators=(",", ":"))
-    return _TEMPLATE.replace("__DATA__", data)
+    return _TEMPLATE.replace("__DRAW__", DRAW_JS).replace("__DATA__", data)
 
 
 _TEMPLATE = r"""<!doctype html>
@@ -60,8 +149,6 @@ _TEMPLATE = r"""<!doctype html>
 <footer id="foot"></footer>
 <script>
 const DATA = __DATA__;
-const NS = "http://www.w3.org/2000/svg";
-const FG = "#C9D1E0";
 let scene = Object.keys(DATA.scenes)[0];
 let t = Infinity, playing = false, speed = 1, last = 0;
 
@@ -76,89 +163,13 @@ for (const name of Object.keys(DATA.scenes)) {
   tabs.appendChild(b);
 }
 
-function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
-function el(name, attrs, text){
-  const n = document.createElementNS(NS, name);
-  for (const k in attrs) n.setAttribute(k, attrs[k]);
-  if (text !== undefined) n.textContent = text;
-  return n;
-}
+__DRAW__
 
 function draw(){
   const f = DATA.scenes[scene];
-  const svg = document.getElementById("svg");
-  svg.innerHTML = "";
-  const defs = el("defs");
-  const m = el("marker", {id:"a", viewBox:"0 0 10 10", refX:9, refY:5,
-                          markerWidth:6, markerHeight:6, orient:"auto"});
-  m.appendChild(el("path", {d:"M 0 0 L 10 5 L 0 10 z", fill:FG}));
-  defs.appendChild(m); svg.appendChild(defs);
-  svg.appendChild(el("rect", {width:"100%", height:"100%", fill:"#0E1117"}));
-  svg.appendChild(el("text", {x:30, y:42, fill:FG, "font-size":22, "font-weight":700}, f.title));
-  svg.appendChild(el("text", {x:30, y:66, fill:"#8A93A6", "font-size":14}, f.subtitle));
-
-  // State is a badge that gets rewritten, not a pile of readings: only the
-  // newest value for a given (vm, key) is on screen, so the number visibly moves.
-  const newestState = new Map();
-  for (const s of f.shapes){
-    if (s.kind !== "state" || s.t_in > t) continue;
-    const key = (s.meta.vm || "") + "|" + (s.meta.key || "");
-    const prev = newestState.get(key);
-    if (!prev || s.t_in >= prev.t_in) newestState.set(key, s);
-  }
-  const visibleStates = new Set(newestState.values());
-
-  for (const s of f.shapes){
-    if (s.t_in > t) continue;
-    if (s.kind === "state" && !visibleStates.has(s)) continue;
-    // messages fade after they land, so the picture does not silt up
-    let op = 1;
-    if (s.kind === "arrow" && s.t_in > 0){
-      const age = t - s.t_in;
-      const life = Math.max(40, f.durationMs * 0.06);
-      op = age > life ? 0.18 : 1;
-    }
-    svg.appendChild(shape(s, op));
-  }
+  drawFrame(document.getElementById("svg"), f, t);
   document.getElementById("clock").textContent =
      (t === Infinity ? Math.round(f.durationMs) : Math.round(t)) + " ms";
-}
-
-function shape(s, op){
-  const g = el("g", {opacity: op});
-  const dash = s.style === "control" ? {"stroke-dasharray":"6 5"} : {};
-  if (s.kind === "arrow"){
-    g.appendChild(el("line", Object.assign({x1:s.x, y1:s.y, x2:s.x2, y2:s.y2,
-        stroke:s.color, "stroke-width":2, "marker-end":"url(#a)"}, dash)));
-    if (s.text) g.appendChild(el("text", {x:(s.x+s.x2)/2, y:(s.y+s.y2)/2-6, fill:FG,
-        "font-size":12, "text-anchor":"middle"}, s.text));
-  } else if (s.kind === "ellipse"){
-    const dead = s.meta && s.meta.diedAt >= 0 && t >= s.meta.diedAt;
-    const col = dead ? "#E05252" : s.color;
-    g.appendChild(el("ellipse", {cx:s.x, cy:s.y, rx:s.w/2, ry:s.h/2,
-        fill: col+"22", stroke: col, "stroke-width":2}));
-    g.appendChild(el("text", {x:s.x, y:s.y+5, fill:FG, "font-size":15,
-        "text-anchor":"middle"}, s.text + (dead ? " ✝" : "")));
-    if (s.meta && s.meta.instance)
-      g.appendChild(el("text", {x:s.x, y:s.y+22, fill:"#8A93A6", "font-size":11,
-          "text-anchor":"middle"}, s.meta.instance));
-  } else if (s.kind === "lane"){
-    g.appendChild(el("line", {x1:s.x-s.w/2, y1:s.y, x2:s.x+s.w/2, y2:s.y,
-        stroke:"#2A2F3A", "stroke-width":Math.max(1,s.h)}));
-    g.appendChild(el("text", {x:s.x-s.w/2-8, y:s.y+5, fill:FG, "font-size":14,
-        "text-anchor":"end"}, s.text));
-  } else if (s.kind === "label"){
-    g.appendChild(el("text", {x:s.x, y:s.y, fill:FG, "font-size":16,
-        "font-weight":600, "text-anchor":"middle"}, s.text));
-  } else {
-    const rx = s.kind === "box" ? 6 : 12;
-    g.appendChild(el("rect", {x:s.x-s.w/2, y:s.y-s.h/2, width:Math.max(2,s.w),
-        height:Math.max(2,s.h), rx:rx, fill:s.color+"22", stroke:s.color, "stroke-width":1.5}));
-    if (s.text) g.appendChild(el("text", {x:s.x, y:s.y+4, fill:FG, "font-size":12,
-        "text-anchor":"middle"}, s.text));
-  }
-  if (s.meta) { const tip = el("title"); tip.textContent = JSON.stringify(s.meta); g.appendChild(tip); }
-  return g;
 }
 
 function sync(){

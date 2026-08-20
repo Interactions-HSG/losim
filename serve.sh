@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Serve the generated views. In Codespaces the port is forwarded automatically.
+# The studio: a page for watching your own system run.
+#
+# It watches build/ for traces, draws every scene, shows the bill, and renders
+# manim videos in a sidecar. Run a lab in another terminal and the page notices.
+# In Codespaces the port is forwarded automatically.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-[ -n "$(ls "$ROOT"/build/*.html 2>/dev/null || true)" ] || {
-  echo "nothing to show yet — run ./run-all.sh first"; exit 1; }
-echo "serving $ROOT/build on http://localhost:8000"
-cd "$ROOT/build" && exec python3 -m http.server 8000
+exec "$ROOT/view.sh" serve "${@:-build}"

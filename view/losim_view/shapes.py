@@ -10,7 +10,7 @@ imports, no DOM — it serialises to JSON and crosses any boundary.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field, asdict, fields
 from typing import Iterable, Iterator
 
 from .trace import Trace
@@ -64,6 +64,13 @@ class Shape:
 
     def to_json(self) -> dict:
         return asdict(self)
+
+    @staticmethod
+    def from_json(d: dict) -> "Shape":
+        return Shape(**{k: v for k, v in d.items() if k in _SHAPE_FIELDS})
+
+
+_SHAPE_FIELDS = {f.name for f in fields(Shape)}
 
 
 @dataclass
@@ -134,8 +141,54 @@ class Frame:
             "shapes": [s.to_json() for s in self.shapes],
         }
 
+    @staticmethod
+    def from_json(d: dict) -> "Frame":
+        """The inverse of to_json.
+
+        A Frame is the only thing that crosses into the manim sidecar, so this
+        is the whole contract between the process that decides what to draw and
+        the process that can actually draw it.
+        """
+        return Frame(
+            title=d.get("title", ""),
+            subtitle=d.get("subtitle", ""),
+            scene=d.get("scene", "frame"),
+            duration_ms=float(d.get("durationMs", 1.0)),
+            shapes=[Shape.from_json(x) for x in d.get("shapes", [])],
+        )
+
 
 # ----------------------------------------------------------------- helpers
+
+def _duration(ms: float) -> str:
+    return f"{ms / 1000:.1f} s" if ms >= 1000 else f"{ms:.0f} ms"
+
+
+def _clip(text: str, n: int) -> str:
+    """Long labels on a crowded axis are soup; a clipped one still reads."""
+    return text if len(text) <= n else text[:n - 1] + "…"
+
+
+def _thin_labels(arrows: list[Shape], dy: float = 22.0, per_char: float = 3.6) -> None:
+    """Drop labels that would land on top of each other.
+
+    Twenty-six messages inside a hundred milliseconds cannot all be captioned:
+    printed anyway they overlap into a smear that hides the arrows as well. The
+    payload stays on the shape's meta, so the browser still shows it on hover
+    and nothing is lost — only the caption is.
+    """
+    placed: list[tuple[float, float, float]] = []       # x, y, half-width
+    for s in arrows:
+        if not s.text:
+            continue
+        ax, ay = (s.x + s.x2) / 2, (s.y + s.y2) / 2
+        half = per_char * len(s.text)
+        if any(abs(ay - py) < dy and abs(ax - px) < half + ph for px, py, ph in placed):
+            s.meta = {**s.meta, "label": s.text}        # kept, just not printed
+            s.text = ""
+        else:
+            placed.append((ax, ay, half))
+
 
 def _payload_text(e: dict) -> str:
     for key in ("value", "arg", "result"):
@@ -149,48 +202,130 @@ def _time_scale(trace: Trace, width: float) -> tuple[float, float]:
     return width / end, end
 
 
+class TimeAxis:
+    """Time along x, with long empty stretches folded up.
+
+    A run is usually a burst of messages and then a wait — 26 RPCs in the first
+    100 ms, then five seconds of nothing while a timeout runs down. On a plain
+    linear axis the interesting part is a single vertical smear, so idle gaps
+    are compressed to a fixed width and *marked*: the picture says how much time
+    it skipped rather than quietly stretching or hiding it.
+    """
+
+    def __init__(self, trace: Trace, width: float, fold_over: float = 1 / 12):
+        end = max(1.0, float(trace.ended_ms))
+        times = sorted({float(e["t"]) for e in trace.events} | {0.0, end})
+        threshold = end * fold_over
+        folded_width = width * 0.04                     # what a fold is worth on screen
+        self.breaks: list[tuple[float, float]] = []     # (x, milliseconds skipped)
+
+        # First pass: how much *time* survives folding, so the rest can be scaled
+        # up to fill the width the folds gave back.
+        gaps = [b - a for a, b in zip(times, times[1:])]
+        kept = sum(g for g in gaps if g <= threshold)
+        folds = sum(1 for g in gaps if g > threshold)
+        scale = max(1e-9, (width - folds * folded_width)) / max(1e-9, kept)
+
+        self._points = {0.0: 0.0}
+        x = 0.0
+        for a, b in zip(times, times[1:]):
+            gap = b - a
+            if gap > threshold:
+                x += folded_width
+                self.breaks.append((x, gap))
+            else:
+                x += gap * scale
+            self._points[b] = x
+        self.end = end
+        self.width = x
+
+    def __call__(self, t: float) -> float:
+        t = float(t)
+        if t in self._points:
+            return self._points[t]
+        below = [k for k in self._points if k <= t]
+        above = [k for k in self._points if k >= t]
+        if not below:
+            return 0.0
+        if not above:
+            return self.width
+        lo, hi = max(below), min(above)
+        if hi == lo:
+            return self._points[lo]
+        f = (t - lo) / (hi - lo)
+        return self._points[lo] + f * (self._points[hi] - self._points[lo])
+
+
 # ----------------------------------------------------------------- builders
 
 def spacetime(trace: Trace) -> Frame:
     """The Lamport diagram: one lane per machine, time running left to right."""
     f = Frame(title=f"{trace.name} — space-time", scene="spacetime",
-              subtitle="each lane is a machine; each arrow is a message")
+              subtitle="each lane is a machine; each arrow is a message, drawn from when "
+                       "it was sent to when it arrived")
     vms = trace.vm_names
     lane_gap = 120.0
     width = 1400.0
-    scale, end = _time_scale(trace, width)
-    f.duration_ms = end
+    axis = TimeAxis(trace, width)
+    f.duration_ms = axis.end
 
     y_of = {vm: i * lane_gap for i, vm in enumerate(vms)}
     for vm, y in y_of.items():
         f.add(Shape("lane", x=width / 2, y=y, w=width, h=2, text=vm,
                     color=color_for(vm), meta={"vm": vm}))
 
+    # A fold is announced, never silent: the reader is told what was skipped.
+    floor = (len(vms) - 1) * lane_gap
+    last_label_x = -1e9
+    row = 0
+    for x, skipped in axis.breaks:
+        f.add(Shape("lane", x=x, y=floor / 2, w=2, h=floor + lane_gap,
+                    text="", color=CONTROL_COLOR, style="control",
+                    meta={"skippedMs": round(skipped)}))
+        row = row + 1 if x - last_label_x < 150 else 0      # two folds close together
+        last_label_x = x
+        f.add(Shape("label", x=x, y=-46 - row * 26, w=90, h=18,
+                    text=f"⋯ {_duration(skipped)} quiet ⋯", color=CONTROL_COLOR,
+                    meta={"skippedMs": round(skipped)}))
+
+    # When a message landed is in the trace too — the handler that ran it shares
+    # the call id — so an arrow can slant across the latency instead of standing
+    # straight up as if delivery were free.
+    landed = {}
+    for e in trace.of_kind("handler_start"):
+        if e.get("call") is not None:
+            landed.setdefault(e["call"], e["t"])
+
     for e in trace.events:
         vm, t = e.get("vm"), e.get("t", 0)
         if vm not in y_of:
             continue
-        x, y = t * scale, y_of[vm]
+        x, y = axis(t), y_of[vm]
         kind = e["kind"]
         if kind in ("send", "rpc_call"):
             target = e.get("to")
             if target in y_of:
-                f.add(Shape("arrow", x=x, y=y, x2=x + max(6.0, scale * 8), y2=y_of[target],
-                            text=_payload_text(e), color=color_for(vm), t_in=t,
+                arrived = landed.get(e.get("call"), t)
+                f.add(Shape("arrow", x=x, y=y, x2=max(axis(arrived), x + 6.0), y2=y_of[target],
+                            text=_clip(_payload_text(e), 18), color=color_for(vm), t_in=t,
                             style="control" if kind == "rpc_call" else "data",
-                            meta={"from": vm, "to": target, "bytes": e.get("bytes")}))
+                            meta={"from": vm, "to": target, "bytes": e.get("bytes"),
+                                  "sentAtMs": t, "arrivedAtMs": arrived,
+                                  "locality": e.get("locality")}))
         elif kind == "state":
-            f.add(Shape("state", x=x, y=y - 26, w=90, h=26,
+            f.add(Shape("state", x=x, y=y - 30, w=90, h=26,
                         text=f"{e.get('key')}={default_visual(e.get('value'), 14).text}",
                         color=STATE_COLOR, t_in=t,
                         meta={"vm": vm, "key": e.get("key")}))
         elif kind in ("kill", "freeze"):
-            f.add(Shape("chip", x=x, y=y + 22, w=54, h=22, text=kind,
+            f.add(Shape("chip", x=x, y=y + 24, w=54, h=22, text=kind,
                         color=DEAD_COLOR if kind == "kill" else WARN_COLOR, t_in=t,
                         meta={"vm": vm}))
         elif kind == "rpc_timeout":
-            f.add(Shape("chip", x=x, y=y + 22, w=64, h=22, text="timeout",
+            f.add(Shape("chip", x=x, y=y + 24, w=64, h=22, text="timeout",
                         color=STATUS_COLORS["timeout"], t_in=t, meta={"vm": vm}))
+
+    _thin_labels([s for s in f if s.kind == "arrow"])
     return f
 
 
@@ -359,4 +494,10 @@ SCENES = {
 def build(trace: Trace, scene: str) -> Frame:
     if scene not in SCENES:
         raise ValueError(f"unknown scene '{scene}'; known scenes: {', '.join(sorted(SCENES))}")
-    return SCENES[scene](trace)
+    f = SCENES[scene](trace)
+    # Every scene plays over the run's own clock, whether or not its builder
+    # laid time out along an axis: a shape that carries a time must be able to
+    # arrive at it, or scrubbing and the video would both show one flat instant.
+    latest = max([s.t_in for s in f] + [0.0])
+    f.duration_ms = max(f.duration_ms, latest, 1.0)
+    return f

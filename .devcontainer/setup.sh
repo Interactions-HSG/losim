@@ -14,5 +14,6 @@ done
 echo
 echo "ready. Try:"
 echo "  ./run-all.sh                 build, run every lab, draw everything"
-echo "  ./serve.sh                   browse the results on port 8000"
+echo "  ./serve.sh                   the studio — watch your runs on port 8000"
+echo "  ./view.sh doctor --install   install the manim sidecar, for video"
 echo "  ./test.sh                    the framework's own tests"

@@ -121,34 +121,65 @@ public final class Main {
         long seed = opt.containsKey("seed") ? Long.parseLong(opt.get("seed")) : s.seed;
         Sim.Result r = runOnce(s, opt, seed, Path.of(file).toAbsolutePath().getParent());
 
+        List<Verdict> checks = check(s, r, loaderFor(opt), opt.get("package"));
+        List<String> failures = failures(checks);
+
+        // The verdicts go into the trace, so the viewer can say whether the run
+        // was correct without re-running anything.
+        r.trace().meta("checks", verdictsAsMaps(checks));
         String out = opt.getOrDefault("out", "trace.json");
         r.trace().writeTo(Path.of(out));
 
-        List<String> failures = checkInvariants(s, r, loaderFor(opt), opt.get("package"));
         if (!opt.containsKey("quiet")) summarise(s, r, seed, out, failures);
         if (!failures.isEmpty()) System.exit(1);
     }
 
-    static List<String> checkInvariants(Scenario s, Sim.Result r, ClassLoader cl, String pkg) {
-        List<String> failures = new ArrayList<>();
+    /** One invariant's outcome, kept whole so the trace can carry it. */
+    record Verdict(String name, boolean ok, String why) {}
+
+    static List<Verdict> check(Scenario s, Sim.Result r, ClassLoader cl, String pkg) {
+        List<Verdict> out = new ArrayList<>();
         for (Scenario.InvariantSpec spec : s.invariants) {
             try {
                 if (spec.check.equals("done_within")) {
                     long ms = Long.parseLong(spec.args.getOrDefault("ms", "0"));
                     if (r.output() == null || r.endedAtMs() > ms)
                         throw new Invariant.Violation("not done within " + ms + "ms");
-                    continue;
+                } else {
+                    Class<?> c = load(cl, pkg, spec.check);
+                    Invariant inv = (Invariant) c.getDeclaredConstructor().newInstance();
+                    inv.check(r);
                 }
-                Class<?> c = load(cl, pkg, spec.check);
-                Invariant inv = (Invariant) c.getDeclaredConstructor().newInstance();
-                inv.check(r);
+                out.add(new Verdict(spec.name, true, ""));
             } catch (Invariant.Violation v) {
-                failures.add("  ✗ " + spec.name + ": " + v.getMessage());
+                out.add(new Verdict(spec.name, false, v.getMessage()));
             } catch (Exception e) {
-                failures.add("  ✗ " + spec.name + ": could not run check '" + spec.check + "' — " + e);
+                out.add(new Verdict(spec.name, false, "could not run check '" + spec.check + "' — " + e));
             }
         }
-        return failures;
+        return out;
+    }
+
+    static List<String> failures(List<Verdict> checks) {
+        List<String> out = new ArrayList<>();
+        for (Verdict v : checks) if (!v.ok()) out.add("  ✗ " + v.name() + ": " + v.why());
+        return out;
+    }
+
+    static List<Map<String, Object>> verdictsAsMaps(List<Verdict> checks) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Verdict v : checks) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("name", v.name());
+            m.put("ok", v.ok());
+            m.put("why", v.why());
+            out.add(m);
+        }
+        return out;
+    }
+
+    static List<String> checkInvariants(Scenario s, Sim.Result r, ClassLoader cl, String pkg) {
+        return failures(check(s, r, cl, pkg));
     }
 
     static Class<?> load(ClassLoader cl, String pkg, String name) throws ClassNotFoundException {

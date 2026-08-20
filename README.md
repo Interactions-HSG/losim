@@ -15,9 +15,19 @@ Java: kernel · VMs · network · faults · costs   ──trace.json──▶   
 ```bash
 ./build.sh          # the framework -> build/losim.jar
 ./run-all.sh        # build every lab, run it, draw it
-./serve.sh          # browse the results on :8000
+./serve.sh          # the studio: watch your runs on :8000
 ./test.sh           # the framework's own tests
 ```
+
+## Watching a system run
+
+`./serve.sh` opens **the studio**: every run it can find, every scene playable,
+the story of what happened, the machines, the checks and the bill — and a button
+that renders the scene to video. Run a lab in another terminal and the page
+notices; it is watching the traces, not driving them.
+
+Video is rendered by a **sidecar**, so manim is never a dependency of the
+framework. See [docs/VIDEO.md](docs/VIDEO.md).
 
 ## What a lab looks like
 

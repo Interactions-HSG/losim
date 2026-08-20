@@ -1,0 +1,347 @@
+"""The observatory: one page for watching a system you wrote.
+
+It draws with the very same code the saved player uses, so a scene here, a
+scene in view.html and a frame in the video are the same picture. Everything it
+knows comes from the sidecar's JSON API — this module is markup, not logic.
+"""
+from __future__ import annotations
+
+from .player import DRAW_JS
+
+
+def page() -> str:
+    return _PAGE.replace("__DRAW__", DRAW_JS)
+
+
+_PAGE = r"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>losim studio</title>
+<style>
+ :root{--bg:#12151C;--panel:#171B24;--fg:#C9D1E0;--dim:#8A93A6;--line:#2A2F3A;
+       --accent:#4C9BE8;--ok:#63C77A;--warn:#E8B44C;--bad:#E05252}
+ *{box-sizing:border-box}
+ body{margin:0;background:var(--bg);color:var(--fg);
+      font:14px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+ a{color:var(--accent)}
+ header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+        padding:14px 22px;border-bottom:1px solid var(--line)}
+ h1{font-size:17px;margin:0;font-weight:700;letter-spacing:.2px}
+ .dim{color:var(--dim)}
+ .live{font-size:12px;color:var(--ok);display:flex;align-items:center;gap:6px}
+ .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);
+      animation:pulse 2s infinite}
+ @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+ main{display:grid;grid-template-columns:230px 1fr;gap:0;min-height:calc(100vh - 52px)}
+ aside{border-right:1px solid var(--line);padding:14px 12px;overflow:auto}
+ aside h2,section h2{font-size:11px;text-transform:uppercase;letter-spacing:.9px;
+                     color:var(--dim);margin:0 0 8px}
+ .run{padding:8px 10px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+ .run:hover{background:#1B202A}
+ .run[aria-selected=true]{background:#1B202A;border-color:var(--accent)}
+ .run b{font-weight:600;display:block}
+ .run span{font-size:12px;color:var(--dim)}
+ .stage{padding:14px 22px;overflow:auto}
+ nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+ button{background:#1B202A;color:var(--fg);border:1px solid var(--line);
+        border-radius:8px;padding:6px 13px;cursor:pointer;font:inherit}
+ button:hover:not(:disabled){border-color:var(--accent)}
+ button:disabled{opacity:.45;cursor:default}
+ button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);
+        color:#0A0C11;font-weight:600}
+ #svg{display:block;width:100%;background:#0E1117;border:1px solid var(--line);
+      border-radius:12px}
+ .controls{display:flex;align-items:center;gap:12px;margin:10px 0 4px}
+ input[type=range]{flex:1;accent-color:var(--accent)}
+ .t{font-variant-numeric:tabular-nums;color:var(--dim);min-width:104px}
+ .panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
+         gap:14px;margin-top:16px}
+ section{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+ table{width:100%;border-collapse:collapse;font-size:13px}
+ th{text-align:left;color:var(--dim);font-weight:500;padding:3px 6px 3px 0;font-size:12px}
+ td{padding:3px 6px 3px 0;font-variant-numeric:tabular-nums}
+ .story{max-height:260px;overflow:auto;font-size:13px}
+ .ev{display:flex;gap:9px;padding:3px 6px;border-radius:6px;cursor:pointer}
+ .ev:hover{background:#1B202A}
+ .ev .when{color:var(--dim);min-width:62px;text-align:right;font-variant-numeric:tabular-nums}
+ .ev .who{color:var(--accent);min-width:56px}
+ .k-kill .what,.k-oom .what,.k-nospace .what{color:var(--bad)}
+ .k-rpc_timeout .what,.k-degrade .what,.k-spot_notice .what{color:var(--warn)}
+ .k-done .what{color:var(--ok)}
+ pre{margin:0;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;
+     white-space:pre-wrap;color:var(--dim);max-height:220px;overflow:auto}
+ video{width:100%;border-radius:10px;border:1px solid var(--line);background:#000}
+ .pill{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;
+       border:1px solid var(--line);color:var(--dim)}
+ .pill.ok{color:var(--ok);border-color:#2C4A38}
+ .pill.bad{color:var(--bad);border-color:#4A2C2C}
+ .empty{color:var(--dim);padding:40px 0;text-align:center}
+ .warnrow{color:var(--warn);font-size:12px;margin:6px 0 0}
+</style></head><body>
+<header>
+  <h1>losim studio</h1>
+  <span class="dim" id="what">no run selected</span>
+  <span style="flex:1"></span>
+  <span class="live"><span class="dot"></span><span id="livetext">watching for runs</span></span>
+</header>
+<main>
+  <aside>
+    <h2>runs</h2>
+    <div id="runs"></div>
+    <p class="dim" style="font-size:12px;margin-top:14px">
+      Run a lab in the terminal — this page notices when the trace changes.</p>
+  </aside>
+  <div class="stage">
+    <div id="body"><div class="empty">Nothing has run yet. Try <code>./run-all.sh</code>.</div></div>
+  </div>
+</main>
+<script>
+__DRAW__
+
+// ------------------------------------------------------------------ state
+let STATE = null, RUN = null, scene = null, t = Infinity;
+let playing = false, speed = 1, last = 0, jobId = null, seenMtime = 0;
+
+const $ = id => document.getElementById(id);
+const api = (p, body) => fetch(p, body ? {method:"POST", headers:{"Content-Type":"application/json"},
+                                          body:JSON.stringify(body)} : undefined)
+                          .then(r => r.json());
+const fmtMs = ms => ms >= 1000 ? (ms/1000).toFixed(2)+" s" : Math.round(ms)+" ms";
+const ago = s => { const d = Date.now()/1000 - s;
+  return d < 60 ? Math.max(0,Math.round(d))+"s ago" : Math.round(d/60)+"m ago"; };
+
+// ------------------------------------------------------------------ runs
+function drawRuns(){
+  const box = $("runs"); box.innerHTML = "";
+  if (!STATE.runs.length) box.innerHTML = '<p class="dim" style="font-size:12px">none found yet</p>';
+  for (const r of STATE.runs){
+    const d = document.createElement("div");
+    d.className = "run"; d.setAttribute("aria-selected", RUN && RUN.id === r.id);
+    const bad = r.checks && r.checks.some(c => !c.ok);
+    d.innerHTML = `<b>${r.name}</b><span>${fmtMs(r.endedMs)} · seed ${r.seed}` +
+                  (bad ? ' · <span style="color:#E05252">checks failed</span>' : '') +
+                  `<br>${ago(r.mtime)}</span>`;
+    d.onclick = () => select(r.id);
+    box.appendChild(d);
+  }
+}
+
+async function select(id){
+  RUN = await api("/api/run/" + encodeURIComponent(id));
+  seenMtime = RUN.mtime;
+  if (!scene || !RUN.scenes[scene]) scene = Object.keys(RUN.scenes)[0];
+  t = Infinity; playing = false;
+  drawRuns(); drawBody();
+}
+
+// ------------------------------------------------------------------ page
+function drawBody(){
+  const m = RUN.meta, mx = RUN.metrics || {};
+  $("what").textContent = `${RUN.name} · seed ${m.seed} · ${m.codec} codec · ` +
+                          `${fmtMs(m.endedAtMs)} simulated · ${m.slices} slices`;
+  $("body").innerHTML = `
+    <nav id="tabs"></nav>
+    <svg id="svg" viewBox="0 0 1600 900"></svg>
+    <div class="controls">
+      <button id="play">▶ Play</button>
+      <input type="range" id="scrub" min="0" max="1000" value="1000">
+      <span class="t" id="clock">0 ms</span>
+      <button id="speed">1×</button>
+    </div>
+    <div class="warnrow" id="warn"></div>
+    <div class="panels">
+      <section><h2>what happened</h2><div class="story" id="story"></div></section>
+      <section><h2>machines</h2><div id="vms"></div></section>
+      <section><h2>checks &amp; measurements</h2><div id="checks"></div></section>
+      <section><h2>the bill</h2><div id="bill"></div></section>
+      <section style="grid-column:1/-1"><h2>video</h2><div id="video"></div></section>
+    </div>`;
+
+  const tabs = $("tabs");
+  for (const name of Object.keys(RUN.scenes)){
+    const b = document.createElement("button");
+    b.textContent = name; b.dataset.scene = name;
+    b.onclick = () => { scene = name; t = Infinity; playing = false; sync(); paint(); };
+    tabs.appendChild(b);
+  }
+  $("scrub").oninput = e => {
+    t = (e.target.value/1000) * RUN.scenes[scene].durationMs;
+    playing = false; $("play").textContent = "▶ Play"; paint();
+  };
+  $("play").onclick = () => {
+    const f = RUN.scenes[scene];
+    playing = !playing;
+    if (playing && (t === Infinity || t >= f.durationMs)) t = 0;
+    $("play").textContent = playing ? "❚❚ Pause" : "▶ Play";
+    last = performance.now();
+    if (playing) requestAnimationFrame(step);
+  };
+  $("speed").onclick = e => {
+    speed = speed === 1 ? 4 : speed === 4 ? 0.25 : 1; e.target.textContent = speed + "×";
+  };
+
+  drawStory(); drawVms(); drawChecks(); drawBill(); drawVideo();
+  sync(); paint();
+}
+
+function step(now){
+  if (!playing) return;
+  const f = RUN.scenes[scene];
+  const dt = (now - last) * speed; last = now;
+  t = Math.min(f.durationMs, (t === Infinity ? 0 : t) + dt * (f.durationMs/6000));
+  $("scrub").value = (t/f.durationMs)*1000;
+  paint();
+  if (t < f.durationMs) requestAnimationFrame(step);
+  else { playing = false; $("play").textContent = "▶ Play"; }
+}
+
+function sync(){
+  for (const b of $("tabs").children) b.setAttribute("aria-pressed", b.dataset.scene === scene);
+  const w = (RUN.warnings || {})[scene] || [];
+  $("warn").textContent = w.join(" · ");
+}
+
+function paint(){
+  const f = RUN.scenes[scene];
+  drawFrame($("svg"), f, t);
+  $("clock").textContent = (t === Infinity ? Math.round(f.durationMs) : Math.round(t)) + " ms";
+}
+
+// ------------------------------------------------------------- the panels
+const SAYS = {
+  boot: d => `booted on ${d.instance} in ${d.zone}${d.market === "spot" ? " (spot)" : ""}`,
+  log: d => d.message,
+  done: d => "finished: " + JSON.stringify(d.value).slice(0, 120),
+  kill: d => "killed — " + (d.reason || "gone"),
+  restart: () => "restarted, memory empty",
+  freeze: d => `frozen for ${d.forMs} ms — indistinguishable from dead`,
+  degrade: d => `cpu × ${d.cpu} — this is your straggler`,
+  spot_notice: d => `spot reclaim in ${d.noticeMs} ms`,
+  spot_reclaim: () => "reclaimed",
+  rpc_timeout: d => `${d.method} to ${d.to} timed out`,
+  rpc_dropped: d => `message to ${d.to} lost`,
+  oom: d => `out of memory (${d.wantedMb} MB over)`,
+  nospace: d => "out of disk",
+};
+
+function drawStory(){
+  const box = $("story");
+  box.innerHTML = RUN.story.length ? "" : '<p class="dim">a quiet run</p>';
+  for (const e of RUN.story){
+    const d = document.createElement("div");
+    d.className = "ev k-" + e.kind;
+    const say = (SAYS[e.kind] || (x => JSON.stringify(x)))(e.detail || {});
+    d.innerHTML = `<span class="when">${e.t} ms</span><span class="who">${e.vm}</span>` +
+                  `<span class="what">${esc(say)}</span>`;
+    // Clicking an event moves the picture to the moment it happened.
+    d.onclick = () => { t = e.t; playing = false;
+      $("scrub").value = (t / RUN.scenes[scene].durationMs) * 1000; paint(); };
+    box.appendChild(d);
+  }
+}
+
+function drawVms(){
+  const rows = RUN.vms.map(v => `<tr>
+      <td>${v.state === "DEAD" ? "✝ " : ""}${v.name}</td><td class="dim">${v.instance}</td>
+      <td class="dim">${v.zone.replace(/^.*-/, "…")}</td>
+      <td>${(v.busyMs||0)} ms</td><td>${((v.bytesOut||0)/1024).toFixed(1)} kB</td>
+      <td>${((v.crossZoneBytes||0)/1024).toFixed(1)} kB</td>
+      <td>${v.memPeak ? (v.memPeak/1048576).toFixed(0)+" MB" : "—"}</td></tr>`).join("");
+  $("vms").innerHTML = `<table><tr><th>vm</th><th>instance</th><th>zone</th><th>busy</th>
+      <th>sent</th><th>cross-zone</th><th>peak mem</th></tr>${rows}</table>`;
+}
+
+function drawChecks(){
+  const c = RUN.meta.checks || [];
+  const checks = c.length
+    ? c.map(x => `<div><span class="pill ${x.ok ? "ok" : "bad"}">${x.ok ? "holds" : "violated"}</span>
+                  ${esc(x.name)}${x.why ? ' <span class="dim">— ' + esc(x.why) + "</span>" : ""}</div>`).join("")
+    : '<p class="dim">this scenario declares no invariants</p>';
+  const m = RUN.metrics || {};
+  const cells = ["messages","bytes","crossZoneBytes","rpcCalls","rpcTimeouts","rpcDropped",
+                 "duplicateWork","kills"]
+      .filter(k => k in m)
+      .map(k => `<tr><td class="dim">${k}</td><td>${m[k]}</td></tr>`).join("");
+  $("checks").innerHTML = checks + `<table style="margin-top:10px">${cells}</table>`;
+}
+
+function drawBill(){
+  const p = RUN.bill.pnl || {};
+  if (!p.lines) { $("bill").innerHTML = '<p class="dim">no bill in this trace</p>'; return; }
+  const cur = p.currency || "CHF";
+  let html = "";
+  for (const b of RUN.bill.buckets){
+    const lines = p.lines.filter(l => l.bucket === b);
+    if (!lines.length) continue;
+    html += `<div style="margin-bottom:8px"><b>${b}</b> <span class="dim">${cur} ${
+      (p.buckets[b]||0).toFixed(4)}</span><table>` +
+      lines.map(l => `<tr><td class="dim">${esc(l.what)}</td>
+        <td>${Number(l.quantity).toPrecision(4)} ${esc(l.unit)}</td>
+        <td>× ${Number(l.unitPrice).toFixed(4)}</td>
+        <td>= ${Number(l.amount).toFixed(4)}</td></tr>`).join("") + "</table></div>";
+  }
+  // Money is the aggregator, never the replacement — every line keeps its quantity.
+  html += `<div style="border-top:1px solid var(--line);padding-top:8px">
+      <b>total cost</b> ${cur} ${(p.cost||0).toFixed(4)} ·
+      <span class="dim">profit ${cur} ${(p.profit||0).toFixed(4)}</span></div>`;
+  $("bill").innerHTML = html;
+}
+
+// -------------------------------------------------------------- the video
+function drawVideo(){
+  const m = STATE.manim, box = $("video");
+  const job = STATE.jobs.find(j => j.id === jobId);
+  let head;
+  if (m.ready) head = `<span class="pill ok">ready</span> <span class="dim">${esc(m.detail)}</span>`;
+  else if (m.installable.length)
+    head = `<span class="pill">not installed</span> <span class="dim">can install: ${
+      m.installable.join(", ")}</span>`;
+  else head = `<span class="pill bad">unavailable</span> <span class="dim">install docker or ffmpeg first</span>`;
+
+  const busy = job && job.state === "running";
+  box.innerHTML = `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      ${head}<span style="flex:1"></span>
+      ${m.ready
+        ? `<select id="q"><option value="l">480p</option><option value="m">720p</option>
+             <option value="h">1080p</option></select>
+           <button id="render" ${busy ? "disabled" : ""}>${
+             busy ? "rendering…" : "Render " + scene + " with manim"}</button>`
+        : (m.installable.length ? `<button id="install" ${busy ? "disabled" : ""}>${
+             busy ? "installing…" : "Install manim (" + m.installable[0] + ")"}</button>` : "")}
+    </div>
+    ${job ? `<pre id="joblog">${esc(job.log.join("\n"))}${
+        job.error ? "\n\n" + esc(job.error) : ""}</pre>` : ""}
+    ${job && job.video ? `<video controls autoplay muted loop src="${job.video}"></video>
+        <p class="dim" style="font-size:12px">${esc(job.what)} · <a href="${job.video}"
+        download>download the mp4</a></p>` : ""}`;
+
+  const r = $("render");
+  if (r) r.onclick = async () => {
+    const j = await api("/api/render", {run: RUN.id, scene, quality: $("q").value});
+    if (j.error) { alert(j.error); return; }
+    jobId = j.id; tick();
+  };
+  const i = $("install");
+  if (i) i.onclick = async () => { const j = await api("/api/install", {}); jobId = j.id; tick(); };
+}
+
+// ------------------------------------------------------------------- poll
+async function tick(){
+  const before = STATE ? JSON.stringify(STATE.manim) + JSON.stringify(STATE.jobs) : "";
+  STATE = await api("/api/state");
+  drawRuns();
+  if (!RUN && STATE.runs.length) return select(STATE.runs[0].id);
+  if (!RUN) return;
+  // A trace that changed on disk means the student just ran the lab again.
+  const mine = STATE.runs.find(r => r.id === RUN.id);
+  if (mine && mine.mtime !== seenMtime){
+    $("livetext").textContent = "new run — reloading";
+    await select(RUN.id);
+    $("livetext").textContent = "watching for runs";
+    return;
+  }
+  if (before !== JSON.stringify(STATE.manim) + JSON.stringify(STATE.jobs)) drawVideo();
+}
+
+tick();
+setInterval(tick, 1500);
+</script></body></html>"""

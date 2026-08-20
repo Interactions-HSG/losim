@@ -1,8 +1,11 @@
 """Tests for the viewer. It must draw any lab's trace without knowing the lab."""
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -10,7 +13,7 @@ sys.path.insert(0, str(ROOT / "view"))
 
 from losim_view import load, shapes                      # noqa: E402
 from losim_view import bill as bill_mod                  # noqa: E402
-from losim_view import player, svg                       # noqa: E402
+from losim_view import manim_runtime, player, sidecar, studio, svg   # noqa: E402
 from losim_view.values import default_visual             # noqa: E402
 
 TRACES = sorted((ROOT / "build").glob("*.json"))
@@ -133,6 +136,225 @@ def _():
             assert line["why"], line
             # amounts are rounded to the currency's smallest unit on purpose
             assert abs(line["quantity"] * line["unitPrice"] - line["amount"]) < 5e-5, line
+
+
+# ------------------------------------------------------- the manim sidecar
+
+@test("a message that was sent is a message that is drawn")
+def _():
+    # The regression this guards: the trace nests payloads under "detail", so a
+    # builder reading e["to"] saw None, drew no arrow at all, and a run with 26
+    # messages rendered as a run with none — in the video and the browser alike.
+    for t in TRACES:
+        tr = load(t)
+        sent = [e for e in tr.events if e["kind"] in ("send", "rpc_call")
+                and e.get("to") in tr.vm_names]
+        if not sent:
+            continue
+        for scene in ("spacetime", "topology"):
+            arrows = [s for s in shapes.build(tr, scene) if s.kind == "arrow"]
+            assert len(arrows) >= len(sent), (
+                f"{t.name}/{scene}: {len(sent)} messages in the trace, {len(arrows)} drawn")
+
+
+@test("a value the program produced is the value on screen")
+def _():
+    tr = load(ROOT / "build/wordcount.json")
+    states = [s for s in shapes.build(tr, "spacetime") if s.kind == "state"]
+    assert states, "no state was drawn"
+    for s in states:
+        assert not s.text.startswith("None="), f"state badge lost its key: {s.text}"
+        assert s.meta.get("key"), s.meta
+    written = {(e["vm"], e["key"]) for e in tr.of_kind("state")}
+    drawn = {(s.meta["vm"], s.meta["key"]) for s in states}
+    assert written == drawn, written ^ drawn
+
+
+@test("a Frame survives the trip to the sidecar and back")
+def _():
+    tr = load(TRACES[0])
+    before = shapes.build(tr, "spacetime").fit()
+    after = shapes.Frame.from_json(json.loads(json.dumps(before.to_json())))
+    assert after.to_json() == before.to_json()
+    assert len(after) == len(before) and after.scene == before.scene
+    # the meta a shape carries is what the video needs to draw death correctly
+    assert [s.meta for s in after] == [s.meta for s in before]
+
+
+@test("every scene plays over the run's own clock")
+def _():
+    for t in TRACES:
+        tr = load(t)
+        for scene in shapes.SCENES:
+            f = shapes.build(tr, scene)
+            latest = max([s.t_in for s in f] + [0])
+            assert f.duration_ms >= latest, (
+                f"{t.name}/{scene}: shapes arrive at {latest} ms but the scene "
+                f"is only {f.duration_ms} ms long, so they could never appear")
+
+
+@test("the docker sidecar sees the framework and the output, and nothing else")
+def _():
+    rt = manim_runtime.Runtime("docker", "test", ROOT)
+    out = ROOT / "build/media/x"
+    mounts = rt.mounts(out)
+    assert rt._to_container(out / "frame.json", mounts) == "/out/frame.json"
+    assert rt._to_container(ROOT / "view/losim_view/shapes.py", mounts) == "/work/view/losim_view/shapes.py"
+    assert rt._from_container("/out/videos/a.mp4", mounts) == out / "videos/a.mp4"
+    try:
+        rt._to_container(Path("/etc/passwd"), mounts)
+    except RuntimeError as e:
+        assert "not inside" in str(e)
+    else:
+        raise AssertionError("a path outside the mounts should not be reachable")
+    # the framework's own code goes in read-only: a render must not edit it
+    argv, _ = rt._command(out / "frame.json", "gantt", out, "l", "n")
+    assert f"{ROOT}:/work:ro" in argv, argv
+
+
+@test("the render command is the same job whichever sidecar runs it")
+def _():
+    frame, out = ROOT / "build/f.json", ROOT / "build/m"
+    argv_d, _ = manim_runtime.Runtime("docker", "d", ROOT)._command(frame, "gantt", out, "l", "n")
+    argv_v, env = manim_runtime.Runtime("venv", "v", ROOT)._command(frame, "gantt", out, "l", "n")
+    job = ["-m", "losim_view.render_job"]
+    assert argv_d[:2] == ["docker", "run"] and argv_d[argv_d.index(job[0]):][:2] == job
+    assert argv_v[1:3] == job
+    assert str(ROOT / "view") in env["PYTHONPATH"], "the sidecar must be able to import losim_view"
+    # an unknown quality would reach manim as a config key, so it is checked here
+    assert "--quality" in argv_d and "l" in argv_d
+
+
+@test("manim is only imported where it renders, never to decide what to draw")
+def _():
+    # Not "nobody imports manim" — somebody must — but that every import of it
+    # is inside a function, so importing the viewer never needs it installed.
+    import re
+    top_level = re.compile(r"(?m)^(?:from manim\b|import manim\b)")
+    offenders = [p.name for p in (ROOT / "view/losim_view").glob("*.py")
+                 if top_level.search(p.read_text())]
+    assert not offenders, f"{offenders} would make manim a hard dependency of the viewer"
+
+
+# ------------------------------------------------------------- the studio
+
+def _studio():
+    srv = sidecar.serve(ROOT, [ROOT / "build"], port=0, block=False)
+    return srv, f"http://127.0.0.1:{srv.server_port}"
+
+
+def _get(base, path):
+    with urllib.request.urlopen(base + path) as r:
+        return json.loads(r.read())
+
+
+@test("the studio serves a page and finds every run")
+def _():
+    srv, base = _studio()
+    try:
+        with urllib.request.urlopen(base + "/") as r:
+            html = r.read().decode()
+        assert "drawFrame" in html and "__DRAW__" not in html
+        state = _get(base, "/api/state")
+        names = {r["name"] for r in state["runs"]}
+        assert len(names) >= len(TRACES) - 1, (names, [t.name for t in TRACES])
+        assert set(state["scenes"]) == set(shapes.SCENES)
+        run = _get(base, "/api/run/" + state["runs"][0]["id"])
+        assert set(run["scenes"]) == set(shapes.SCENES)
+        assert run["vms"] and "story" in run
+    finally:
+        srv.shutdown()
+
+
+@test("the studio refuses to read outside the directories it watches")
+def _():
+    srv, base = _studio()
+    try:
+        for bad in ("/api/run/../../../etc/passwd", "/media/../../etc/passwd",
+                    "/api/run/losim/src/losim/cli/Main.java"):
+            try:
+                urllib.request.urlopen(base + bad)
+            except urllib.error.HTTPError as e:
+                assert e.code in (400, 404), (bad, e.code)
+            else:
+                raise AssertionError(f"{bad} was served")
+    finally:
+        srv.shutdown()
+
+
+@test("the studio names the scene it cannot draw")
+def _():
+    srv, base = _studio()
+    try:
+        run = _get(base, "/api/state")["runs"][0]["id"]
+        req = urllib.request.Request(base + "/api/render",
+                                     json.dumps({"run": run, "scene": "nope"}).encode(),
+                                     {"Content-Type": "application/json"})
+        try:
+            urllib.request.urlopen(req)
+        except urllib.error.HTTPError as e:
+            assert "nope" in json.loads(e.read())["error"]
+        else:
+            raise AssertionError("an unknown scene should be refused")
+    finally:
+        srv.shutdown()
+
+
+@test("the drawing code brings everything it needs")
+def _():
+    # The studio page and the saved player both paste DRAW_JS in; a constant
+    # left behind in one template is a page that throws on its first frame.
+    from losim_view.player import DRAW_JS
+    for const in ("const NS", "const FG"):
+        assert const in DRAW_JS, f"{const} is not in the shared drawing code"
+    tr = load(TRACES[0])
+    saved = player.render({n: shapes.build(tr, n).fit() for n in shapes.SCENES}, tr.name, {})
+    for html, who in ((saved, "the player"), (studio.page(), "the studio")):
+        for const in ("const NS", "const FG", "function drawFrame"):
+            assert html.count(const) == 1, f"{who} has {html.count(const)} of {const}"
+
+
+@test("every scene draws at every instant")
+def _():
+    if not shutil.which("node"):
+        print("       (node absent — the browser check needs it)", end="")
+        return
+    frames = {}
+    for t in TRACES:
+        tr = load(t)
+        for name in shapes.SCENES:
+            frames[f"{tr.name}/{name}"] = shapes.build(tr, name).fit().to_json()
+    with tempfile.TemporaryDirectory() as d:
+        d = Path(d)
+        (d / "draw.js").write_text(player.DRAW_JS)
+        (d / "frames.json").write_text(json.dumps(frames))
+        # A stub DOM that refuses undefined attributes: the failure this catches
+        # is a shape whose coordinates are NaN, which a browser draws as nothing.
+        (d / "check.js").write_text("""
+const fs = require("fs");
+const mk = (n) => ({ tag:n, attrs:{}, children:[], textContent:"",
+  setAttribute(k,v){ if(v===undefined||v===null||Number.isNaN(v))
+      throw new Error(`<${n} ${k}="${v}">`); this.attrs[k]=v; },
+  appendChild(c){ this.children.push(c); return c; },
+  set innerHTML(v){ this.children=[]; } });
+global.document = { createElementNS: () => mk("g"), getElementById: () => mk("div") };
+eval(fs.readFileSync(process.argv[2] + "/draw.js", "utf8"));
+const frames = JSON.parse(fs.readFileSync(process.argv[2] + "/frames.json", "utf8"));
+for (const [name, f] of Object.entries(frames))
+  for (const t of [0, f.durationMs / 2, f.durationMs, Infinity])
+    try { drawFrame(mk("svg"), f, t); }
+    catch (e) { console.error(`${name} at ${t}: ${e.message}`); process.exit(1); }
+""")
+        r = subprocess.run(["node", str(d / "check.js"), str(d)], capture_output=True, text=True)
+        assert r.returncode == 0, r.stderr.strip() or r.stdout.strip()
+
+
+@test("the page reaches nowhere but its own sidecar")
+def _():
+    html = studio.page()
+    stripped = html.replace("http://www.w3.org/2000/svg", "")
+    for bad in ("http://", "https://", "<script src", "cdn."):
+        assert bad not in stripped, f"the studio reaches outside for {bad}"
 
 
 print(f"\n{passed} passed, {len(failures)} failed")

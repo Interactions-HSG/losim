@@ -50,6 +50,22 @@ class Trace:
         return self.events[0]["t"], max(e["t"] for e in self.events) or 1
 
 
+def flatten(e: dict) -> dict:
+    """Lift an event's detail to the top level, the shape a reader wants.
+
+    The simulator writes {"t":…, "kind":…, "vm":…, "detail":{…}} but everything
+    downstream asks for e["to"] or e["key"], so the nesting is undone once, here.
+    Without this a builder silently sees None for every payload it was given —
+    and a picture that quietly drops its arrows looks like a run with no
+    messages rather than like a bug.
+    """
+    detail = e.get("detail") or {}
+    out = dict(detail)
+    out.update({k: v for k, v in e.items() if k != "detail"})
+    out["detail"] = detail
+    return out
+
+
 def load(path: str | Path) -> Trace:
     raw = json.loads(Path(path).read_text())
     schema = raw.get("schema")
@@ -59,4 +75,5 @@ def load(path: str | Path) -> Trace:
             "Rebuild the simulator or update the viewer — the contract is versioned "
             "so a mismatch fails loudly instead of drawing nonsense."
         )
-    return Trace(meta=raw.get("meta", {}), events=raw.get("events", []))
+    return Trace(meta=raw.get("meta", {}),
+                 events=[flatten(e) for e in raw.get("events", [])])

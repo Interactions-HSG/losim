@@ -9,11 +9,11 @@
   // Build the framework and every lab so a fresh Codespace is ready to run.
   "postCreateCommand": "bash .devcontainer/setup.sh",
 
-  // The HTML player is served over HTTP, because file:// does not reach a
-  // browser running outside the container.
+  // The studio is served over HTTP, because file:// does not reach a browser
+  // running outside the container.
   "forwardPorts": [8000],
   "portsAttributes": {
-    "8000": { "label": "losim viewer", "onAutoForward": "notify" }
+    "8000": { "label": "losim studio", "onAutoForward": "notify" }
   },
 
   "customizations": {

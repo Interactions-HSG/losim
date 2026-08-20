@@ -20,13 +20,12 @@ def scene_for(frame: Frame, name: str = "LosimScene", module: str | None = None)
                        UP, WHITE)
 
     SCALE = 1.0 / 110.0
+    PLAY_SECONDS = 14.0        # how long the simulated run takes on screen
+    DEAD = "#E05252"
 
     class LosimScene(Scene):
         def construct(self):
-            f = frame
-            f.fit()
-            for w in f.warnings():
-                print(f"losim-view: {w}")
+            f = frame                     # already fitted by whoever built it
 
             if f.title:
                 t = Text(f.title, font_size=40, weight="BOLD")
@@ -59,9 +58,28 @@ def scene_for(frame: Frame, name: str = "LosimScene", module: str | None = None)
             if base:
                 self.play(LaggedStart(*base, lag_ratio=0.06))
 
-            # Simultaneous things animate together: concurrency should look concurrent.
-            for t_in in sorted({s.t_in for s in timed}):
+            # A machine that dies must stop looking alive — losing the work IS
+            # the failure, so it may not be drawn the same as finishing it.
+            deaths = {}
+            for s in f:
+                if s.kind == "ellipse" and s.meta.get("diedAt", -1) >= 0 and built[id(s)] is not None:
+                    deaths.setdefault(float(s.meta["diedAt"]), []).append(built[id(s)])
+
+            # The clock on screen is the simulated clock: a gap in virtual time
+            # is a pause of proportional length, which is what makes an expensive
+            # phase look expensive rather than merely come later.
+            span = max(1.0, f.duration_ms)
+            moments = sorted({s.t_in for s in timed} | set(deaths))
+            prev = 0.0
+            for t_in in moments:
+                gap = (t_in - prev) / span * PLAY_SECONDS
+                if gap > 0.05:
+                    self.wait(min(gap, 2.5))
+                prev = t_in
                 group = [a for a in (appear(s) for s in timed if s.t_in == t_in) if a is not None]
+                # Simultaneous things animate together: concurrency should look concurrent.
+                for m in deaths.get(t_in, []):
+                    group.append(m.animate.set_color(DEAD))
                 if group:
                     self.play(LaggedStart(*group, lag_ratio=0.1), run_time=0.6)
             self.wait(1.2)
@@ -89,8 +107,15 @@ def scene_for(frame: Frame, name: str = "LosimScene", module: str | None = None)
                 lbl.move_to(e)
                 return VGroup(e, lbl)
             if s.kind == "lane":
-                return Line([x - s.w * SCALE / 2, y, 0], [x + s.w * SCALE / 2, y, 0],
+                line = Line([x - s.w * SCALE / 2, y, 0], [x + s.w * SCALE / 2, y, 0],
                             stroke_width=1, color="#2A2F3A")
+                if not s.text:
+                    return line
+                # A lane without its machine's name is an anonymous line: the
+                # browser labels it, so the video must too or they disagree.
+                lbl = Text(s.text, font_size=15, color=s.color)
+                lbl.next_to(line, direction=[-1, 0, 0], buff=0.12)
+                return VGroup(line, lbl)
             if s.kind == "label":
                 lbl = Text(s.text, font_size=18, weight="BOLD")
                 lbl.move_to([x, y, 0])
