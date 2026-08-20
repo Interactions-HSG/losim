@@ -156,10 +156,19 @@ public final class Runtime {
         Dispatch.messageHandler(to, payload).ifPresent(h ->
                 spawn(to, "on" + payload.getClass().getSimpleName() + "@" + kernel.now(), () -> {
                     Ctx ctx = to.contexts.get(h.program());
+                    // Announced exactly as an RPC handler is. Without this, work
+                    // done in a message handler is invisible to everything
+                    // downstream — occupancy, dataflow, any grading that asks
+                    // who did what — purely because of how it was dispatched.
+                    String method = h.program().getClass().getSimpleName() + "."
+                            + h.method().getName();
                     try {
                         long cost = to.effectiveCostMs(h.costMs());
+                        kernel.log("handler_start", to.name, "method", method, "costMs", cost,
+                                "from", fromName, "arg", Values.render(payload));
                         if (cost > 0) sleepMs(cost);
                         h.method().invoke(h.program(), ctx, new VmRef(fromName), payload);
+                        kernel.log("handler_end", to.name, "method", method, "bytes", 0L);
                     } catch (Throwable e) {
                         rethrow(to, e);
                     }

@@ -400,7 +400,8 @@ def topology(trace: Trace) -> Frame:
 def gantt(trace: Trace) -> Frame:
     """Per-machine occupancy. This is the view where a straggler is obvious."""
     f = Frame(title=f"{trace.name} — occupancy", scene="gantt",
-              subtitle="a straggler holds its lane while the others sit idle, on the clock")
+              subtitle="who was working, and when — on the run's own clock, "
+                       "which is where a straggler gives itself away")
     vms = trace.vm_names
     row_gap = 64.0
     width = 1400.0
@@ -519,11 +520,14 @@ def dataflow(trace: Trace) -> Frame:
                         meta={"vm": vm, "phase": phase}))
         x += COL
 
-        # what that phase produced, one chip per worker, in its own column
+        # What that phase produced, one chip per worker, in its own column — but
+        # only where there is something to show. A handler that returns nothing
+        # would otherwise get a row of empty boxes standing in for its answer.
         produced = {}
         for e in trace.of_kind("handler_end"):
-            if str(e.get("method", "")) == phase and e["vm"] in workers[phase]:
-                produced.setdefault(e["vm"], e)          # the first is enough to show
+            if (str(e.get("method", "")) == phase and e["vm"] in workers[phase]
+                    and _payload_text(e) and e["vm"] not in produced):
+                produced[e["vm"]] = e
         if produced:
             last = pi == len(phases) - 1
             caption(x, "each machine's answer" if last else "intermediate")
@@ -559,13 +563,21 @@ def dataflow(trace: Trace) -> Frame:
                             meta={"shuffle": True, "to": vm}))
 
     done = list(trace.of_kind("done"))
-    if done:
+    if done and _payload_text(done[-1]):
         caption(x, "the result")
         e = done[-1]
         f.add(Shape("box", x=x, y=0, w=250, h=40, text=_clip(_payload_text(e), 24),
                     color=STATUS_COLORS["ok"], t_in=e["t"], meta={"vm": e.get("vm")}))
-        for _, (wx, wy) in ((vm, pos[(phases[-1], vm)]) for vm in workers[phases[-1]]):
-            f.add(Shape("arrow", x=wx + COL - 110, y=wy, x2=x - 130, y2=0,
+        # From wherever the last column actually ended, which is the chips when
+        # the final phase produced any and the machines themselves when it did not.
+        for vm in workers[phases[-1]]:
+            wx, wy = pos[(phases[-1], vm)]
+            # Leaves the edge of whatever it leaves: a chip is 118 wide either
+            # side of its centre, a machine 78 — an arrow that starts in mid-air
+            # is attached to nothing as far as the eye is concerned.
+            chip_x = [cx + 118 for cx, cy in chips.get(phases[-1], []) if abs(cy - wy) < 1]
+            src = (chip_x or [wx + 78])[0]
+            f.add(Shape("arrow", x=src, y=wy, x2=x - 130, y2=0,
                         color=STATUS_COLORS["ok"], style="control", t_in=e["t"], meta={}))
     return f
 
