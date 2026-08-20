@@ -122,7 +122,7 @@ def _no_manim(root: Path, trace: str) -> str:
     st = manim_runtime.status(root)
     how = (f"  losim-view doctor --install {st['installable'][0]}"
            if st["installable"] else
-           "  install docker, or install ffmpeg and rerun with --install")
+           "  install python3-venv or docker, then rerun with --install")
     return ("no manim sidecar found. Either install one:\n" + how +
             "\nor use the dependency-free player, which needs nothing:\n"
             f"  losim-view view {trace} --out view.html")
@@ -137,7 +137,7 @@ def _doctor(root: Path, a) -> int:
         print(f"  ✓ {r['kind']:<10} {r['detail']}")
     if not st["available"]:
         print("  ✗ none installed")
-        print(f"  installable here: {', '.join(st['installable']) or 'nothing — install docker or ffmpeg'}")
+        print(f"  installable here: {', '.join(st['installable']) or 'nothing — install python3-venv or docker'}")
         return 1
     print(f"\nvideos will render in the {st['kind']} sidecar")
     return 0

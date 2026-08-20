@@ -1,6 +1,6 @@
 """Where manim actually runs.
 
-manim is heavy — ffmpeg, cairo, pango, a few hundred megabytes — and a machine
+manim is heavy — cairo, pango, a compiler, a few hundred megabytes — and a machine
 that runs labs should not have to carry it. So it is never imported into the
 process that decides what to draw. It runs in a **sidecar**, and the only thing
 that crosses the boundary is one Frame as JSON.

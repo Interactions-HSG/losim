@@ -295,7 +295,7 @@ function drawVideo(){
   else if (m.installable.length)
     head = `<span class="pill">not installed</span> <span class="dim">can install: ${
       m.installable.join(", ")}</span>`;
-  else head = `<span class="pill bad">unavailable</span> <span class="dim">install docker or ffmpeg first</span>`;
+  else head = `<span class="pill bad">unavailable</span> <span class="dim">install python3-venv or docker first</span>`;
 
   const busy = job && job.state === "running";
   box.innerHTML = `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
