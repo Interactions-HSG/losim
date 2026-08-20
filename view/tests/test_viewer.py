@@ -259,8 +259,18 @@ def _():
             html = r.read().decode()
         assert "drawFrame" in html and "__DRAW__" not in html
         state = _get(base, "/api/state")
-        names = {r["name"] for r in state["runs"]}
-        assert len(names) >= len(TRACES) - 1, (names, [t.name for t in TRACES])
+        # Every trace on disk is offered — counted by file, not by name: two
+        # runners may write the same run under different filenames, and both
+        # are still runs a student can open.
+        on_disk = set()
+        for p in (ROOT / "build").glob("*.json"):
+            try:
+                load(p)
+            except Exception:                             # noqa: BLE001
+                continue
+            on_disk.add(p.name)
+        offered = {r["id"].split("/", 1)[1] for r in state["runs"]}
+        assert on_disk <= offered, on_disk - offered
         assert set(state["scenes"]) == set(shapes.SCENES)
         run = _get(base, "/api/run/" + state["runs"][0]["id"])
         assert set(run["scenes"]) == set(shapes.SCENES)
