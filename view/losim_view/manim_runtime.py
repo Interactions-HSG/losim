@@ -22,6 +22,7 @@ import os
 import shutil
 import subprocess
 import sys
+import sysconfig
 from dataclasses import dataclass
 from importlib.util import find_spec
 from pathlib import Path
@@ -184,7 +185,9 @@ def can_provision(root: Path) -> list[str]:
     for machines where building a wheel would be the harder problem.
     """
     out = []
-    if find_spec("venv") and find_spec("ensurepip"):
+    # Debian splits ensurepip out into python3-venv, so a plain python3 cannot
+    # make a virtualenv until that is installed — which apt can do.
+    if find_spec("venv") and (find_spec("ensurepip") or _apt_available()):
         out.append("venv")
     if shutil.which("docker"):
         out.append("docker")
@@ -234,13 +237,23 @@ def _stream(argv: list[str], log: Log, cwd: Path | None = None) -> None:
 # the cairo and pango headers. On a fresh Codespace none of that is present, so
 # `pip install manim` fails on metadata generation with an error about missing
 # compilers — which reads like a broken package rather than a missing apt line.
-APT_DEPS = ["build-essential", "pkg-config", "libcairo2-dev", "libpango1.0-dev"]
+APT_DEPS = ["python3-venv", "python3-dev", "build-essential", "pkg-config",
+            "libcairo2-dev", "libpango1.0-dev"]
+
+
+def _apt_available() -> bool:
+    return sys.platform == "linux" and bool(shutil.which("apt-get"))
 
 
 def _missing_build_deps() -> list[str]:
-    if sys.platform != "linux" or not shutil.which("apt-get"):
+    if not _apt_available():
         return []                                        # only Debian is handled here
     missing = []
+    if not find_spec("ensurepip"):
+        missing.append("python3-venv")
+    # pycairo compiles against Python itself, so the headers have to be there.
+    if not Path(sysconfig.get_paths()["include"], "Python.h").exists():
+        missing.append("python3-dev")
     if not (shutil.which("cc") or shutil.which("gcc")):
         missing.append("build-essential")
     pkg_config = shutil.which("pkg-config")

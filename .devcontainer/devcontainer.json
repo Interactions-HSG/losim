@@ -2,9 +2,10 @@
   "name": "losim — decentralized systems lab",
   "image": "mcr.microsoft.com/devcontainers/java:1-21-bookworm",
 
-  "features": {
-    "ghcr.io/devcontainers/features/python:1": { "version": "3.11" }
-  },
+  // No python feature: this image already has Python 3.11 once setup.sh
+  // completes it, and the viewer is standard library only. The feature ran
+  // apt-get update inside the image, which fails on the unsigned yarn
+  // repository Microsoft ships there — taking the whole container with it.
 
   // Build the framework and every lab so a fresh Codespace is ready to run.
   "postCreateCommand": "bash .devcontainer/setup.sh",
