@@ -39,6 +39,14 @@ _PAGE = r"""<!doctype html>
  .run:hover{background:#1B202A}
  .run[aria-selected=true]{background:#1B202A;border-color:var(--accent)}
  .run b{font-weight:600;display:block}
+ .task{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:8px}
+ .task:hover{background:#1B202A}
+ .task .name{flex:1;font-weight:600}
+ .task select{background:#12151C;color:var(--dim);border:1px solid var(--line);
+              border-radius:6px;font:inherit;font-size:11px;max-width:96px}
+ .go{padding:2px 9px;line-height:1.3}
+ #runlog{margin:8px 0 0;padding:8px;background:#12151C;border:1px solid var(--line);
+         border-radius:8px;max-height:150px;font-size:11px}
  .run span{font-size:12px;color:var(--dim)}
  .stage{padding:14px 22px;overflow:auto}
  nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
@@ -85,14 +93,15 @@ _PAGE = r"""<!doctype html>
 </header>
 <main>
   <aside>
-    <h2>runs</h2>
+    <h2>tasks</h2>
+    <div id="tasks"></div>
+    <pre id="runlog" hidden></pre>
+    <h2 style="margin-top:18px">runs</h2>
     <div id="runs"></div>
-    <p class="dim" style="font-size:12px;margin-top:14px">
-      Run a task in the terminal — this page notices when the trace changes.</p>
   </aside>
   <div class="stage">
     <div id="body"><div class="empty">Nothing has run yet.<br>
-      Run a task in the terminal — <code>./losim run starter</code> — and it appears here.</div></div>
+      Press ▶ next to a task on the left.</div></div>
   </div>
 </main>
 <script>
@@ -101,6 +110,7 @@ __DRAW__
 // ------------------------------------------------------------------ state
 let STATE = null, RUN = null, scene = null, t = Infinity;
 let playing = false, speed = 1, last = 0, jobId = null, seenMtime = 0;
+let runJob = null, openWhenDone = false;
 
 const $ = id => document.getElementById(id);
 const api = (p, body) => fetch(p, body ? {method:"POST", headers:{"Content-Type":"application/json"},
@@ -109,6 +119,68 @@ const api = (p, body) => fetch(p, body ? {method:"POST", headers:{"Content-Type"
 const fmtMs = ms => ms >= 1000 ? (ms/1000).toFixed(2)+" s" : Math.round(ms)+" ms";
 const ago = s => { const d = Date.now()/1000 - s;
   return d < 60 ? Math.max(0,Math.round(d))+"s ago" : Math.round(d/60)+"m ago"; };
+
+// ----------------------------------------------------------------- tasks
+// Running is the page's job too: the terminal is a choice, not a requirement.
+function drawTasks(){
+  const box = $("tasks");
+  if (!STATE.canRun){
+    box.innerHTML = '<p class="dim" style="font-size:12px">start runs from the terminal — ' +
+                    'this page has no runner script beside it</p>';
+    return;
+  }
+  const job = STATE.jobs.find(j => j.id === runJob);
+  const busy = job && job.state === "running";
+  box.innerHTML = "";
+  for (const t of STATE.tasks){
+    // Built as elements rather than as markup: the row keeps a handle on its
+    // own select and button, so nothing has to be found again afterwards.
+    const row = document.createElement("div");
+    row.className = "task";
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = t.task;
+    row.appendChild(name);
+
+    let pick = null;
+    if (t.scenarios.length > 1){
+      pick = document.createElement("select");
+      for (const sc of t.scenarios){
+        const o = document.createElement("option");
+        o.textContent = sc;
+        o.value = sc;
+        if (sc === t.default) o.selected = true;
+        pick.appendChild(o);
+      }
+      pick.value = t.default;
+      row.appendChild(pick);
+    }
+
+    const go = document.createElement("button");
+    go.className = "go";
+    go.textContent = "▶";
+    go.title = "run " + t.task;
+    if (busy) go.disabled = true;
+    go.onclick = () => run(t.task, pick ? pick.value : t.default);
+    row.appendChild(go);
+    box.appendChild(row);
+  }
+  const log = $("runlog");
+  log.hidden = !job;
+  if (job){
+    log.textContent = job.log.join("\n") + (job.error ? "\n\n" + job.error : "");
+    log.scrollTop = log.scrollHeight;
+  }
+}
+
+async function run(task, scenario){
+  const j = await api("/api/run", {task, scenario});
+  if (j.error){ alert(j.error); return; }
+  runJob = j.id;
+  openWhenDone = true;
+  drawTasks();
+  tick();
+}
 
 // ------------------------------------------------------------------ runs
 function drawRuns(){
@@ -126,8 +198,20 @@ function drawRuns(){
   }
 }
 
+// Each segment, not the whole id: encodeURIComponent would turn the separator
+// into %2F and the server would be asked for a run whose name contains a slash.
+const encodeId = id => id.split("/").map(encodeURIComponent).join("/");
+
 async function select(id){
-  RUN = await api("/api/run/" + encodeURIComponent(id));
+  const got = await api("/api/run/" + encodeId(id));
+  if (!got || got.error || !got.scenes){
+    // Leaving RUN unset matters: the next tick tries again rather than sitting
+    // on a page that will never fill in.
+    $("body").innerHTML = `<div class="empty">could not open that run — ${
+        esc((got && got.error) || "no answer from the sidecar")}</div>`;
+    return;
+  }
+  RUN = got;
   seenMtime = RUN.mtime;
   if (!scene || !RUN.scenes[scene]) scene = Object.keys(RUN.scenes)[0];
   t = Infinity; playing = false;
@@ -330,6 +414,16 @@ async function tick(){
   const before = STATE ? JSON.stringify(STATE.manim) + JSON.stringify(STATE.jobs) : "";
   STATE = await api("/api/state");
   drawRuns();
+  drawTasks();
+  const job = STATE.jobs.find(j => j.id === runJob);
+  if (openWhenDone && job && job.state === "done" && job.runId){
+    // Show what was just produced, without waiting for the mtime poll.
+    openWhenDone = false;
+    seenMtime = 0;
+    await select(job.runId);
+    return;
+  }
+  if (openWhenDone && job && job.state === "failed") openWhenDone = false;
   if (!RUN && STATE.runs.length) return select(STATE.runs[0].id);
   if (!RUN) return;
   // A trace that changed on disk means the student just ran the lab again.

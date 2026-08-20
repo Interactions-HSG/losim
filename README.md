@@ -21,10 +21,10 @@ Java: kernel · VMs · network · faults · costs   ──trace.json──▶   
 
 ## Watching a system run
 
-`./serve.sh` opens **the studio**: every run it can find, every scene playable,
-the story of what happened, the machines, the checks and the bill — and a button
-that renders the scene to video. Run a lab in another terminal and the page
-notices; it is watching the traces, not driving them.
+`./serve.sh` opens **the studio**: press ▶ on a lab to build and run it, then
+watch every scene play, read the story of what happened, the machines, the
+checks and the bill — and render any scene to video. A lab you run in a terminal
+instead shows up by itself.
 
 Video is rendered by a **sidecar**, so manim is never a dependency of the
 framework. See [docs/VIDEO.md](docs/VIDEO.md).

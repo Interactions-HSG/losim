@@ -44,6 +44,8 @@ def main(argv=None) -> int:
     w.add_argument("--port", type=int, default=8000)
     w.add_argument("--host", default="127.0.0.1")
     w.add_argument("--media", help="where videos are written (default: <watch>/media)")
+    w.add_argument("--project", help="the repository whose tasks the page can run "
+                                     "(default: the parent of the watched directory)")
 
     d = sub.add_parser("doctor", help="say where a video would be rendered, and how to fix it")
     d.add_argument("--install", metavar="KIND", nargs="?", const="",
@@ -54,7 +56,8 @@ def main(argv=None) -> int:
     root = _root()
     if a.cmd == "serve":
         sidecar.serve(root, [Path(w) for w in a.watch], host=a.host, port=a.port,
-                      media=Path(a.media) if a.media else None)
+                      media=Path(a.media) if a.media else None,
+                      project=Path(a.project) if a.project else None)
         return 0
 
     if a.cmd == "doctor":

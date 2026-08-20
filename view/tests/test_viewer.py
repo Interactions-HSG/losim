@@ -5,7 +5,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -358,22 +360,17 @@ def _():
         return
     srv, base = _studio()
     try:
-        state = _get(base, "/api/state")
-        runs = {r["id"]: _get(base, "/api/run/" + r["id"]) for r in state["runs"]}
-    finally:
-        srv.shutdown()
-    page = studio.page()
-    js = re.search(r"<script>(.*)</script>", page, re.S).group(1)
-    with tempfile.TemporaryDirectory() as d:
-        d = Path(d)
-        (d / "studio.js").write_text(js)
-        (d / "payload.json").write_text(json.dumps({"state": state, "runs": runs}))
-        # A stub DOM that rejects "undefined" and "NaN" reaching the page: the
-        # failure this catches is a panel reading a field the trace does not
-        # have, which renders as a plausible-looking but wrong picture.
-        (d / "check.js").write_text("""
-const fs = require("fs"), dir = process.argv[2];
-const P = JSON.parse(fs.readFileSync(dir + "/payload.json", "utf8"));
+        runs = _get(base, "/api/state")["runs"]
+        js = re.search(r"<script>(.*)</script>", studio.page(), re.S).group(1)
+        with tempfile.TemporaryDirectory() as d:
+            d = Path(d)
+            (d / "studio.js").write_text(js)
+            # The page talks to the real sidecar over real HTTP. An in-memory
+            # stub hid a bug once already: it decoded the URL itself, so a page
+            # that encoded an id wrongly still "worked" in the test and 404ed in
+            # a browser. Nothing between the two ends is simulated now.
+            (d / "check.js").write_text("""
+const fs = require("fs"), base = process.argv[3];
 const mk = (tag) => ({ tag, children: [], dataset: {}, style: {}, attrs: {},
     textContent: "", value: "1000", onclick: null, oninput: null,
     setAttribute(k, v){ if (v === undefined || Number.isNaN(v))
@@ -385,23 +382,113 @@ const mk = (tag) => ({ tag, children: [], dataset: {}, style: {}, attrs: {},
 const nodes = {};
 global.document = { createElementNS: () => mk("g"), createElement: mk,
                     getElementById: (id) => nodes[id] || (nodes[id] = mk(id)) };
-global.performance = { now: () => 0 };
+// performance stays node's own: undici's fetch reaches into it, and a stub
+// breaks every request the page makes.
 global.requestAnimationFrame = () => {};
 global.setInterval = () => {};
 global.alert = (m) => { throw new Error("alert: " + m); };
-global.fetch = async (p) => ({ json: async () => p === "/api/state" ? P.state
-    : P.runs[decodeURIComponent(p.replace("/api/run/", ""))] });
+const realFetch = global.fetch;
+global.fetch = (p, opts) => realFetch(base + p, opts);
 (async () => {
-  eval(fs.readFileSync(dir + "/studio.js", "utf8"));
-  await new Promise(r => setTimeout(r, 50));
-  for (const [id, run] of Object.entries(P.runs)) {
-    await select(id);
-    for (const s of Object.keys(run.scenes)) { scene = s; sync(); paint(); }
+  eval(fs.readFileSync(process.argv[2] + "/studio.js", "utf8"));
+  await new Promise(r => setTimeout(r, 400));
+  const runs = (await (await realFetch(base + "/api/state")).json()).runs;
+  if (!runs.length) throw new Error("no runs to open");
+  // The ▶ button, clicked the way a person clicks it.
+  if (nodes.tasks.children.length) {
+    const row = nodes.tasks.children[0];
+    const go = row.children[row.children.length - 1];
+    if (go.textContent !== "\u25B6") throw new Error("no run button on the first task");
+    await go.onclick();
+    await new Promise(r => setTimeout(r, 300));
+    const jobs = (await (await realFetch(base + "/api/state")).json()).jobs;
+    if (!jobs.some(j => j.kind === "run")) throw new Error("clicking run started nothing");
+  }
+  for (const r of runs) {
+    // Only what a person can reach: select the run, then click each scene tab.
+    // The page's own variables live inside the eval and are none of our business.
+    await select(r.id);
+    const header = nodes.what.textContent || "";
+    if (!header.includes(r.name))
+      throw new Error(`opening ${r.id} left the page on: ${nodes.body.innerHTML || header}`);
+    const tabs = nodes.tabs.children;
+    if (!tabs.length) throw new Error(`${r.id}: no scene tabs`);
+    for (const tab of tabs) {
+      tab.onclick();
+      if (!nodes.svg.children.length)
+        throw new Error(`${r.id}/${tab.textContent}: drew nothing`);
+    }
   }
 })().catch(e => { console.error(e.message); process.exit(1); });
 """)
-        r = subprocess.run(["node", str(d / "check.js"), str(d)], capture_output=True, text=True)
-        assert r.returncode == 0, r.stderr.strip() or r.stdout.strip()
+            r = subprocess.run(["node", str(d / "check.js"), str(d), base],
+                               capture_output=True, text=True)
+            assert r.returncode == 0, r.stderr.strip() or r.stdout.strip()
+            assert runs, "the studio found no runs to draw"
+    finally:
+        srv.shutdown()
+
+
+@test("a run can be started from the page, and only a run that exists")
+def _():
+    srv, base = _studio()
+    try:
+        state = _get(base, "/api/state")
+        assert state["canRun"], "this checkout has a runner script, so the page should offer it"
+        names = [t["task"] for t in state["tasks"]]
+        assert "hello_ring" in names, names
+        # Only names from that list are accepted: the page cannot compose a
+        # command of its own, which is what keeps a button from being a shell.
+        for bad in ({"task": "../../etc", "scenario": "x"},
+                    {"task": "hello_ring", "scenario": "/etc/passwd"},
+                    {"task": "hello_ring", "scenario": "../../../main.yaml"}):
+            req = urllib.request.Request(base + "/api/run", json.dumps(bad).encode(),
+                                         {"Content-Type": "application/json"})
+            try:
+                urllib.request.urlopen(req)
+            except urllib.error.HTTPError as e:
+                assert e.code == 400, (bad, e.code)
+            else:
+                raise AssertionError(f"{bad} was accepted")
+
+        req = urllib.request.Request(base + "/api/run",
+                                     json.dumps({"task": "hello_ring",
+                                                 "scenario": "ring.yaml"}).encode(),
+                                     {"Content-Type": "application/json"})
+        job = json.loads(urllib.request.urlopen(req).read())
+        for _ in range(180):
+            time.sleep(1)
+            job = _get(base, "/api/job/" + job["id"])
+            if job["state"] != "running":
+                break
+        assert job["state"] == "done", job
+        assert job["runId"], "a finished run must say what it produced"
+        assert _get(base, "/api/run/" + job["runId"])["scenes"], "the trace it wrote does not draw"
+    finally:
+        srv.shutdown()
+
+
+@test("an id survives the trip through a URL")
+def _():
+    # encodeURIComponent on a whole id turns its separator into %2F, and the
+    # run then cannot be found. Both spellings have to resolve, and neither may
+    # become a way out of the watched directory.
+    srv, base = _studio()
+    try:
+        rid = _get(base, "/api/state")["runs"][0]["id"]
+        for spelling in (rid, urllib.parse.quote(rid, safe=""),
+                         "/".join(urllib.parse.quote(x) for x in rid.split("/"))):
+            got = _get(base, "/api/run/" + spelling)
+            assert got.get("scenes"), f"{spelling} did not resolve: {got}"
+        for escape in ("0/../../etc/passwd", urllib.parse.quote("0/../../etc/passwd", safe="")):
+            try:
+                urllib.request.urlopen(base + "/api/run/" + escape)
+            except urllib.error.HTTPError as e:
+                assert e.code in (400, 404), (escape, e.code)
+            else:
+                raise AssertionError(f"{escape} was served")
+    finally:
+        srv.shutdown()
 
 
 @test("the page reaches nowhere but its own sidecar")
