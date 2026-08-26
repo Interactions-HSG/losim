@@ -5,6 +5,7 @@ import java.util.*;
 import losim.runtime.Run;
 import losim.scenario.Scenario;
 import losim.trace.Telemetry;
+import losim.verify.Trust;
 
 /**
  * Scaled mode: shrink the world, run it, and project the answer back.
@@ -36,7 +37,7 @@ public final class Scaled {
      *             said so instead of producing one anyway
      */
     public record Result(Run.Result run, ScalePlan plan, boolean planWasCached,
-                         List<ScalePlan.Projection> projections) {
+                         List<ScalePlan.Projection> projections, Trust trust) {
 
         public boolean feasible() { return plan.feasible(); }
     }
@@ -45,6 +46,10 @@ public final class Scaled {
                             List<Path> code) throws Exception {
         if (s.workload() == null)
             throw new IllegalArgumentException("scaled mode needs a workload: to scale down from");
+
+        // Once, for the whole of scaled mode: the probe grid runs these same classes
+        // thirty times over, and the answer does not change between them.
+        Trust trust = Trust.of(s, code);
 
         String key = Plans.key(s, loader, code);
         var cached = Plans.load(key);
@@ -61,13 +66,13 @@ public final class Scaled {
             Plans.save(key, plan);
         }
 
-        if (!plan.feasible()) return new Result(null, plan, fromCache, List.of());
+        if (!plan.feasible()) return new Result(null, plan, fromCache, List.of(), trust);
 
         // The run is the plan, applied. The same telemetry configuration as the
         // probes, deliberately: a fit that described a differently-watched system
         // would be the same mistake as fitting on clean runs and predicting a
         // faulty one.
-        var result = Run.of(plan.applyTo(s), loader, level);
+        var result = Run.of(plan.applyTo(s), loader, level, trust);
 
         var probe = Probe.of(plan.applyTo(s), result);
         var projections = new ArrayList<ScalePlan.Projection>();
@@ -93,7 +98,7 @@ public final class Scaled {
               .meta("scale", plan.asMap())
               .meta("projections", asJson)
               .meta("planCached", fromCache);
-        return new Result(result, plan, fromCache, projections);
+        return new Result(result, plan, fromCache, projections, trust);
     }
 
     private static double round(double x) { return Math.round(x * 1000) / 1000.0; }

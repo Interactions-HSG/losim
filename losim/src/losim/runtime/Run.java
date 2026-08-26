@@ -16,6 +16,7 @@ import losim.time.Dispatcher;
 import losim.trace.Telemetry;
 import losim.trace.Trace;
 import losim.trace.Values;
+import losim.verify.Trust;
 
 /**
  * A scenario, actually run.
@@ -30,10 +31,16 @@ import losim.trace.Values;
  */
 public final class Run {
 
-    /** What a run produced. A failure is part of the result, not an exception thrown past it. */
+    /**
+     * What a run produced. A failure is part of the result, not an exception thrown past it.
+     *
+     * @param trust which machines' figures mean what they say. Never a reason not to
+     *              run: everything it can find yields a wrong number rather than a
+     *              broken run, so the run happens and the number is marked (D11)
+     */
     public record Result(Trace trace, Telemetry telemetry, boolean completed,
                          String failure, double durationRefMs,
-                         Map<String, Totals> machines) {
+                         Map<String, Totals> machines, Trust trust) {
 
         /**
          * What one machine actually consumed, straight from its own counters.
@@ -70,6 +77,17 @@ public final class Run {
     }
 
     public static Result of(Scenario s, ClassLoader loader, Telemetry.Level level) throws Exception {
+        return of(s, loader, level, Trust.unchecked());
+    }
+
+    /**
+     * @param trust what the verifier made of the code before any of it ran. Checked
+     *              once and handed in, because a probe grid runs the same classes
+     *              thirty times and disassembling them thirty times would be thirty
+     *              times the answer
+     */
+    public static Result of(Scenario s, ClassLoader loader, Telemetry.Level level, Trust trust)
+            throws Exception {
         var clock = new Clock(s.kTime(), Clock.measureCorrection());
         var tel = new Telemetry(clock, level);
         var net = new Net(s.seed())
@@ -103,6 +121,11 @@ public final class Run {
             tel.event("-", "scenario", "file", s.file(), "seed", s.seed(), "kTime", s.kTime(),
                       "machines", s.machines().size(), "job", s.job(),
                       "tightMargin", s.tightMargin() ? true : null);
+
+            // On the machines, at the start, before anything they do is measured: a
+            // figure that is a lower bound should say so beside itself, not in a log.
+            trust.recordInto(tel);
+
             fleet.startSampling(s.expectedRunRefMs());
 
             // Scheduled only now, against a clock that starts at zero, so a fault
@@ -158,7 +181,8 @@ public final class Run {
                     .meta("durationRefMs", Math.round(ended - started));
             if (failure != null) trace.meta("failure", failure);
             if (s.tightMargin()) trace.meta("tightMargin", true);
-            return new Result(trace, tel, completed, failure, ended - started, totals);
+            if (trust.checked()) trace.meta("trusted", trust.clean());
+            return new Result(trace, tel, completed, failure, ended - started, totals, trust);
         }
     }
 

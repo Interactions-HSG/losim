@@ -156,13 +156,61 @@ The plan travels in the trace, so `projected = f(observed)` is recomputable by
 whoever reads it, and is cached against the scenario and the code it profiles — a
 grid of ~30 small runs, paid for once.
 
+## Trust markers
+
+losim's numbers mean something only if the code stayed inside the simulated world.
+A handler that reads `System.nanoTime` gets the host's afternoon rather than the
+compressed clock; one that writes a real file bypasses the disk model and its cap;
+one that hands its work to the common pool is charged to nobody. **None of those
+throws.** Each of them produces a run full of plausible figures, every one of which
+is wrong in a direction nobody can see.
+
+So the verifier reads the lab's compiled classes before anything runs, and **flags
+rather than refuses** — the run happens, the numbers come out, and what carries a
+caveat says so beside itself:
+
+```
+  trust: 4 machines report figures that do not mean what they say
+    w0, w1, w2
+      each reads the real clock, so its timeline is not projectable
+        Peeker.java:19               System.nanoTime() in map
+        Peeker.java:22               System.nanoTime() in map
+    spiller
+      writes to a real disk, which the disk model never sees, so its disk figure is a lower bound
+        Scribbler.java:21            Files.writeString() in map
+    Nothing was stopped: each of these is a wrong number, not a broken run.
+```
+
+The flags go on the machines in the trace, and in scaled mode they sit next to the
+projection they undermine — because an error bar says how well a law was fitted, and
+says nothing about whether what it was fitted to meant anything.
+
+Three things it has to get right to be worth having. **Generated code is skipped
+without a special case**: protoc's output trips these rules freely — a `*Grpc` class
+holds six mutable statics — and it is recognised by protobuf's superclass and
+grpc-java's own `@GrpcGenerated`, not by a guess about its name. That is exactly what
+flagging buys, since a hard gate would have to argue with every one. **A constant is
+not shared state**: `static final Map M = new HashMap<>()` is one map for eight
+machines and is flagged, while `static final String[] WORDS = {"a", "the"}` is a
+table and is not — the difference is that nothing is called to build the second, and
+the class initialiser is read rather than the declaration guessed at. And **what the
+call sites do not say, the declarations do**: `System::nanoTime` appears in no
+instruction anywhere, only in a bootstrap argument, and a class that `extends Thread`
+starts itself through a method on itself. A verifier reading only the instructions
+would call both of those spotless.
+
+Nothing is flagged for determinism's sake — unseeded `Random` and identity-hash
+iteration order are fine, because runs are not reproducible anyway. Raw threads are
+not banned either: real concurrency inside a machine is a feature. Work outside the
+machine's own pool is merely attributed to nobody, and that is what gets said.
+
 ## What it does today
 
-Phases 1, 2 and 3 are in: the fleet, direct mode, and the scaler engine. One
-in-process server per machine, one executor per machine sized to its vCPU count,
-losim wrapped around every call as gRPC's own interceptors, a scenario driving all
-of it, and an engine that decides how to shrink the world and how to project the
-results back.
+Phases 1 through 4 are in: the fleet, direct mode, the scaler engine and the trust
+markers. One in-process server per machine, one executor per machine sized to its
+vCPU count, losim wrapped around every call as gRPC's own interceptors, a scenario
+driving all of it, an engine that decides how to shrink the world and how to project
+the results back, and a verifier that says which of the answers mean what they say.
 
 | | |
 |---|---|
@@ -175,6 +223,7 @@ results back.
 | **Retries you have to mean** | refused unless the `.proto` declares the method idempotent, or the scenario says `unsafe: true` in as many words |
 | **Two scales, per measurement** | what happened, and what it is a model of — with an error bar, or with a reason it is absent |
 | **losim's own cost, excluded** | everything losim does on a machine's threads is metered and subtracted, so what is reported is the program's |
+| **Trust markers** | real clocks, real files, real sockets, shared statics and unattributed threads, found in the compiled classes at the line they were written on — flagged, never refused |
 
 That last row is the one that is easy to get wrong and impossible to notice. A
 thousand `reveal` calls per handler move the *unsubtracted* memory exponent by
@@ -192,6 +241,7 @@ losim/src/losim/time/      the compressed clock, and fault placement
 losim/src/losim/res/       instance types, the heap walk, losim's own meter
 losim/src/losim/scale/     the probe grid, the laws, the solve — and the refusals
 losim/src/losim/scenario/  a fleet and its weather, as data
+losim/src/losim/verify/    what makes a number stop meaning what it says
 losim/src/losim/cli/       losim run <scenario.yaml>
 losim/test/                every phase's acceptance criteria, run by ./check.sh
 vendor/                    grpc 1.83.1, protobuf 4.36.0, protoc for two platforms

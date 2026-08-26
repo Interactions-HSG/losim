@@ -11,6 +11,7 @@ import losim.runtime.Run;
 import losim.scenario.Loader;
 import losim.scenario.Scenario;
 import losim.trace.Telemetry;
+import losim.verify.Trust;
 
 /** Runs a scenario and writes the trace everything downstream reads. */
 public final class Main {
@@ -58,7 +59,7 @@ public final class Main {
         if (scenario.mode() == Scenario.Mode.SCALED)
             return scaled(scenario, loader, level, cp, target);
 
-        var result = Run.of(scenario, loader, level);
+        var result = Run.of(scenario, loader, level, Trust.of(scenario, paths(cp)));
         result.trace().writeTo(target);
 
         System.out.printf("%s  seed %d  %s in %.0f refMs%n", file.getFileName(), scenario.seed(),
@@ -72,6 +73,7 @@ public final class Main {
                 System.out.printf("  %s ran out of %s: %s MB against a %s MB cap%n",
                         e.vm(), e.detail().get("resource"),
                         e.detail().get("demandMb"), e.detail().get("capMb"));
+        System.out.print(result.trust().describe());
 
         // An invariant the scenario asserted and the run broke is a failure of the
         // run, not of losim — so it is worth an exit code a script can read.
@@ -87,9 +89,7 @@ public final class Main {
      */
     private static int scaled(Scenario s, ClassLoader loader, Telemetry.Level level,
                               String cp, Path target) throws Exception {
-        var code = new ArrayList<Path>();
-        for (String part : cp.split(java.io.File.pathSeparator))
-            if (!part.isBlank()) code.add(Path.of(part));
+        var code = paths(cp);
 
         long began = System.nanoTime();
         var scaled = Scaled.of(s, loader, level, code);
@@ -119,8 +119,17 @@ public final class Main {
             else
                 System.out.printf("  %-14s %16s   %20s%n      %s%n", p.resource(),
                         human(p.observed()), "- refused -", p.refusedBecause());
+
+            // An error bar describes how well the law was fitted. It says nothing about
+            // whether the measurement it was fitted to meant anything, and a machine
+            // that stepped outside the simulated world is exactly that case — so the
+            // caveat goes here, beside the number, not only in the block below.
+            for (String caveat : scaled.trust().caveats(p.resource()))
+                System.out.printf("      %s%n", caveat);
         }
         for (String note : plan.notes()) System.out.println("  note: " + note);
+        System.out.println();
+        System.out.print(scaled.trust().describe());
 
         scaled.run().trace().writeTo(target);
         System.out.printf("%n  %d events, %d spans -> %s%n",
@@ -140,6 +149,13 @@ public final class Main {
         return new Scenario(s.file(), seed, s.kTime(), s.job(), s.expectedRunRefMs(),
                 s.machines(), s.net(), s.faults(), s.chaos(), s.retries(), s.tightMargin(),
                 s.mode(), s.workload());
+    }
+
+    private static List<Path> paths(String cp) {
+        var out = new ArrayList<Path>();
+        for (String part : cp.split(java.io.File.pathSeparator))
+            if (!part.isBlank()) out.add(Path.of(part));
+        return out;
     }
 
     private static ClassLoader classLoader(String cp) throws Exception {
