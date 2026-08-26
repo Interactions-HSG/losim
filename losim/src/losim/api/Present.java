@@ -1,5 +1,6 @@
 package losim.api;
 
+import io.grpc.Channel;
 import java.util.List;
 import losim.res.Meter;
 
@@ -106,6 +107,18 @@ final class Present implements LosimCtx {
     @Override public List<String> peers()                { return bound().peers(); }
     @Override public List<String> peersServing(String s) { return bound().peersServing(s); }
     @Override public double clockMs()                    { return bound().clockMs(); }
+
+    /**
+     * Bracketed, unlike the reads beside it: the first call to a peer builds a
+     * channel and its interceptors, which is losim's own work on the machine's
+     * thread and must not be charged to the program that asked for it.
+     */
+    @Override public Channel channelTo(String machine) {
+        long a0 = Meter.allocNow(), t0 = System.nanoTime();
+        Bound b = bound();
+        try { return b.dial(machine); }
+        finally { b.charge(Meter.allocNow() - a0, System.nanoTime() - t0); }
+    }
 
     private static Bound bound() {
         Bound b = Ambient.MACHINE.get();

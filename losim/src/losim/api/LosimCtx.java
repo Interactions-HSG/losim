@@ -1,5 +1,6 @@
 package losim.api;
 
+import io.grpc.Channel;
 import java.util.List;
 
 /**
@@ -132,6 +133,25 @@ public interface LosimCtx {
      *                e.g. {@code "Worker"}
      */
     List<String> peersServing(String service);
+
+    /**
+     * A channel to another machine, with losim on it.
+     *
+     * <p>The other half of {@link #peersServing(String)}: peers are found by what
+     * they offer, and this is how one is called. What comes back is an ordinary
+     * {@code io.grpc.Channel} — hand it to a generated stub and the call site is
+     * plain gRPC, unchanged.
+     *
+     * <p>What it is not is a channel of your own. losim rides on gRPC's own
+     * interceptors, and a channel built by hand has none of them attached: the call
+     * happens at full speed, costs no bytes, waits out no latency, survives a
+     * partition, and leaves nothing in the trace to say it happened. That is why the
+     * verifier flags {@code ManagedChannelBuilder} and this exists instead.
+     *
+     * <p>Throws outside a run, like the other state calls — a fabricated peer would
+     * make a passing test meaningless.
+     */
+    Channel channelTo(String machine);
 
     /**
      * Simulated milliseconds since the run began — the clock the scenario was

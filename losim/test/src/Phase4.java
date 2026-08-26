@@ -32,7 +32,7 @@ public class Phase4 {
 
     static final Path CODE = Path.of("build/test-classes");
     static final Set<String> SERVICES = Set.of("Counter", "Peeker", "Napper", "Scribbler",
-            "Dialer", "Forker", "Hoarder", "Referrer", "Deferrer", "Threader", "Caller", "Spawner", "Waiter", "Blocker");
+            "Dialer", "Forker", "Hoarder", "Referrer", "Deferrer", "Threader", "Caller", "Spawner", "Waiter", "Blocker", "Forwarder");
 
     static Verifier verifier() { return Verifier.over(List.of(CODE)); }
 
@@ -82,6 +82,14 @@ public class Phase4 {
         check(found, "System::nanoTime is found although it appears in no instruction — a method"
                 + " reference lives in a bootstrap argument, so reading the code alone makes"
                 + " Deferrer look spotless");
+
+        // The same for the channel rule: fanning out is not the finding, building your
+        // own channel is. A handler that had no way to do the first would be flagged
+        // for doing the only thing left.
+        check(look("Forwarder").clean(),
+              "a handler that calls a peer through Losim.current().channelTo() is not "
+              + "flagged — what OWN_CHANNEL objects to is a channel with no interceptor "
+              + "on it, not the fanning out");
 
         // The other half of that rule: blocking on real work is not sleeping. This is
         // the check that stops REAL_SLEEP growing until it fires on every correct

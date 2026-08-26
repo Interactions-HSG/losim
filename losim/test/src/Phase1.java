@@ -113,6 +113,9 @@ public class Phase1 {
         try (var fleet = fleet(100, Telemetry.Level.FULL)) {
             var client = fleet.machine("client", "m5.large", "z");
             fleet.machine("srv", "m5.large", "z").serving(new Reporter());
+            // A second machine offering the same service, so that "who else serves
+            // this" is a question with a real answer rather than a count of one.
+            fleet.machine("spare", "m5.large", "z").serving(new Reporter());
             ManagedChannel ch = client.channelTo("srv");
             var req = Chunk.newBuilder().setText("a b c").setLines(3).build();
             Counts got = client.submit(() -> WorkerGrpc.newBlockingStub(ch).map(req)).get();
@@ -121,7 +124,9 @@ public class Phase1 {
             check(got.getCountsOrDefault("srv", 0) == 1,
                   "the handler ran on the machine that was serving, and knew it");
             check(got.getCountsOrDefault("peers", 0) == 1,
-                  "peers are found by service name, not hostname");
+                  "peers are found by service name, not hostname — and the handler's own "
+                  + "machine is not among them, because a blocking call to itself would "
+                  + "starve the pool it is already holding a thread of");
 
             var tel = fleet.telemetry();
             var spans = tel.spans();

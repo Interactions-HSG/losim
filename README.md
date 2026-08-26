@@ -67,6 +67,21 @@ is why the verifier flags it.
 fire-and-forget is an `Empty`-returning method on an async stub, so costs, faults,
 telemetry and byte counts apply to it exactly as to anything else.
 
+A handler calls a peer the same way the job does — found by what it serves, never
+by hostname, over a channel losim made:
+
+```java
+var here = Losim.current();
+Channel to = here.channelTo(here.peersServing("Worker").get(0));
+return WorkerGrpc.newBlockingStub(to).map(request);      // ordinary generated stub
+```
+
+What comes back is an `io.grpc.Channel` and the call site is plain gRPC. The only
+thing losim adds is its interceptor — which is where latency, byte counts, spans,
+faults and the retry policy live, and why a channel built by hand is flagged: the
+call would happen at full speed, survive a partition, and leave nothing in the
+trace to say it happened.
+
 ## What a scenario looks like
 
 The fleet, its weather and its bad afternoon are data. Nothing here is computed;

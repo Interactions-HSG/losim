@@ -71,6 +71,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
 
     private final List<Object> roots = new CopyOnWriteArrayList<>();
     private final Map<String, Takes> declared = new ConcurrentHashMap<>();
+    private final Map<String, ManagedChannel> dialled = new ConcurrentHashMap<>();
     private final List<String> servicesOffered = new CopyOnWriteArrayList<>();
     private int sinceWalk = WALK_EVERY_TICKS;            // walk on the very first tick
     private volatile boolean oomReported;
@@ -390,7 +391,24 @@ public final class Machine implements Bound, Telemetry.Sampled {
         return fleet.names().stream().filter(n -> !n.equals(name)).toList();
     }
 
-    @Override public List<String> peersServing(String service) { return fleet.serving(service); }
+    /** Peers, so not this machine: a blocking call to itself would starve its own pool. */
+    @Override public List<String> peersServing(String service) {
+        return fleet.serving(service).stream().filter(n -> !n.equals(name)).toList();
+    }
+
+    /**
+     * The channel a handler gets, made once and kept.
+     *
+     * <p>The machine owns it, so a handler never sees a lifetime. It is the same
+     * channel the job's {@code Cluster} hands out for this peer — one per pair, with
+     * one place that closes them.
+     */
+    @Override public io.grpc.Channel dial(String peer) {
+        if (fleet.machine(peer) == null)
+            throw new IllegalArgumentException("there is no machine called '" + peer
+                    + "'; this fleet has " + String.join(", ", fleet.names()));
+        return dialled.computeIfAbsent(peer, this::channelTo);
+    }
 
     @Override public double clockMs() { return tel().now(); }
 
@@ -517,6 +535,8 @@ public final class Machine implements Bound, Telemetry.Sampled {
     }
 
     void shutdown() {
+        dialled.values().forEach(ManagedChannel::shutdownNow);
+        dialled.clear();
         if (server != null) server.shutdownNow();
         pool.shutdownNow();
     }

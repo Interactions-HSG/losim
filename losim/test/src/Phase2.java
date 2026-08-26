@@ -51,6 +51,69 @@ public class Phase2 {
           workers: { count: 2, prefix: w, instance: m5.large, zone: z, serves: [Pinger] }
         """;
 
+    /**
+     * A handler that calls another machine, which is what a coordinator is.
+     *
+     * <p>Machines are found by what they serve and called over a channel losim made,
+     * so the call is a real one — latency, bytes, a span beneath the handler that
+     * made it, and whatever the scenario is doing to the machine at the other end.
+     * Before this a handler could ask who its peers were and had no way to reach
+     * them, so the only way to fan out was a channel of its own, which is exactly
+     * what the verifier flags.
+     */
+    static void forwarding() throws Exception {
+        System.out.println("=== a handler calling another machine ===");
+        var result = Run.of(Loader.of(Yaml.parse("forward.yaml", """
+            seed: 3
+            kTime: 4
+            job: ForwardJob
+            expectedRun: 4 refSeconds
+            network: { sameZone: 20 refMs }
+            machines:
+              master: { instance: m5.large, zone: z }
+              front:  { instance: m5.large, zone: z, serves: [Forwarder] }
+              back:   { instance: m5.large, zone: z, serves: [Counter] }
+            """)));
+        var tel = result.telemetry();
+        check(result.completed(), "the job finished: master called front, and front called back");
+
+        var handlers = tel.spans().stream().filter(sp -> sp.kind.equals("handler"))
+                .sorted(java.util.Comparator.comparingDouble(sp -> sp.t0)).toList();
+        var outer = handlers.stream().filter(sp -> sp.vm.equals("front")).findFirst();
+        var inner = handlers.stream().filter(sp -> sp.vm.equals("back")).findFirst();
+        check(outer.isPresent() && inner.isPresent(),
+              "both handlers ran, one on each machine (" + handlers.size() + " spans)");
+        // Not directly: between the two handlers is the client span of the call that
+        // carried one to the other. Walking it is the point — that is the distributed
+        // call stack, and it has to survive a hop a handler made rather than the job.
+        var byId = new java.util.HashMap<Long, Telemetry.Span>();
+        for (var sp : tel.spans()) byId.put(sp.id, sp);
+        long at = inner.map(sp -> sp.parent).orElse(0L);
+        var chain = new java.util.ArrayList<String>();
+        for (int hop = 0; at != 0 && byId.containsKey(at) && hop < 6; hop++) {
+            var sp = byId.get(at);
+            chain.add(sp.kind + "@" + sp.vm);
+            if (outer.isPresent() && at == outer.get().id) break;
+            at = sp.parent;
+        }
+        check(outer.isPresent() && at == outer.get().id,
+              "and the chain from the inner handler reaches the outer one — back.handler <- "
+              + String.join(" <- ", chain) + " — so causality crosses a hop a handler made, "
+              + "not only one the job made");
+
+        long bytes = handlers.stream()
+                .mapToLong(sp -> ((Number) sp.detail.getOrDefault("outBytes", 0)).longValue()).sum();
+        check(bytes > 0 && tel.events().stream().anyMatch(e -> e.kind().equals("state")
+              && "forwardedTo".equals(e.detail().get("key"))),
+              "it is a real call — marshalled, counted (" + bytes + " bytes out) and in the "
+              + "trace — not a method invocation dressed as one");
+
+        check(tel.events().stream().filter(e -> e.kind().equals("rpc_call")).count() == 2,
+              "two calls, each with its own latency: a handler's hop is charged exactly as "
+              + "the job's is, because there is no second path for either of them");
+        System.out.println();
+    }
+
     public static void main(String[] args) throws Exception {
         System.out.println("Phase 2 — a scenario, and what it is refused for\n");
         refusals();
@@ -61,6 +124,10 @@ public class Phase2 {
         chaos();
         disk();
         endToEnd();
+        // Last, deliberately. The reference scenario above turns on a kill landing
+        // while a call is in flight, and a section added in front of it changes the
+        // JVM it runs in; this one asserts structure, so nothing upstream can move it.
+        forwarding();
         System.out.printf("%n%d passed, %d failed%n", pass, fail);
         System.exit(fail == 0 ? 0 : 1);
     }

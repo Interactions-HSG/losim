@@ -2,7 +2,6 @@ package losim.runtime;
 
 import io.grpc.BindableService;
 import io.grpc.Channel;
-import io.grpc.ManagedChannel;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Supplier;
@@ -159,7 +158,6 @@ public final class Run {
             }
 
             dispatcher.close();
-            cluster.closeChannels();
             fleet.stopSampling();
             double ended = tel.now();
 
@@ -317,7 +315,6 @@ public final class Run {
         private final Fleet fleet;
         private final Machine here;
         private final Telemetry tel;
-        private final Map<String, ManagedChannel> channels = new ConcurrentHashMap<>();
 
         private final double expectedRunMs;
         private final long records;
@@ -332,12 +329,10 @@ public final class Run {
         @Override public List<String> machines() { return fleet.names(); }
         @Override public List<String> serving(String service) { return fleet.serving(service); }
 
-        @Override public Channel channelTo(String machine) {
-            if (fleet.machine(machine) == null)
-                throw new IllegalArgumentException("there is no machine called '" + machine
-                        + "'; this fleet has " + String.join(", ", fleet.names()));
-            return channels.computeIfAbsent(machine, here::channelTo);
-        }
+        // The machine's own, not the job's: a handler on this machine and the job
+        // driving it should not be holding two channels to the same peer, and only
+        // one of the two would then be closed by anybody.
+        @Override public Channel channelTo(String machine) { return here.dial(machine); }
 
         @Override public double clockMs() { return tel.now(); }
         @Override public double expectedRunMs() { return expectedRunMs; }
@@ -367,6 +362,5 @@ public final class Run {
             tel.event(here.name, "done", "value", Values.render(answer));
         }
 
-        void closeChannels() { channels.values().forEach(ManagedChannel::shutdownNow); }
     }
 }

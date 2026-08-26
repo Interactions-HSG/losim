@@ -1,5 +1,6 @@
 package losim.api;
 
+import io.grpc.Channel;
 import java.util.List;
 
 /**
@@ -22,6 +23,14 @@ public interface Bound {
 
     /** Simulated milliseconds since the run began. */
     double clockMs();
+
+    /**
+     * A channel to a peer, made once and owned by the machine.
+     *
+     * <p>Cached rather than built per call, because a handler that had to manage a
+     * channel's lifetime would have to be told about lifetimes at all.
+     */
+    Channel dial(String peer);
 
     /** Records one event against this machine. */
     void event(String kind, Object... kv);

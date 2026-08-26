@@ -1,5 +1,6 @@
 package losim.api;
 
+import io.grpc.Channel;
 import java.util.List;
 
 /**
@@ -28,6 +29,7 @@ final class Absent implements LosimCtx {
     @Override public List<String> peers()                    { throw absent("peers()"); }
     @Override public List<String> peersServing(String s)     { throw absent("peersServing()"); }
     @Override public double clockMs()                        { throw absent("clockMs()"); }
+    @Override public Channel channelTo(String machine)       { throw absent("channelTo()"); }
 
     private static IllegalStateException absent(String call) {
         return new IllegalStateException(
