@@ -1,0 +1,15 @@
+# The same fleet, with a retry policy on a method whose schema does not declare it
+# safe to run twice. This scenario must be refused before anything runs.
+seed: 5
+kTime: 20
+job: WordCount
+expectedRun: 4 refSeconds
+
+machines:
+  master:  { instance: m5.large, zone: eu-central-1a }
+  m0:      { instance: c5.large, zone: eu-central-1a, serves: [Mapper] }
+  r0:      { instance: r5.large, zone: eu-central-1a, serves: [Reducer] }
+  umpire:  { instance: m5.large, zone: eu-central-1a, serves: [Volleyer] }
+
+retries:
+  - { method: lab.Volley.Hit, attempts: 3, backoff: 40 refMs }

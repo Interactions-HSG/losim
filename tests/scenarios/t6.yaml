@@ -1,0 +1,21 @@
+# Split, map, shuffle, reduce. Four mappers and two reducers, nothing going wrong:
+# whatever this case reports is what the pipeline does when it is left alone.
+seed: 2
+kTime: 20
+job: WordCount
+expectedRun: 8 refSeconds
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a }
+  mappers:
+    count: 4
+    prefix: m
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b]
+    serves: [Mapper]
+  reducers:
+    count: 2
+    prefix: r
+    instance: r5.large
+    zone: eu-central-1a
+    serves: [Reducer]

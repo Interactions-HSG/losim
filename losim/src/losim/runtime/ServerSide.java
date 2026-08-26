@@ -47,8 +47,11 @@ final class ServerSide implements ServerInterceptor {
         try { if (parent != null) parentId = Long.parseLong(parent); }
         catch (NumberFormatException ignored) { }
 
+        // As a number, because the client side writes it as one: the same call has to
+        // be the same value on both sides of it, or nothing downstream can join them.
+        final long callId = parentId;
         final Telemetry.Span span = tel.openUnder(parentId, node.name, "handler", method,
-                "call", parent == null ? "?" : parent);
+                "call", callId);
 
         var recording = new ForwardingServerCall.SimpleForwardingServerCall<Q, S>(call) {
             @Override public void sendMessage(S message) {
@@ -116,7 +119,7 @@ final class ServerSide implements ServerInterceptor {
                 node.inflight.incrementAndGet();
                 // handler_start goes out before the cost sleep and handler_end
                 // after the handler returns, or every gantt block collapses (D9).
-                tel.event(node.name, "handler_start", "method", method, "call", parent);
+                tel.event(node.name, "handler_start", "method", method, "call", callId);
                 node.chargeTo(span, Meter.allocNow() - b0, System.nanoTime() - n0);
 
                 if (takes != null && takes.refMs() > 0)
@@ -133,7 +136,7 @@ final class ServerSide implements ServerInterceptor {
                 node.inflight.decrementAndGet();
                 node.handled.incrementAndGet();
                 tel.close(span, status);
-                tel.event(node.name, "handler_end", "method", method, "call", parent,
+                tel.event(node.name, "handler_end", "method", method, "call", callId,
                           "status", status,
                           "ms", Machine.round(span.programMs(tel.kTime())),
                           "grossMs", Machine.round(span.grossMs()),

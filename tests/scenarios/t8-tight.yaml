@@ -1,0 +1,12 @@
+# One reducer, holding every word, on a machine too small for the bucket it is
+# given. Nothing here declares that it will fail: what it holds is whatever the
+# heap walk finds it holding, so it fails for the reason a real one would.
+seed: 2
+kTime: 20
+job: WordCount
+expectedRun: 10 refSeconds
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a }
+  mappers: { count: 2, prefix: m, instance: c5.large, zone: eu-central-1a, serves: [Mapper] }
+  r0:     { instance: r5.large, zone: eu-central-1a, serves: [Reducer], memoryMb: 4 }

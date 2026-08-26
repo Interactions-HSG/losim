@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+// Split out so the suite exercises a real `import` rather than one big file —
+// which is where protoc's package and java_package options start to matter.
+package lab;
+
+option java_package = "lab.pb";
+option java_multiple_files = true;
+
+message Empty {}
+
+enum Severity {
+  UNKNOWN = 0;
+  INFO    = 1;
+  WARN    = 2;
+  FATAL   = 3;
+}

@@ -1,0 +1,33 @@
+# A bad afternoon. A mapper is killed mid-run and comes back; the rest of the pool
+# is exposed to a standing rate of failure rather than one scripted moment. The job
+# is expected to finish with the right answer anyway — that is the exercise.
+seed: 5
+kTime: 20
+job: WordCount
+expectedRun: 12 refSeconds
+tightMargin: true
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a }
+  mappers:
+    count: 4
+    prefix: m
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b]
+    serves: [Mapper]
+  reducers:
+    count: 2
+    prefix: r
+    instance: r5.large
+    zone: eu-central-1a
+    serves: [Reducer]
+
+faults:
+  - { at: 300 refMs, kill: m2, restart_after: 2 refSeconds }
+
+chaos:
+  - { freeze: { every: 700 refMs, among: mappers, for: 150 refMs } }
+
+# Map is declared NO_SIDE_EFFECTS in the .proto, so retrying it needs no argument.
+retries:
+  - { method: lab.Worker.Map, attempts: 3, backoff: 40 refMs, multiplier: 2 }

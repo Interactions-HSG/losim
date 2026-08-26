@@ -108,8 +108,12 @@ final class ClientSide implements ClientInterceptor {
 
                         long c0 = Meter.allocNow(), m0 = System.nanoTime();
                         if (rttRefMs > 0) span.detail.put("netRefMs", Machine.round(rttRefMs));
-                        tel.close(span, effective.getCode().name(),
-                                  "ms", Machine.round(span.grossMs()));
+                        // Closed first, and only then asked how long it took. Passing
+                        // grossMs() as an argument evaluates it at this call site, which
+                        // is before close() sets the span's end — so every call ever
+                        // recorded said it had lasted −1 milliseconds.
+                        tel.close(span, effective.getCode().name());
+                        span.detail.put("ms", Machine.round(span.grossMs()));
                         if (!effective.isOk())
                             tel.event(from.name,
                                       effective.getCode() == Status.Code.DEADLINE_EXCEEDED

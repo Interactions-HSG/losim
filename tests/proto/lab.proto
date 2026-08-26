@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+// The schema the reference suite's systems are written against. Deliberately
+// ordinary protobuf, and deliberately not minimal: an import, an enum, a oneof, a
+// map and an empty return, because those are what a real schema has and what a
+// trace has to render stably.
+package lab;
+
+import "common.proto";
+
+option java_package = "lab.pb";
+option java_multiple_files = true;
+
+message Chunk  { string text = 1; int32 lines = 2; }
+message Counts { map<string, int32> counts = 1; }
+message Ping   { int32 seq = 1; string from = 2; }
+
+// A oneof and an enum, so that rendering a payload has something to get wrong.
+message Report {
+  Severity severity = 1;
+  oneof detail {
+    string  message = 2;
+    int64   code    = 3;
+  }
+  repeated string tags = 4;
+}
+
+service Worker {
+  rpc Map    (Chunk)  returns (Counts) { option idempotency_level = NO_SIDE_EFFECTS; }
+  rpc Reduce (Counts) returns (Counts) { option idempotency_level = NO_SIDE_EFFECTS; }
+  rpc Note   (Report) returns (Report) { option idempotency_level = NO_SIDE_EFFECTS; }
+}
+
+// A second service, so that a mapper and a reducer are told apart by what they
+// offer rather than by what they are called. Peers are found by service name; a
+// fleet where you have to know that "r0" is a reducer is a fleet with hostnames in it.
+service Shuffler {
+  rpc Fold (Counts) returns (Counts) { option idempotency_level = NO_SIDE_EFFECTS; }
+}
+
+// Fire-and-forget is not a second messaging path: it is a method returning Empty,
+// called on an async stub, which therefore does not block its caller.
+service Volley {
+  // No idempotency declared: retrying this is the caller asserting something the
+  // schema does not, which is what the retry gate exists for.
+  rpc Hit (Ping) returns (Empty);
+
+  // Declared safe to run twice, so a retry policy needs no argument.
+  rpc Poll (Ping) returns (Empty) { option idempotency_level = IDEMPOTENT; }
+}

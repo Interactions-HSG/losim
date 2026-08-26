@@ -1,0 +1,23 @@
+# The same pipeline again, for what the trace says about order rather than about
+# results: a call stack that crosses machines, and concurrency reported as such.
+seed: 8
+kTime: 20
+job: WordCount
+expectedRun: 8 refSeconds
+
+network: { sameZone: 15 refMs, crossZone: 60 refMs }
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a }
+  mappers:
+    count: 3
+    prefix: m
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b]
+    serves: [Mapper]
+  reducers:
+    count: 2
+    prefix: r
+    instance: r5.large
+    zone: eu-central-1b
+    serves: [Reducer]

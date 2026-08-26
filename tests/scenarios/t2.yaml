@@ -1,0 +1,10 @@
+# One client, one server, one unary call. Nothing else, on purpose: if this case
+# ever fails, nothing further up the suite means anything.
+seed: 1
+kTime: 20
+job: OneCall
+expectedRun: 2 refSeconds
+
+machines:
+  client: { instance: m5.large, zone: eu-central-1a }
+  srv:    { instance: m5.large, zone: eu-central-1a, serves: [Mapper] }

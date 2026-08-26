@@ -161,6 +161,14 @@ public final class Run {
             fleet.stopSampling();
             double ended = tel.now();
 
+            // A run can end with work still in flight: a handler whose caller gave up
+            // and stopped waiting, a machine killed mid-call. Those spans are real and
+            // so is their end — the run ended. Left open they would be indistinguishable
+            // from a recorder that lost track, which is the one thing a dangling span is
+            // supposed to mean (D8), and "no span dangles" would stop being assertable.
+            for (Telemetry.Span open : tel.dangling())
+                tel.close(open, "ABANDONED", "why", "the run ended while this was in flight");
+
             // One last walk, so a machine that filled up in the final tick is not
             // reported at whatever it held eight ticks ago.
             var totals = new LinkedHashMap<String, Result.Totals>();

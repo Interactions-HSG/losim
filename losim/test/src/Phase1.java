@@ -75,6 +75,25 @@ public class Phase1 {
         }
     }
 
+    /**
+     * How far an exponent moves when nothing has changed — as a noise scale.
+     *
+     * <p>Deliberately not {@link Fit#wobble}, which is max minus min and is the right
+     * statistic where the engine uses it: an error bar should be conservative, and a
+     * resource whose exponent lands somewhere else on any one seed set is a resource
+     * to refuse. This number has the opposite job. It is the scale a bend is measured
+     * against, so one anomalous set — a heap walk landing badly on one rung, which
+     * D12 says happens — would make the scale a fact about that set rather than about
+     * the noise. Dropping the extreme at each end makes it a fact about the noise,
+     * for the same reason the bend beside it is a median and not a mean.
+     */
+    static double spread(List<Double> betas) {
+        var sorted = new ArrayList<>(betas);
+        java.util.Collections.sort(sorted);
+        if (sorted.size() < 5) return Fit.wobble(sorted);
+        return sorted.get(sorted.size() - 2) - sorted.get(1);
+    }
+
     /** The gross duration of the handler span that ran on one machine. */
     static double byMachine(Fleet fleet, String machine) {
         return fleet.telemetry().spans().stream()
@@ -639,7 +658,9 @@ public class Phase1 {
         System.out.println("  changed is what a bend has to beat to count as real (D6).");
 
         final int[] SIZES = {1000, 2000, 4000, 8000};
-        final long[][] SEED_SETS = {{11, 12}, {21, 22}, {31, 32}};
+        // Five, not three. The spread below drops the extreme at each end, and with
+        // three sets there is nothing left to measure once you have.
+        final long[][] SEED_SETS = {{11, 12}, {21, 22}, {31, 32}, {41, 42}, {51, 52}};
         final int HEAVY = 1000;
 
         // Both paths, at the ladder's top. Warming only the small bare case leaves
@@ -676,10 +697,10 @@ public class Phase1 {
 
         // The exponent's own spread across seed sets, at each level; the larger of
         // the two is what a bend at that level has to clear.
-        double repWobble = Math.max(Fit.wobble(bare.stream().map(Ladder::repBeta).toList()),
-                                    Fit.wobble(heavy.stream().map(Ladder::repBeta).toList()));
-        double rawWobble = Math.max(Fit.wobble(bare.stream().map(Ladder::rawBeta).toList()),
-                                    Fit.wobble(heavy.stream().map(Ladder::rawBeta).toList()));
+        double repWobble = Math.max(spread(bare.stream().map(Ladder::repBeta).toList()),
+                                    spread(heavy.stream().map(Ladder::repBeta).toList()));
+        double rawWobble = Math.max(spread(bare.stream().map(Ladder::rawBeta).toList()),
+                                    spread(heavy.stream().map(Ladder::rawBeta).toList()));
 
         System.out.printf("%n  %-12s %10s %10s   %s%n", "", "bend", "wobble", "");
         System.out.printf("  %-12s %10.4f %10.4f   %s%n", "reported", repBend, repWobble,

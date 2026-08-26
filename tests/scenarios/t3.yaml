@@ -1,0 +1,10 @@
+# A handler that takes 500 refMs, asked by a caller willing to wait 200.
+seed: 1
+kTime: 20
+job: Impatient
+expectedRun: 3 refSeconds
+tightMargin: true          # this case is about a margin, and says so
+
+machines:
+  client: { instance: m5.large, zone: eu-central-1a }
+  srv:    { instance: m5.large, zone: eu-central-1a, serves: [Slow] }

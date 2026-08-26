@@ -460,7 +460,27 @@ public final class Machine implements Bound, Telemetry.Sampled {
         var r = Retained.of(roots, this::notMine);
         retainedBytes.set(r.bytes());
         peakRetainedBytes.updateAndGet(p -> Math.max(p, r.bytes()));
+        overCap(r);
         return r;
+    }
+
+    /**
+     * Whether what was just measured is more than this machine has.
+     *
+     * <p>Checked here rather than only on the sampler's cadence, because a machine
+     * that fills up between the last walk and the end of the run has still filled up.
+     * A reducer given its bucket in the closing moments is exactly that case, and
+     * without this it would be reported as comfortably within a cap it had already
+     * exceeded — the one direction an out-of-memory must never be wrong in.
+     */
+    private void overCap(Retained.Result r) {
+        double usedMb = r.bytes() / 1048576.0;
+        if (usedMb <= memoryCapMb || oomReported) return;
+        oomReported = true;
+        tel().event(name, "oom", "resource", "memory", "capMb", memoryCapMb,
+                    "demandMb", round(usedMb), "objects", r.objects(),
+                    "cause", "retained heap exceeded the machine");
+        kill("out of memory");
     }
 
     /**
@@ -480,14 +500,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
         var r = Retained.of(roots, this::notMine);
         retainedBytes.set(r.bytes());
         peakRetainedBytes.updateAndGet(p -> Math.max(p, r.bytes()));
-        double usedMb = r.bytes() / 1048576.0;
-        if (usedMb > memoryCapMb && !oomReported) {
-            oomReported = true;
-            tel().event(name, "oom", "resource", "memory", "capMb", memoryCapMb,
-                        "demandMb", round(usedMb), "objects", r.objects(),
-                        "cause", "retained heap exceeded the machine");
-            kill("out of memory");
-        }
+        overCap(r);
     }
 
     /**

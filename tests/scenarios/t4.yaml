@@ -1,0 +1,11 @@
+# Two machines volleying, five rallies each way. The point is that nothing here is
+# a special messaging feature: it is an Empty-returning rpc on an async stub.
+seed: 1
+kTime: 10
+job: Rally
+expectedRun: 3 refSeconds
+
+machines:
+  umpire: { instance: m5.large, zone: eu-central-1a }
+  left:   { instance: m5.large, zone: eu-central-1a, serves: [Volleyer] }
+  right:  { instance: m5.large, zone: eu-central-1a, serves: [Volleyer] }

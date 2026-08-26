@@ -1,0 +1,10 @@
+# Eight calls costing 100 refMs each, into a machine with two vCPUs. Four waves,
+# not one: the machine's executor is its vCPU model, and this is what says so.
+seed: 1
+kTime: 20
+job: Storm
+expectedRun: 6 refSeconds
+
+machines:
+  client: { instance: m5.large, zone: eu-central-1a }
+  srv:    { instance: m5.large, zone: eu-central-1a, serves: [Grinder] }   # 2 vCPU
