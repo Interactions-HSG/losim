@@ -62,7 +62,7 @@ be checking nothing.
 
 ## What it has already caught
 
-Seven bugs, none of which the phase suites could see, because each needs something
+Eight bugs, none of which the phase suites could see, because each needs something
 they never do — end a run mid-call, read a value nobody read, join two events written
 by opposite sides of a call, or run a job at a telemetry level the tests never use.
 
@@ -87,6 +87,9 @@ by opposite sides of a call, or run a job at a telemetry level the tests never u
 - **The plan cache ignored the telemetry level**, so a plan fitted with every payload
   recorded would be handed straight to a run with them off — the same mistake as
   fitting on clean runs and predicting a faulty one, and silent in the same way.
+- **Every run smaller than a kilobyte reported moving zero bytes.** The trace wrote
+  megabytes to three decimal places, and three decimal places of a megabyte is a
+  kilobyte. Correct totals, a unit that threw them away.
 
 And one gap rather than a bug: the trace carried no per-machine totals, so nothing
 downstream — a ground-truth comparison, the bill — could read what a machine actually
