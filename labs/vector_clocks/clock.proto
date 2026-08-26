@@ -1,9 +1,0 @@
-syntax = "proto3";
-
-message Stamped {
-  repeated int32 clock = 1;   // the sender's vector clock at the moment of sending
-  string note = 2;
-  int32 seq = 3;
-}
-
-service Clocks { rpc Tell (Stamped) returns (Stamped); }

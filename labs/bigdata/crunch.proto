@@ -1,9 +1,0 @@
-syntax = "proto3";
-
-// A task assignment carries a DataRef: a pointer to the shard the worker
-// already holds. Sending the Data itself would move a terabyte across the
-// network, which is precisely what MapReduce is designed not to do.
-message Shard   { DataRef data = 1; }
-message Summary { int64 records = 1; double gigabytes = 2; string how = 3; }
-
-service Crunch { rpc Process (Shard) returns (Summary); }

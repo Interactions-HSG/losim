@@ -1,39 +1,21 @@
 {
   "name": "losim — decentralized systems lab",
-  "image": "mcr.microsoft.com/devcontainers/java:1-21-bookworm",
+  "image": "mcr.microsoft.com/devcontainers/java:25-bookworm",
 
-  // No python feature: this image already has Python 3.11 once setup.sh
-  // completes it, and the viewer is standard library only. The feature ran
-  // apt-get update inside the image, which fails on the unsigned yarn
-  // repository Microsoft ships there — taking the whole container with it.
-
-  // Build the framework and every lab so a fresh Codespace is ready to run.
+  // Build losim so a fresh Codespace is ready to run.
   "postCreateCommand": "bash .devcontainer/setup.sh",
-
-  // The studio is served over HTTP, because file:// does not reach a browser
-  // running outside the container.
-  "forwardPorts": [8000],
-  "portsAttributes": {
-    "8000": { "label": "losim studio", "onAutoForward": "notify" }
-  },
 
   "customizations": {
     "vscode": {
       "extensions": [
         "vscjava.vscode-java-pack",
-        "ms-python.python",
         "redhat.vscode-yaml"
       ],
       "settings": {
         "java.configuration.updateBuildConfiguration": "automatic",
-        "java.format.settings.url": ".vscode/java-format.xml",
-        "files.exclude": { "**/out": true, "**/build/classes": true },
-        "yaml.schemas": { ".vscode/scenario.schema.json": "labs/**/*.yaml" }
+        "java.project.referencedLibraries": ["vendor/jars/*.jar"],
+        "files.exclude": { "**/build/classes": true }
       }
     }
-  },
-
-  "remoteEnv": {
-    "PYTHONPATH": "${containerWorkspaceFolder}/view"
   }
 }

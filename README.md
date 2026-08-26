@@ -1,97 +1,97 @@
-# losim — a framework for simulating decentralized systems
+# losim — a real gRPC system, in a simulated world
 
-Students write ordinary Java. Each machine is a **VM**: a virtual thread under a
-discrete-event kernel with a virtual clock. The whole fleet runs in one process,
-deterministically, so the same seed gives the same run byte for byte — and a
-breakpoint cannot cause a timeout, because virtual time only advances when the
-kernel advances it.
+A student writes a real gRPC system and runs it, for real, on one machine. losim
+is a simulation engine on top of that running system: it slows it, fails it, and
+scales it — shrinking the workload and the machines by the same factor so
+everything fits on a laptop while behaving as though it were far bigger — then
+extrapolates full-scale numbers from what it actually observed.
 
-```
-Java: kernel · VMs · network · faults · costs   ──trace.json──▶   Python: shapes → player · video · bill
-```
+Two layers, and keeping them apart is the whole design:
+
+- **underneath** — the student's own gRPC system, genuinely running on genuinely
+  small data. Real stubs, real transport, real marshalling, real allocation.
+- **on top** — losim: interceptors that slow and break things, a machine model
+  that caps resources, and a scaler engine that decides how to shrink the world
+  and how to project the results back.
+
+That is why "runs out of memory" is not an accounting fiction. Machines are made
+proportionally small, so a design that would exhaust a 16 GiB reducer at full
+scale exhausts a 16 MiB one here — for the same reason, in the student's own code.
 
 ## Try it
 
 ```bash
-./build.sh          # the framework -> build/losim.jar
-./run-all.sh        # build every lab, run it, draw it
-./serve.sh          # the studio: watch your runs on :8000
-./test.sh           # the framework's own tests
+./build.sh          # the simulator -> build/losim.jar
+./check.sh          # losim's own checks: every phase's acceptance criteria
 ```
 
-## Watching a system run
+Nothing is downloaded and nothing is generated at build time. The toolchain is
+vendored, so the same commands produce the same result on a laptop, in the
+devcontainer and in a Codespace — otherwise a number would depend on where it was
+computed, which is the one thing a simulator cannot afford.
 
-`./serve.sh` opens **the studio**: press ▶ on a lab to build and run it, then
-watch every scene play, read the story of what happened, the machines, the
-checks and the bill — and render any scene to video. A lab you run in a terminal
-instead shows up by itself.
+## What a service looks like
 
-Video is rendered by a **sidecar**, so manim is never a dependency of the
-framework. See [docs/VIDEO.md](docs/VIDEO.md).
-
-## What a lab looks like
-
-A program is a plain Java class. No threads, no sockets, no serialization, no
-`main` unless it takes initiative.
+An ordinary gRPC service, from an ordinary `.proto`, with one losim annotation.
+Twelve lines of adapter turn grpc-java's `void map(Chunk, StreamObserver<Counts>)`
+into a value-returning method, which is the difference between a handler you can
+call from a plain unit test and one you cannot.
 
 ```java
-public final class Mapper implements Program, MapperService {
-    @Override @Cost(ms = 2)
-    public Pairs map(Ctx ctx, Chunk request) {
-        var out = new ArrayList<Pair>();
-        for (String w : request.text().split("\\s+")) out.add(new Pair(w, 1));
-        return out.isEmpty() ? new Pairs(List.of()) : new Pairs(out);
+public final class Mapper extends WorkerBase {
+    @Cost(refMs = 2)
+    @Override protected Counts map(Chunk request) {
+        var counts = count(request.getText());
+        Losim.current().reveal("emitted", counts.size());   // silent in a bare test
+        return Counts.newBuilder().putAllCounts(counts).build();
     }
 }
 ```
 
-The fleet, the failures and the money are a YAML scenario — the instructor's
-dial-turning surface, kept declarative on purpose:
+No losim type appears in any signature. `@Cost` is reference-machine time, so it
+composes with scaling: the interceptor sleeps `refMs × machineFactor ÷ k_time`.
 
-```yaml
-vms:
-  workers:
-    prefix: w
-    programs: [Mapper, Reducer]     # a colocated Reducer IS the combiner
-    instance: m5.large
-    count: 6
-    market: spot
-    availability_zone: [eu-central-1a, eu-central-1b]
-    overrides:
-      w3: {instance: t3.micro}      # the deliberate straggler
+**gRPC is the only way machines talk.** There is no second messaging path. Even
+fire-and-forget is an `Empty`-returning method on an async stub, so costs, faults,
+telemetry and byte counts apply to it exactly as to anything else.
 
-faults:
-  - {at: 120ms, kill: w0}           # just gone; the master must notice
-  - {at: 200ms, spot_reclaim: w1, notice: 80ms}
-```
+## What it does today
 
-## What the framework gives every lab, unasked
+Phase 1 is in: the fleet. One in-process server per machine, one executor per
+machine sized to its vCPU count, and losim wrapped around every call as gRPC's own
+interceptors.
 
 | | |
 |---|---|
-| **Determinism** | same seed, same trace — verified across 100 runs and across processes |
-| **A debugger that works** | ordinary Java breakpoints; virtual time freezes while you are stopped |
-| **Failure** | kill, freeze, spot reclaim, degrade, partition, loss — and no way to ask whether a VM is alive |
-| **Real resources** | AWS-shaped instance types; memory, disk and speed derived from what you provisioned |
-| **Huge workloads** | a terabyte is *described*, not materialised — and still OOMs a machine too small for it |
-| **A bill** | five buckets, every line carrying the quantity it came from |
-| **A picture** | a browser player and a manim video, from the same shapes |
+| **Real concurrency** | each machine's pool is its vCPU model, so four calls into a two-vCPU machine really do queue |
+| **A compressed clock** | every declared duration divided by `k_time`, calibrated per host, with sub-floor costs owed rather than lost |
+| **A network** | latency by zone, jitter, loss, partitions — and a dead machine, a cut link and a lost packet are one event from the caller |
+| **Three-channel telemetry** | events, spans that carry a parent across the RPC boundary, and dense series — with every call's real argument and real result |
+| **Memory, measured twice** | allocation per machine, exactly; and a retained-heap walk, because only one of those decides an out-of-memory |
+| **losim's own cost, excluded** | everything losim does on a machine's threads is metered and subtracted, so what is reported is the program's |
 
-## Documentation
-
-- [docs/WRITING-A-LAB.md](docs/WRITING-A-LAB.md) — the student-facing API, end to end
-- [docs/SCENARIOS.md](docs/SCENARIOS.md) — every scenario key
-- [docs/DESIGN.md](docs/DESIGN.md) — why it is built this way
+That last row is the one that is easy to get wrong and impossible to notice. A
+thousand `reveal` calls per handler move the *unsubtracted* memory exponent by
+0.026 — well outside its own noise — and the reported one by 0.0004, which is
+inside it. The law a student's code is projected by does not depend on how much
+they instrumented it.
 
 ## Layout
 
 ```
-losim/src/losim/api/     what students import — and all they can reach
-losim/src/losim/kernel/  the discrete-event loop and the handoff
-losim/src/losim/runtime/ VMs, RPC, faults
-losim/src/losim/verify/  rejects code that would not be reproducible
-view/losim_view/         trace -> shapes -> player | video | bill
-labs/                    the reference labs
+losim/src/losim/api/       what a handler may say to losim — and all it can reach
+losim/src/losim/runtime/   the fleet, the machines, the two interceptors
+losim/src/losim/trace/     the three-channel recorder and the trace it writes
+losim/src/losim/time/      the compressed clock, and fault placement
+losim/src/losim/res/       instance types, the heap walk, losim's own meter
+losim/src/losim/scale/     fitting laws, and refusing to
+losim/test/                every phase's acceptance criteria, run by ./check.sh
+vendor/                    grpc 1.83.1, protobuf 4.36.0, protoc for two platforms
 ```
 
-Labs compile against `build/losim.jar` alone, never against these sources.
+Lab code compiles against `build/losim.jar` and the vendored jars alone, never
+against these sources.
+
+## Documentation
+
+- [docs/SPIKES.md](docs/SPIKES.md) — what Phase 0 measured, and where each result now lives

@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+// The schema the Phase 1 checks run against. Deliberately ordinary protobuf:
+// a map field, a scalar message, and an empty return so fire-and-forget can be
+// exercised as what it actually is — an Empty-returning method on an async stub.
+package losim.t;
+
+option java_package = "losim.t";
+option java_multiple_files = true;
+
+message Chunk  { string text = 1; int32 lines = 2; }
+message Counts { map<string, int32> counts = 1; }
+message Ping   { int32 seq = 1; string from = 2; }
+message Empty  {}
+
+service Worker {
+  rpc Map    (Chunk)  returns (Counts) { option idempotency_level = NO_SIDE_EFFECTS; }
+  rpc Reduce (Counts) returns (Counts) { option idempotency_level = NO_SIDE_EFFECTS; }
+}
+
+// Fire-and-forget is not a second messaging path: it is a method that returns
+// Empty, called on an async stub, which therefore does not block its caller.
+service Volley {
+  rpc Hit (Ping) returns (Empty);
+}
