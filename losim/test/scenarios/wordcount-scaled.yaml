@@ -1,0 +1,29 @@
+# The same word count, declared at a size no laptop can hold.
+#
+# losim shrinks the workload and the machines by the same factor, runs what fits,
+# and projects the full-scale numbers from what it actually observed. Nothing here
+# names a shrink factor: a factor somebody guessed would be a third mode whose
+# numbers nobody could account for.
+
+mode: scaled
+seed: 5
+kTime: 40
+job: ScalableWordCount
+expectedRun: 30 refSeconds
+
+workload:
+  records: 40000000            # forty million lines, which is the design's problem
+  probe: [1000, 2000, 4000, 8000]
+  fleets: [2, 4]
+
+machines:
+  master:
+    instance: m5.2xlarge
+    zone: eu-central-1a
+
+  workers:
+    count: 4
+    prefix: w
+    instance: r5.large         # memory-shaped, because the buckets are what fill up
+    zone: [eu-central-1a, eu-central-1b]
+    serves: [Accumulator]

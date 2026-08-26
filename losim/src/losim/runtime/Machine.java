@@ -62,6 +62,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
     final AtomicLong handled     = new AtomicLong();
     final AtomicLong diskBytes   = new AtomicLong();
     final AtomicLong retainedBytes = new AtomicLong();
+    final AtomicLong peakRetainedBytes = new AtomicLong();
 
     // losim's own footprint on these threads, metered so it can be taken back off.
     final AtomicLong losimBytes   = new AtomicLong();
@@ -427,8 +428,18 @@ public final class Machine implements Bound, Telemetry.Sampled {
     public Retained.Result measureRetained() {
         var r = Retained.of(roots, this::notMine);
         retainedBytes.set(r.bytes());
+        peakRetainedBytes.updateAndGet(p -> Math.max(p, r.bytes()));
         return r;
     }
+
+    /**
+     * The most this machine was ever seen holding.
+     *
+     * <p>Kept as a counter rather than read back off the sampled series, because the
+     * series is quantised to the precision a person reads — and a fit against
+     * numbers rounded to a hundredth of a megabyte is a fit against the rounding.
+     */
+    public long peakRetainedBytes() { return peakRetainedBytes.get(); }
 
     public long retainedBytes() { return retainedBytes.get(); }
 
@@ -437,6 +448,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
         sinceWalk = 0;
         var r = Retained.of(roots, this::notMine);
         retainedBytes.set(r.bytes());
+        peakRetainedBytes.updateAndGet(p -> Math.max(p, r.bytes()));
         double usedMb = r.bytes() / 1048576.0;
         if (usedMb > memoryCapMb && !oomReported) {
             oomReported = true;

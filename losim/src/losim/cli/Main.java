@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import losim.scale.Scaled;
 import losim.runtime.Run;
 import losim.scenario.Loader;
 import losim.scenario.Scenario;
@@ -50,10 +51,14 @@ public final class Main {
         Scenario scenario = Loader.load(file);
         if (seed != null) scenario = withSeed(scenario, Long.parseLong(seed));
 
-        var result = Run.of(scenario, classLoader(cp), level);
-
+        var loader = classLoader(cp);
         Path target = Path.of(out != null ? out
                 : "build/" + file.getFileName().toString().replaceAll("\\.ya?ml$", "") + ".json");
+
+        if (scenario.mode() == Scenario.Mode.SCALED)
+            return scaled(scenario, loader, level, cp, target);
+
+        var result = Run.of(scenario, loader, level);
         result.trace().writeTo(target);
 
         System.out.printf("%s  seed %d  %s in %.0f refMs%n", file.getFileName(), scenario.seed(),
@@ -73,9 +78,68 @@ public final class Main {
         return result.completed() ? 0 : 1;
     }
 
+    /**
+     * Scaled mode: fit a plan (or find one cached), run what fits, print both scales.
+     *
+     * <p>A resource the engine refused to fit prints its reason instead of a number.
+     * That is the whole discipline: a projection carries its confidence, or it is
+     * absent — never filled in with something plausible.
+     */
+    private static int scaled(Scenario s, ClassLoader loader, Telemetry.Level level,
+                              String cp, Path target) throws Exception {
+        var code = new ArrayList<Path>();
+        for (String part : cp.split(java.io.File.pathSeparator))
+            if (!part.isBlank()) code.add(Path.of(part));
+
+        long began = System.nanoTime();
+        var scaled = Scaled.of(s, loader, level, code);
+        var plan = scaled.plan();
+
+        if (!plan.feasible()) {
+            System.out.println(s.file() + "  scaled mode: no feasible size");
+            System.out.println("  " + plan.infeasible());
+            System.out.println("  Nothing was run and nothing is projected, which is the point:");
+            System.out.println("  a projection that could not be made must be absent, not guessed.");
+            return 1;
+        }
+
+        System.out.printf("%s  seed %d  scaled %,d -> %,d records (x%,.0f), k_time %.0f%s%n",
+                s.file(), s.seed(), plan.records(), plan.fullRecords(), plan.scaleFactor(),
+                plan.kTime(), scaled.planWasCached() ? "  [plan cached]"
+                        : String.format("  [plan fitted from %d probe runs in %.1fs]",
+                                plan.gridRuns(), (System.nanoTime() - began) / 1e9));
+        System.out.println();
+        System.out.print(plan.laws().describe());
+        System.out.println();
+        System.out.printf("  %-14s %16s   %20s%n", "", "observed", "projected");
+        for (var p : scaled.projections()) {
+            if (p.projected().isPresent())
+                System.out.printf("  %-14s %16s   %20s  +-x%.2f%n", p.resource(),
+                        human(p.observed()), human(p.projected().getAsDouble()), p.errorBar());
+            else
+                System.out.printf("  %-14s %16s   %20s%n      %s%n", p.resource(),
+                        human(p.observed()), "- refused -", p.refusedBecause());
+        }
+        for (String note : plan.notes()) System.out.println("  note: " + note);
+
+        scaled.run().trace().writeTo(target);
+        System.out.printf("%n  %d events, %d spans -> %s%n",
+                scaled.run().telemetry().events().size(),
+                scaled.run().telemetry().spans().size(), target);
+        return scaled.run().completed() ? 0 : 1;
+    }
+
+    private static String human(double v) {
+        if (v >= 1e9) return String.format("%.2f G", v / 1e9);
+        if (v >= 1e6) return String.format("%.2f M", v / 1e6);
+        if (v >= 1e3) return String.format("%.2f k", v / 1e3);
+        return String.format("%.3f", v);
+    }
+
     private static Scenario withSeed(Scenario s, long seed) {
         return new Scenario(s.file(), seed, s.kTime(), s.job(), s.expectedRunRefMs(),
-                s.machines(), s.net(), s.faults(), s.chaos(), s.retries(), s.tightMargin());
+                s.machines(), s.net(), s.faults(), s.chaos(), s.retries(), s.tightMargin(),
+                s.mode(), s.workload());
     }
 
     private static ClassLoader classLoader(String cp) throws Exception {

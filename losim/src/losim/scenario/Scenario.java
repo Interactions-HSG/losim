@@ -26,7 +26,122 @@ public record Scenario(
         List<Fault> faults,
         List<Chaos> chaos,
         List<Retry> retries,
-        boolean tightMargin) {
+        boolean tightMargin,
+        Mode mode,
+        Workload workload) {
+
+    /**
+     * Whether the workload fits.
+     *
+     * <p>There are exactly two, and no third. In {@link #DIRECT} nothing is scaled
+     * and nothing is inferred: every number on screen is what happened. In
+     * {@link #SCALED} the scaler engine decides the run size, the fleet, k_time and
+     * every cap, and projects the results back with error bars. A scenario cannot
+     * hand-declare a shrink factor and bypass the engine — that would be a third
+     * mode whose numbers nobody could account for.
+     */
+    public enum Mode { DIRECT, SCALED }
+
+    /**
+     * How much work there is, at full scale.
+     *
+     * @param records     the size the design is meant to handle. In direct mode this
+     *                    is simply what runs; in scaled mode it is what gets projected to.
+     * @param probeSizes  the ladder the engine climbs to fit its laws. Four points is
+     *                    the fewest that can show a bend.
+     * @param fleetSizes  fleet shapes to vary independently of the data, so that a
+     *                    resource can be attributed to the right variable rather than
+     *                    to whichever one happened to move with it.
+     */
+    public record Workload(long records, List<Integer> probeSizes, List<Integer> fleetSizes,
+                           String where) {}
+
+    /** The declared full-scale size, or one if the scenario never said. */
+    public long records() { return workload == null ? 1 : workload.records(); }
+
+    // ------------------------------------------------------------------ variants
+    //
+    // The probe grid needs the same scenario at many sizes, fleet shapes and seeds.
+    // Producing those here rather than by editing files keeps one fact — what this
+    // system is — in one place, and makes the grid's axes explicit.
+
+    public Scenario withSeed(long seed) {
+        return new Scenario(file, seed, kTime, job, expectedRunRefMs, machines, net,
+                faults, chaos, retries, tightMargin, mode, workload);
+    }
+
+    public Scenario withKTime(double k) {
+        return new Scenario(file, seed, k, job, expectedRunRefMs, machines, net,
+                faults, chaos, retries, tightMargin, mode, workload);
+    }
+
+    public Scenario withRecords(long n) {
+        var w = workload == null
+                ? new Workload(n, List.of(1000, 2000, 4000, 8000), List.of(2, 4), file)
+                : new Workload(n, workload.probeSizes(), workload.fleetSizes(), workload.where());
+        return new Scenario(file, seed, kTime, job, expectedRunRefMs, machines, net,
+                faults, chaos, retries, tightMargin, mode, w);
+    }
+
+    public Scenario withMode(Mode m) {
+        return new Scenario(file, seed, kTime, job, expectedRunRefMs, machines, net,
+                faults, chaos, retries, tightMargin, m, workload);
+    }
+
+    /** The same scenario with no weather at all — the clean column of the grid. */
+    public Scenario withoutWeather() {
+        return new Scenario(file, seed, kTime, job, expectedRunRefMs, machines, net,
+                List.of(), List.of(), retries, tightMargin, mode, workload);
+    }
+
+    public Scenario withExpectedRun(double refMs) {
+        return new Scenario(file, seed, kTime, job, refMs, machines, net,
+                faults, chaos, retries, tightMargin, mode, workload);
+    }
+
+    /**
+     * The same fleet, resized.
+     *
+     * <p>Every pool that had more than one machine is regenerated at {@code n},
+     * keeping its instance type, its zones and its services. Singletons — the
+     * coordinator, usually — are left alone: varying the data and the fleet
+     * independently is what lets a resource be attributed to the right one, and
+     * that only works if resizing means resizing the workers.
+     */
+    public Scenario withWorkers(int n) {
+        var out = new java.util.ArrayList<MachineSpec>();
+        var seen = new java.util.LinkedHashSet<String>();
+        for (MachineSpec m : machines) {
+            if (!seen.add(m.pool())) continue;
+            var pool = machines.stream().filter(x -> x.pool().equals(m.pool())).toList();
+            if (pool.size() == 1) { out.add(m); continue; }
+            String prefix = m.name().replaceAll("\\d+$", "");
+            var zones = pool.stream().map(MachineSpec::zone).distinct().toList();
+            for (int i = 0; i < n; i++)
+                out.add(new MachineSpec(prefix + i, m.pool(), m.instance(),
+                        zones.get(i % zones.size()), m.serves(),
+                        m.memoryCapMb(), m.diskCapMb(), m.where()));
+        }
+        // Weather aimed at a machine the resize removed would be aimed at nothing.
+        var kept = out.stream().map(MachineSpec::name).toList();
+        var stillThere = faults.stream()
+                .filter(f -> kept.contains(f.target()) && (f.other() == null || kept.contains(f.other())))
+                .toList();
+        return new Scenario(file, seed, kTime, job, expectedRunRefMs, out, net,
+                stillThere, chaos, retries, tightMargin, mode, workload);
+    }
+
+    /** The same fleet with caps the engine solved for, per machine, per resource. */
+    public Scenario withCaps(java.util.Map<String, double[]> byMachine) {
+        var out = new java.util.ArrayList<MachineSpec>();
+        for (MachineSpec m : machines) {
+            double[] caps = byMachine.get(m.name());
+            out.add(caps == null ? m : new MachineSpec(m.name(), m.pool(), m.instance(),
+                    m.zone(), m.serves(), caps[0], caps[1], m.where()));
+        }
+        return new Scenario(file, seed, kTime, job, expectedRunRefMs, out, net,
+                faults, chaos, retries, tightMargin, mode, workload);
+    }
 
     /**
      * One machine.

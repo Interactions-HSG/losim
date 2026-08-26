@@ -27,7 +27,8 @@ public final class Loader {
 
     public static Scenario of(Node root) {
         root.onlyAllows("seed", "kTime", "job", "expectedRun", "machines",
-                        "network", "faults", "chaos", "retries", "tightMargin");
+                        "network", "faults", "chaos", "retries", "tightMargin",
+                        "mode", "workload");
 
         long seed = (long) root.opt("seed").num(1);
         double kTime = root.opt("kTime").num(1);
@@ -46,8 +47,48 @@ public final class Loader {
         var chaos = chaos(root.opt("chaos"), machines);
         var retries = retries(root.opt("retries"));
 
+        var mode = mode(root.opt("mode"));
+        var workload = workload(root.opt("workload"), machines);
+        if (mode == Scenario.Mode.SCALED && workload == null)
+            throw root.at("mode").fail("scaled mode needs a workload: to scale down from. "
+                    + "Write 'workload: { records: <full scale> }'.");
+
         return new Scenario(root.where().split(":")[0], seed, kTime, job, expected,
-                machines, net, faults, chaos, retries, root.opt("tightMargin").bool(false));
+                machines, net, faults, chaos, retries, root.opt("tightMargin").bool(false),
+                mode, workload);
+    }
+
+    private static Scenario.Mode mode(Node node) {
+        if (!node.present()) return Scenario.Mode.DIRECT;
+        String m = node.str().trim().toUpperCase();
+        try { return Scenario.Mode.valueOf(m); }
+        catch (IllegalArgumentException e) {
+            throw node.fail("mode is 'direct' or 'scaled', not '" + node.str() + "'. There are"
+                    + " only two: scaled mode always uses the engine, because a hand-declared"
+                    + " shrink factor would be a third mode whose numbers nobody could account for.");
+        }
+    }
+
+    private static Scenario.Workload workload(Node node, List<MachineSpec> machines) {
+        if (!node.present()) return null;
+        node.onlyAllows("records", "probe", "fleets");
+        long records = (long) node.at("records").num();
+        if (records < 1) throw node.at("records").fail("a workload has at least one record");
+        var probe = new ArrayList<Integer>();
+        for (Node n : node.opt("probe").list()) probe.add(n.integer());
+        if (probe.isEmpty()) probe.addAll(List.of(1000, 2000, 4000, 8000));
+        if (probe.size() < 4)
+            throw node.at("probe").fail("a ladder needs at least four rungs: three cannot show"
+                    + " whether the law bends, and a law that bends must be refused rather"
+                    + " than extrapolated across");
+        var fleets = new ArrayList<Integer>();
+        for (Node n : node.opt("fleets").list()) fleets.add(n.integer());
+        if (fleets.isEmpty()) {
+            int declared = (int) machines.stream().filter(m -> !m.serves().isEmpty()).count();
+            fleets.addAll(List.of(Math.max(2, declared / 2), Math.max(3, declared)));
+        }
+        return new Scenario.Workload(records, List.copyOf(probe), List.copyOf(fleets),
+                                     node.where());
     }
 
     // ----------------------------------------------------------------- machines

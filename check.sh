@@ -14,7 +14,7 @@ esac
 ./build.sh > /dev/null
 
 CP=$(ls vendor/jars/*.jar | tr '\n' ':')
-rm -rf build/test-gen build/test-classes
+rm -rf build/test-gen build/test-classes build/.losim-plans
 mkdir -p build/test-gen build/test-classes
 
 vendor/bin/protoc-$P --plugin=protoc-gen-grpc-java=vendor/bin/protoc-gen-grpc-java-$P \
@@ -24,7 +24,7 @@ vendor/bin/protoc-$P --plugin=protoc-gen-grpc-java=vendor/bin/protoc-gen-grpc-ja
 javac -nowarn --release 21 -cp "${CP}build/losim.jar" -d build/test-classes \
       $(find build/test-gen losim/test/src -name '*.java')
 
-suites=("$@"); [ ${#suites[@]} -eq 0 ] && suites=(Phase1 Phase2 Debugger)
+suites=("$@"); [ ${#suites[@]} -eq 0 ] && suites=(Phase1 Phase2 Phase3 Debugger)
 fail=0
 for s in "${suites[@]}"; do
   java -Xmx3g -cp "${CP}build/losim.jar:build/test-classes" "$s" || fail=1

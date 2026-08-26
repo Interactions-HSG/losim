@@ -32,7 +32,32 @@ public final class Run {
 
     /** What a run produced. A failure is part of the result, not an exception thrown past it. */
     public record Result(Trace trace, Telemetry telemetry, boolean completed,
-                         String failure, double durationRefMs) {}
+                         String failure, double durationRefMs,
+                         Map<String, Totals> machines) {
+
+        /**
+         * What one machine actually consumed, straight from its own counters.
+         *
+         * <p>Not read back off the sampled series: that is quantised to the precision
+         * a person reads, and fitting a law against numbers rounded to a hundredth of
+         * a megabyte fits the rounding rather than the workload.
+         */
+        public record Totals(String name, long peakRetainedBytes, long allocatedBytes,
+                             long diskBytes, long bytesOut, long bytesIn, long handledCalls,
+                             double memoryCapMb, boolean alive) {}
+
+        public double peakOf(java.util.function.ToDoubleFunction<Totals> of) {
+            double peak = 0;
+            for (Totals t : machines.values()) peak = Math.max(peak, of.applyAsDouble(t));
+            return peak;
+        }
+
+        public double sumOf(java.util.function.ToDoubleFunction<Totals> of) {
+            double sum = 0;
+            for (Totals t : machines.values()) sum += of.applyAsDouble(t);
+            return sum;
+        }
+    }
 
     private Run() {}
 
@@ -87,7 +112,7 @@ public final class Run {
             dispatcher.start();
 
             Machine entry = byName.values().iterator().next();
-            var cluster = new Live(fleet, entry, tel, s.expectedRunRefMs());
+            var cluster = new Live(fleet, entry, tel, s.expectedRunRefMs(), s.records(), s.seed());
             Job job = job(s.job(), loader);
             started = tel.now();
             var span = tel.open(entry.name, "job", s.job());
@@ -115,6 +140,16 @@ public final class Run {
             fleet.stopSampling();
             double ended = tel.now();
 
+            // One last walk, so a machine that filled up in the final tick is not
+            // reported at whatever it held eight ticks ago.
+            var totals = new LinkedHashMap<String, Result.Totals>();
+            for (Machine m : fleet.all()) {
+                if (m.alive()) m.measureRetained();
+                totals.put(m.name(), new Result.Totals(m.name(), m.peakRetainedBytes(),
+                        m.allocatedBytes(), m.diskBytes(), m.bytesOut(), m.bytesIn(),
+                        m.handledCalls(), m.memoryCapMb(), m.alive()));
+            }
+
             var trace = Trace.of(tel)
                     .meta("scenario", s.file())
                     .meta("seed", s.seed())
@@ -123,7 +158,7 @@ public final class Run {
                     .meta("durationRefMs", Math.round(ended - started));
             if (failure != null) trace.meta("failure", failure);
             if (s.tightMargin()) trace.meta("tightMargin", true);
-            return new Result(trace, tel, completed, failure, ended - started);
+            return new Result(trace, tel, completed, failure, ended - started, totals);
         }
     }
 
@@ -261,10 +296,13 @@ public final class Run {
         private final Map<String, ManagedChannel> channels = new ConcurrentHashMap<>();
 
         private final double expectedRunMs;
+        private final long records;
+        private final long seed;
 
-        Live(Fleet fleet, Machine here, Telemetry tel, double expectedRunMs) {
+        Live(Fleet fleet, Machine here, Telemetry tel, double expectedRunMs,
+             long records, long seed) {
             this.fleet = fleet; this.here = here; this.tel = tel;
-            this.expectedRunMs = expectedRunMs;
+            this.expectedRunMs = expectedRunMs; this.records = records; this.seed = seed;
         }
 
         @Override public List<String> machines() { return fleet.names(); }
@@ -279,6 +317,8 @@ public final class Run {
 
         @Override public double clockMs() { return tel.now(); }
         @Override public double expectedRunMs() { return expectedRunMs; }
+        @Override public long records() { return records; }
+        @Override public long seed() { return seed; }
         @Override public void log(String message) { tel.event(here.name, "log", "message", message); }
         @Override public <T> T compute(String label, Supplier<T> body) {
             return here.compute(label, body);

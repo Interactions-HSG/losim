@@ -31,6 +31,28 @@ public interface Cluster {
     /** A channel to a peer. Build whatever stub the {@code .proto} generated on top of it. */
     Channel channelTo(String machine);
 
+    /**
+     * How many records this run is to process.
+     *
+     * <p>In direct mode this is what the scenario declared. In scaled mode it is
+     * what the engine chose — a fraction of full scale, picked so that the machines
+     * and the workload shrink by the same factor and the ratios a design lives or
+     * dies by are preserved.
+     *
+     * <p>A job that ignores this cannot be scaled, and the trace will say so.
+     */
+    long records();
+
+    /**
+     * The scenario's seed.
+     *
+     * <p>A job that generates its own input needs one, and it has to come from the
+     * scenario: a sweep of five to twenty seeds is meant to vary the <i>data</i> as
+     * well as the weather, and a workload that draws from a constant of its own is a
+     * workload whose every run is the same afternoon.
+     */
+    long seed();
+
     /** Simulated milliseconds since the run began — the clock the scenario is written in. */
     double clockMs();
 

@@ -113,16 +113,22 @@ public final class Fit {
     public static final double DISCONTINUITY = 0.25;
 
     public static double halvesDiverge(double[] n, double[] v) {
-        int m = n.length;
-        if (m < 4) return 0;
-        int mid = m / 2;
-        double[] lowN = new double[mid], lowV = new double[mid];
-        double[] hiN = new double[m - mid + 1], hiV = new double[m - mid + 1];
-        System.arraycopy(n, 0, lowN, 0, mid);
-        System.arraycopy(v, 0, lowV, 0, mid);
-        System.arraycopy(n, mid - 1, hiN, 0, hiN.length);
-        System.arraycopy(v, mid - 1, hiV, 0, hiV.length);
-        return Math.abs(power(lowN, lowV)[0] - power(hiN, hiV)[0]);
+        if (n.length < 4) return 0;
+        return Math.abs(lowerBeta(n, v) - upperBeta(n, v));
+    }
+
+    /** The exponent fitted over the lower half of a ladder. */
+    public static double lowerBeta(double[] n, double[] v) {
+        int mid = n.length / 2;
+        return power(java.util.Arrays.copyOfRange(n, 0, mid),
+                     java.util.Arrays.copyOfRange(v, 0, mid))[0];
+    }
+
+    /** The exponent fitted over the upper half, overlapping by one so the halves meet. */
+    public static double upperBeta(double[] n, double[] v) {
+        int mid = n.length / 2;
+        return power(java.util.Arrays.copyOfRange(n, mid - 1, n.length),
+                     java.util.Arrays.copyOfRange(v, mid - 1, v.length))[0];
     }
 
     /**
