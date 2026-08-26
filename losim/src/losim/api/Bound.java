@@ -33,6 +33,14 @@ public interface Bound {
     void wroteDisk(long bytes);
 
     /**
+     * Spends a declared duration against the compressed clock.
+     *
+     * <p>The program's own time, not losim's, so the caller must leave this
+     * outside whatever region it is metering.
+     */
+    void sleep(double refMs);
+
+    /**
      * Charges a region of losim's own work to this machine's ledger, and to the
      * span it happened inside — so neither the machine's reported allocation nor
      * the handler's reported duration includes it.

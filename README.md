@@ -42,7 +42,7 @@ call from a plain unit test and one you cannot.
 
 ```java
 public final class Mapper extends WorkerBase {
-    @Cost(refMs = 2)
+    @Takes(refMs = 2)
     @Override protected Counts map(Chunk request) {
         var counts = count(request.getText());
         Losim.current().reveal("emitted", counts.size());   // silent in a bare test
@@ -51,8 +51,17 @@ public final class Mapper extends WorkerBase {
 }
 ```
 
-No losim type appears in any signature. `@Cost` is reference-machine time, so it
+No losim type appears in any signature. `@Takes` is reference-machine time, so it
 composes with scaling: the interceptor sleeps `refMs × machineFactor ÷ k_time`.
+
+A duration only the running program knows — a backoff that grows with the attempt,
+a poll interval — cannot be an annotation, so there is
+`Losim.current().sleep(refMs)`. Same unit, same division by `k_time`. It differs
+from `@Takes` in one way that matters: **waiting is not work**, so it does not
+stretch on a degraded machine and does not mark it busy. Measured, at `k_time` 100
+on a machine at half speed: `@Takes(500)` takes 1019 refMs and `sleep(500)` takes
+596. `Thread.sleep` is the one duration in a run that `k_time` never touches, which
+is why the verifier flags it.
 
 **gRPC is the only way machines talk.** There is no second messaging path. Even
 fire-and-forget is an `Empty`-returning method on an async stub, so costs, faults,

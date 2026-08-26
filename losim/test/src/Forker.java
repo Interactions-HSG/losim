@@ -1,5 +1,5 @@
 import java.util.concurrent.CompletableFuture;
-import losim.api.Cost;
+import losim.api.Takes;
 import losim.t.Chunk;
 import losim.t.Counts;
 
@@ -13,7 +13,7 @@ import losim.t.Counts;
  */
 public final class Forker extends WorkerBase {
 
-    @Cost(refMs = 2)
+    @Takes(refMs = 2)
     @Override protected Counts map(Chunk c) {
         return CompletableFuture.supplyAsync(() ->
                 Counts.newBuilder().putCounts(c.getText().trim(), 1).build()).join();

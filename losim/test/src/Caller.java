@@ -1,6 +1,6 @@
 import java.io.IOException;
 import java.net.Socket;
-import losim.api.Cost;
+import losim.api.Takes;
 import losim.t.Chunk;
 import losim.t.Counts;
 
@@ -13,7 +13,7 @@ import losim.t.Counts;
  */
 public final class Caller extends WorkerBase {
 
-    @Cost(refMs = 2)
+    @Takes(refMs = 2)
     @Override protected Counts map(Chunk c) {
         try (Socket socket = new Socket()) {
             return Counts.newBuilder().putCounts("bound", socket.isBound() ? 1 : 0).build();

@@ -1,7 +1,7 @@
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import losim.api.Cost;
+import losim.api.Takes;
 import losim.t.Chunk;
 import losim.t.Counts;
 
@@ -15,7 +15,7 @@ import losim.t.Counts;
  */
 public final class Scribbler extends WorkerBase {
 
-    @Cost(refMs = 2)
+    @Takes(refMs = 2)
     @Override protected Counts map(Chunk c) {
         Path spill = Path.of(System.getProperty("java.io.tmpdir"), "losim-scribbler.txt");
         try { Files.writeString(spill, c.getText()); }

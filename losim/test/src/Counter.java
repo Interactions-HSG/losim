@@ -1,7 +1,7 @@
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import losim.api.Cost;
+import losim.api.Takes;
 import losim.api.Losim;
 import losim.t.Chunk;
 import losim.t.Counts;
@@ -21,7 +21,7 @@ public final class Counter extends WorkerBase {
     private final Map<String, Integer> holding = new ConcurrentHashMap<>();
     private final Map<String, long[]> ballast = new ConcurrentHashMap<>();
 
-    @Cost(refMs = 15)
+    @Takes(refMs = 15)
     @Override protected Counts map(Chunk c) {
         var out = new HashMap<String, Integer>();
         for (String word : c.getText().split("\\s+")) out.merge(word, 1, Integer::sum);
@@ -30,7 +30,7 @@ public final class Counter extends WorkerBase {
         return Counts.newBuilder().putAllCounts(out).build();
     }
 
-    @Cost(refMs = 100)
+    @Takes(refMs = 100)
     @Override protected Counts reduce(Counts c) {
         c.getCountsMap().forEach((k, v) -> {
             holding.merge(k, v, Integer::sum);

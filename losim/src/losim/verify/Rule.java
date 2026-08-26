@@ -45,46 +45,62 @@ public enum Rule {
     /**
      * Real time, slept.
      *
-     * <p>The same lie from the other end. A hand-rolled backoff that sleeps 100 ms
-     * sleeps 100 ms whatever {@code k_time} is, so at a compression of forty it is
-     * four thousand reference milliseconds of the simulated world — and it is the
-     * only duration in the run that does not move when the compression does.
-     * Declared cost is {@code @Cost(refMs = …)}, which does.
+     * <p>The same lie from the other end, and it is about the <i>unit</i> rather
+     * than about waiting. A hand-rolled backoff that sleeps 100 ms sleeps 100 ms
+     * whatever {@code k_time} is, so at a compression of forty it is four thousand
+     * reference milliseconds of the simulated world — the one duration in the run
+     * that does not move when the compression does.
      *
-     * <p>Blocking on real work — a latch, a future, {@code Object.wait} — is not
-     * this and is not flagged: waiting for something that is happening is exactly
-     * what a distributed program does.
+     * <p>Waiting is a perfectly ordinary thing for a distributed program to do, and
+     * {@code Losim.current().sleep(refMs)} is how to write it: reference time, like
+     * every other duration, divided by {@code k_time} before it is spent. It is not
+     * {@code @Takes}, which is an annotation and so cannot express a backoff that
+     * grows with the attempt — and which stretches on a degraded machine, where a
+     * wait does not.
+     *
+     * <p>Blocking on real work — a latch, a future, {@code Object.wait}, a bare
+     * {@code LockSupport.park()} — is not this and is not flagged: waiting for
+     * something that is happening is what a distributed program is mostly made of,
+     * and its length is set by that something's own progress rather than written
+     * down. A <i>timeout</i> on such a wait is a real duration that k_time does not
+     * touch, but it is only spent when the wait fails, and a static check cannot see
+     * which run that is — so the timed forms of those are left alone too. The two
+     * {@code LockSupport} entries below are the exception on frequency alone: they
+     * are rare enough in application code that reading them as a hand-rolled sleep
+     * is the likelier guess.
      */
-    REAL_SLEEP(Flag.TIMELINE, "sleeps real time rather than declaring a cost", List.of(
+    REAL_SLEEP(Flag.TIMELINE, "sleeps in host milliseconds, which k_time does not touch,"
+            + " rather than in reference time", List.of(
             "java.lang.Thread#sleep",
             "java.util.concurrent.TimeUnit#sleep",
-            "java.util.concurrent.locks.LockSupport#park*")),
-
-    /**
-     * A virtual thread, whose allocation cannot be read at all.
-     *
-     * <p>Worse than unattributed: {@code getThreadAllocatedBytes} returns −1 for a
-     * virtual thread (D12), so this is not a figure attributed to the wrong machine
-     * but a figure that does not exist. Platform threads are a requirement, not a
-     * preference.
-     */
-    VIRTUAL_THREAD(Flag.MEMORY, "runs work on a virtual thread, whose allocation the JVM"
-            + " does not report at all", List.of(
-            "java.lang.Thread#ofVirtual",
-            "java.lang.Thread#startVirtualThread",
-            "java.util.concurrent.Executors#newVirtualThreadPerTaskExecutor")),
+            "java.util.concurrent.locks.LockSupport#parkNanos",
+            "java.util.concurrent.locks.LockSupport#parkUntil")),
 
     /**
      * Work on a thread the machine did not create.
      *
      * <p>A machine is its pool: every thread in it belongs to exactly one machine,
      * which is how allocation is attributed at all (D12) and how the vCPU model
-     * means anything (D1). Work handed to a thread outside it is charged to nobody
-     * and contends for nobody's cores.
+     * means anything (D1). A thread outside it is summed by nobody and contends for
+     * nobody's cores, so the machine reads cheaper and less busy than it is.
+     *
+     * <p>Virtual threads are here rather than in a rule of their own, because the
+     * failure is the same one: what makes the figure wrong is that the thread is not
+     * the machine's, exactly as for a platform thread the handler spawned. (The −1
+     * that {@code getThreadAllocatedBytes} returns for a virtual thread is why
+     * <i>losim's own pool</i> is platform threads — it is not what goes wrong here.)
+     * One difference is worth knowing and is not worth a second rule: switching to a
+     * platform thread would not fix this either.
+     *
+     * <p>Nor is the remedy "use fewer threads". Real concurrency inside a machine is
+     * a feature (D1); in losim, work is spread by <b>calling more machines</b>, and a
+     * machine's own concurrency comes from serving several calls at once on its pool.
      */
     UNATTRIBUTED_THREAD(Flag.MEMORY, "runs work on a thread the machine did not create,"
             + " so its allocation and its CPU are charged to nobody", List.of(
             "java.lang.Thread#start",
+            "java.lang.Thread#ofVirtual",
+            "java.lang.Thread#startVirtualThread",
             "java.util.concurrent.Executors#*",
             "java.util.concurrent.ForkJoinPool#*",
             "java.util.concurrent.CompletableFuture#supplyAsync",

@@ -2,7 +2,7 @@ import io.grpc.ManagedChannel;
 import io.grpc.stub.StreamObserver;
 import java.util.*;
 import java.util.concurrent.*;
-import losim.api.Cost;
+import losim.api.Takes;
 import losim.api.Losim;
 import losim.runtime.Fleet;
 import losim.runtime.Machine;
@@ -41,15 +41,23 @@ public class Phase1 {
 
     /** A handler with a declared cost, so the interceptor has something to sleep. */
     static final class Costed extends WorkerBase {
-        @Cost(refMs = 500)
+        @Takes(refMs = 500)
         @Override protected Counts map(Chunk c) {
             return Counts.newBuilder().putCounts("seen", c.getLines()).build();
         }
     }
 
     /** A handler whose cost is proportional to what it was given. */
+    /** A handler whose duration only the running program knows, so no annotation can carry it. */
+    static final class Waiting extends WorkerBase {
+        @Override protected Counts map(Chunk c) {
+            Losim.current().sleep(500);
+            return Counts.newBuilder().putCounts("waited", 500).build();
+        }
+    }
+
     static final class PerRecord extends WorkerBase {
-        @Cost(refNsPerRecord = 1_000_000)             // 1 refMs a record
+        @Takes(refNsPerRecord = 1_000_000)             // 1 refMs a record
         @Override protected Counts map(Chunk c) {
             Losim.current().records(c.getLines());
             return Counts.newBuilder().putCounts("seen", c.getLines()).build();
@@ -65,6 +73,13 @@ public class Phase1 {
                     .putCounts("peers", Losim.current().peersServing("Worker").size())
                     .build();
         }
+    }
+
+    /** The gross duration of the handler span that ran on one machine. */
+    static double byMachine(Fleet fleet, String machine) {
+        return fleet.telemetry().spans().stream()
+                .filter(s -> s.kind.equals("handler") && s.vm.equals(machine))
+                .mapToDouble(s -> s.grossMs()).max().orElse(0);
     }
 
     static Fleet fleet(double kTime, Telemetry.Level level) {
@@ -153,7 +168,7 @@ public class Phase1 {
             // The callee is slow on purpose: if the caller were blocked, five of
             // these would take five times as long as one.
             fleet.machine("b", "m5.large", "z").serving(new VolleyBase() {
-                @Cost(refMs = 300)
+                @Takes(refMs = 300)
                 @Override protected void hit(Ping p) { arrived.countDown(); }
             });
             ManagedChannel ch = a.channelTo("b");
@@ -219,10 +234,13 @@ public class Phase1 {
     // -------------------------------------------------------------- declared cost
 
     static void declaredCost() throws Exception {
-        System.out.println("=== @Cost, in reference milliseconds ===");
+        System.out.println("=== @Takes, in reference milliseconds ===");
         try (var fleet = fleet(100, Telemetry.Level.FULL)) {
             var c = fleet.machine("c", "m5.large", "z");
             fleet.machine("s", "m5.large", "z").serving(new Costed());
+            fleet.machine("w", "m5.large", "z").serving(new Waiting());
+            fleet.machine("dc", "m5.large", "z").serving(new Costed()).degrade(2);
+            fleet.machine("dw", "m5.large", "z").serving(new Waiting()).degrade(2);
             ManagedChannel ch = c.channelTo("s");
             long t0 = System.nanoTime();
             c.submit(() -> WorkerGrpc.newBlockingStub(ch)
@@ -239,6 +257,42 @@ public class Phase1 {
             check(handler.grossMs() > 400,
                   String.format("and the simulated clock reports it at reference size (%.0f refMs)",
                           handler.grossMs()));
+
+            // The same duration, written by the program rather than by an annotation.
+            // A backoff that grows with the attempt cannot be an annotation at all, and
+            // Thread.sleep would be the one duration in the run k_time does not touch.
+            ManagedChannel w = c.channelTo("w");
+            var chunk = Chunk.newBuilder().setLines(1).build();
+            long t1 = System.nanoTime();
+            c.submit(() -> WorkerGrpc.newBlockingStub(w).map(chunk)).get();
+            double waitReal = (System.nanoTime() - t1) / 1e6;
+            w.shutdownNow();
+            var waited = byMachine(fleet, "w");
+            System.out.printf("    sleep(500 refMs) at k_time 100 -> %.2f ms of real time, "
+                            + "%.0f refMs on the simulated clock%n", waitReal, waited);
+            check(waitReal > 3.5 && waitReal < 60 && waited > 400, String.format(
+                    "Losim.current().sleep() divides by k_time exactly as @Takes does (%.1f ms "
+                    + "real, %.0f refMs simulated) — a wait is a declared duration, and every "
+                    + "declared duration is reference time", waitReal, waited));
+            check(fleet.telemetry().events().stream().anyMatch(e -> e.kind().equals("sleep")),
+                  "and it is on the timeline, so a stretch of waiting can be told from a "
+                  + "stretch of doing nothing");
+
+            // Waiting is not work, and this is where that stops being a slogan.
+            ManagedChannel dc = c.channelTo("dc"), dw = c.channelTo("dw");
+            c.submit(() -> WorkerGrpc.newBlockingStub(dc).map(chunk)).get();
+            c.submit(() -> WorkerGrpc.newBlockingStub(dw).map(chunk)).get();
+            dc.shutdownNow(); dw.shutdownNow();
+            double cost = byMachine(fleet, "dc"), wait = byMachine(fleet, "dw");
+            System.out.printf("    on a machine at half speed: @Takes(500) -> %.0f refMs, "
+                            + "sleep(500) -> %.0f refMs  (x%.2f)%n", cost, wait, cost / wait);
+            // The ratio, not the two figures: both carry the same constant of call
+            // overhead, and only the ratio says which of them the degrade multiplied.
+            check(cost / wait > 1.4, String.format(
+                    "@Takes stretches on a degraded machine and sleep does not (%.0f vs %.0f "
+                    + "refMs, x%.2f) — a machine at half speed computes slower, but it does not "
+                    + "wait longer, and that difference is why a wait is not an annotation",
+                    cost, wait, cost / wait));
         }
 
         try (var fleet = fleet(100, Telemetry.Level.FULL)) {

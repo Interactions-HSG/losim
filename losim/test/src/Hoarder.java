@@ -1,6 +1,6 @@
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import losim.api.Cost;
+import losim.api.Takes;
 import losim.t.Chunk;
 import losim.t.Counts;
 
@@ -19,7 +19,7 @@ public final class Hoarder extends WorkerBase {
     /** A table, not state: nothing is called to build it, and nothing can add to it. */
     static final String[] IGNORED = {"the", "a", "and"};
 
-    @Cost(refMs = 2)
+    @Takes(refMs = 2)
     @Override protected Counts map(Chunk c) {
         for (String word : c.getText().split(" ")) EVERYONES.merge(word, 1, Integer::sum);
         return Counts.newBuilder().putAllCounts(EVERYONES).build();

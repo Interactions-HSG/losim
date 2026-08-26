@@ -32,7 +32,7 @@ public class Phase4 {
 
     static final Path CODE = Path.of("build/test-classes");
     static final Set<String> SERVICES = Set.of("Counter", "Peeker", "Napper", "Scribbler",
-            "Dialer", "Forker", "Hoarder", "Referrer", "Deferrer", "Threader", "Caller", "Spawner");
+            "Dialer", "Forker", "Hoarder", "Referrer", "Deferrer", "Threader", "Caller", "Spawner", "Waiter", "Blocker");
 
     static Verifier verifier() { return Verifier.over(List.of(CODE)); }
 
@@ -61,7 +61,7 @@ public class Phase4 {
         trips("Scribbler", Rule.FILE_IO,             Flag.DISK,      "Scribbler.java");
         trips("Dialer",    Rule.OWN_CHANNEL,         Flag.WIRE,      "Dialer.java");
         trips("Forker",    Rule.UNATTRIBUTED_THREAD, Flag.MEMORY,    "Forker.java");
-        trips("Threader",  Rule.VIRTUAL_THREAD,      Flag.MEMORY,    "Threader.java");
+        trips("Threader",  Rule.UNATTRIBUTED_THREAD, Flag.MEMORY,    "Threader.java");
         trips("Caller",    Rule.OUTSIDE_THE_JVM,     Flag.ISOLATION, "Caller.java");
         trips("Hoarder",   Rule.SHARED_STATE,        Flag.ISOLATION, "Hoarder.java");
         trips("Referrer",  Rule.MACHINES_TOUCHING,   Flag.ISOLATION, "Referrer.java");
@@ -82,6 +82,21 @@ public class Phase4 {
         check(found, "System::nanoTime is found although it appears in no instruction — a method"
                 + " reference lives in a bootstrap argument, so reading the code alone makes"
                 + " Deferrer look spotless");
+
+        // The other half of that rule: blocking on real work is not sleeping. This is
+        // the check that stops REAL_SLEEP growing until it fires on every correct
+        // concurrent handler there is.
+        check(look("Blocker").clean(),
+              "a handler that waits on a latch, on a timeout and on a bare park() is not "
+              + "flagged — the length of those is set by what they are waiting for, not "
+              + "written down, so there is no duration k_time should have divided");
+
+        // And the rule is about the unit, not about waiting: the same backoff written
+        // in reference time is not a finding, because k_time divides it like everything else.
+        check(look("Waiter").clean(),
+              "a handler that waits through Losim.current().sleep(refMs) is not flagged — a "
+              + "growing backoff cannot be an annotation, so the remedy for Thread.sleep is a "
+              + "duration in the right unit rather than no duration at all");
 
         // A constant is not state, and the difference is what the initialiser did.
         var hoarder = look("Hoarder");

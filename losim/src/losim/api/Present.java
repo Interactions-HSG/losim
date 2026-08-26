@@ -85,6 +85,19 @@ final class Present implements LosimCtx {
         finally { b.charge(Meter.allocNow() - a0, System.nanoTime() - t0); }
     }
 
+    @Override public void sleep(double refMs) {
+        long a0 = Meter.allocNow(), t0 = System.nanoTime();
+        Bound b = Ambient.MACHINE.get();
+        if (b == null) return;
+        b.event("sleep", "refMs", refMs);
+        b.charge(Meter.allocNow() - a0, System.nanoTime() - t0);
+
+        // Outside the bracket, and that is the whole point of writing it this way:
+        // the wait is the program's own declared duration. Charging it to losim
+        // would subtract it straight back out of the span it exists to lengthen.
+        b.sleep(refMs);
+    }
+
     // -------------------------------------------------------------------- state
 
     // Reads, not records: they allocate nothing worth charging and are cheap

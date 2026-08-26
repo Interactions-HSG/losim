@@ -2,7 +2,7 @@ package losim.runtime;
 
 import io.grpc.*;
 import losim.api.Ambient;
-import losim.api.Cost;
+import losim.api.Takes;
 import losim.res.Meter;
 import losim.trace.Telemetry;
 import losim.trace.Values;
@@ -36,7 +36,7 @@ final class ServerSide implements ServerInterceptor {
         final Telemetry tel = node.tel();
         final String full = call.getMethodDescriptor().getFullMethodName();
         final String method = Wire.dotted(full);
-        final Cost cost = node.costOf(full);
+        final Takes takes = node.takenBy(full);
 
         // The parent arrives in a header, from a thread on another machine this
         // one has no context from. Reading it from the ambient context instead
@@ -55,10 +55,10 @@ final class ServerSide implements ServerInterceptor {
                 // The variable part of the cost is paid before the response
                 // leaves, not after: a caller waits for work that has not
                 // finished, and by now the handler has said how much there was.
-                if (cost != null && cost.refNsPerRecord() > 0) {
+                if (takes != null && takes.refNsPerRecord() > 0) {
                     long n = span.records.get();
                     if (n > 0) node.fleet().clock
-                            .spend(cost.refNsPerRecord() * n / 1e6 * node.effectiveFactor());
+                            .spend(takes.refNsPerRecord() * n / 1e6 * node.effectiveFactor());
                 }
                 long b0 = Meter.allocNow(), n0 = System.nanoTime();
                 if (tel.payloads()) span.detail.put("result", Values.render(message));
@@ -119,8 +119,8 @@ final class ServerSide implements ServerInterceptor {
                 tel.event(node.name, "handler_start", "method", method, "call", parent);
                 node.chargeTo(span, Meter.allocNow() - b0, System.nanoTime() - n0);
 
-                if (cost != null && cost.refMs() > 0)
-                    node.fleet().clock.spend(cost.refMs() * node.effectiveFactor());
+                if (takes != null && takes.refMs() > 0)
+                    node.fleet().clock.spend(takes.refMs() * node.effectiveFactor());
 
                 super.onHalfClose();
             }

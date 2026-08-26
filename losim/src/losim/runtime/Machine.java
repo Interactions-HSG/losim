@@ -7,7 +7,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 import losim.api.Bound;
-import losim.api.Cost;
+import losim.api.Takes;
 import losim.res.InstanceSpec;
 import losim.res.Meter;
 import losim.res.Retained;
@@ -70,7 +70,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
     final AtomicLong losimRegions = new AtomicLong();
 
     private final List<Object> roots = new CopyOnWriteArrayList<>();
-    private final Map<String, Cost> costs = new ConcurrentHashMap<>();
+    private final Map<String, Takes> declared = new ConcurrentHashMap<>();
     private final List<String> servicesOffered = new CopyOnWriteArrayList<>();
     private int sinceWalk = WALK_EVERY_TICKS;            // walk on the very first tick
     private volatile boolean oomReported;
@@ -152,13 +152,13 @@ public final class Machine implements Bound, Telemetry.Sampled {
         };
         if (server != null) { server.shutdownNow(); server = null; }
         roots.clear();
-        costs.clear();
+        declared.clear();
         served.clear();
         var b = InProcessServerBuilder.forName(name).executor(queueing);
         for (var factory : factories) {
             BindableService s = factory.get();
             roots.add(s);                                // a machine's data hangs off its services
-            costs.putAll(Costs.of(s));
+            declared.putAll(Durations.of(s));
             var def = s.bindService();
             for (var m : def.getMethods()) served.add(m.getMethodDescriptor());
             String svc = def.getServiceDescriptor().getName();
@@ -261,7 +261,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
                                     + "which a real one would not");
     }
 
-    Cost costOf(String fullMethodName) { return costs.get(fullMethodName); }
+    Takes takenBy(String fullMethodName) { return declared.get(fullMethodName); }
 
     /**
      * Work this machine does that no RPC carried.
@@ -415,6 +415,19 @@ public final class Machine implements Bound, Telemetry.Sampled {
                         "cause", "the machine was asked to write more than it has");
         throw new IllegalStateException(name + " has no disk left: " + round(usedMb)
                 + " MB written against a " + round(diskCapMb) + " MB volume");
+    }
+
+    /**
+     * A declared wait, spent against the compressed clock.
+     *
+     * <p>Nothing more than {@code spend}: no span, and no {@code inflight}. Waiting
+     * is not work — a machine backing off occupies no vCPU — so counting it as
+     * occupancy would make an idle fleet look loaded. The event is what puts it on
+     * the timeline, which is enough to tell a stretch of waiting from a stretch of
+     * doing nothing.
+     */
+    @Override public void sleep(double refMs) {
+        fleet.clock.spend(refMs);
     }
 
     public long diskBytes() { return diskBytes.get(); }

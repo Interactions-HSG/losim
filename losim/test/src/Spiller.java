@@ -1,7 +1,7 @@
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import losim.api.Cost;
+import losim.api.Takes;
 import losim.api.Losim;
 import losim.t.Chunk;
 import losim.t.Counts;
@@ -32,7 +32,7 @@ public final class Spiller extends WorkerBase {
     private final Map<String, long[]> payload = new ConcurrentHashMap<>();
     private long spilled;
 
-    @Cost(refMs = 2, refNsPerRecord = 20_000)
+    @Takes(refMs = 2, refNsPerRecord = 20_000)
     @Override protected Counts map(Chunk c) {
         var chunk = new HashMap<String, Integer>();
         for (String word : c.getText().split(" ")) {
@@ -48,7 +48,7 @@ public final class Spiller extends WorkerBase {
         return Counts.newBuilder().putAllCounts(chunk).build();
     }
 
-    @Cost(refMs = 5)
+    @Takes(refMs = 5)
     @Override protected Counts reduce(Counts request) {
         return Counts.newBuilder().putAllCounts(holding).build();
     }

@@ -1,4 +1,4 @@
-import losim.api.Cost;
+import losim.api.Takes;
 import losim.t.Chunk;
 import losim.t.Counts;
 
@@ -19,7 +19,7 @@ public final class Spawner extends WorkerBase {
         @Override public void run() { words = text.split(" ").length; }
     }
 
-    @Cost(refMs = 2)
+    @Takes(refMs = 2)
     @Override protected Counts map(Chunk c) {
         var split = new Split(c.getText());
         split.start();

@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
  * on the line below and step into {@code map}: it is ordinary Java, and stopping
  * on it stops nothing else, because nothing else is running.
  *
- * <p>losim is on the classpath because {@code @Cost} is a compile-time annotation
+ * <p>losim is on the classpath because {@code @Takes} is a compile-time annotation
  * and {@code Losim.current()} has to resolve. It does nothing here, which is the
  * point: a handler that needed a simulation to be testable would not be testable.
  */
@@ -44,6 +44,14 @@ class HandlerTest {
         assertDoesNotThrow(() -> Losim.current().log("counted"));
         assertDoesNotThrow(() -> Losim.current().records(1));
         assertDoesNotThrow(() -> Losim.current().wroteDisk(4096));
+
+        // And a declared wait returns at once. There is no compressed clock to
+        // spend against here, so a suite that really slept would be slower for
+        // nothing — and a handler that waits would be one nobody unit-tests.
+        long began = System.nanoTime();
+        Losim.current().sleep(5_000);
+        assertTrue((System.nanoTime() - began) / 1e6 < 50,
+                   "sleep(refMs) outside a run must return immediately");
     }
 
     @Test

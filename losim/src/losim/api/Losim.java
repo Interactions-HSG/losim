@@ -4,7 +4,7 @@ package losim.api;
  * The one losim type a handler mentions.
  *
  * <pre>{@code
- * @Cost(refMs = 2)
+ * @Takes(refMs = 2)
  * @Override protected Pairs map(Chunk req) {
  *     var pairs = count(req.getText());
  *     Losim.current().reveal("emitted", pairs.getPairsCount());

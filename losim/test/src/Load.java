@@ -1,7 +1,7 @@
 import io.grpc.ManagedChannel;
 import java.util.*;
 import java.util.concurrent.*;
-import losim.api.Cost;
+import losim.api.Takes;
 import losim.api.Losim;
 import losim.runtime.Fleet;
 import losim.runtime.Machine;
@@ -38,7 +38,7 @@ public final class Load {
 
         Map<String, int[]> held() { return held; }
 
-        @Cost(refMs = 0)
+        @Takes(refMs = 0)
         @Override protected Counts map(Chunk c) {
             var out = new HashMap<String, Integer>();
             int lines = 0;
