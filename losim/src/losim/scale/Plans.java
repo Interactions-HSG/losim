@@ -6,6 +6,7 @@ import java.security.MessageDigest;
 import java.util.*;
 import losim.scenario.Scenario;
 import losim.trace.Json;
+import losim.trace.Telemetry;
 import losim.trace.JsonReader;
 
 /**
@@ -29,10 +30,18 @@ public final class Plans {
      *
      * <p>The scenario as loaded — so a comment or a reformat does not invalidate it,
      * but a changed fault does — and every class the job might use, by content.
+     *
+     * <p><b>And the telemetry level, which is not a detail.</b> A probe grid and the
+     * run it is fitting must be watched the same way, or the fit describes a
+     * different system from the one being measured. Left out of the key, a plan
+     * fitted with every payload recorded would be handed straight to a run with them
+     * off — the same mistake as fitting on clean runs and predicting a faulty one,
+     * and silent in exactly the same way.
      */
-    public static String key(Scenario s, ClassLoader loader, List<Path> code) {
+    public static String key(Scenario s, Telemetry.Level level, List<Path> code) {
         var sb = new StringBuilder();
-        sb.append(s.job()).append('|').append(s.records()).append('|').append(s.seed())
+        sb.append(level).append('|').append(s.job()).append('|').append(s.records())
+          .append('|').append(s.seed())
           .append('|').append(s.kTime()).append('|').append(s.expectedRunRefMs());
         for (var m : s.machines())
             sb.append('|').append(m.name()).append(':').append(m.instance())

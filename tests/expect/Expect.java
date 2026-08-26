@@ -68,6 +68,27 @@ public final class Expect {
         return (List<Map<String, Object>>) trace.getOrDefault("spans", List.of());
     }
 
+    /** The closing balance, per machine: what each one consumed by the time it ended. */
+    @SuppressWarnings("unchecked")
+    public List<Map<String, Object>> machines() {
+        return (List<Map<String, Object>>) trace.getOrDefault("machines", List.of());
+    }
+
+    /** The fleet's total of a per-machine quantity — which is what wire and allocation are. */
+    public double sum(String metric) {
+        return machines().stream().mapToDouble(m -> num(m.get(metric))).sum();
+    }
+
+    /**
+     * The worst machine's, which is what memory and disk are.
+     *
+     * <p>A fleet does not run out of memory on average. One machine does, and the
+     * fact that its neighbours had room is no comfort to the job that was on it.
+     */
+    public double peak(String metric) {
+        return machines().stream().mapToDouble(m -> num(m.get(metric))).max().orElse(0);
+    }
+
     @SuppressWarnings("unchecked")
     public Map<String, Object> series() {
         return (Map<String, Object>) ((Map<String, Object>)

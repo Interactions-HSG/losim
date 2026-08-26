@@ -51,7 +51,7 @@ public final class Scaled {
         // thirty times over, and the answer does not change between them.
         Trust trust = Trust.of(s, code);
 
-        String key = Plans.key(s, loader, code);
+        String key = Plans.key(s, level, code);
         var cached = Plans.load(key);
         ScalePlan plan;
         boolean fromCache = cached.isPresent();

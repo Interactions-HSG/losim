@@ -31,6 +31,14 @@ public final class Main {
     }
 
     private static int run(String[] args) throws Exception {
+        if (args.length > 0 && args[0].equals("bill")) {
+            if (args.length < 2) throw new IllegalArgumentException("bill needs a trace");
+            return Bills.run(Path.of(args[1]), option(args, "--prices", "prices/eu-central-1.yaml"));
+        }
+        if (args.length > 0 && args[0].equals("diff")) {
+            if (args.length < 3) throw new IllegalArgumentException("diff needs two traces");
+            return Diff.run(Path.of(args[1]), Path.of(args[2]));
+        }
         if (args.length == 0 || !args[0].equals("run")) {
             System.err.println("""
                 usage: losim run <scenario.yaml> [options]
@@ -38,7 +46,19 @@ public final class Main {
                   --cp <paths>       where the job and the services are compiled to
                   --out <file>       where to write the trace (default: build/<scenario>.json)
                   --seed <n>         override the scenario's seed, for a sweep
-                  --telemetry <lvl>  FULL (default), NO_PAYLOAD or OFF""");
+                  --telemetry <lvl>  FULL (default), NO_PAYLOAD or OFF
+
+                       losim diff <a.json> <b.json>
+
+                  Whether two traces are the same simulator. Structure and attribution
+                  have to agree; measurements are printed rather than judged, because
+                  runs are not reproducible and hosts are not identical.
+
+                       losim bill <trace.json> [--prices <file>]
+
+                  What the run cost, in five buckets. A scaled run is billed twice:
+                  once for what happened, and once for the job it is a model of —
+                  with the lines the engine could not project absent, and said so.""");
             return 2;
         }
         Path file = Path.of(need(args, 1, "which scenario?"));

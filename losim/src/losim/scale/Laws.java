@@ -162,13 +162,20 @@ public record Laws(Map<String, Fit.Law> byResource,
             // version extrapolates confidently and wrongly.
             double bendsOnLadder = Fit.halvesDiverge(recordsAxis, y);
             if (bendsOnLadder > Fit.DISCONTINUITY) {
+                // The R2 is quoted because it is the number that would have said
+                // nothing was wrong. A reader who reaches for it instead — and it is
+                // the obvious thing to reach for — should be able to see from the
+                // refusal itself why it would not have served.
                 refused.put(resource, String.format(
                         "the ladder bends: over the lower half it grows as records^%.2f and over"
                         + " the upper half as records^%.2f, a difference of %.2f. Something behaves"
                         + " differently small than large — a threshold, a different code path, or a"
                         + " granularity that only shows up when the pieces are few — and no"
-                        + " extrapolation across that means anything",
-                        Fit.lowerBeta(recordsAxis, y), Fit.upperBeta(recordsAxis, y), bendsOnLadder));
+                        + " extrapolation across that means anything. R2 over the whole ladder is"
+                        + " still %.3f, which is why no threshold on R2 could have separated this"
+                        + " from a merely noisy straight line",
+                        Fit.lowerBeta(recordsAxis, y), Fit.upperBeta(recordsAxis, y), bendsOnLadder,
+                        Fit.power(recordsAxis, y)[1]));
                 continue;
             }
 

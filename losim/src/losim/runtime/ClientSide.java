@@ -69,6 +69,10 @@ final class ClientSide implements ClientInterceptor {
             return new Dropped<>(from, to, method, call, "lost");
 
         final double rttRefMs = net.roundTripRefMs(from.zone, target == null ? from.zone : target.zone);
+        // Traffic between availability zones is billed and traffic within one is
+        // not, so it has to be counted apart from the rest rather than derived
+        // afterwards: only here are both ends of the call known at once.
+        final boolean crossZone = target != null && !from.zone.equals(target.zone);
 
         return new ForwardingClientCall.SimpleForwardingClientCall<>(ch.newCall(md, call)) {
             private Telemetry.Span span;
@@ -132,6 +136,7 @@ final class ClientSide implements ClientInterceptor {
                 long b0 = Meter.allocNow(), n0 = System.nanoTime();
                 long bytes = Wire.sizeOf(message);
                 from.bytesOut.addAndGet(bytes);
+                if (crossZone) from.crossZoneBytes.addAndGet(bytes);
                 if (span != null) {
                     span.detail.put("bytes", bytes);
                     if (tel.payloads()) span.detail.put("arg", Values.render(message));

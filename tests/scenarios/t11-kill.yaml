@@ -1,0 +1,25 @@
+# Four workers, one of which dies and comes back. Its chunks have to be done
+# again somewhere, so a survivor absorbs its bucket — which is what a model fitted
+# only on clean runs cannot see, and under-predicts optimistically.
+mode: scaled
+seed: 11
+kTime: 40
+job: Elastic
+expectedRun: 30 refSeconds
+
+workload:
+  records: 48000
+  probe: [1000, 2000, 4000, 8000]
+  fleets: [2, 4]
+
+machines:
+  master: { instance: m5.2xlarge, zone: eu-central-1a }
+  workers:
+    count: 4
+    prefix: w
+    instance: r5.large
+    zone: eu-central-1a
+    serves: [Combiner]
+
+faults:
+  - { at: 400 refMs, kill: w1, restart_after: 2 refSeconds }

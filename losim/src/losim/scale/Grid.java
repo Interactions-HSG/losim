@@ -45,7 +45,13 @@ public record Grid(List<List<Probe>> dataLadder,
         long[] seeds = seedsFrom(s.seed(), seedCount);
         var notes = new ArrayList<String>();
 
-        int baseFleet = fleets.get(fleets.size() - 1);
+        // The data ladder is climbed on the fleet that will actually run — not on the
+        // largest shape in the fleet ladder. A law fitted on eight workers and applied
+        // to a run of two describes a differently-shaped system from the one being
+        // measured, which is the same mistake as fitting on clean runs and predicting
+        // a faulty one. The fleet ladder exists to cross-check that attribution, not
+        // to decide what the data ladder is climbed on.
+        int baseFleet = workersIn(s);
         // The data ladder is climbed with the weather off, so what moves is the data.
         var bare = s.withoutWeather().withWorkers(baseFleet);
 
@@ -85,6 +91,12 @@ public record Grid(List<List<Probe>> dataLadder,
                         .withSeed(seed), loader, level));
         }
         return new Grid(dataLadder, fleetLadder, clean, weathered, notes);
+    }
+
+    /** The fleet the scenario declares: every machine that serves something. */
+    static int workersIn(Scenario s) {
+        long serving = s.machines().stream().filter(m -> !m.serves().isEmpty()).count();
+        return (int) Math.max(1, serving);
     }
 
     /** How many runs this grid cost. Worth saying out loud, since the plan is cached on it. */

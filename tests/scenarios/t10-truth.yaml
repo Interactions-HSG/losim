@@ -1,0 +1,22 @@
+# What actually happens at the size t10.yaml is asked about.
+#
+# The same fleet, the same code, the same corpus — run at full size, for real, with
+# nothing projected and nothing inferred. Every number this produces is what
+# happened, which is the only thing a projection can honestly be checked against.
+mode: direct
+seed: 7
+kTime: 40
+job: Elastic
+expectedRun: 30 refSeconds
+
+workload:
+  records: 48000
+
+machines:
+  master: { instance: m5.2xlarge, zone: eu-central-1a }
+  workers:
+    count: 4
+    prefix: w
+    instance: r5.large
+    zone: eu-central-1a
+    serves: [Combiner]

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# The reference suite: gRPC systems a course could ship.
+# The reference suite: gRPC systems a course could ship, and four cases that test
+# the scaler engine rather than the systems.
 #
 # Different from ./check.sh on purpose. That one is losim's own acceptance
 # criteria, calling into losim's classes. This one is the product surface: the
@@ -58,7 +59,7 @@ assert() {                                        # class [paths...]
 run_case() { run_scenario "$1" "$3"; assert "$2" "$OUT/traces/$1.json" "$OUT/traces/$1.out"; }
 
 cases=("$@")
-if [ ${#cases[@]} -eq 0 ]; then cases=(t1 t2 t3 t4 t5 t6 t7 t8 t9); fi
+if [ ${#cases[@]} -eq 0 ]; then cases=(t1 t2 t3 t4 t5 t6 t7 t8 t9 t10 t11 t12 t13 bill); fi
 
 for c in "${cases[@]}"; do
   case "$c" in
@@ -75,6 +76,36 @@ for c in "${cases[@]}"; do
     t7) run_scenario t7 t7.yaml
         run_scenario t7-unsafe t7-unsafe.yaml
         assert T7 "$OUT/traces/t7.json" "$OUT/traces/t7-unsafe.out" ;;
+
+    # The four engine cases. Each scaled run fits a plan from a grid of about thirty
+    # small runs, which is where this suite's minutes go — and it is the price of
+    # checking the one thing losim claims that a smaller simulator does not.
+    t10) run_scenario t10 t10.yaml
+         run_scenario t10-truth t10-truth.yaml
+         assert T10 "$OUT/traces/t10.json" "$OUT/traces/t10-truth.json" ;;
+    # Over the traces t10 already wrote, so the one case that reads nearly every
+    # channel costs no runs of its own.
+    bill) [ -f "$OUT/traces/t10.json" ] || { run_scenario t10 t10.yaml
+                                             run_scenario t10-truth t10-truth.yaml; }
+          assert TBill "$OUT/traces/t10.json" "$OUT/traces/t10-truth.json" ;;
+    t11) for cell in fleet2 fleet4 fleet8 kill chaos; do
+           run_scenario "t11-$cell" "t11-$cell.yaml"
+         done
+         assert T11 "$OUT/traces/t11-fleet2.json" "$OUT/traces/t11-fleet4.json" \
+                    "$OUT/traces/t11-fleet8.json" "$OUT/traces/t11-kill.json" \
+                    "$OUT/traces/t11-chaos.json" ;;
+    t12) run_scenario t12-spill t12-spill.yaml
+         run_scenario t12-overhead t12-overhead.yaml
+         assert T12 "$OUT/traces/t12-spill.json" "$OUT/traces/t12-overhead.out" ;;
+    # One scenario, four times. The plan cache is keyed on the telemetry level as
+    # well as on the code, or three of these would silently reuse the first one's
+    # plan and the case would be checking nothing at all.
+    t13) run_scenario t13-off       t13.yaml        --telemetry OFF
+         run_scenario t13-nopayload t13.yaml        --telemetry NO_PAYLOAD
+         run_scenario t13-full      t13.yaml        --telemetry FULL
+         run_scenario t13-chatty    t13-chatty.yaml --telemetry FULL
+         assert T13 "$OUT/traces/t13-off.json" "$OUT/traces/t13-nopayload.json" \
+                    "$OUT/traces/t13-full.json" "$OUT/traces/t13-chatty.json" ;;
     *)  echo "no such case: $c" >&2; exit 2 ;;
   esac
 done

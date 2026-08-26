@@ -1,0 +1,23 @@
+# Eight workers. If the engine has folded the fleet dimension into the data
+# dimension, this is the cell where it shows: a resource that is really a function
+# of the data will look like a function of the fleet, and be wrong about both.
+mode: scaled
+seed: 11
+kTime: 40
+job: Elastic
+expectedRun: 30 refSeconds
+
+workload:
+  records: 48000
+  probe: [1000, 2000, 4000, 8000]
+  fleets: [4, 8]
+
+machines:
+  master: { instance: m5.2xlarge, zone: eu-central-1a }
+  workers:
+    count: 8
+    prefix: w
+    instance: r5.large
+    zone: eu-central-1a
+    serves: [Combiner]
+

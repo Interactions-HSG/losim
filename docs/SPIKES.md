@@ -22,6 +22,15 @@ The claims are checked continuously rather than historically: `./check.sh` re-ru
 the ones that would regress silently — the transparency law (S7), the questions
 telemetry must answer (S4) and the trace's size budget — against the real tree.
 
+And the two that regress *invisibly* are checked again from outside, in
+[tests/](../tests/), through the command line rather than through losim's own
+classes. **t13** refits one ladder at four levels of instrumentation, up to a
+thousand `reveal` calls per handler, and asserts the fitted laws rather than the
+numbers — because when the observer effect comes back, every number stays plausible
+and only the projection is wrong. **t10** projects a job six times the size of
+anything it ran and then runs that job for real, which is the only check the scaler
+engine has that it cannot pass by being merely well-formed.
+
 ---
 
 ## S1 — Is per-machine memory measurable?  **PASS**

@@ -1,0 +1,27 @@
+# The other way an extrapolation fails: not a bend, but a probe too small to have
+# measured the workload at all.
+#
+# Every worker writes a fixed 64 MB index before it is any use. At probe scale that
+# index is almost the whole disk figure, and the part that varies with the data is a
+# rounding error on top of it. Four points that are all index cannot say what the
+# data costs, so there is no feasible size on this ladder and the engine says so
+# rather than fitting the index and calling it a law.
+mode: scaled
+seed: 12
+kTime: 40
+job: Elastic
+expectedRun: 30 refSeconds
+
+workload:
+  records: 48000
+  probe: [1000, 2000, 4000, 8000]
+  fleets: [2, 4]
+
+machines:
+  master: { instance: m5.2xlarge, zone: eu-central-1a }
+  workers:
+    count: 4
+    prefix: w
+    instance: r5.large
+    zone: eu-central-1a
+    serves: [Prefill]

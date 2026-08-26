@@ -1,0 +1,24 @@
+# The same ladder again, with a thousand reveal calls in every handler instead of one.
+#
+# This is the extreme case, and it is mandatory rather than thorough: at one reveal
+# per handler an observer effect that halves a fitted exponent is undetectable. Every
+# number stays plausible, nothing looks broken, and only the projection is wrong.
+mode: scaled
+seed: 13
+kTime: 40
+job: Elastic
+expectedRun: 30 refSeconds
+
+workload:
+  records: 48000
+  probe: [1000, 2000, 4000, 8000]
+  fleets: [2, 4]
+
+machines:
+  master: { instance: m5.2xlarge, zone: eu-central-1a }
+  workers:
+    count: 4
+    prefix: w
+    instance: r5.large
+    zone: eu-central-1a
+    serves: [Chatty]

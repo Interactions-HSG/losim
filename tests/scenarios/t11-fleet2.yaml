@@ -1,0 +1,22 @@
+# The same job and the same data on two workers. One cell of the matrix: what
+# changes between this file and its neighbours is the fleet, and nothing else.
+mode: scaled
+seed: 11
+kTime: 40
+job: Elastic
+expectedRun: 30 refSeconds
+
+workload:
+  records: 48000
+  probe: [1000, 2000, 4000, 8000]
+  fleets: [2, 4]
+
+machines:
+  master: { instance: m5.2xlarge, zone: eu-central-1a }
+  workers:
+    count: 2
+    prefix: w
+    instance: r5.large
+    zone: eu-central-1a
+    serves: [Combiner]
+

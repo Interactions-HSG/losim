@@ -23,9 +23,12 @@ scale exhausts a 16 MiB one here — for the same reason, in the student's own c
 ```bash
 ./build.sh          # the simulator -> build/losim.jar
 ./check.sh          # losim's own checks: every phase's acceptance criteria
+tests/run.sh        # the reference suite: gRPC systems, run the way a student runs them
 
 java -cp build/losim.jar losim.cli.Main run losim/test/scenarios/wordcount.yaml \
      --cp build/test-classes --out build/wordcount.json
+java -cp build/losim.jar losim.cli.Main bill build/wordcount.json
+java -cp build/losim.jar losim.cli.Main diff build/a.json build/b.json
 ```
 
 Nothing is downloaded and nothing is generated at build time. The toolchain is
@@ -228,13 +231,81 @@ iteration order are fine, because runs are not reproducible anyway. Raw threads 
 not banned either: real concurrency inside a machine is a feature. Work outside the
 machine's own pool is merely attributed to nobody, and that is what gets said.
 
+## What it cost
+
+Five buckets, printed apart rather than summed, because they are five different kinds
+of decision. Replication triples capacity and adds to build in order to empty
+incidents, and one number cannot say that.
+
+```
+what it is a model of
+  revenue     job completed                    1.000 jobs           CHF    5.0000
+  build       services carried                 1.000 services       CHF    0.2500
+  capacity    the fleet, for the period            -                CHF   refused
+      its exponent moves by 0.793 between independent seed sets of the same workload,
+      which over a factor of 6 is an error bar of x4.1 — wider than anything it would
+      be asked to distinguish
+  consumption intermediate data on disk    0.0004000 GB-month       CHF    0.0000
+```
+
+A scaled run is billed twice — for what happened, and for the job it is a model of —
+and the second bill is where this gets interesting. A bill is quantities times prices,
+and the engine will not project every quantity. **Capacity depends on the timeline,
+the timeline is the noisiest thing losim measures, and capacity is usually the largest
+line on the bill.** So the honest account routinely says: the bytes cost this much, the
+storage costs this much, and nobody can tell you what the machines cost, because nobody
+can tell you how long the job takes.
+
+That is a useful answer. It says where the uncertainty in the cost of a design actually
+lives, which is not where most people would look for it. A bucket nobody could fill in
+is not a bucket that cost nothing, and the total says it is a total of what could be
+priced.
+
+Prices are course data and live in [prices/](prices/), outside the simulator — make
+egress ruinous and watch which designs stop being sensible. What a machine costs to
+rent is deliberately not there: that belongs to the instance catalogue, beside its
+vCPUs and its memory, because it is a property of the machine rather than a choice the
+course makes.
+
+## The reference suite
+
+Thirteen cases in [tests/](tests/), plus the bill, each a gRPC system run through the
+command line a student types and asserted against the trace it wrote. **Deliberately
+not `./check.sh`**: the systems compile against `build/losim.jar` and the vendored gRPC
+alone, and every assertion reads the trace JSON off disk — because the trace is the
+interchange format, and a build whose trace was unreadable would pass every check
+losim makes of itself.
+
+Nine of them are systems. Four test the engine rather than the systems: a projection
+checked against a run at full size, a matrix that varies the fleet independently of the
+data, two workloads the engine has to refuse, and one ladder fitted at four levels of
+instrumentation. The last is the one that regresses invisibly, so it is run at the
+extreme: a thousand `reveal` calls per handler, where losim charges itself 54 MB and
+meters 162,000 regions, and the fitted exponent moves by 0.0001.
+
+It has found seven bugs so far, none of which the phase suites could see. The sharpest:
+**a job could not run at `NO_PAYLOAD` at all**, because `compute` recorded its result as
+null when payloads were off and span details are a concurrent map, which rejects a null
+value outright — the recording killed the work it was recording, and nothing had ever
+run a job at that level.
+
+CI runs everything twice, on a plain runner and inside the image a Codespace boots, and
+then compares the two traces. Not textually: runs are not reproducible and hosts are not
+identical, so a textual diff could never pass and a check that can never pass is not a
+check. What has to agree is **structure and attribution** — what kinds of thing
+happened, what each carried, which machines existed, and what each resource was found
+to be a function of. What is allowed to differ is the measurements, and those are
+printed rather than judged.
+
 ## What it does today
 
-Phases 1 through 4 are in: the fleet, direct mode, the scaler engine and the trust
-markers. One in-process server per machine, one executor per machine sized to its
-vCPU count, losim wrapped around every call as gRPC's own interceptors, a scenario
-driving all of it, an engine that decides how to shrink the world and how to project
-the results back, and a verifier that says which of the answers mean what they say.
+Phases 1 through 5 are in: the fleet, direct mode, the scaler engine, the trust
+markers and the reference suite. One in-process server per machine, one executor per
+machine sized to its vCPU count, losim wrapped around every call as gRPC's own
+interceptors, a scenario driving all of it, an engine that decides how to shrink the
+world and how to project the results back, a verifier that says which of the answers
+mean what they say, and thirteen gRPC systems in CI that say whether any of it still
+works.
 
 | | |
 |---|---|
@@ -248,6 +319,7 @@ the results back, and a verifier that says which of the answers mean what they s
 | **Two scales, per measurement** | what happened, and what it is a model of — with an error bar, or with a reason it is absent |
 | **losim's own cost, excluded** | everything losim does on a machine's threads is metered and subtracted, so what is reported is the program's |
 | **Trust markers** | real clocks, real files, real sockets, shared statics and unattributed threads, found in the compiled classes at the line they were written on — flagged, never refused |
+| **A bill, at both scales** | five buckets over the quantities the run produced — and, at full scale, a capacity line absent with a reason, because it depends on the one thing the engine would not project |
 
 That last row is the one that is easy to get wrong and impossible to notice. A
 thousand `reveal` calls per handler move the *unsubtracted* memory exponent by
@@ -266,8 +338,11 @@ losim/src/losim/res/       instance types, the heap walk, losim's own meter
 losim/src/losim/scale/     the probe grid, the laws, the solve — and the refusals
 losim/src/losim/scenario/  a fleet and its weather, as data
 losim/src/losim/verify/    what makes a number stop meaning what it says
-losim/src/losim/cli/       losim run <scenario.yaml>
+losim/src/losim/price/     five buckets, and what cannot be put in them
+losim/src/losim/cli/       losim run | bill | diff
 losim/test/                every phase's acceptance criteria, run by ./check.sh
+tests/                     the reference suite: gRPC systems, run by tests/run.sh
+prices/                    course data — what egress costs, what being late costs
 vendor/                    grpc 1.83.1, protobuf 4.36.0, protoc for two platforms
 ```
 

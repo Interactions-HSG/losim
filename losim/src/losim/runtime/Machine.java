@@ -64,6 +64,9 @@ public final class Machine implements Bound, Telemetry.Sampled {
     final AtomicLong retainedBytes = new AtomicLong();
     final AtomicLong peakRetainedBytes = new AtomicLong();
 
+    /** Bytes that left this machine for another zone, which is the traffic anyone pays for. */
+    final AtomicLong crossZoneBytes = new AtomicLong();
+
     // losim's own footprint on these threads, metered so it can be taken back off.
     final AtomicLong losimBytes   = new AtomicLong();
     final AtomicLong losimNanos   = new AtomicLong();
@@ -106,6 +109,8 @@ public final class Machine implements Bound, Telemetry.Sampled {
     Telemetry tel() { return fleet.tel; }
     public String name() { return name; }
     public int vcpu()    { return vcpu; }
+    public String instance() { return spec.name(); }
+    public String zone()     { return zone; }
     public boolean alive() { return alive; }
     public double memoryCapMb() { return memoryCapMb; }
 
@@ -299,6 +304,9 @@ public final class Machine implements Bound, Telemetry.Sampled {
                 : b.intercept(new Retrying(this, fleet.retries()), new ClientSide(this, peer)).build();
     }
 
+    /** Every service this machine offers, by name — how peers find it, and what it is. */
+    public List<String> servicesOffered() { return List.copyOf(servicesOffered); }
+
     /** Every method this machine serves. The retry gate is checked against these. */
     List<io.grpc.MethodDescriptor<?, ?>> methods() { return List.copyOf(served); }
 
@@ -345,6 +353,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
         return Meter.allocatedBy(threadIds) - allocAtBoot;
     }
 
+    public long crossZoneBytes() { return crossZoneBytes.get(); }
     public long losimBytes()   { return losimBytes.get(); }
     public long losimNanos()   { return losimNanos.get(); }
     public long losimRegions() { return losimRegions.get(); }

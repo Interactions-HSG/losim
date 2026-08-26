@@ -10,4 +10,5 @@ echo "building losim..."
 echo
 echo "ready. Try:"
 echo "  ./build.sh    the simulator, into build/losim.jar"
-echo "  ./check.sh    losim's own checks — every phase's acceptance criteria"
+echo "  ./check.sh    losim’s own checks — every phase’s acceptance criteria"
+echo "  tests/run.sh  the reference suite — gRPC systems, run the way a student runs them"

@@ -1,0 +1,26 @@
+# The core claim, stated as a scenario: this is a forty-thousand-record job, and
+# losim is to tell you what it does without ever running one that size.
+#
+# The engine climbs a ladder of four small runs, fits a law per resource against
+# whatever that resource is actually a function of, and projects. What it is being
+# checked against is t10-truth.yaml — the same fleet, the same code, the same
+# corpus, run at full size for real.
+mode: scaled
+seed: 7
+kTime: 40
+job: Elastic
+expectedRun: 30 refSeconds
+
+workload:
+  records: 48000
+  probe: [1000, 2000, 4000, 8000]
+  fleets: [2, 4]
+
+machines:
+  master: { instance: m5.2xlarge, zone: eu-central-1a }
+  workers:
+    count: 4
+    prefix: w
+    instance: r5.large
+    zone: eu-central-1a
+    serves: [Combiner]

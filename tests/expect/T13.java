@@ -1,0 +1,103 @@
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * t13-transparent — does how closely it is watched change what it says?
+ *
+ * <p><b>Catches:</b> the observer effect creeping back in. It regresses silently and
+ * invisibly: every number stays plausible and only the projection is wrong. losim
+ * runs on the machine's own threads, so opening a span, rendering an argument and
+ * accounting a cost all allocate and all take wall clock on exactly the threads
+ * whose allocation and duration are the measurement — and the thread counter cannot
+ * tell losim's bytes from the program's.
+ *
+ * <p>What is asserted is the <b>fitted laws</b>, not the numbers. Recording costs
+ * what it costs; the law is what ships, and the law has to be the same.
+ *
+ * <p>Four runs of one ladder: with telemetry off, with it on but recording no
+ * payloads, with every argument and result rendered, and with a thousand
+ * {@code reveal} calls in every handler. <b>The last is mandatory rather than
+ * thorough</b> — at one reveal per handler a leak that halves an exponent is
+ * undetectable.
+ */
+public final class T13 {
+
+    public static void main(String[] args) {
+        var e = Expect.of("t13-transparent", args);
+        var runs = new LinkedHashMap<String, Expect>();
+        String[] names = {"off", "no payloads", "full", "full, 1000 reveals"};
+        for (int i = 0; i < names.length; i++)
+            runs.put(names[i], i == 0 ? e : Expect.of("", new String[]{args[i]}));
+
+        // Allocation is the resource the observer inflates, and it is fitted against
+        // records at every level — so this is the one comparison that can be made
+        // across all four runs at once.
+        var alloc = new LinkedHashMap<String, Double>();
+        runs.forEach((name, r) -> alloc.put(name, beta(r, "allocMb")));
+        e.note("allocation exponent: " + alloc.entrySet().stream()
+                .map(x -> String.format("%s %.4f", x.getKey(), x.getValue())).toList());
+        double lo = alloc.values().stream().mapToDouble(Double::doubleValue).min().orElse(0);
+        double hi = alloc.values().stream().mapToDouble(Double::doubleValue).max().orElse(0);
+        e.check(hi - lo < 0.05, String.format(
+                "the allocation exponent moves by %.4f between telemetry off, telemetry on, "
+                + "every payload rendered, and a thousand reveal calls per handler — the law is "
+                + "the same law, and the law is what gets extrapolated", hi - lo));
+
+        double bare = beta(runs.get("no payloads"), "memoryMb");
+        double watched = beta(runs.get("full"), "memoryMb");
+        e.check(Math.abs(bare - watched) < 0.02, String.format(
+                "and the memory exponent is %.4f without payloads against %.4f with them — "
+                + "rendering an argument and a result is the most expensive thing losim does, "
+                + "about three times everything else, and it lands on exactly the threads being "
+                + "measured", bare, watched));
+
+        // Proof that the exclusion is doing work rather than there being nothing to
+        // exclude. If the ledger were empty the assertions above would be vacuous.
+        double ledgerOff = runs.get("off").sum("losimMb");
+        double ledgerFull = runs.get("full").sum("losimMb");
+        double ledgerChatty = runs.get("full, 1000 reveals").sum("losimMb");
+        long regionsFull = (long) runs.get("full").sum("losimRegions");
+        long regionsChatty = (long) runs.get("full, 1000 reveals").sum("losimRegions");
+        e.note(String.format("losim charged itself %.2f MB off, %.2f MB watched, %.2f MB chatty; "
+                + "%,d metered regions against %,d", ledgerOff, ledgerFull, ledgerChatty,
+                regionsFull, regionsChatty));
+        e.check(ledgerFull > ledgerOff * 1.5 && regionsChatty > regionsFull * 5,
+                "and the exclusion had real work to do: watching costs materially more than not "
+                + "watching, and the chatty run meters many times more regions than the quiet "
+                + "one — so the laws agreeing above is subtraction working, not nothing having "
+                + "gone wrong");
+
+        // Metered, not modelled. Nothing assumes a call count or a per-call constant,
+        // which is why a program that leans on losim heavily is simply excluded more.
+        double reportedFull = runs.get("full").sum("allocMb");
+        double reportedChatty = runs.get("full, 1000 reveals").sum("allocMb");
+        double rawFull = reportedFull + ledgerFull;
+        double rawChatty = reportedChatty + ledgerChatty;
+        e.note(String.format("the fleet reports %.1f MB quiet and %.1f MB chatty; before "
+                + "subtraction it was %.1f and %.1f", reportedFull, reportedChatty, rawFull, rawChatty));
+        e.check(rawChatty - rawFull > ledgerFull,
+                "the raw figure moves by more than the whole of the quiet run's overhead when "
+                + "the instrumentation goes up a thousandfold — so there is plainly something "
+                + "there to subtract, and the trace carries the ledger rather than asking to "
+                + "be believed");
+
+        // What turning telemetry off actually costs, which is not only trace size.
+        e.check("records".equals(variable(runs.get("off"), "memoryMb"))
+                && "revealed.distinctKeys".equals(variable(runs.get("full"), "memoryMb")),
+                "and with telemetry off the engine can only fit memory against records, because "
+                + "nothing revealed anything — turning it off does not merely make the trace "
+                + "smaller, it removes the evidence resources are attributed with");
+        e.done();
+    }
+
+    static Map<String, Object> law(Expect r, String resource) {
+        return T10.sub(T10.sub(T10.sub(r.meta(), "scale"), "laws"), resource);
+    }
+
+    static double beta(Expect r, String resource) { return Expect.num(law(r, resource).get("beta")); }
+
+    static String variable(Expect r, String resource) {
+        return String.valueOf(law(r, resource).get("variable"));
+    }
+}

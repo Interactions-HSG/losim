@@ -1,0 +1,98 @@
+# The same commands, in two places, producing the same simulator.
+#
+# That is the whole of D10, and it is why this file runs everything twice rather
+# than once. A number that depends on where it was computed is the one thing a
+# simulator cannot afford — so the suite runs on a plain runner and again inside the
+# devcontainer image a Codespace boots, and the two traces are then compared.
+#
+# What is compared is structure and attribution, not measurements: runs are not
+# reproducible (D1) and a Codespace is slower than a laptop, so a textual diff could
+# never pass and a check that can never pass is not a check. See losim/cli/Diff.java.
+name: losim
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # Every phase's acceptance criteria, calling into losim's own classes. Fast, and
+  # the thing that fails first when something regresses.
+  checks:
+    name: losim's own checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '25' }
+      - run: ./build.sh
+      - run: ./check.sh
+
+  # The product surface: gRPC systems compiled against the jar alone, run through the
+  # command line a student types, asserted against the trace on disk.
+  #
+  # Written out twice rather than as a matrix, because the two legs differ in the one
+  # thing a matrix cannot cleanly vary — whether the job runs in a container at all —
+  # and a clever expression that sometimes evaluates to "no container" is a worse
+  # thing to debug than eighteen duplicated lines.
+  suite-runner:
+    name: reference suite (a plain runner)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '25' }
+      - run: ./build.sh
+      - run: tests/run.sh
+      # One direct trace and one scaled one. The direct trace carries every event
+      # kind, span kind and sampled channel the fleet produces; the scaled one
+      # carries what each resource was found to be a function of, which is a fact
+      # about the program and must not depend on where the program ran.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: traces-runner
+          path: |
+            build/tests/traces/t6.json
+            build/tests/traces/t10.json
+
+  suite-codespace:
+    name: reference suite (the Codespace image)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # The image a Codespace boots, used unchanged. Nothing is installed and nothing
+    # is downloaded: if the vendored toolchain is incomplete, this is where it shows.
+    container: mcr.microsoft.com/devcontainers/java:25-bookworm
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./build.sh
+      - run: tests/run.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: traces-codespace
+          path: |
+            build/tests/traces/t6.json
+            build/tests/traces/t10.json
+
+  # D10, stated as a job: are these two the same simulator?
+  parity:
+    name: devcontainer and Codespace agree
+    needs: [suite-runner, suite-codespace]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '25' }
+      - run: ./build.sh
+      - uses: actions/download-artifact@v4
+        with: { path: build/parity }
+      - name: compare the traces
+        run: |
+          set -e
+          for trace in t6 t10; do
+            echo "=== $trace ==="
+            java -cp build/losim.jar losim.cli.Main diff \
+                 "build/parity/traces-runner/$trace.json" \
+                 "build/parity/traces-codespace/$trace.json"
+          done

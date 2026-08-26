@@ -1,0 +1,27 @@
+# A reducer that spills to disk once its bucket outgrows what it will hold in
+# memory. Perfectly reasonable behaviour, and the exact thing an extrapolation must
+# not be allowed to cross: below the threshold memory climbs with vocabulary, above
+# it memory flattens and disk takes over. A law fitted below predicts a machine that
+# fills up; a law fitted across predicts something that happened at neither end.
+#
+# The ladder is chosen to straddle the threshold, because a ladder entirely on one
+# side of it would fit beautifully and be wrong about the other side.
+mode: scaled
+seed: 12
+kTime: 40
+job: Elastic
+expectedRun: 30 refSeconds
+
+workload:
+  records: 48000
+  probe: [1000, 2000, 4000, 8000]
+  fleets: [2, 4]
+
+machines:
+  master: { instance: m5.2xlarge, zone: eu-central-1a }
+  workers:
+    count: 4
+    prefix: w
+    instance: r5.large
+    zone: eu-central-1a
+    serves: [Spillover]

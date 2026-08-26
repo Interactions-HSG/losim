@@ -178,9 +178,19 @@ public final class Telemetry {
         s.t1 = now();
     }
 
+    /**
+     * Key-value pairs, with absent values dropped rather than recorded as null.
+     *
+     * <p>An absent key is what a reader can act on; a key whose value is null is a
+     * question. And the detail maps are concurrent ones, which reject a null value
+     * outright — so a caller that omits a value conditionally, as every one of them
+     * does at {@link Level#NO_PAYLOAD}, would otherwise take down the very work it
+     * was recording.
+     */
     private static Map<String, Object> map(Object... kv) {
         var m = new LinkedHashMap<String, Object>();
-        for (int i = 0; i + 1 < kv.length; i += 2) m.put(String.valueOf(kv[i]), kv[i + 1]);
+        for (int i = 0; i + 1 < kv.length; i += 2)
+            if (kv[i + 1] != null) m.put(String.valueOf(kv[i]), kv[i + 1]);
         return m;
     }
 

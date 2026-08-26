@@ -1,0 +1,27 @@
+# Four workers under a standing rate of failure rather than one scripted moment,
+# and these ones do not come back. Failures are discrete and rare, so this is what
+# a fleet's bad afternoon looks like on average rather than what one particular
+# afternoon looked like — which is why the amplification term is fitted over
+# several seeds rather than read off one run.
+mode: scaled
+seed: 11
+kTime: 40
+job: Elastic
+expectedRun: 30 refSeconds
+
+workload:
+  records: 48000
+  probe: [1000, 2000, 4000, 8000]
+  fleets: [2, 4]
+
+machines:
+  master: { instance: m5.2xlarge, zone: eu-central-1a }
+  workers:
+    count: 4
+    prefix: w
+    instance: r5.large
+    zone: eu-central-1a
+    serves: [Combiner]
+
+chaos:
+  - { kill: { every: 900 refMs, among: workers } }

@@ -1,0 +1,22 @@
+# Four workers. The middle of the fleet row, and the clean cell every weathered
+# cell is compared against.
+mode: scaled
+seed: 11
+kTime: 40
+job: Elastic
+expectedRun: 30 refSeconds
+
+workload:
+  records: 48000
+  probe: [1000, 2000, 4000, 8000]
+  fleets: [2, 4]
+
+machines:
+  master: { instance: m5.2xlarge, zone: eu-central-1a }
+  workers:
+    count: 4
+    prefix: w
+    instance: r5.large
+    zone: eu-central-1a
+    serves: [Combiner]
+

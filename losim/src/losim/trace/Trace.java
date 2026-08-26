@@ -24,10 +24,23 @@ public final class Trace {
     private final List<Telemetry.Event> events = new ArrayList<>();
     private final List<Telemetry.Span> spans = new ArrayList<>();
     private final Map<String, Telemetry.Series> series = new TreeMap<>();
+    private final List<Map<String, Object>> machines = new ArrayList<>();
     private double[] sampleTimes = new double[0];
     private double sampleDtMs;
 
     public Trace meta(String k, Object v) { meta.put(k, v); return this; }
+
+    /**
+     * What each machine consumed, in total, by the time the run ended.
+     *
+     * <p>A fourth top-level channel rather than a fifth kind of event, for the same
+     * reason spans and series are: these are not moments. They are the run's closing
+     * balance, and everything that reasons about quantities rather than about what
+     * happened — the bill, a ground-truth comparison, a machine's row in the
+     * viewer — needs them without having to reconstruct a peak from a sampled series
+     * that was quantised for scrubbing and may have missed the last walk entirely.
+     */
+    public Trace machine(Map<String, Object> totals) { machines.add(totals); return this; }
 
     /** Takes everything a recorder holds. Ordered by time, so a reader can scrub. */
     public static Trace of(Telemetry tel) {
@@ -120,6 +133,7 @@ public final class Trace {
         }
         ser.put("channels", channels);
         root.put("series", ser);
+        root.put("machines", machines);
 
         return Json.write(root);
     }

@@ -49,7 +49,8 @@ public final class Run {
          * a megabyte fits the rounding rather than the workload.
          */
         public record Totals(String name, long peakRetainedBytes, long allocatedBytes,
-                             long diskBytes, long bytesOut, long bytesIn, long handledCalls,
+                             long diskBytes, long bytesOut, long bytesIn, long crossZoneBytes,
+                             long handledCalls, long losimBytes, long losimRegions,
                              double memoryCapMb, boolean alive) {}
 
         public double peakOf(java.util.function.ToDoubleFunction<Totals> of) {
@@ -176,7 +177,8 @@ public final class Run {
                 if (m.alive()) m.measureRetained();
                 totals.put(m.name(), new Result.Totals(m.name(), m.peakRetainedBytes(),
                         m.allocatedBytes(), m.diskBytes(), m.bytesOut(), m.bytesIn(),
-                        m.handledCalls(), m.memoryCapMb(), m.alive()));
+                        m.crossZoneBytes(), m.handledCalls(), m.losimBytes(), m.losimRegions(),
+                        m.memoryCapMb(), m.alive()));
             }
 
             var trace = Trace.of(tel)
@@ -188,8 +190,54 @@ public final class Run {
             if (failure != null) trace.meta("failure", failure);
             if (s.tightMargin()) trace.meta("tightMargin", true);
             if (trust.checked()) trace.meta("trusted", trust.clean());
+
+            // The closing balance, in the same units and under the same names the
+            // engine fits its laws on — so an observed figure and a projected one can
+            // be put beside each other without a translation table in between.
+            for (Machine machine : fleet.all()) {
+                Result.Totals t = totals.get(machine.name());
+                var m = new LinkedHashMap<String, Object>();
+                m.put("name", t.name());
+                // What it was, not only what it did. A bill and a viewer both need
+                // this, and reading it back off a boot event would make both of them
+                // depend on a telemetry level being on.
+                m.put("instance", machine.instance());
+                m.put("zone", machine.zone());
+                m.put("vcpu", machine.vcpu());
+                m.put("serves", machine.servicesOffered());
+                m.put("memoryMb", mb(t.peakRetainedBytes()));
+                m.put("allocMb", mb(t.allocatedBytes()));
+                m.put("diskMb", mb(t.diskBytes()));
+                m.put("wireMb", mb(t.bytesOut()));
+                m.put("inMb", mb(t.bytesIn()));
+                // Apart from the rest, because traffic between zones is the traffic
+                // anyone is billed for and traffic inside one is free.
+                m.put("crossZoneMb", mb(t.crossZoneBytes()));
+                m.put("calls", t.handledCalls());
+                // What losim itself cost this machine, and how often it stopped to
+                // meter. Published rather than kept private, because "allocMb is the
+                // program's own" is a claim, and a reader is entitled to see the size
+                // of what was taken off it before believing it.
+                m.put("losimMb", mb(t.losimBytes()));
+                m.put("losimRegions", t.losimRegions());
+                m.put("memCapMb", Machine.round(t.memoryCapMb()));
+                m.put("alive", t.alive());
+                trace.machine(m);
+            }
             return new Result(trace, tel, completed, failure, ended - started, totals, trust);
         }
+    }
+
+    /**
+     * Bytes, as megabytes, to about a byte.
+     *
+     * <p>Megabytes because that is what the engine names its laws in, so an observed
+     * figure and a projected one sit beside each other without a conversion in
+     * between. Six places because three is a kilobyte, and a run small enough to be
+     * measured in kilobytes would report every byte it moved as zero.
+     */
+    private static double mb(long bytes) {
+        return Math.round(bytes / 1048576.0 * 1e6) / 1e6;
     }
 
     // ----------------------------------------------------------------- wiring up
