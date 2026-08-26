@@ -1,7 +1,8 @@
 {
-  // losim's own sources, plus the protobuf the checks generate. Lab code will
-  // compile against build/losim.jar alone, so a student cannot edit the simulator.
-  "java.project.referencedLibraries": ["vendor/jars/*.jar"],
-  "java.project.sourcePaths": ["losim/src", "losim/test/src", "build/test-gen"],
+  // losim's own sources, plus the protobuf the checks generate. Lab code compiles
+  // against build/losim.jar alone, so a student cannot edit the simulator.
+  // JUnit is listed separately because it belongs to a test and nowhere else.
+  "java.project.referencedLibraries": ["vendor/jars/*.jar", "vendor/test-jars/*.jar"],
+  "java.project.sourcePaths": ["losim/src", "losim/test/src", "losim/test/junit", "build/test-gen"],
   "java.project.outputPath": "build/ide"
 }

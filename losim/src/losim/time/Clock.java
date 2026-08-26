@@ -38,7 +38,7 @@ public final class Clock {
 
     private final double kTime;
     private final double correction;
-    private final long originNs = System.nanoTime();
+    private volatile long originNs = System.nanoTime();
 
     /** Owed nanoseconds, per thread: a debt is a property of whoever incurred it. */
     private final ThreadLocal<double[]> debt = ThreadLocal.withInitial(() -> new double[1]);
@@ -55,6 +55,18 @@ public final class Clock {
 
     public double kTime()      { return kTime; }
     public double correction() { return correction; }
+
+    /**
+     * Starts the clock now, discarding whatever setting up the fleet took.
+     *
+     * <p>Building six in-process servers costs real milliseconds, and at a k_time
+     * of ten that is hundreds of reference milliseconds of a run that has not begun.
+     * Left alone it puts every fault written for an early instant in the past, so
+     * they all fire at once during setup — and it means an instant in the scenario
+     * is not the same instant in the trace, which is the one correspondence a reader
+     * needs.
+     */
+    public void restart() { originNs = System.nanoTime(); }
 
     /** Simulated milliseconds since this clock began — what the scenario is written in. */
     public double nowMs() { return (System.nanoTime() - originNs) / 1e6 * kTime; }

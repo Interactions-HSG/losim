@@ -71,6 +71,20 @@ public interface LosimCtx {
      */
     void records(long n);
 
+    /**
+     * Records that this call wrote bytes to the machine's disk.
+     *
+     * <p>Not a recording call, and it does not behave like one: a machine whose
+     * disk is full cannot take the write, so this <b>throws</b> when the cap is
+     * exceeded, and the handler fails the way it would have failed for real.
+     * Recording the write and carrying on would let a design that cannot fit on
+     * its disks appear to work.
+     *
+     * <p>Silent outside a run, like the recording calls — a unit test has no disk
+     * to fill.
+     */
+    void wroteDisk(long bytes);
+
     // -------------------------------------------------------------------- state
 
     /** The name of the machine serving this call. */

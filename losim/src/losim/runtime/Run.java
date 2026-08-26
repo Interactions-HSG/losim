@@ -1,0 +1,308 @@
+package losim.runtime;
+
+import io.grpc.BindableService;
+import io.grpc.Channel;
+import io.grpc.ManagedChannel;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.function.Supplier;
+import losim.api.Cluster;
+import losim.api.Job;
+import losim.res.InstanceCatalog;
+import losim.scenario.Scenario;
+import losim.scenario.Scenario.*;
+import losim.time.Clock;
+import losim.time.Dispatcher;
+import losim.trace.Telemetry;
+import losim.trace.Trace;
+import losim.trace.Values;
+
+/**
+ * A scenario, actually run.
+ *
+ * <p>Everything the file declared is assembled here in one order that matters:
+ * the machines and their services first, because the retry gate has to be checked
+ * against what the fleet really serves; then the faults, which need every machine
+ * to exist before one can be aimed at; then the sampler; and only then the job.
+ *
+ * <p>The run ends when the job returns, throws, or outstays its welcome. All three
+ * are recorded — a run that failed is a result, not an absence of one.
+ */
+public final class Run {
+
+    /** What a run produced. A failure is part of the result, not an exception thrown past it. */
+    public record Result(Trace trace, Telemetry telemetry, boolean completed,
+                         String failure, double durationRefMs) {}
+
+    private Run() {}
+
+    public static Result of(Scenario s) throws Exception {
+        return of(s, Thread.currentThread().getContextClassLoader());
+    }
+
+    public static Result of(Scenario s, ClassLoader loader) throws Exception {
+        return of(s, loader, Telemetry.Level.FULL);
+    }
+
+    public static Result of(Scenario s, ClassLoader loader, Telemetry.Level level) throws Exception {
+        var clock = new Clock(s.kTime(), Clock.measureCorrection());
+        var tel = new Telemetry(clock, level);
+        var net = new Net(s.seed())
+                .latency(s.net().sameZoneRefMs(), s.net().crossZoneRefMs())
+                .jitter(s.net().jitterRefMs())
+                .loss(s.net().loss());
+
+        String failure = null;
+        boolean completed = false;
+        double started;
+
+        try (var fleet = new Fleet(tel, net)) {
+            var byName = new LinkedHashMap<String, Machine>();
+            for (MachineSpec m : s.machines()) {
+                var spec = InstanceCatalog.get(m.instance());
+                var machine = fleet.machine(m.name(), m.instance(), m.zone(),
+                        m.memoryCapMb() != null ? m.memoryCapMb() : spec.memoryMb(),
+                        m.diskCapMb() != null ? m.diskCapMb() : spec.storageGb() * 1024.0);
+                for (String service : m.serves())
+                    machine.serves(factory(service, loader, m.where()));
+                if (m.serves().isEmpty()) machine.serving();     // listening, offering nothing
+                byName.put(m.name(), machine);
+            }
+
+            // Checked here, before a single call is made: a retry policy the schema
+            // does not support is a line to fix, not a duplicate write to discover.
+            fleet.retrying(s.retries());
+
+
+            fleet.begin();
+            tel.event("-", "scenario", "file", s.file(), "seed", s.seed(), "kTime", s.kTime(),
+                      "machines", s.machines().size(), "job", s.job(),
+                      "tightMargin", s.tightMargin() ? true : null);
+            fleet.startSampling(s.expectedRunRefMs());
+
+            // Scheduled only now, against a clock that starts at zero, so a fault
+            // written at 120 refMs lands at 120 refMs in the trace.
+            var dispatcher = new Dispatcher(clock);
+            schedule(s, fleet, byName, dispatcher, tel);
+            dispatcher.start();
+
+            Machine entry = byName.values().iterator().next();
+            var cluster = new Live(fleet, entry, tel, s.expectedRunRefMs());
+            Job job = job(s.job(), loader);
+            started = tel.now();
+            var span = tel.open(entry.name, "job", s.job());
+            try {
+                entry.submit(() -> {
+                    try { job.run(cluster); }
+                    catch (Exception e) { throw new CompletionException(e); }
+                }).get((long) Math.max(30_000, s.expectedRunRefMs() / s.kTime() * 10),
+                       TimeUnit.MILLISECONDS);
+                completed = true;
+                tel.close(span, "OK");
+            } catch (ExecutionException e) {
+                Throwable cause = e.getCause() instanceof CompletionException c ? c.getCause() : e.getCause();
+                failure = cause.getClass().getSimpleName() + ": " + cause.getMessage();
+                tel.close(span, "FAILED", "error", failure);
+                tel.event(entry.name, "job_failed", "error", failure);
+            } catch (TimeoutException e) {
+                failure = "the job did not finish within ten times its declared expectedRun";
+                tel.close(span, "TIMEOUT", "error", failure);
+                tel.event(entry.name, "job_failed", "error", failure);
+            }
+
+            dispatcher.close();
+            cluster.closeChannels();
+            fleet.stopSampling();
+            double ended = tel.now();
+
+            var trace = Trace.of(tel)
+                    .meta("scenario", s.file())
+                    .meta("seed", s.seed())
+                    .meta("job", s.job())
+                    .meta("completed", completed)
+                    .meta("durationRefMs", Math.round(ended - started));
+            if (failure != null) trace.meta("failure", failure);
+            if (s.tightMargin()) trace.meta("tightMargin", true);
+            return new Result(trace, tel, completed, failure, ended - started);
+        }
+    }
+
+    // ----------------------------------------------------------------- wiring up
+
+    /** Builds a service by name, so a restarted machine can be given a fresh one. */
+    private static Supplier<BindableService> factory(String className, ClassLoader loader,
+                                                     String where) {
+        Class<?> type;
+        try { type = Class.forName(className, true, loader); }
+        catch (ClassNotFoundException e) {
+            throw new IllegalArgumentException(where + ": no class called '" + className
+                    + "' is on the classpath. 'serves:' names a class implementing a generated"
+                    + " gRPC service; write it fully qualified if it is in a package.");
+        }
+        if (!BindableService.class.isAssignableFrom(type))
+            throw new IllegalArgumentException(where + ": '" + className + "' is not a gRPC"
+                    + " service. It has to extend the ImplBase that protoc generated — machines"
+                    + " talk over gRPC and nothing else.");
+        try { type.getDeclaredConstructor(); }
+        catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException(where + ": '" + className + "' needs a"
+                    + " no-argument constructor, because losim builds a fresh one when a machine"
+                    + " restarts. Whatever it needs, it can ask Losim.current() for.");
+        }
+        return () -> {
+            try {
+                var c = type.getDeclaredConstructor();
+                c.setAccessible(true);
+                return (BindableService) c.newInstance();
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException(where + ": could not build '" + className + "'", e);
+            }
+        };
+    }
+
+    private static Job job(String className, ClassLoader loader) {
+        try {
+            Class<?> type = Class.forName(className, true, loader);
+            if (!Job.class.isAssignableFrom(type))
+                throw new IllegalArgumentException("'" + className + "' is named as the job, so it"
+                        + " has to implement losim.api.Job");
+            var c = type.getDeclaredConstructor();
+            c.setAccessible(true);
+            return (Job) c.newInstance();
+        } catch (ClassNotFoundException e) {
+            throw new IllegalArgumentException("no class called '" + className + "' is on the"
+                    + " classpath to run as the job");
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("could not build the job '" + className + "'", e);
+        }
+    }
+
+    // ------------------------------------------------------------------- weather
+
+    private static void schedule(Scenario s, Fleet fleet, Map<String, Machine> byName,
+                                 Dispatcher d, Telemetry tel) {
+        for (Fault f : s.faults()) {
+            Machine target = byName.get(f.target());
+            switch (f.kind()) {
+                case KILL -> {
+                    d.at(f.atRefMs(), () -> target.kill("killed by the scenario"));
+                    if (f.restartAfterRefMs() > 0)
+                        d.at(f.atRefMs() + f.restartAfterRefMs(), target::restart);
+                }
+                case FREEZE -> {
+                    d.at(f.atRefMs(), () -> target.freeze(f.forRefMs()));
+                    // The thaw is scheduled too: a pause ends whether or not a call
+                    // happened to be waiting at the moment it did.
+                    d.at(f.atRefMs() + f.forRefMs(), target::thaw);
+                }
+                case DEGRADE  -> d.at(f.atRefMs(), () -> target.degrade(f.factor()));
+                case RESTART  -> d.at(f.atRefMs(), target::restart);
+                case SPOT_RECLAIM -> {
+                    // The notice is the whole lesson: a spot machine tells you it is
+                    // going, and a design that ignores the warning deserves what happens.
+                    d.at(f.atRefMs(), () -> tel.event(f.target(), "spot_notice",
+                            "inRefMs", f.noticeRefMs()));
+                    d.at(f.atRefMs() + f.noticeRefMs(), () -> target.kill("spot reclaimed"));
+                    if (f.restartAfterRefMs() > 0)
+                        d.at(f.atRefMs() + f.noticeRefMs() + f.restartAfterRefMs(), target::restart);
+                }
+                case PARTITION -> d.at(f.atRefMs(), () -> {
+                    fleet.net().partition(f.target(), f.other());
+                    tel.event(f.target(), "partition", "from", f.other());
+                });
+                case HEAL -> d.at(f.atRefMs(), () -> {
+                    fleet.net().heal(f.target(), f.other());
+                    tel.event(f.target(), "heal", "with", f.other());
+                });
+            }
+        }
+
+        // Chaos is a rate, not a moment, so the draws are exponential: the gaps
+        // vary the way real bad afternoons do, and a sweep of seeds shows the spread.
+        var rng = new Random(s.seed() * 31 + 7);
+        for (Chaos c : s.chaos()) {
+            var pool = s.machines().stream()
+                    .filter(m -> m.pool().equals(c.among()) || m.name().equals(c.among()))
+                    .map(MachineSpec::name).toList();
+            double t = 0;
+            while (true) {
+                t += -Math.log(1 - rng.nextDouble()) * c.everyRefMs();
+                if (t > s.expectedRunRefMs()) break;
+                final double at = t;
+                final long draw = rng.nextLong();
+                d.at(at, () -> {
+                    var live = pool.stream().map(byName::get)
+                            .filter(m -> m != null && m.alive()).toList();
+                    if (live.isEmpty()) return;
+                    Machine victim = live.get(Math.floorMod(draw, live.size()));
+                    tel.event(victim.name, "chaos", "kind", c.kind().name().toLowerCase(),
+                              "among", c.among(), "atRefMs", Machine.round(at));
+                    switch (c.kind()) {
+                        case KILL    -> victim.kill("chaos");
+                        case FREEZE  -> {
+                            victim.freeze(c.forRefMs());
+                            d.at(at + c.forRefMs(), victim::thaw);
+                        }
+                        case DEGRADE -> victim.degrade(c.factor());
+                        default -> { }
+                    }
+                });
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------- cluster
+
+    /** The fleet as the job sees it, and the channels it opened along the way. */
+    private static final class Live implements Cluster {
+        private final Fleet fleet;
+        private final Machine here;
+        private final Telemetry tel;
+        private final Map<String, ManagedChannel> channels = new ConcurrentHashMap<>();
+
+        private final double expectedRunMs;
+
+        Live(Fleet fleet, Machine here, Telemetry tel, double expectedRunMs) {
+            this.fleet = fleet; this.here = here; this.tel = tel;
+            this.expectedRunMs = expectedRunMs;
+        }
+
+        @Override public List<String> machines() { return fleet.names(); }
+        @Override public List<String> serving(String service) { return fleet.serving(service); }
+
+        @Override public Channel channelTo(String machine) {
+            if (fleet.machine(machine) == null)
+                throw new IllegalArgumentException("there is no machine called '" + machine
+                        + "'; this fleet has " + String.join(", ", fleet.names()));
+            return channels.computeIfAbsent(machine, here::channelTo);
+        }
+
+        @Override public double clockMs() { return tel.now(); }
+        @Override public double expectedRunMs() { return expectedRunMs; }
+        @Override public void log(String message) { tel.event(here.name, "log", "message", message); }
+        @Override public <T> T compute(String label, Supplier<T> body) {
+            return here.compute(label, body);
+        }
+        @Override public Phase phase(String label) {
+            Telemetry.Span span = tel.open(here.name, "phase", label);
+            var restore = io.grpc.Context.current()
+                    .withValue(Telemetry.SPAN, span).attach();
+            return new Phase() {
+                @Override public Phase note(String key, Object value) {
+                    span.detail.put(key, Values.render(value));
+                    return this;
+                }
+                @Override public void close() {
+                    io.grpc.Context.current().detach(restore);
+                    tel.close(span, "OK");
+                }
+            };
+        }
+
+        @Override public void done(Object answer) {
+            tel.event(here.name, "done", "value", Values.render(answer));
+        }
+
+        void closeChannels() { channels.values().forEach(ManagedChannel::shutdownNow); }
+    }
+}

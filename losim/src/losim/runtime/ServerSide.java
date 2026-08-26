@@ -58,7 +58,7 @@ final class ServerSide implements ServerInterceptor {
                 if (cost != null && cost.refNsPerRecord() > 0) {
                     long n = span.records.get();
                     if (n > 0) node.fleet().clock
-                            .spend(cost.refNsPerRecord() * n / 1e6 * node.machineFactor);
+                            .spend(cost.refNsPerRecord() * n / 1e6 * node.effectiveFactor());
                 }
                 long b0 = Meter.allocNow(), n0 = System.nanoTime();
                 if (tel.payloads()) span.detail.put("result", Values.render(message));
@@ -108,6 +108,10 @@ final class ServerSide implements ServerInterceptor {
 
             /** The request is complete, so this is where the handler is about to run. */
             @Override public void onHalfClose() {
+                // A frozen machine does not refuse: it holds the call, on its own
+                // thread, and the caller cannot tell that from slowness.
+                node.awaitThaw();
+
                 long b0 = Meter.allocNow(), n0 = System.nanoTime();
                 node.inflight.incrementAndGet();
                 // handler_start goes out before the cost sleep and handler_end
@@ -116,7 +120,7 @@ final class ServerSide implements ServerInterceptor {
                 node.chargeTo(span, Meter.allocNow() - b0, System.nanoTime() - n0);
 
                 if (cost != null && cost.refMs() > 0)
-                    node.fleet().clock.spend(cost.refMs() * node.machineFactor);
+                    node.fleet().clock.spend(cost.refMs() * node.effectiveFactor());
 
                 super.onHalfClose();
             }

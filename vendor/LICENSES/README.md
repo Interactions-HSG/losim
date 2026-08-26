@@ -1,5 +1,5 @@
-Everything in `vendor/jars` and `vendor/bin` is third-party and vendored
-unmodified from Maven Central.
+Everything in `vendor/jars`, `vendor/test-jars` and `vendor/bin` is third-party
+and vendored unmodified from Maven Central.
 
 | project | licence |
 |---|---|
@@ -10,5 +10,6 @@ unmodified from Maven Central.
 | animal-sniffer-annotations (`org.codehaus.mojo`) | MIT |
 | perfmark-api (`io.perfmark`) | Apache-2.0 |
 | jsr305 (`com.google.code.findbugs`) | BSD-3-Clause |
+| JUnit 5 (`org.junit.*`), opentest4j, apiguardian-api | EPL-2.0 / Apache-2.0 |
 
 Apache-2.0 text: `Apache-2.0.txt`. Versions are pinned in `../fetch.sh`.

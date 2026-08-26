@@ -40,6 +40,12 @@ public final class Machine implements Bound, Telemetry.Sampled {
     final double memoryCapMb, diskCapMb;
     /** How much slower than the reference machine this one is (D3). */
     final double machineFactor;
+    private volatile double degraded = 1.0;
+    private volatile long frozenUntilNs;
+    private final List<java.util.function.Supplier<? extends BindableService>> factories =
+            new CopyOnWriteArrayList<>();
+    private volatile boolean rebuildable;
+    private final List<io.grpc.MethodDescriptor<?, ?>> served = new CopyOnWriteArrayList<>();
 
     final ThreadPoolExecutor pool;
     private final long[] threadIds;
@@ -67,6 +73,8 @@ public final class Machine implements Bound, Telemetry.Sampled {
     private final List<String> servicesOffered = new CopyOnWriteArrayList<>();
     private int sinceWalk = WALK_EVERY_TICKS;            // walk on the very first tick
     private volatile boolean oomReported;
+    private final java.util.concurrent.atomic.AtomicBoolean diskFullReported =
+            new java.util.concurrent.atomic.AtomicBoolean();
 
     Machine(Fleet fleet, String name, InstanceSpec spec, String zone,
             double memoryCapMb, double diskCapMb) {
@@ -101,8 +109,33 @@ public final class Machine implements Bound, Telemetry.Sampled {
 
     // ------------------------------------------------------------------ serving
 
-    /** Registers services, wraps them in losim's server interceptor, and starts listening. */
+    /**
+     * Registers services and starts listening.
+     *
+     * <p>The instances are kept as they are, so a machine that dies and comes back
+     * comes back <i>remembering</i>. That is usually not what a restart means, and
+     * the restart event says so. Use {@link #serves(java.util.function.Supplier)}
+     * to have losim build fresh ones.
+     */
     public Machine serving(BindableService... services) {
+        for (BindableService svc : services) factories.add(() -> svc);
+        return start();
+    }
+
+    /**
+     * Registers a service losim can rebuild.
+     *
+     * <p>A restarted machine gets a new instance, so whatever the old one was
+     * holding is gone — which is what a restart is, and what makes "who redoes the
+     * work" a real question rather than a formality.
+     */
+    public Machine serves(java.util.function.Supplier<? extends BindableService> factory) {
+        factories.add(factory);
+        rebuildable = true;
+        return start();
+    }
+
+    private Machine start() {
         // The machine's own pool runs the handlers, wrapped so that time spent
         // waiting for a core is separable from time spent using one. Without the
         // wrapper a queued call is indistinguishable from a slow one.
@@ -116,21 +149,115 @@ public final class Machine implements Bound, Telemetry.Sampled {
                 r.run();
             });
         };
+        if (server != null) { server.shutdownNow(); server = null; }
+        roots.clear();
+        costs.clear();
+        served.clear();
         var b = InProcessServerBuilder.forName(name).executor(queueing);
-        for (BindableService s : services) {
+        for (var factory : factories) {
+            BindableService s = factory.get();
             roots.add(s);                                // a machine's data hangs off its services
             costs.putAll(Costs.of(s));
             var def = s.bindService();
+            for (var m : def.getMethods()) served.add(m.getMethodDescriptor());
             String svc = def.getServiceDescriptor().getName();
-            servicesOffered.add(svc.substring(svc.lastIndexOf('.') + 1));
+            String bare = svc.substring(svc.lastIndexOf('.') + 1);
+            if (!servicesOffered.contains(bare)) servicesOffered.add(bare);
             fleet.offers(svc, name);
             b.addService(ServerInterceptors.intercept(def, new ServerSide(this)));
         }
         try { server = b.build().start(); }
         catch (Exception e) { throw new IllegalStateException("could not start machine " + name, e); }
+        if (announced) announceBoot();
+        return this;
+    }
+
+    /**
+     * Says this machine exists.
+     *
+     * <p>Held back until the run's clock starts, so a fleet's booting does not
+     * appear to have happened before the run it belongs to.
+     */
+    void announceBoot() {
+        announced = true;
         tel().event(name, "boot", "instance", spec.name(), "zone", zone, "vcpu", vcpu,
                     "memoryMb", memoryCapMb, "diskMb", diskCapMb);
-        return this;
+    }
+
+    private volatile boolean announced;
+
+    // -------------------------------------------------------------------- faults
+
+    /**
+     * Stops the machine dead for a while, without killing it.
+     *
+     * <p>A stop-the-world pause, a swapping host, a machine that is simply not
+     * scheduled. The calls do not fail — they wait, on the machine's own threads,
+     * which is precisely why a freeze is so much harder to diagnose than a crash
+     * and worth being able to stage.
+     */
+    public void freeze(double refMs) {
+        long until = System.nanoTime() + (long) (refMs / tel().kTime() * 1e6);
+        frozenUntilNs = Math.max(frozenUntilNs, until);
+        tel().event(name, "freeze", "forRefMs", round(refMs));
+    }
+
+    /** The pause is over, whether or not anyone was waiting on it. */
+    public void thaw() {
+        if (frozenUntilNs == 0) return;
+        frozenUntilNs = 0;
+        tel().event(name, "thaw");
+    }
+
+    /**
+     * Held at the door, so a frozen machine occupies its cores rather than refusing.
+     *
+     * <p>Rechecked every couple of milliseconds rather than parked once for the
+     * whole window, so a machine thawed early is not still asleep.
+     */
+    void awaitThaw() {
+        while (true) {
+            long until = frozenUntilNs;
+            if (until == 0) return;
+            long left = until - System.nanoTime();
+            if (left <= 0) return;
+            fleet.clock.parkRealNanos(Math.min(left, 2_000_000));
+        }
+    }
+
+    public boolean frozen() { return frozenUntilNs > System.nanoTime(); }
+
+    /**
+     * Makes the machine slower than its instance type says.
+     *
+     * <p>A noisy neighbour, a throttled burstable, a degraded disk. Every declared
+     * cost is multiplied, so the machine is a straggler rather than a casualty —
+     * which is the failure most designs handle worst.
+     */
+    public void degrade(double factor) {
+        degraded = Math.max(1.0, factor);
+        tel().event(name, "degrade", "factor", round(degraded));
+    }
+
+    /** How much slower this machine is than the reference, including any degradation. */
+    double effectiveFactor() { return machineFactor * degraded; }
+
+    /** Brings a dead machine back. What it remembers depends on how it was registered. */
+    public void restart() {
+        boolean fresh = rebuildable;
+        alive = true;
+        deadReason = null;
+        degraded = 1.0;
+        frozenUntilNs = 0;
+        oomReported = false;
+        diskFullReported.set(false);
+        diskBytes.set(0);
+        retainedBytes.set(0);
+        if (fresh) start();
+        tel().event(name, "restart", "state", fresh ? "lost" : "kept",
+                    "note", fresh ? "fresh services: whatever it was holding is gone"
+                                  : "the same service instances: this machine came back remembering, "
+                                    + "which a real one would not");
     }
 
     Cost costOf(String fullMethodName) { return costs.get(fullMethodName); }
@@ -157,11 +284,21 @@ public final class Machine implements Bound, Telemetry.Sampled {
         }
     }
 
-    /** A channel to a peer, with losim's client interceptor already on it. */
+    /**
+     * A channel to a peer, with losim's client side already on it.
+     *
+     * <p>The retry interceptor sits outside the recording one, so every attempt is
+     * a genuinely separate call rather than a repeat of the same accounting.
+     */
     public ManagedChannel channelTo(String peer) {
-        return InProcessChannelBuilder.forName(peer).usePlaintext()
-                .intercept(new ClientSide(this, peer)).build();
+        var b = InProcessChannelBuilder.forName(peer).usePlaintext();
+        return fleet.retries().isEmpty()
+                ? b.intercept(new ClientSide(this, peer)).build()
+                : b.intercept(new Retrying(this, fleet.retries()), new ClientSide(this, peer)).build();
     }
+
+    /** Every method this machine serves. The retry gate is checked against these. */
+    List<io.grpc.MethodDescriptor<?, ?>> methods() { return List.copyOf(served); }
 
     /**
      * Runs work on this machine's own threads, with the machine ambient.
@@ -220,10 +357,23 @@ public final class Machine implements Bound, Telemetry.Sampled {
 
     void chargeTo(Telemetry.Span span, long bytes, long nanos) {
         long owed = nanos + Meter.UNSEEN_NANOS_PER_REGION;
-        losimBytes.addAndGet(bytes);
+        // Only what landed on this machine's own threads can be taken back off it.
+        // An async response is delivered on the channel's executor, which is not a
+        // machine at all — its bytes were never counted against one, so subtracting
+        // them would credit the machine for work it never did.
+        if (onOwnThread()) {
+            losimBytes.addAndGet(bytes);
+            losimRegions.incrementAndGet();
+        }
         losimNanos.addAndGet(owed);
-        losimRegions.incrementAndGet();
         if (span != null) span.losimNanos.addAndGet(owed);
+    }
+
+    /** Whether the calling thread is one of this machine's own. */
+    boolean onOwnThread() {
+        long id = Thread.currentThread().threadId();
+        for (long t : threadIds) if (t == id) return true;
+        return false;
     }
 
     // ---------------------------------------------------------------- the facade
@@ -245,7 +395,27 @@ public final class Machine implements Bound, Telemetry.Sampled {
 
     // -------------------------------------------------------------------- disk
 
-    public void wroteDisk(long bytes) { diskBytes.addAndGet(bytes); }
+    /**
+     * Takes a write, or refuses it.
+     *
+     * <p>A machine whose disk is full cannot take the write, so this throws and
+     * the handler fails the way it would have failed for real. Recording the write
+     * and carrying on would let a design that does not fit on its disks appear to
+     * work — which is the same mistake as an out-of-memory that only prints a
+     * warning.
+     */
+    @Override public void wroteDisk(long bytes) {
+        long now = diskBytes.addAndGet(bytes);
+        double usedMb = now / 1048576.0;
+        if (usedMb <= diskCapMb) return;
+        if (diskFullReported.compareAndSet(false, true))
+            tel().event(name, "disk_full", "resource", "disk", "capMb", diskCapMb,
+                        "demandMb", round(usedMb),
+                        "cause", "the machine was asked to write more than it has");
+        throw new IllegalStateException(name + " has no disk left: " + round(usedMb)
+                + " MB written against a " + round(diskCapMb) + " MB volume");
+    }
+
     public long diskBytes() { return diskBytes.get(); }
 
     // -------------------------------------------------------------------- heap
@@ -315,6 +485,8 @@ public final class Machine implements Bound, Telemetry.Sampled {
         into.put("vcpu",       (double) vcpu);
         into.put("busyPct",    Math.min(100.0, inflight.get() * 100.0 / vcpu));
         into.put("alive",      alive ? 1.0 : 0.0);
+        into.put("frozen",     frozen() ? 1.0 : 0.0);
+        into.put("degraded",   degraded);
         into.put("bytesInMb",  bytesIn.get() / 1048576.0);
         into.put("bytesOutMb", bytesOut.get() / 1048576.0);
     }

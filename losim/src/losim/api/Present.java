@@ -74,6 +74,17 @@ final class Present implements LosimCtx {
         b.charge(Meter.allocNow() - a0, System.nanoTime() - t0);
     }
 
+    @Override public void wroteDisk(long bytes) {
+        long a0 = Meter.allocNow(), t0 = System.nanoTime();
+        Bound b = Ambient.MACHINE.get();
+        if (b == null) return;
+        // In a finally, because the accounting is losim's cost either way — and the
+        // refusal has to reach the handler, since a write that cannot happen must
+        // not appear to have happened.
+        try { b.wroteDisk(bytes); }
+        finally { b.charge(Meter.allocNow() - a0, System.nanoTime() - t0); }
+    }
+
     // -------------------------------------------------------------------- state
 
     // Reads, not records: they allocate nothing worth charging and are cheap

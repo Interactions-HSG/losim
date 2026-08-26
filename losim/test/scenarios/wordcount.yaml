@@ -1,0 +1,27 @@
+# A word count across six workers, one of which is reclaimed mid-run and one of
+# which is far too small for the bucket it is given. Both are deliberate: a
+# scenario where nothing goes wrong tests nothing worth testing.
+
+seed: 7
+kTime: 2                       # compressed, but not so far that starting up dominates the timeline
+job: WordCountJob
+expectedRun: 2 refSeconds
+
+machines:
+  master:
+    instance: m5.large
+    zone: eu-central-1a
+
+  workers:
+    count: 6
+    prefix: w
+    instance: m5.large
+    zone: [eu-central-1a, eu-central-1b]
+    serves: [Counter]
+    overrides:
+      w2: { memoryMb: 4 }      # cannot hold its bucket, and will say so
+
+faults:
+  # After every mapper has answered and before the last reducer is asked, so the
+  # coordinator has to notice a machine that is simply not there any more.
+  - { at: 400 refMs, kill: w5 }

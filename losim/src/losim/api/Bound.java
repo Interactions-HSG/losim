@@ -29,6 +29,9 @@ public interface Bound {
     /** Declares how many records the call in flight processed. */
     void records(long n);
 
+    /** Takes a write, or refuses it because the disk is full. */
+    void wroteDisk(long bytes);
+
     /**
      * Charges a region of losim's own work to this machine's ledger, and to the
      * span it happened inside — so neither the machine's reported allocation nor

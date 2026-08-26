@@ -24,9 +24,22 @@ vendor/bin/protoc-$P --plugin=protoc-gen-grpc-java=vendor/bin/protoc-gen-grpc-ja
 javac -nowarn --release 21 -cp "${CP}build/losim.jar" -d build/test-classes \
       $(find build/test-gen losim/test/src -name '*.java')
 
-suites=("$@"); [ ${#suites[@]} -eq 0 ] && suites=(Phase1 Debugger)
+suites=("$@"); [ ${#suites[@]} -eq 0 ] && suites=(Phase1 Phase2 Debugger)
 fail=0
 for s in "${suites[@]}"; do
   java -Xmx3g -cp "${CP}build/losim.jar:build/test-classes" "$s" || fail=1
 done
+
+# A handler, on its own, in plain JUnit, with nothing simulating anything. Its own
+# classpath: JUnit belongs to a test and must not be reachable from a lab.
+TCP=$(ls vendor/test-jars/*.jar | tr '\n' ':')
+mkdir -p build/junit-classes
+javac -nowarn --release 21 -cp "${CP}${TCP}build/losim.jar:build/test-classes" \
+      -d build/junit-classes $(find losim/test/junit -name '*.java')
+echo "== a handler alone, in JUnit =="
+java -jar vendor/test-jars/junit-platform-console-standalone-*.jar execute \
+     --class-path "${CP}build/losim.jar:build/test-classes:build/junit-classes" \
+     --scan-class-path build/junit-classes --details=tree --disable-ansi-colors \
+     --disable-banner || fail=1
+
 exit $fail

@@ -21,5 +21,10 @@ service Worker {
 // Fire-and-forget is not a second messaging path: it is a method that returns
 // Empty, called on an async stub, which therefore does not block its caller.
 service Volley {
+  // No idempotency declared: retrying this is the caller asserting something the
+  // schema does not, which is exactly what the retry gate is for.
   rpc Hit (Ping) returns (Empty);
+
+  // Declared safe to run twice, so a retry policy needs no argument.
+  rpc Poll (Ping) returns (Empty) { option idempotency_level = IDEMPOTENT; }
 }

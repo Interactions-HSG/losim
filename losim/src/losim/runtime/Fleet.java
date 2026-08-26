@@ -35,6 +35,7 @@ public final class Fleet implements AutoCloseable {
     private final List<String> order = new CopyOnWriteArrayList<>();
     private final Map<String, List<String>> byService = new ConcurrentHashMap<>();
     private volatile ExecutorService waiting;
+    private volatile List<Retry> retries = List.of();
 
     public Fleet(Telemetry tel) { this(tel, new Net(0)); }
 
@@ -43,6 +44,24 @@ public final class Fleet implements AutoCloseable {
         this.clock = tel.clock();
         this.net = net;
     }
+
+    /**
+     * Installs the scenario's retry policies.
+     *
+     * <p>Checked against what the fleet actually serves before anything runs: a
+     * policy naming a method no machine offers, or retrying one the schema does not
+     * declare safe, is refused with the line it was written on rather than
+     * discovered as a duplicate write in a trace.
+     */
+    public Fleet retrying(List<Retry> policies) {
+        var known = new ArrayList<io.grpc.MethodDescriptor<?, ?>>();
+        for (Machine m : all()) known.addAll(m.methods());
+        for (Retry r : policies) r.checkAgainst(known);
+        this.retries = List.copyOf(policies);
+        return this;
+    }
+
+    List<Retry> retries() { return retries; }
 
     public Telemetry telemetry() { return tel; }
     public Clock clock()         { return clock; }
@@ -111,6 +130,19 @@ public final class Fleet implements AutoCloseable {
     }
 
     // ------------------------------------------------------------------ running
+
+    /**
+     * The run begins here.
+     *
+     * <p>Zeroes the clock, so that an instant written in the scenario is the same
+     * instant in the trace, and announces the fleet. Everything before this — the
+     * servers starting, the pools filling — is setup, and belongs to no scenario.
+     */
+    public Fleet begin() {
+        clock.restart();
+        for (Machine m : all()) m.announceBoot();
+        return this;
+    }
 
     /** Starts the sampler. The cadence follows the run's expected duration, not its busyness. */
     public void startSampling(double expectedRunMs) { tel.startSampling(expectedRunMs, 1000); }

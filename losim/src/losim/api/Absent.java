@@ -21,6 +21,7 @@ final class Absent implements LosimCtx {
     @Override public void reveal(String key, Object value)  { }
     @Override public void log(String message)               { }
     @Override public void records(long n)                   { }
+    @Override public void wroteDisk(long bytes)             { }
 
     @Override public String machine()                        { throw absent("machine()"); }
     @Override public List<String> peers()                    { throw absent("peers()"); }
