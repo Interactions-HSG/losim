@@ -1,0 +1,34 @@
+# The cheapest fleet that can run this job at all.
+#
+# Nine burstables, every one written out, and not a single machine on this list
+# costs more than two and a half cents an hour. It finishes. It takes its time
+# about it, because a t3.nano has a quarter of the reference machine's cores and
+# every declared cost is multiplied accordingly — and because burstables are the
+# straggler generator in the catalogue.
+#
+# Run it against mr-lavish. Same corpus, same weather, same answer, and the two
+# bills are the actual decision: this one buys cheap machine-hours and spends more
+# of them.
+
+seed: 81
+kTime: 15
+job: MapReduce
+expectedRun: 90 refSeconds
+
+workload: { records: 6000 }
+
+machines:
+  master: { instance: t3.small,  zone: eu-central-1a, serves: [Watchtower] }
+
+  m0: { instance: t3.nano,   zone: eu-central-1a, serves: [MapMachine, Beacon] }
+  m1: { instance: t3.nano,   zone: eu-central-1b, serves: [MapMachine, Beacon] }
+  m2: { instance: t3.micro,  zone: eu-central-1c, serves: [MapMachine, Beacon] }
+  m3: { instance: t3.micro,  zone: eu-central-1a, serves: [MapMachine, Beacon] }
+
+  s0: { instance: t3.small,  zone: eu-central-1a, serves: [ShuffleMachine, Beacon] }
+  s1: { instance: t3.small,  zone: eu-central-1b, serves: [ShuffleMachine, Beacon] }
+
+  r0: { instance: t3.medium, zone: eu-central-1a, serves: [ReduceMachine, Beacon] }
+  r1: { instance: t3.medium, zone: eu-central-1b, serves: [ReduceMachine, Beacon] }
+
+network: { sameZone: 2 refMs, crossZone: 14 refMs, jitter: 3 refMs }

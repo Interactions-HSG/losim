@@ -1,0 +1,36 @@
+# Mappers with volumes too small for what they spill.
+#
+# Every machine written out, because the whole scenario is that they are not the
+# same: m0 and m2 have room, m1 and m3 do not, and which of them fills up is a
+# consequence of how the master cut the input rather than of anything those
+# machines did.
+#
+# The write that fails is (6a), the spill — the raw buffer going to disk before
+# anything is combined, one record per word. That is the biggest write a map task
+# makes and the one a combiner exists to avoid needing twice. It throws, the
+# handler fails with RESOURCE_EXHAUSTED, and the master has to place that map task
+# somewhere with room. Note what does *not* happen: nothing is silently dropped,
+# and the job is either exact or unfinished.
+
+seed: 21
+kTime: 20
+job: MapReduce
+expectedRun: 60 refSeconds
+
+workload: { records: 12000 }
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a, serves: [Watchtower] }
+
+  m0: { instance: c5.large, zone: eu-central-1a, serves: [MapMachine, Beacon], diskMb: 8 }
+  m1: { instance: c5.large, zone: eu-central-1b, serves: [MapMachine, Beacon], diskMb: 0.6 }
+  m2: { instance: c5.large, zone: eu-central-1c, serves: [MapMachine, Beacon], diskMb: 8 }
+  m3: { instance: c5.large, zone: eu-central-1a, serves: [MapMachine, Beacon], diskMb: 0.6 }
+
+  s0: { instance: r5.large, zone: eu-central-1a, serves: [ShuffleMachine, Beacon] }
+  s1: { instance: r5.large, zone: eu-central-1b, serves: [ShuffleMachine, Beacon] }
+
+  r0: { instance: r5.large, zone: eu-central-1a, serves: [ReduceMachine, Beacon] }
+  r1: { instance: r5.large, zone: eu-central-1b, serves: [ReduceMachine, Beacon] }
+
+network: { sameZone: 1 refMs, crossZone: 12 refMs, jitter: 2 refMs }

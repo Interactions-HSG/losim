@@ -1,0 +1,32 @@
+# Nothing but small machines, and every one of them written out.
+#
+# Six burstables and three small memory machines, all of them capped well below
+# what their instance type says — these are the *scaled* caps, the sizes the
+# machines have on this run so that the ratio of demand to capacity is the one
+# the design would meet at full scale.
+#
+# It fits, but only just, and only because the master sized the splits. The same
+# fleet under mr-blind's equal splits does not.
+
+seed: 15
+kTime: 15
+job: MapReduce
+expectedRun: 45 refSeconds
+
+workload: { records: 5000 }
+
+machines:
+  master: { instance: t3.medium, zone: eu-central-1a, serves: [Watchtower] }
+
+  m0: { instance: t3.nano,   zone: eu-central-1a, serves: [MapMachine, Beacon], diskMb: 6 }
+  m1: { instance: t3.micro,  zone: eu-central-1b, serves: [MapMachine, Beacon], diskMb: 6 }
+  m2: { instance: t3.small,  zone: eu-central-1c, serves: [MapMachine, Beacon], diskMb: 6 }
+  m3: { instance: t3.medium, zone: eu-central-1a, serves: [MapMachine, Beacon], diskMb: 6 }
+
+  s0: { instance: t3.medium, zone: eu-central-1a, serves: [ShuffleMachine, Beacon], memoryMb: 700 }
+  s1: { instance: t3.medium, zone: eu-central-1b, serves: [ShuffleMachine, Beacon], memoryMb: 700 }
+
+  r0: { instance: t3.small,  zone: eu-central-1a, serves: [ReduceMachine, Beacon], memoryMb: 400 }
+  r1: { instance: t3.small,  zone: eu-central-1b, serves: [ReduceMachine, Beacon], memoryMb: 400 }
+
+network: { sameZone: 2 refMs, crossZone: 14 refMs, jitter: 4 refMs }

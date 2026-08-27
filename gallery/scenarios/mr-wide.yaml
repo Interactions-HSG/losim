@@ -1,0 +1,36 @@
+# Twenty-four machines over three zones: what the pictures have to survive.
+#
+# Nothing goes wrong here either. The point is size — twelve mappers, six
+# shufflers, six reducers, and a shuffle that is twelve-by-six connections rather
+# than four-by-three. A diagram that is readable for mr-classic and unreadable
+# for this one is a diagram that only works on the example it was drawn for.
+
+seed: 8
+kTime: 30
+job: MapReduce
+expectedRun: 40 refSeconds
+
+workload: { records: 12000 }
+
+machines:
+  master:   { instance: m5.2xlarge, zone: eu-central-1a, serves: [Watchtower] }
+  mappers:
+    count: 12
+    prefix: m
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [MapMachine, Beacon]
+  shufflers:
+    count: 6
+    prefix: s
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [ShuffleMachine, Beacon]
+  reducers:
+    count: 6
+    prefix: r
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [ReduceMachine, Beacon]
+
+network: { sameZone: 1 refMs, crossZone: 10 refMs, jitter: 3 refMs }

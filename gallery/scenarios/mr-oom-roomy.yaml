@@ -1,0 +1,38 @@
+# mr-oom-shuffle with the cap raised, and nothing else touched.
+#
+# The pair is the point. An out-of-memory that can be made to go away by giving
+# the machine more room is an out-of-memory about capacity; one that cannot is an
+# out-of-memory about the design. This is the first kind, and the only way to know
+# which kind you have is to run both.
+
+seed: 24
+kTime: 20
+job: MapReduce
+expectedRun: 45 refSeconds
+
+workload: { records: 8000 }
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a, serves: [Watchtower] }
+  mappers:
+    count: 4
+    prefix: m
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b]
+    serves: [MapMachine, Beacon]
+  shufflers:
+    count: 3
+    prefix: s
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [ShuffleMachine, Beacon]
+    overrides:
+      s1: { memoryMb: 900 }
+  reducers:
+    count: 3
+    prefix: r
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [ReduceMachine, Beacon]
+
+network: { sameZone: 1 refMs, crossZone: 12 refMs }

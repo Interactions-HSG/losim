@@ -1,0 +1,50 @@
+# Data locality, as a number instead of as a paragraph.
+#
+# Every mapper is in eu-central-1a, so all of the intermediate data is in
+# eu-central-1a. There are six shufflers and only three partitions, which means
+# the master gets to *choose* — and the census told it which zone each of the six
+# is in.
+#
+# Written out one machine at a time, and interleaved on purpose: the zones
+# alternate down the list, so picking shufflers by position gives you two out of
+# three in the wrong zone and picking them by zone gives you three out of three
+# in the right one. mr-locality-blind is this file with that one decision
+# reversed and nothing else changed.
+
+seed: 12
+kTime: 20
+job: MapReduce
+expectedRun: 60 refSeconds
+
+workload: { records: 8000 }
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a, serves: [Watchtower] }
+
+  mappers:
+    count: 6
+    prefix: m
+    instance: c5.large
+    zone: eu-central-1a               # all of the data, in one place
+    serves: [MapMachine, Beacon]
+
+  # Six candidates for three partitions. The zones alternate, so position and
+  # locality disagree — which is the entire experiment.
+  s0: { instance: r5.large, zone: eu-central-1c, serves: [ShuffleMachine, Beacon] }
+  s1: { instance: r5.large, zone: eu-central-1a, serves: [ShuffleMachine, Beacon] }
+  s2: { instance: r5.large, zone: eu-central-1c, serves: [ShuffleMachine, Beacon] }
+  s3: { instance: r5.large, zone: eu-central-1a, serves: [ShuffleMachine, Beacon] }
+  s4: { instance: r5.large, zone: eu-central-1b, serves: [ShuffleMachine, Beacon] }
+  s5: { instance: r5.large, zone: eu-central-1a, serves: [ShuffleMachine, Beacon] }
+
+  reducers:
+    count: 3
+    prefix: r
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [ReduceMachine, Beacon]
+
+network:
+  sameZone: 1 refMs
+  crossZone: 25 refMs                 # deliberately harsh, so the choice is legible
+  jitter: 3 refMs

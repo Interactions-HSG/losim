@@ -1,0 +1,41 @@
+# One of each role in each zone: the textbook resilient layout.
+#
+# Nine machines, written out so the geography is the first thing you read. Every
+# zone can run the whole pipeline on its own, so losing a zone costs a third of
+# the fleet and none of the capability — which is exactly what this layout is
+# bought for.
+#
+# The scenario takes a zone away to prove it. Both machines in eu-central-1c are
+# killed within a few hundred milliseconds of each other, which is what a zone
+# outage looks like from the inside: not one machine failing, but everything in
+# one place failing at once.
+
+seed: 89
+kTime: 20
+job: MapReduce
+expectedRun: 90 refSeconds
+
+workload: { records: 9000 }
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a, serves: [Watchtower] }
+
+  ma: { instance: c5.large, zone: eu-central-1a, serves: [MapMachine, Beacon] }
+  sa: { instance: r5.large, zone: eu-central-1a, serves: [ShuffleMachine, Beacon] }
+  ra: { instance: r5.large, zone: eu-central-1a, serves: [ReduceMachine, Beacon] }
+
+  mb: { instance: c5.large, zone: eu-central-1b, serves: [MapMachine, Beacon] }
+  sb: { instance: r5.large, zone: eu-central-1b, serves: [ShuffleMachine, Beacon] }
+  rb: { instance: r5.large, zone: eu-central-1b, serves: [ReduceMachine, Beacon] }
+
+  mc: { instance: c5.large, zone: eu-central-1c, serves: [MapMachine, Beacon] }
+  sc: { instance: r5.large, zone: eu-central-1c, serves: [ShuffleMachine, Beacon] }
+  rc: { instance: r5.large, zone: eu-central-1c, serves: [ReduceMachine, Beacon] }
+
+faults:
+  # A zone, going.
+  - { at: 2000 refMs, kill: mc }
+  - { at: 2050 refMs, kill: sc }
+  - { at: 2100 refMs, kill: rc }
+
+network: { sameZone: 1 refMs, crossZone: 14 refMs, jitter: 3 refMs }

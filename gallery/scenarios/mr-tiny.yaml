@@ -1,0 +1,22 @@
+# One of each. The degenerate case, and it has to work.
+#
+# A pipeline with a single machine per phase is still a distributed system — the
+# calls are real, the deadlines are real, and the one mapper that dies takes the
+# whole job with it because there is nowhere else to put its work. It is also the
+# case every viewer gets wrong, because a layout tuned for a fan-out has nothing
+# to fan.
+
+seed: 1
+kTime: 10
+job: MapReduce
+expectedRun: 20 refSeconds
+
+workload: { records: 1200 }
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a, serves: [Watchtower] }
+  m0:     { instance: c5.large, zone: eu-central-1a, serves: [MapMachine, Beacon] }
+  s0:     { instance: r5.large, zone: eu-central-1a, serves: [ShuffleMachine, Beacon] }
+  r0:     { instance: r5.large, zone: eu-central-1a, serves: [ReduceMachine, Beacon] }
+
+network: { sameZone: 1 refMs, crossZone: 12 refMs }

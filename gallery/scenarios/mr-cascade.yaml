@@ -1,0 +1,38 @@
+# One machine dies and takes three others' afternoons with it.
+#
+# m0 is killed after the map phase. Its regions go with it, so the shuffle finds
+# them missing and the master re-runs its map tasks — onto m1, which is already
+# short of disk, which then fails those tasks, which sends them to m2, which is
+# degraded and slow enough that the shuffler's deadline passes first.
+#
+# Nothing here is a cascade in the sense of a feedback loop. It is worse than
+# that: it is three independent, individually survivable problems arranged so that
+# each one's recovery lands on the next one. That is what a bad afternoon actually
+# is, and no single fault in this file would be worth a scenario on its own.
+
+seed: 94
+kTime: 20
+job: MapReduce
+expectedRun: 120 refSeconds
+
+workload: { records: 10000 }
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a, serves: [Watchtower] }
+
+  m0: { instance: c5.large, zone: eu-central-1a, serves: [MapMachine, Beacon] }
+  m1: { instance: c5.large, zone: eu-central-1b, serves: [MapMachine, Beacon], diskMb: 0.9 }
+  m2: { instance: c5.large, zone: eu-central-1c, serves: [MapMachine, Beacon] }
+  m3: { instance: c5.large, zone: eu-central-1a, serves: [MapMachine, Beacon] }
+
+  s0: { instance: r5.large, zone: eu-central-1a, serves: [ShuffleMachine, Beacon] }
+  s1: { instance: r5.large, zone: eu-central-1b, serves: [ShuffleMachine, Beacon] }
+
+  r0: { instance: r5.large, zone: eu-central-1a, serves: [ReduceMachine, Beacon] }
+  r1: { instance: r5.large, zone: eu-central-1b, serves: [ReduceMachine, Beacon] }
+
+faults:
+  - { at: 1900 refMs, kill: m0 }
+  - { at: 1000 refMs, degrade: m2, factor: 6 }
+
+network: { sameZone: 1 refMs, crossZone: 12 refMs, jitter: 3 refMs }

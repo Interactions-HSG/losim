@@ -1,0 +1,45 @@
+# One machine, eight times slower, and nothing else wrong.
+#
+# The failure most designs handle worst, because it is not a failure. m2 answers
+# every call correctly and eventually; it is simply a straggler, and the map phase
+# cannot end until it is done. Every other mapper finishes and sits idle — paid
+# for, by the hour, doing nothing.
+#
+# The master has no speculative execution: it waits out its deadline and only then
+# considers the task missing. Whether that is the right call is the argument, and
+# the trace is where you have it — the gantt shows exactly how much of this fleet
+# was idle waiting for one machine.
+
+seed: 51
+kTime: 20
+job: MapReduce
+expectedRun: 70 refSeconds
+
+workload: { records: 12000 }
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a, serves: [Watchtower] }
+  mappers:
+    count: 5
+    prefix: m
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [MapMachine, Beacon]
+  shufflers:
+    count: 3
+    prefix: s
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [ShuffleMachine, Beacon]
+  reducers:
+    count: 3
+    prefix: r
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [ReduceMachine, Beacon]
+
+faults:
+  - { at: 1500 refMs, degrade: m2, factor: 8 }
+  - { at: 4000 refMs, degrade: s1, factor: 3 }
+
+network: { sameZone: 1 refMs, crossZone: 12 refMs }

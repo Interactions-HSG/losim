@@ -1,0 +1,33 @@
+# PageRank on MapReduce, four rounds, nothing going wrong.
+#
+# The baseline for the second workload. Read it beside mr-classic: the fleet is
+# the same shape, the phases have the same names, and the trace is four times as
+# long because the whole pipeline runs once per iteration.
+#
+# Watch `delta` in the fold phases. It is how far the ranks moved in a round, and
+# it is the only thing in the run that says whether another round is worth paying
+# for.
+
+seed: 71
+kTime: 25
+job: PageRank
+expectedRun: 60 refSeconds
+
+workload: { records: 900 }      # pages, not lines
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a, serves: [Watchtower] }
+  mappers:
+    count: 4
+    prefix: m
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [RankMapMachine, Beacon]
+  reducers:
+    count: 3
+    prefix: r
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [RankReduceMachine, Beacon]
+
+network: { sameZone: 1 refMs, crossZone: 12 refMs, jitter: 2 refMs }

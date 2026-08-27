@@ -1,0 +1,37 @@
+# mr-mixed, with one decision changed.
+#
+# Same machines, same corpus, same seed, same weather. The master still takes the
+# census — the calls are made and the bytes are paid for — and then ignores every
+# field in it: equal splits, shufflers by partition number, partitions handed out
+# in order.
+#
+# Nothing fails. The map phase ends when the two-core burstable ends, which is
+# several times after the sixteen-core machine finished and went idle, and the
+# shuffle drags the intermediate data across zones for no reason. Diff the traces
+# and read the difference off the bill.
+
+seed: 6
+kTime: 20
+job: MapReduceBlind
+expectedRun: 120 refSeconds
+
+workload: { records: 30000 }
+
+machines:
+  master: { instance: m5.large,    zone: eu-central-1a, serves: [Watchtower] }
+
+  m0:     { instance: t3.small,    zone: eu-central-1a, serves: [MapMachine, Beacon] }
+  m1:     { instance: t3.medium,   zone: eu-central-1b, serves: [MapMachine, Beacon] }
+  m2:     { instance: c5.large,    zone: eu-central-1b, serves: [MapMachine, Beacon] }
+  m3:     { instance: c5.4xlarge,  zone: eu-central-1c, serves: [MapMachine, Beacon] }
+  m4:     { instance: c5.xlarge,   zone: eu-central-1c, serves: [MapMachine, Beacon] }
+
+  s0:     { instance: r5.large,    zone: eu-central-1a, serves: [ShuffleMachine, Beacon] }
+  s1:     { instance: r5.xlarge,   zone: eu-central-1b, serves: [ShuffleMachine, Beacon] }
+  s2:     { instance: r5.large,    zone: eu-central-1c, serves: [ShuffleMachine, Beacon] }
+
+  r0:     { instance: r5.large,    zone: eu-central-1a, serves: [ReduceMachine, Beacon] }
+  r1:     { instance: r5.xlarge,   zone: eu-central-1b, serves: [ReduceMachine, Beacon] }
+  r2:     { instance: m5.large,    zone: eu-central-1c, serves: [ReduceMachine, Beacon] }
+
+network: { sameZone: 1 refMs, crossZone: 12 refMs, jitter: 2 refMs }

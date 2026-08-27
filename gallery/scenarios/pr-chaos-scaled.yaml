@@ -1,0 +1,63 @@
+# pr-chaos, scaled: 900 pages run, 600,000 projected.
+#
+# The direct twin runs what it declares. This one declares a workload no laptop
+# can hold and hands the problem to the engine: a ladder of four sizes, one law
+# fitted per resource against the variable that resource is actually a function
+# of, and then a run size, a compression factor and a per-machine cap solved so
+# that demand over capacity is what it would be at 600,000 pages.
+#
+# A declared cap is not ignored: it is read as this machine's size at full scale
+# and shrunk by the same ratio as the workload, so a machine deliberately made
+# too small stays proportionally too small.
+#
+# What the direct twin shows, unchanged below:
+# Ten rounds of iteration, with the fleet failing underneath them
+#
+# What to read: the disk, multiplied by the iteration count. MapReduce keeps no
+# state between rounds, so the whole graph is re-written every one of them — and
+# the projection multiplies a per-round law by a number of rounds nobody scaled.
+# That compounding is the answer to whether this model suits iterative work.
+#
+# Anything the engine could not fit to its own satisfaction is absent from the
+# projection, with the reason beside it — the only honest way to report a law
+# whose exponent moves further than the effect it is being asked to measure.
+
+mode: scaled
+seed: 79
+kTime: 30
+job: PageRankLong
+expectedRun: 200 refSeconds
+
+workload:
+  records: 600000      # full scale: what this design is really for
+  probe: [126, 252, 495, 900]
+  fleets: [2, 4]      # varied apart from the data, so a resource can be
+                      # attributed to the right one
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a, serves: [Watchtower] }
+  mappers:
+    count: 6
+    prefix: m
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [RankMapMachine, Beacon]
+  reducers:
+    count: 4
+    prefix: r
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [RankReduceMachine, Beacon]
+
+chaos:
+  - { kill:    { every: 6000 refMs, among: mappers } }
+  - { freeze:  { every: 4000 refMs, among: reducers, for: 800 refMs } }
+  - { degrade: { every: 5000 refMs, among: mappers, factor: 5 } }
+
+faults:
+  - { at: 12000 refMs, restart: m1 }
+  - { at: 18000 refMs, restart: m4 }
+  - { at: 24000 refMs, restart: m2 }
+  - { at: 30000 refMs, restart: m0 }
+
+network: { sameZone: 1 refMs, crossZone: 12 refMs, jitter: 4 refMs }

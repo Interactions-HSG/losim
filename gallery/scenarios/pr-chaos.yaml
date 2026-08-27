@@ -1,0 +1,47 @@
+# Ten rounds of iteration, with the fleet failing underneath them.
+#
+# The interaction is what this is for. A single-pass job that loses a machine
+# loses one map task; an iterative one loses a machine in round three and then has
+# to get through rounds four to ten with whatever is left — and the chaos is still
+# running while it does.
+#
+# Kills, freezes and slowdowns across all three roles, drawn from an exponential
+# distribution so the gaps vary the way a real bad afternoon does, plus a
+# supervisor restarting machines on a cadence that has no idea what is down. Run
+# it with several seeds: if the ranks are ever wrong, that is a finding, and if the
+# number of rounds it completes is different every time, that is the point.
+
+seed: 79
+kTime: 30
+job: PageRankLong
+expectedRun: 200 refSeconds
+
+workload: { records: 900 }
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a, serves: [Watchtower] }
+  mappers:
+    count: 6
+    prefix: m
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [RankMapMachine, Beacon]
+  reducers:
+    count: 4
+    prefix: r
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [RankReduceMachine, Beacon]
+
+chaos:
+  - { kill:    { every: 6000 refMs, among: mappers } }
+  - { freeze:  { every: 4000 refMs, among: reducers, for: 800 refMs } }
+  - { degrade: { every: 5000 refMs, among: mappers, factor: 5 } }
+
+faults:
+  - { at: 12000 refMs, restart: m1 }
+  - { at: 18000 refMs, restart: m4 }
+  - { at: 24000 refMs, restart: m2 }
+  - { at: 30000 refMs, restart: m0 }
+
+network: { sameZone: 1 refMs, crossZone: 12 refMs, jitter: 4 refMs }

@@ -1,0 +1,34 @@
+# The same job, on machines nobody would be embarrassed by.
+#
+# Sixteen-core compute machines for the map, memory machines for everything else,
+# one per line. It is fast. It is also priced at a hundred and thirty times what
+# mr-thrift's cheapest machine costs, per hour, whether it is working or not —
+# and the capacity bucket does not care that the run was short.
+#
+# The comparison is the whole point and it is not obvious in advance: a fleet that
+# finishes in a third of the time on machines that cost eight times as much has
+# spent more, and a fleet that finishes in a tenth has not. Which one this is, is
+# a question for the bill rather than for an argument.
+
+seed: 81
+kTime: 15
+job: MapReduce
+expectedRun: 60 refSeconds
+
+workload: { records: 6000 }
+
+machines:
+  master: { instance: m5.2xlarge, zone: eu-central-1a, serves: [Watchtower] }
+
+  m0: { instance: c5.4xlarge, zone: eu-central-1a, serves: [MapMachine, Beacon] }
+  m1: { instance: c5.4xlarge, zone: eu-central-1b, serves: [MapMachine, Beacon] }
+  m2: { instance: c5.4xlarge, zone: eu-central-1c, serves: [MapMachine, Beacon] }
+  m3: { instance: c5.4xlarge, zone: eu-central-1a, serves: [MapMachine, Beacon] }
+
+  s0: { instance: r5.xlarge,  zone: eu-central-1a, serves: [ShuffleMachine, Beacon] }
+  s1: { instance: r5.xlarge,  zone: eu-central-1b, serves: [ShuffleMachine, Beacon] }
+
+  r0: { instance: r5.xlarge,  zone: eu-central-1a, serves: [ReduceMachine, Beacon] }
+  r1: { instance: r5.xlarge,  zone: eu-central-1b, serves: [ReduceMachine, Beacon] }
+
+network: { sameZone: 2 refMs, crossZone: 14 refMs, jitter: 3 refMs }

@@ -1,0 +1,49 @@
+# Retries, and the one the schema will not allow.
+#
+# `mr.MapWorker.Pull` is declared NO_SIDE_EFFECTS in the .proto, so a retry policy
+# on it needs no argument from anybody: reading a region twice is reading a region
+# twice. losim takes that from the schema and not from this file.
+#
+# `mr.ReduceWorker.Commit` is not declared idempotent, deliberately, because
+# committing an output file twice is a real decision with a real consequence. The
+# `unsafe: true` below is the scenario saying so out loud — take it away and the
+# run refuses to start, with the line number. That refusal is the feature.
+
+seed: 63
+kTime: 20
+job: MapReduce
+expectedRun: 70 refSeconds
+
+workload: { records: 8000 }
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a, serves: [Watchtower] }
+  mappers:
+    count: 5
+    prefix: m
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [MapMachine, Beacon]
+  shufflers:
+    count: 3
+    prefix: s
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [ShuffleMachine, Beacon]
+  reducers:
+    count: 3
+    prefix: r
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [ReduceMachine, Beacon]
+
+retries:
+  - { method: mr.MapWorker.Pull, attempts: 3, backoff: 30 refMs, multiplier: 2 }
+  - { method: mr.MapWorker.Map,  attempts: 2, backoff: 50 refMs }
+  - { method: mr.ReduceWorker.Commit, attempts: 2, backoff: 20 refMs, unsafe: true }
+
+faults:
+  - { at: 1900 refMs, kill: m2 }
+  - { at: 2600 refMs, freeze: m4, for: 1200 refMs }
+
+network: { sameZone: 1 refMs, crossZone: 14 refMs, jitter: 5 refMs, loss: 0.03 }

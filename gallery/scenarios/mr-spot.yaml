@@ -1,0 +1,45 @@
+# Spot machines, and the notice nobody read.
+#
+# A spot instance tells you it is going. That two-second warning is the entire
+# difference between a spot fleet and an unreliable one, and this pipeline does
+# nothing with it — the `spot_notice` event lands in the trace, the master carries
+# on placing work on a machine that has announced its own death, and two seconds
+# later the machine is gone with its regions on it.
+#
+# The scenario is here to be beaten. A coordinator that read the notice would stop
+# sending that machine work and re-run its map tasks *before* it went, at the cost
+# of some duplicated effort and none of the waiting.
+
+seed: 44
+kTime: 20
+job: MapReduce
+expectedRun: 70 refSeconds
+
+workload: { records: 8000 }
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a, serves: [Watchtower] }
+  mappers:
+    count: 5
+    prefix: m
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [MapMachine, Beacon]
+  shufflers:
+    count: 3
+    prefix: s
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [ShuffleMachine, Beacon]
+  reducers:
+    count: 3
+    prefix: r
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [ReduceMachine, Beacon]
+
+faults:
+  - { at: 1500 refMs, spot_reclaim: m1, notice: 2000 refMs }
+  - { at: 2400 refMs, spot_reclaim: s2, notice: 1500 refMs, restart_after: 2000 refMs }
+
+network: { sameZone: 1 refMs, crossZone: 12 refMs }

@@ -1,0 +1,42 @@
+# A shuffler too small for the partition it was given.
+#
+# Grouping by key means holding the group, and nothing bounds how many distinct
+# keys land in one partition — the mapper's memory is bounded by its split, the
+# shuffler's is bounded by the vocabulary. s1 is capped well below what it needs
+# and dies holding real objects, measured by the heap walk, in this code.
+#
+# Nothing in the scenario declares that it will fail. What it holds is whatever
+# the walk finds it holding, which is why the same fleet with a larger cap
+# completes and this one does not.
+
+seed: 24
+kTime: 20
+job: MapReduce
+expectedRun: 45 refSeconds
+
+workload: { records: 8000 }
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a, serves: [Watchtower] }
+  mappers:
+    count: 4
+    prefix: m
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b]
+    serves: [MapMachine, Beacon]
+  shufflers:
+    count: 3
+    prefix: s
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [ShuffleMachine, Beacon]
+    overrides:
+      s1: { memoryMb: 90 }      # the scaled cap: far under what a third of this vocabulary weighs
+  reducers:
+    count: 3
+    prefix: r
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [ReduceMachine, Beacon]
+
+network: { sameZone: 1 refMs, crossZone: 12 refMs }

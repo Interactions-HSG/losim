@@ -1,0 +1,59 @@
+# A standing rate of failure rather than one scripted moment.
+#
+# Nothing here says when anything happens. Chaos draws its gaps from an
+# exponential distribution, so the run varies the way a real bad afternoon does —
+# and the whole fleet is exposed: mappers get killed, shufflers get frozen,
+# reducers get slowed down, and which ones is a matter of the seed.
+#
+# The `restart` faults are the other half. They fire on a fixed cadence at
+# machines that may or may not be dead when they arrive, so machines fail
+# unpredictably and come back unpredictably — which is what a fleet with a
+# supervisor on it actually looks like, and is nothing like a scripted kill.
+#
+# Run this with --seed a few times. If the answer is ever wrong, that is a
+# finding; if the *duration* is different every time, that is the point.
+
+seed: 41
+kTime: 25
+job: MapReduce
+expectedRun: 90 refSeconds
+
+workload: { records: 9000 }
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a, serves: [Watchtower] }
+  mappers:
+    count: 6
+    prefix: m
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [MapMachine, Beacon]
+  shufflers:
+    count: 3
+    prefix: s
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [ShuffleMachine, Beacon]
+  reducers:
+    count: 3
+    prefix: r
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [ReduceMachine, Beacon]
+
+chaos:
+  - { kill:    { every: 2500 refMs, among: mappers } }
+  - { freeze:  { every: 1800 refMs, among: shufflers, for: 500 refMs } }
+  - { degrade: { every: 2200 refMs, among: reducers, factor: 4 } }
+
+faults:
+  # A supervisor, restarting whatever is down on a cadence of its own. Restarting
+  # a machine that is perfectly alive is a no-op with a cost, which is exactly
+  # what a supervisor that cannot tell does.
+  - { at: 3500 refMs, restart: m0 }
+  - { at: 4200 refMs, restart: m3 }
+  - { at: 5000 refMs, restart: m1 }
+  - { at: 6000 refMs, restart: m4 }
+  - { at: 7000 refMs, restart: m2 }
+
+network: { sameZone: 1 refMs, crossZone: 12 refMs, jitter: 4 refMs }

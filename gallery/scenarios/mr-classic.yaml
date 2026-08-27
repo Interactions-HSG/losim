@@ -1,0 +1,48 @@
+# All ten phases, on a fleet where nothing goes wrong.
+#
+# The baseline every other scenario is a variation on. Read this one first: what
+# it reports is what this pipeline does when it is left alone, and none of the
+# numbers in the others mean anything without it.
+#
+# Three roles, three columns, spread over all three zones — which already costs
+# something, because the shuffle is the one phase that crosses them.
+
+seed: 3
+kTime: 20
+job: MapReduce
+expectedRun: 25 refSeconds
+
+workload:
+  records: 6000            # lines of text, eight words each
+
+machines:
+  master:
+    instance: m5.large
+    zone: eu-central-1a
+    serves: [Watchtower]
+
+  mappers:
+    count: 4
+    prefix: m
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [MapMachine, Beacon]
+
+  shufflers:
+    count: 3
+    prefix: s
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [ShuffleMachine, Beacon]
+
+  reducers:
+    count: 3
+    prefix: r
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [ReduceMachine, Beacon]
+
+network:
+  sameZone: 1 refMs
+  crossZone: 12 refMs      # the number the shuffle pays, over and over
+  jitter: 2 refMs

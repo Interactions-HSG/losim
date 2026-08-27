@@ -1,0 +1,46 @@
+# Not dead — just very late.
+#
+# s0 is frozen for most of a second in the middle of the shuffle. It is not
+# broken, it has not lost anything, and it will answer: the answer simply arrives
+# after the master's deadline has passed and the master has already decided the
+# partition failed and folded it somewhere else.
+#
+# From the master's side a freeze and a death are the same event, and there is no
+# call it can make to tell them apart. That is the whole reason a deadline is a
+# design decision rather than a constant: too short and you redo work that was
+# only slow, too long and you wait on a machine that is never coming back.
+
+seed: 35
+kTime: 20
+job: MapReduce
+expectedRun: 60 refSeconds
+tightMargin: true
+
+workload: { records: 8000 }
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a, serves: [Watchtower] }
+  mappers:
+    count: 4
+    prefix: m
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b]
+    serves: [MapMachine, Beacon]
+  shufflers:
+    count: 3
+    prefix: s
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [ShuffleMachine, Beacon]
+  reducers:
+    count: 3
+    prefix: r
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [ReduceMachine, Beacon]
+
+faults:
+  - { at: 1500 refMs, freeze: s0, for: 9000 refMs }   # before the shuffle starts, and longer than the master will wait
+  - { at: 3000 refMs, freeze: m0, for: 900 refMs }
+
+network: { sameZone: 1 refMs, crossZone: 12 refMs }

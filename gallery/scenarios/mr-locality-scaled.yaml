@@ -1,0 +1,65 @@
+# mr-locality, scaled: 8,000 lines run, 2,400,000 projected.
+#
+# The direct twin runs what it declares. This one declares a workload no laptop
+# can hold and hands the problem to the engine: a ladder of four sizes, one law
+# fitted per resource against the variable that resource is actually a function
+# of, and then a run size, a compression factor and a per-machine cap solved so
+# that demand over capacity is what it would be at 2,400,000 lines.
+#
+# A declared cap is not ignored: it is read as this machine's size at full scale
+# and shrunk by the same ratio as the workload, so a machine deliberately made
+# too small stays proportionally too small.
+#
+# What the direct twin shows, unchanged below:
+# Data locality, as a number instead of as a paragraph
+#
+# What to read: the cross-zone line on the bill. In a direct run the egress is a
+# rounding error and every design looks equally cheap; projected, it is a number
+# somebody has to approve. That is the whole argument for projecting at all.
+#
+# Anything the engine could not fit to its own satisfaction is absent from the
+# projection, with the reason beside it — the only honest way to report a law
+# whose exponent moves further than the effect it is being asked to measure.
+
+mode: scaled
+seed: 12
+kTime: 20
+job: MapReduce
+expectedRun: 60 refSeconds
+
+workload:
+  records: 2400000     # full scale: what this design is really for
+  probe: [640, 1280, 2640, 5280]
+  fleets: [2, 4]      # varied apart from the data, so a resource can be
+                      # attributed to the right one
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a, serves: [Watchtower] }
+
+  mappers:
+    count: 6
+    prefix: m
+    instance: c5.large
+    zone: eu-central-1a               # all of the data, in one place
+    serves: [MapMachine, Beacon]
+
+  # Six candidates for three partitions. The zones alternate, so position and
+  # locality disagree — which is the entire experiment.
+  s0: { instance: r5.large, zone: eu-central-1c, serves: [ShuffleMachine, Beacon] }
+  s1: { instance: r5.large, zone: eu-central-1a, serves: [ShuffleMachine, Beacon] }
+  s2: { instance: r5.large, zone: eu-central-1c, serves: [ShuffleMachine, Beacon] }
+  s3: { instance: r5.large, zone: eu-central-1a, serves: [ShuffleMachine, Beacon] }
+  s4: { instance: r5.large, zone: eu-central-1b, serves: [ShuffleMachine, Beacon] }
+  s5: { instance: r5.large, zone: eu-central-1a, serves: [ShuffleMachine, Beacon] }
+
+  reducers:
+    count: 3
+    prefix: r
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [ReduceMachine, Beacon]
+
+network:
+  sameZone: 1 refMs
+  crossZone: 25 refMs                 # deliberately harsh, so the choice is legible
+  jitter: 3 refMs

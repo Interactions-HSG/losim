@@ -1,0 +1,43 @@
+# Half the fleet on machines that can be taken away.
+#
+# The trade every cloud bill eventually asks about: spot capacity is a fraction of
+# the price and comes with a notice period instead of a guarantee. Four of these
+# machines get reclaimed during the run, two of them come back, and the map tasks
+# they were holding have to be placed somewhere else.
+#
+# The bill has both halves of it. The capacity bucket is smaller because the
+# machines were cheaper; the incidents bucket is larger because the work was
+# redone. Whether that is a saving is arithmetic, and this is where the arithmetic
+# is.
+
+seed: 84
+kTime: 20
+job: MapReduce
+expectedRun: 90 refSeconds
+
+workload: { records: 8000 }
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a, serves: [Watchtower] }
+
+  # On-demand: the ones the design cannot afford to lose.
+  s0: { instance: r5.large, zone: eu-central-1a, serves: [ShuffleMachine, Beacon] }
+  s1: { instance: r5.large, zone: eu-central-1b, serves: [ShuffleMachine, Beacon] }
+  r0: { instance: r5.large, zone: eu-central-1a, serves: [ReduceMachine, Beacon] }
+  r1: { instance: r5.large, zone: eu-central-1b, serves: [ReduceMachine, Beacon] }
+
+  # Spot: cheap, and going.
+  m0: { instance: c5.large, zone: eu-central-1a, serves: [MapMachine, Beacon] }
+  m1: { instance: c5.large, zone: eu-central-1b, serves: [MapMachine, Beacon] }
+  m2: { instance: c5.large, zone: eu-central-1c, serves: [MapMachine, Beacon] }
+  m3: { instance: c5.large, zone: eu-central-1a, serves: [MapMachine, Beacon] }
+  m4: { instance: c5.large, zone: eu-central-1b, serves: [MapMachine, Beacon] }
+  m5: { instance: c5.large, zone: eu-central-1c, serves: [MapMachine, Beacon] }
+
+faults:
+  - { at: 1400 refMs, spot_reclaim: m0, notice: 1200 refMs }
+  - { at: 1900 refMs, spot_reclaim: m2, notice: 900 refMs, restart_after: 1500 refMs }
+  - { at: 2600 refMs, spot_reclaim: m4, notice: 600 refMs }
+  - { at: 3400 refMs, spot_reclaim: m5, notice: 400 refMs, restart_after: 1200 refMs }
+
+network: { sameZone: 1 refMs, crossZone: 12 refMs }

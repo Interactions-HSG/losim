@@ -1,0 +1,46 @@
+# The expensive lesson: a finished map task is not a map task that stays finished.
+#
+# m1 is killed *after* the map phase is over. Its tasks completed, the master
+# recorded them, and every region it wrote went with the machine — so the shuffle
+# reaches for data that is not there and gets NOT_FOUND from a machine that is not
+# the machine that wrote it.
+#
+# There is nothing to do but run those map tasks again, on a machine that still
+# exists, and gather the partition a second time. That is not a flaw in the
+# design; it is the price of the master never relaying the data, and it is why
+# `lost` is a field in the shuffler's answer rather than an exception.
+
+seed: 31
+kTime: 20
+job: MapReduce
+expectedRun: 60 refSeconds
+
+workload: { records: 8000 }
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a, serves: [Watchtower] }
+  mappers:
+    count: 4
+    prefix: m
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b]
+    serves: [MapMachine, Beacon]
+  shufflers:
+    count: 3
+    prefix: s
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [ShuffleMachine, Beacon]
+  reducers:
+    count: 3
+    prefix: r
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [ReduceMachine, Beacon]
+
+faults:
+  # After the map phase and before the shuffle reaches m1 — the window where a
+  # machine looks finished and is already gone.
+  - { at: 1900 refMs, kill: m1 }
+
+network: { sameZone: 1 refMs, crossZone: 12 refMs }

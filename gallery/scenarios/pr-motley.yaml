@@ -1,0 +1,33 @@
+# PageRank on a fleet where no two machines are alike.
+#
+# Ten rounds, ten machines, every one a different instance type in a rotating set
+# of zones, and one of them short of disk. The iteration and the heterogeneity
+# interact: the master proportions each round's slices by cores, so the small
+# machines get small slices every round — and the machine that is short of disk
+# fills up on the accumulated rounds rather than on any single one.
+#
+# The most demanding scenario in the gallery for a picture: ten iterations, four
+# phases each, on a fleet with no repeated labels.
+
+seed: 98
+kTime: 30
+job: PageRankLong
+expectedRun: 200 refSeconds
+
+workload: { records: 1000 }
+
+machines:
+  master: { instance: m5.xlarge,  zone: eu-central-1a, serves: [Watchtower] }
+
+  m0: { instance: t3.micro,   zone: eu-central-1a, serves: [RankMapMachine, Beacon] }
+  m1: { instance: t3.medium,  zone: eu-central-1b, serves: [RankMapMachine, Beacon] }
+  m2: { instance: c5.large,   zone: eu-central-1c, serves: [RankMapMachine, Beacon], diskMb: 0.35 }
+  m3: { instance: c5.xlarge,  zone: eu-central-1a, serves: [RankMapMachine, Beacon] }
+  m4: { instance: c5.4xlarge, zone: eu-central-1b, serves: [RankMapMachine, Beacon] }
+
+  r0: { instance: r5.large,   zone: eu-central-1c, serves: [RankReduceMachine, Beacon] }
+  r1: { instance: r5.xlarge,  zone: eu-central-1a, serves: [RankReduceMachine, Beacon] }
+  r2: { instance: m5.large,   zone: eu-central-1b, serves: [RankReduceMachine, Beacon] }
+  r3: { instance: i3.large,   zone: eu-central-1c, serves: [RankReduceMachine, Beacon] }
+
+network: { sameZone: 1 refMs, crossZone: 15 refMs, jitter: 4 refMs }

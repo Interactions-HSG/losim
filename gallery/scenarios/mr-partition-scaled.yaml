@@ -1,0 +1,64 @@
+# mr-partition, scaled: 8,000 lines run, 1,100,000 projected.
+#
+# The direct twin runs what it declares. This one declares a workload no laptop
+# can hold and hands the problem to the engine: a ladder of four sizes, one law
+# fitted per resource against the variable that resource is actually a function
+# of, and then a run size, a compression factor and a per-machine cap solved so
+# that demand over capacity is what it would be at 1,100,000 lines.
+#
+# A declared cap is not ignored: it is read as this machine's size at full scale
+# and shrunk by the same ratio as the workload, so a machine deliberately made
+# too small stays proportionally too small.
+#
+# What the direct twin shows, unchanged below:
+# The link is cut, and neither end is broken
+#
+# What to read: the amplification term. A model fitted only on clean runs
+# under-predicts a faulty fleet, and optimistically — a killed machine's work is
+# redone elsewhere, so a survivor absorbs its share. This scenario has weather in
+# it, so the grid measures that rather than assuming it away, and the projection
+# says so.
+#
+# Anything the engine could not fit to its own satisfaction is absent from the
+# projection, with the reason beside it — the only honest way to report a law
+# whose exponent moves further than the effect it is being asked to measure.
+
+mode: scaled
+seed: 55
+kTime: 20
+job: MapReduce
+expectedRun: 60 refSeconds
+
+workload:
+  records: 1100000     # full scale: what this design is really for
+  probe: [640, 1280, 2640, 5280]
+  fleets: [2, 4]      # varied apart from the data, so a resource can be
+                      # attributed to the right one
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a, serves: [Watchtower] }
+  mappers:
+    count: 4
+    prefix: m
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b]
+    serves: [MapMachine, Beacon]
+  shufflers:
+    count: 3
+    prefix: s
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [ShuffleMachine, Beacon]
+  reducers:
+    count: 3
+    prefix: r
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [ReduceMachine, Beacon]
+
+faults:
+  - { at: 1700 refMs, partition: [s0, m3] }
+  - { at: 2200 refMs, partition: [s1, m0] }
+  - { at: 4500 refMs, heal: [s0, m3] }
+
+network: { sameZone: 1 refMs, crossZone: 12 refMs }

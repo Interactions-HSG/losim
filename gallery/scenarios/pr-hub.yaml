@@ -1,0 +1,37 @@
+# A graph with hubs, and a reducer that owns one.
+#
+# The link graph is built by preferential attachment, so a handful of pages are
+# pointed at by everything and most pages are pointed at by almost nothing. Pages
+# are partitioned by id, which is exactly the partitioning that ignores this: the
+# reducer that happens to own a hub receives a large fraction of every round's
+# contributions, iteration after iteration.
+#
+# r1 is capped below what that costs. It runs several rounds perfectly well and
+# then dies — which is the shape of a real capacity failure, and nothing like the
+# shape of a bug.
+
+seed: 77
+kTime: 25
+job: PageRankLong
+expectedRun: 150 refSeconds
+
+workload: { records: 1200 }
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a, serves: [Watchtower] }
+  mappers:
+    count: 5
+    prefix: m
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [RankMapMachine, Beacon]
+  reducers:
+    count: 3
+    prefix: r
+    instance: r5.large
+    zone: [eu-central-1a, eu-central-1b, eu-central-1c]
+    serves: [RankReduceMachine, Beacon]
+    overrides:
+      r1: { memoryMb: 3 }
+
+network: { sameZone: 1 refMs, crossZone: 12 refMs, jitter: 2 refMs }

@@ -1,0 +1,65 @@
+# mr-one-per-zone, scaled: 9,000 lines run, 1,800,000 projected.
+#
+# The direct twin runs what it declares. This one declares a workload no laptop
+# can hold and hands the problem to the engine: a ladder of four sizes, one law
+# fitted per resource against the variable that resource is actually a function
+# of, and then a run size, a compression factor and a per-machine cap solved so
+# that demand over capacity is what it would be at 1,800,000 lines.
+#
+# A declared cap is not ignored: it is read as this machine's size at full scale
+# and shrunk by the same ratio as the workload, so a machine deliberately made
+# too small stays proportionally too small.
+#
+# What the direct twin shows, unchanged below:
+# One of each role in each zone: the textbook resilient layout
+#
+# What to read: the amplification term. A model fitted only on clean runs
+# under-predicts a faulty fleet, and optimistically — a killed machine's work is
+# redone elsewhere, so a survivor absorbs its share. This scenario has weather in
+# it, so the grid measures that rather than assuming it away, and the projection
+# says so.
+#
+# Anything the engine could not fit to its own satisfaction is absent from the
+# projection, with the reason beside it — the only honest way to report a law
+# whose exponent moves further than the effect it is being asked to measure.
+#
+# Every machine here is declared on its own, which changes what the grid can vary.
+# Resizing the fleet means regenerating a pool, and a pool of one is left alone —
+# so the fleet dimension is flat for this scenario and the projection describes
+# this fleet at this shape rather than the family of shapes it belongs to. That is
+# a real limit and it is stated here rather than discovered in the numbers.
+
+mode: scaled
+seed: 89
+kTime: 20
+job: MapReduce
+expectedRun: 90 refSeconds
+
+workload:
+  records: 1800000     # full scale: what this design is really for
+  probe: [720, 1440, 2970, 5940]
+  fleets: [2, 4]      # varied apart from the data, so a resource can be
+                      # attributed to the right one
+
+machines:
+  master: { instance: m5.large, zone: eu-central-1a, serves: [Watchtower] }
+
+  ma: { instance: c5.large, zone: eu-central-1a, serves: [MapMachine, Beacon] }
+  sa: { instance: r5.large, zone: eu-central-1a, serves: [ShuffleMachine, Beacon] }
+  ra: { instance: r5.large, zone: eu-central-1a, serves: [ReduceMachine, Beacon] }
+
+  mb: { instance: c5.large, zone: eu-central-1b, serves: [MapMachine, Beacon] }
+  sb: { instance: r5.large, zone: eu-central-1b, serves: [ShuffleMachine, Beacon] }
+  rb: { instance: r5.large, zone: eu-central-1b, serves: [ReduceMachine, Beacon] }
+
+  mc: { instance: c5.large, zone: eu-central-1c, serves: [MapMachine, Beacon] }
+  sc: { instance: r5.large, zone: eu-central-1c, serves: [ShuffleMachine, Beacon] }
+  rc: { instance: r5.large, zone: eu-central-1c, serves: [ReduceMachine, Beacon] }
+
+faults:
+  # A zone, going.
+  - { at: 2000 refMs, kill: mc }
+  - { at: 2050 refMs, kill: sc }
+  - { at: 2100 refMs, kill: rc }
+
+network: { sameZone: 1 refMs, crossZone: 14 refMs, jitter: 3 refMs }
