@@ -1,0 +1,72 @@
+---
+title: "1. The plan"
+description: "What we are building, and the four files it takes."
+icon: "list-check"
+---
+
+We are going to build a small fleet that makes thumbnails: a coordinator reads an
+album, hands batches of frames to whichever machines can shrink them, and collects
+the results. Then we are going to make its afternoon go badly and watch what
+happens.
+
+It is deliberately not a hard distributed systems problem. The point of this
+tutorial is the *shape* — how a system is put together so that losim can measure
+it — not the algorithm. Once the shape is familiar, the interesting problems are
+yours to write.
+
+## The four files
+
+<Steps>
+  <Step title="thumbs.proto — the schema">
+    Two messages in, two messages out, one service with two methods. gRPC is the
+    only way machines talk, so everything a machine can ask another machine is
+    here and nowhere else.
+
+    [Write it →](/first/the-schema)
+  </Step>
+  <Step title="Shrinker.java — the service">
+    A handler that takes a batch of frames and returns thumbnails, plus twelve
+    lines of adapter that make it a plain method you can call from a plain test.
+
+    [Write it →](/first/the-service)
+  </Step>
+  <Step title="ThumbnailJob.java — the job">
+    One class with a `run(Cluster)` method. It finds peers by what they serve,
+    asks each one how big it is, fans work out, and says what the answer was.
+
+    [Write it →](/first/the-job)
+  </Step>
+  <Step title="thumbs.yaml — the scenario">
+    Five machines, two zones, some latency, and something that goes wrong at 900
+    reference milliseconds. Data, not code.
+
+    [Write it →](/first/the-scenario)
+  </Step>
+</Steps>
+
+## What the fleet will look like
+
+```
+  coordinator (m5.large, eu-central-1a)   runs the job
+      │
+      ├── w0  c5.large  eu-central-1a  ┐
+      ├── w1  c5.large  eu-central-1b  │  all four serve Thumbnailer
+      ├── w2  c5.large  eu-central-1a  │  so the job finds them by that,
+      └── w3  t3.small  eu-central-1b  ┘  never by name
+```
+
+`w3` is deliberately the odd one out — a small burstable machine among three
+compute-shaped ones. A fleet where every machine is identical teaches nothing
+about placement, and placement is most of what a coordinator is for.
+
+## Where this is going
+
+By the end you will have a trace with a few hundred events in it, a picture of
+which machine did what and when, and a bill in five buckets. You will also have
+watched a machine be killed halfway through and seen exactly how your coordinator
+found out — which, if you wrote it the obvious way, is *by waiting*.
+
+<Note>
+Every code listing in this tutorial is complete and compiles. Nothing is elided
+with `...` except where a page says so explicitly.
+</Note>

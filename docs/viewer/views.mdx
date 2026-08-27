@@ -1,0 +1,342 @@
+---
+title: "What is on the screen"
+description: "Four views, one clock and one selection — and the question each one answers."
+icon: "table-columns"
+---
+
+Everything below reads the same `(trace, t)` and shares one selection, so they are
+**incapable of disagreeing** with each other. Switching view is a change of question,
+not of map.
+
+| view | the question |
+|---|---|
+| **Film** | what is true *right now*? |
+| **Spans** | why did it take that long, and who was waiting on whom? |
+| **Topology** | what is the *shape* of this system? |
+| **Ledger** | what did it cost, while it was being spent? |
+
+---
+
+## Film
+
+The fleet at an instant. Zones are bands the machines live inside; roles are columns,
+left to right, derived from the trace rather than fanned out by hand.
+
+<Columns cols={2}>
+  <Card title="A machine is drawn the size it is" icon="ruler-combined">
+    Wider with more memory, taller with more cores. A `c5.4xlarge` next to a
+    `t3.small` looks like what it is before you have read a label.
+  </Card>
+  <Card title="It says how much is LEFT" icon="battery-half">
+    Not how much is used. "Holding 255 MB" predicts nothing on its own; "180 MB left"
+    is the number the out-of-memory is going to be about.
+  </Card>
+</Columns>
+
+Messages in flight carry a digest of what they actually held — which is what
+`--telemetry FULL` buys, and why a viewer of opaque byte counts would teach nothing.
+
+**Filters** by zone, by role and by task **dim rather than remove**, so the layout
+never jumps and a filtered machine is still visibly among a fleet.
+
+<Note>
+**The picture holds only what is currently true.** A call that has finished is not
+removed — it is simply *absent*, because every element is a pure function of the
+instant. That is also what makes scrubbing free and recording identical to playing.
+</Note>
+
+### The colours mean things
+
+| | |
+|---|---|
+| a machine's fill | what it holds |
+| **amber** | approaching its cap, or warned it is going |
+| **red** | past it, or gone |
+| **blue-grey** | frozen: still there, answering nothing |
+| a task's hue | kept for the whole run, so one piece of work is followable |
+
+Red is never part of the system itself — it is the lecturer's pen, and the moment it
+starts filling shapes it stops meaning *look here*. The film follows your light or
+dark theme, but only the **ground** does; the meanings above do not change.
+
+---
+
+## Spans
+
+The distributed call stack. Three views of one tree, on one axis, sharing one
+selection — hovering a row lights the same call in the film, the same machine in the
+panel and the same instant on the scrubber. Clicking seeks.
+
+<Warning>
+**This axis is linear, and the film's is not.** The film slows itself down wherever
+something quick is happening so that short messages are visible at all; Spans does
+not, deliberately.
+
+That is the seam between the two views. **The film answers *what is happening*; the
+waterfall answers *how long did it take*.** If you want to compare one call's duration
+against another's, this is the view that will tell you the truth.
+</Warning>
+
+
+<Note>
+Every span carries a parent, and losim propagates that parent **across the RPC
+boundary in a metadata header** — so this is a real distributed call stack, not a
+per-machine timeline with guessed connections.
+
+```
+phase    thumbnails                 coordinator   1991 → 3581
+  rpc    Thumbnailer.Thumbnail      coordinator   2040 → 3575     to w2
+    handler Thumbnailer.Thumbnail   w2            2042 → 3554
+      rpc  Registry.Announce        w2            2069 → 2140     to desk
+        handler Registry.Announce   desk          2072 → 2116
+```
+
+Four machines deep, reading as one stack. That is the thing you cannot get from
+reading the code: that asking one machine to do something causes it to go and ask
+others, and that **most of the wall clock at the top is the bottom waiting**.
+</Note>
+
+### A bar is not one duration
+
+```
+Thumbnail → w2   ├─┤███████████████████████████████├──┤
+                 out   queue      working          back
+```
+
+All four segments are **measured**, by subtraction rather than by matching up events,
+so they tile the bar exactly. `netRefMs` gives the wire; the gap between the message
+landing and the handler opening is the call **sitting on a machine with no core
+free** — the vCPU model made visible, and the segment nobody expects to exist.
+
+### Two numbers that carry the lesson
+
+<Columns cols={2}>
+  <Card title="Self time" icon="hourglass-half">
+    A span's duration minus its children's — what that machine actually *did*; the
+    rest it spent waiting on somebody else. Drawn lighter inside the bar.
+
+    Children are taken as a **union, not a sum**: a handler that fans out four
+    concurrent calls has four overlapping children, and adding them would report a
+    machine as having negative self time *for being efficient*.
+  </Card>
+  <Card title="The critical path" icon="route">
+    At each level, the child that finished last. It is what the makespan is actually
+    made of, and therefore the only thing there is any point in making faster.
+    Outlined in the waterfall.
+  </Card>
+</Columns>
+
+### The three sub-views
+
+| | |
+|---|---|
+| **Waterfall** | causality, and the primary view. Tree order, indented by depth; subtrees collapse. |
+| **Swimlanes** | place — a lane per machine, grouped by zone, with arrows where work moved between them. |
+| **Rollup** | what the job is made of: self time by method, machine, zone or task. |
+
+### Filters that find something
+
+By machine, by method, failed-only, critical-path-only, and **slower than** — which is
+how a straggler is *found* rather than noticed.
+
+---
+
+## Topology
+
+Who called whom, over the whole run. The film answers *what is true right now* and
+forgets the moment it passes; this answers what the film structurally cannot — **what
+is the shape of this system** — by keeping nothing but the shape.
+
+<Columns cols={2}>
+  <Card title="The same layout as the film" icon="map-pin">
+    A machine is in the same place in both. Nothing here reaches for a graph-layout
+    library: the fleet already has a derived shape, and a second engine would only be
+    a second opinion about where `w0` lives.
+  </Card>
+  <Card title="Edges weighted by bytes" icon="weight-hanging">
+    Not by call count, because a system's shape is where its **data** goes. A
+    coordinator asking forty machines a one-word question has forty thin edges; the
+    one call that moved a megabyte is the fat one. Cross-zone edges are tinted —
+    the same fact the ledger charges for.
+  </Card>
+</Columns>
+
+The clock still runs, so edges **thicken as the calls that make them happen**:
+scrubbing shows the shape arriving rather than appearing. At the end it is the whole
+picture, which is the figure anyone would draw on a whiteboard.
+
+---
+
+## Ledger
+
+<div id="the-ledger" />
+
+Five buckets, accruing **while the film plays**:
+
+| | |
+|---|---|
+| `capacity` | flat from the first frame — you bought a minute of every machine before a single call was made |
+| `build` | creeps |
+| `consumption` | follows the work. **This is the line a better algorithm moves.** |
+| `incidents` | steps, at the instants things broke |
+| `revenue` | lands at the end, or does not |
+
+`losim bill` says what a run cost, which is the wrong tense for a film: the point of
+watching a cascade is seeing profit go negative *partway through*, while it is still
+happening.
+
+### Hovering a machine shows its money
+
+Its lines lift to the top with the reason in words, everything else dims, and its
+slice is drawn inside each bucket's bar. Attribution is a **partition, never a
+re-price** — the amount never changes, only the claim about who is answerable:
+
+| | |
+|---|---|
+| **its own** | a capacity line names one machine and belongs to it entirely |
+| **its share** | a fleet total split by a quantity the trace already holds — cross-zone egress by how many cross-zone bytes that machine actually sent |
+| **the worst machine's** | storage belongs wholly to it, because that is what the bill charges for |
+| **the event's machine** | incidents go to the machine the event names |
+| **nobody's** | revenue and the late-finish penalty belong to the *job*. Spreading them over nine machines would invent a claim nothing supports, so they show as a dash |
+
+<Warning>
+**The viewer never prices anything itself.** Every amount is a line the CLI already
+computed, from the rates it already used; the viewer adds only a shape saying how that
+line arrives over time, normalised so the closing total equals `losim bill` **to the
+rappen** — which is checked rather than claimed.
+
+Two implementations of a pricing model are two accountants who will eventually
+disagree. There is only one of them.
+
+No bill beside the trace — a file you dragged onto the page — means no money shown.
+</Warning>
+
+---
+
+## Driving it
+
+### Keys
+
+| | |
+|---|---|
+| `Space` | play / pause |
+| `→` `←` | one frame; **Shift** for ten |
+| `]` `[` | jump to the next / previous **event** |
+| `Esc` | unpin the machine panel |
+
+### Speed, and what it means
+
+| | |
+|---|---|
+| `1x` | the run at its own pace, with the quick parts held long enough to read. **This is the only speed where the one-second floor holds.** |
+| `2x`, `4x`, … | the same shape, faster. Pressing one clears `fit`. |
+| `fit` | the whole **film** in thirty seconds. The pacing is kept but squeezed, so each moment gets `30s ÷ the film's length` — well under a second on a long film. |
+| `hold` | cycles `1s → 0.5s → 0.25s → off`, and decides the shape of the film rather than how fast you watch it. Off means no pacing at all. |
+
+`hold` and `fit` compose: one sets the shape, the other sets how long you spend on it.
+[Why the clock is paced at all →](/viewer/index#the-clock-is-in-reference-milliseconds)
+
+### The message panel
+
+
+Pause, then **hover a message in flight**: its full payload, its size in bytes, how
+long it spent on the wire, and how it ended. **Click to pin it**, which is what makes a
+thousand-entry payload readable — pinned, it scrolls.
+
+A trace that kept only a bounded sample of a large payload says so, and says the true
+count, so a truncated list is never mistaken for a short one.
+
+<Tip>
+This is the reason the film is paced. A control message that took three refMs is on
+screen long enough to hover precisely because the clock slows down for it.
+</Tip>
+
+### The machine panel
+
+
+**A panel, not a tooltip.** Hover to sample; **click to pin**, and it keeps updating
+while the film plays — which is how you see a machine fill up rather than discover
+that it did. Pinning **docks it beside the film** and the picture re-fits into what is
+left; hover still overlays, because a peek must not move the picture under the cursor.
+
+It carries what the machine is, what it holds against what it is allowed to hold, what
+it is computing with the **whole** payload rather than the digest, what it has served,
+what has happened to it, and what it has cost. The sparklines are the whole run with
+the current instant marked, so a reading has a shape around it.
+
+### Everything is a link
+
+| parameter | |
+|---|---|
+| `run=<name>` | which trace |
+| `vs=<name>` | a second run, on the same clock |
+| `t=<refMs>` | the instant |
+
+| `view=film \| spans \| topology` | which view |
+| `sv=waterfall \| swimlanes \| rollup` | which sub-view of Spans |
+| `m=<machine>` | pins the panel on it |
+| `pnl=1` | opens the ledger |
+| `fail=1` | failed spans only |
+| `method=<text>` | filter by method |
+
+```
+http://localhost:8000/?run=mine&t=2400&view=spans&sv=waterfall&fail=1
+```
+
+*"Look at the failures in `mine` at 2,400"* is a link, not an instruction to go and
+click four things.
+
+---
+
+## Recording
+
+An MP4 (or WebM, depending on what your browser can encode) of exactly the film you
+watched — playing and recording are the same code path; only the clock's driver
+differs.
+
+<Note>
+The clock is an **input** to the encoder rather than a consequence of it, so a slow
+laptop produces a file of the same length at the same rate as a fast one. Recording
+the live canvas through `MediaRecorder` would silently produce a shorter, jerkier
+video on a throttled machine.
+</Note>
+
+Export the picture you have already understood, not the one you are trying to
+understand — a video cannot be hovered, which is the whole reason the viewer is not
+one.
+
+## Two runs on one clock
+
+Pick a second run from **`compare with…`**, beside the run picker. Both films play at
+once, against the same instant.
+
+<Note>
+**One clock, in absolute refMs — not a percentage of each run.** Normalising the two
+to *"forty percent through"* would make every comparison look like a draw. The point
+of a comparison is that at 2,400 one of them has finished and the other has not, so
+the clock runs to whichever lasts longer and the shorter run simply ends and sits
+there having ended, captioned `finished at …`. That is the argument.
+</Note>
+
+Each film gets half the stage and is **re-arranged for the room it has**, so neither
+is laid out for space it was not given. Underneath, when both traces have a bill beside
+them, a verdict line: each run's profit, and which is ahead by how much.
+
+<Warning>
+**It is the Film view only.** Spans, Topology and the machine panel show the run you
+picked first — the one on the left. Hovering works on the left film; the `vs` film is
+a picture, not a surface to interrogate.
+
+The **task** filter applies to both. The zone and role filters dim only the left.
+</Warning>
+
+The pairing is in the URL as `vs=<name>`, so a comparison is a link like any other
+moment.
+
+<Tip>
+The comparison worth making is almost always **one variable changed**. Run a scenario,
+edit exactly one line of the YAML, run it again into a second file, and put the two
+up together — the difference on the stage is then attributable to that line and
+nothing else.
+</Tip>
+

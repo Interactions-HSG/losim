@@ -1,0 +1,198 @@
+---
+title: "losim bill"
+description: "What a run cost, in five buckets — and at both scales when there are two."
+icon: "receipt"
+---
+
+```bash
+java -cp build/losim.jar losim.cli.Main bill <trace.json> [--prices <file>] [--json]
+```
+
+<ParamField path="--prices <file>" type="path" default="prices/eu-central-1.yaml">
+  A price list. If the file does not exist, the built-in defaults are used and the
+  command says so — **on stderr**, so that `--json` still produces a clean document.
+</ParamField>
+
+<ParamField path="--json" type="flag">
+  The same five buckets as data, plus the **rates** they were computed from.
+
+  ```json
+  {
+    "trace": "build/runs/mine.json",
+    "rates": {
+      "currency": "CHF", "spotDiscount": 0.7, "egressPerGb": 0.01,
+      "storagePerGbMonth": 0.1, "billingMinimumSeconds": 60,
+      "buildPerServiceMonth": 250.0, "revenuePerJob": 5.0, "slaSeconds": 10.0,
+      "latePenaltyPerSecond": 0.5, "incidentPerRerun": 0.02,
+      "incidentPerLostMachine": 0.2
+    },
+    "observed":  { "lines": [ … ] },
+    "projected": { "lines": [ … ] }
+  }
+  ```
+
+  `projected` is present only for a scaled run. Notes go to **stderr**, so the
+  document on stdout is clean and pipeable.
+
+  The `rates` object is the part that matters. Anything that wants to accrue cost **as
+  a run plays** — the viewer's [Ledger](/viewer/views#the-ledger) — cannot get that
+  from a total, and has to build the shape itself. Publishing the rates is what stops
+  that becoming two accountants who will eventually disagree: the viewer re-prices
+  nothing, every amount it shows is a line this command already computed, and each
+  line's shape is normalised so the closing total equals this bill to the rappen.
+</ParamField>
+
+<Note>
+**The viewer looks for a bill by convention.** A run writes
+
+`<name>.bill.json` beside each `<name>.json`, and the page loads it if it is there.
+A trace dragged onto the page has none, and the money is then simply absent rather
+than invented. [Opening a trace →](/viewer/opening-a-trace)
+</Note>
+
+Billing is a **pure function of the trace**, so re-billing the same run under a
+different price list costs nothing and needs no re-run.
+
+## The five buckets
+
+| bucket | what it is a model of |
+|---|---|
+| `revenue` | the service earns only when the job completes |
+| `capacity` | the fleet, for the period. An idle machine costs exactly as much as a busy one. |
+| `consumption` | what the work burned: cross-zone egress, and storage |
+| `incidents` | zero until something breaks, then large |
+| `build` | engineering time to construct and carry this design, per distinct service |
+
+<Note>
+They are printed **apart rather than summed**, because they are five different kinds
+of decision and adding them hides the trade every design makes. Replication triples
+capacity and adds to build in order to empty incidents; one number cannot say that.
+
+A line appears only when there is a quantity to put in it. A bucket nobody could
+fill in is not a bucket that cost nothing.
+</Note>
+
+## Every line losim can print
+
+So you can map a row of output back to the thing that caused it.
+
+| bucket | line | unit |
+|---|---|---|
+| `revenue` | `job completed` / `job did not complete` | jobs |
+| `build` | `services carried` | services |
+| `capacity` | `<machine> (<instance>)`, or `(<instance>, spot)` | machine-hours |
+| `capacity` | `the fleet, for the period` — **projected side only** | machine-hours |
+| `consumption` | `cross-zone egress` | GB |
+| `consumption` | `spilled data on disk` | GB-month |
+| `incidents` | `calls that did not answer in time` | reruns |
+| `incidents` | `machines lost` | failures |
+| `incidents` | `machines that filled up` | failures |
+| `incidents` | `late finish` | seconds |
+
+<Note>
+**Capacity reads differently on the two sides.** What happened is one line per machine,
+named, with its instance type — five machines you can point at. What it is a model of
+is a single fleet line, because at full scale the number of machines is itself
+something the engine had to project.
+</Note>
+
+## What goes into each
+
+
+<AccordionGroup>
+  <Accordion title="capacity">
+    One line per machine: `durationRefMs` as hours, times the instance's on-demand
+    rate from the catalogue, with a billing minimum (60s by default).
+
+    A machine that received a `spot_notice` is billed at the spot rate — 70% off by
+    default — and its line says `(c5.large, spot)`.
+
+    Priced in **reference** time, deliberately: the run took a few seconds of your
+    afternoon, but the job it is a model of takes what the simulated clock says.
+  </Accordion>
+  <Accordion title="consumption">
+    **Cross-zone egress** — the sum of `crossZoneMb` across machines, in GB. Traffic
+    between availability zones is billed; traffic inside one is free, which is why
+    it is counted apart rather than derived.
+
+    **Storage** — the worst machine's `diskMb`, in GB-months, held for the period.
+  </Accordion>
+  <Accordion title="incidents">
+    Counted from events: `rpc_timeout` as reruns, `kill` plus `spot_notice` as
+    machines lost, `oom` plus `disk_full` as machines that filled up (priced at five
+    times a lost machine), and a per-second penalty past the service level.
+
+    **Never scaled.** The lines do appear in the projected account — but at the
+    numbers actually observed, carried across rather than grown. Three machines lost
+    in the run is three machines lost in the model of a job six times the size.
+
+    A machine either failed or it did not, and an incident bucket extrapolated from
+    one afternoon would be a forecast dressed as an observation. So read the projected
+    incidents as *what this run cost*, not as what the bigger job would suffer.
+
+  </Accordion>
+  <Accordion title="build">
+    The number of **distinct services** the fleet carries, times a monthly cost per
+    service. Carried whether or not it is ever needed — which is what makes adding a
+    service a real decision.
+  </Accordion>
+  <Accordion title="revenue">
+    One job's worth if `meta.completed` is true, zero otherwise.
+  </Accordion>
+</AccordionGroup>
+
+## Two bills for a scaled run
+
+```
+what happened
+  revenue     job completed                         1.000 jobs           CHF    5.0000
+  build       services carried                      1.000 services       CHF    0.2500
+  capacity    master (m5.2xlarge)                 0.01670 machine-hours  CHF    0.0077
+  capacity    w0 (r5.large)                       0.01670 machine-hours  CHF    0.0025
+  …
+  consumption spilled data on disk              0.0001000 GB-month       CHF    0.0000
+  incidents   calls that did not answer in time     1.000 reruns         CHF    0.0200
+  incidents   machines lost                         3.000 failures       CHF    0.6000
+
+what it is a model of
+  revenue     job completed                         1.000 jobs           CHF    5.0000
+  build       services carried                      1.000 services       CHF    0.2500
+  capacity    the fleet, for the period                 -                CHF   refused
+      its exponent moves by 0.671 between independent seed sets of the same
+      workload, which over a factor of 6 is an error bar of x3.3 — wider than
+      anything it would be asked to distinguish
+  consumption spilled data on disk              0.0004000 GB-month       CHF    0.0000
+  incidents   calls that did not answer in time     1.000 reruns         CHF    0.0200
+  incidents   machines lost                         3.000 failures       CHF    0.6000
+  ----------------------------------------------------------------------------------
+  capacity     CHF       0.0000
+  TOTAL COST   CHF       0.8700
+  PROFIT       CHF       4.1300   (of what could be priced)
+```
+
+Read the two halves against each other:
+
+- **`capacity` is per machine on the left and one line on the right.** What happened
+  is five machines you can name; what it is a model of is a fleet whose size is
+  itself a projection.
+- **`consumption` grew** — 0.0001 to 0.0004 GB-month — because storage has a law
+  fitted to it.
+- **`incidents` did not move.** Those are the observed failures, carried across.
+- **`capacity` contributed `0.0000` to the total** because it was refused, which is
+  why the profit line says *of what could be priced* rather than standing as a number.
+
+A line the engine refused is a line nobody can fill in. Capacity is usually the
+largest of them and the one that depends on the timeline, which is the noisiest thing
+losim measures — so the uncertainty in what a design costs is rarely where anyone
+expects to find it.
+
+
+Each projected quantity carries **its own** growth factor, because that is the whole
+point of the engine: resources do not share one. Cross-zone bytes are grown by the
+wire law rather than a law of their own — which calls cross a zone is a property of
+the topology, not of the size — and if the wire law itself was refused, the line is
+refused rather than printed with an observed quantity under a full-scale heading.
+
+<Card title="Price list keys" icon="tag" href="/ref/prices">
+  Every field, and what changing it teaches.
+</Card>

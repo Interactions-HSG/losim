@@ -1,0 +1,145 @@
+---
+title: "Calling a peer"
+description: "An ordinary gRPC call site, and everything losim attaches to it."
+icon: "plug"
+---
+
+```java
+var here = Losim.current();
+Channel to = here.channelTo(here.peersServing("Thumbnailer").get(0));
+Thumbs thumbs = ThumbnailerGrpc.newBlockingStub(to).thumbnail(batch);
+```
+
+What comes back is an `io.grpc.Channel`. The call site is plain gRPC — the stub is
+the one protoc generated, the argument is your message, the result is your message.
+
+## What rides on that channel
+
+Every call through a losim channel passes through two interceptors, and this is
+where everything the simulator does actually happens:
+
+| | |
+|---|---|
+| **the network** | latency by zone, jitter either side, loss, and whether the two ends can currently reach each other |
+| **byte counts** | the message is marshalled explicitly, because gRPC's in-process transport passes the object by reference and never serializes — so a byte count can never be inferred from the transport. Serialized size plus gRPC's five bytes of framing. |
+| **cross-zone bytes** | counted apart, in **both directions**. Counting only the request would make a fetch look free: a call that asks for a region in forty bytes and is sent a megabyte back travels almost entirely in the direction that was not counted. |
+| **spans** | one on the caller and one on the callee, and the callee's is opened **under the caller's** — the parent crosses the wire in a metadata header, so the span tree is a real distributed call stack |
+| **retries** | if the scenario declared a policy for this method, outside the recording interceptor, so every attempt is genuinely separate |
+| **deadlines** | rewritten from reference time into real time, so `withDeadlineAfter` means what everything else means |
+
+## The channel is the machine's, not yours
+
+```java
+Channel a = here.channelTo("w1");
+Channel b = here.channelTo("w1");     // the same channel
+```
+
+Made once and kept, so a handler never sees a lifetime. It is also the same channel
+the job's `Cluster` hands out for that peer — one per pair, with one place that
+closes them.
+
+<Warning>
+**Do not build your own.**
+
+```java
+var ch = ManagedChannelBuilder.forAddress("w1", 50051).usePlaintext().build();
+```
+
+No interceptor is attached to that. The call happens at full speed, costs no bytes,
+waits out no latency, **survives a partition**, keeps working after the machine at
+the other end has been killed, and leaves nothing in the trace to say it happened.
+
+Nothing throws. You get a run full of plausible figures, every one of them wrong in
+a direction nobody can see — which is exactly why the verifier flags
+`ManagedChannelBuilder` and this is what it flags it in favour of.
+</Warning>
+
+## Blocking, async, and futures
+
+<CodeGroup>
+```java blocking
+var stub = ThumbnailerGrpc.newBlockingStub(to)
+        .withDeadlineAfter(2_000, TimeUnit.MILLISECONDS);
+Thumbs thumbs = stub.thumbnail(batch);
+```
+
+```java futures — this is how you fan out
+var stub = ThumbnailerGrpc.newFutureStub(to)
+        .withDeadlineAfter(2_000, TimeUnit.MILLISECONDS);
+ListenableFuture<Thumbs> f = stub.thumbnail(batch);
+// … dispatch the rest, then collect
+Thumbs thumbs = f.get();
+```
+
+```java fire and forget
+ThumbnailerGrpc.newStub(to).notify(ping, new StreamObserver<Empty>() {
+    @Override public void onNext(Empty v)       { }
+    @Override public void onError(Throwable t)  { }
+    @Override public void onCompleted()         { }
+});
+```
+</CodeGroup>
+
+<Note>
+**Blocking in a loop is the classic first fleet.** Four machines, used strictly one
+at a time, producing the right answer and teaching nothing. The [Spans
+view](/viewer/views) shows it as a staircase; concurrency shows as a block.
+
+Where the round-trip latency is paid is worth knowing: the whole round trip is
+slept once, on the thread that delivers the response. For a blocking call that is
+your own thread, which was waiting anyway; for a future it is the channel's
+executor, so the caller is never blocked by it. Neither the callee's pool thread
+nor the handler's measured duration is touched.
+</Note>
+
+## A handler calling a peer
+
+Exactly the same, and there is nothing special about it:
+
+```java
+@Takes(refMs = 2)
+@Override protected Thumbs thumbnail(Batch request) {
+    if (tooBigForMe(request)) {
+        var here = Losim.current();
+        var bigger = here.peersServing("Thumbnailer").get(0);
+        return ThumbnailerGrpc.newBlockingStub(here.channelTo(bigger)).thumbnail(request);
+    }
+    …
+}
+```
+
+The forwarded call gets its own span, opened under this handler's span, so the
+trace shows the hop. And the handler occupies one of this machine's cores while it
+waits — which is real, and is exactly the cost of forwarding.
+
+## What happens when nothing answers
+
+```java
+try {
+    thumbs = stub.thumbnail(batch);
+} catch (StatusRuntimeException e) {
+    if (e.getStatus().getCode() == Status.Code.DEADLINE_EXCEEDED) {
+        // dead, partitioned, or dropped — and you cannot tell which
+    }
+}
+```
+
+The trace can tell, even though you cannot:
+
+```json
+{ "kind": "rpc_timeout", "vm": "coordinator",
+  "detail": { "to": "w1", "method": "lab.Thumbnailer.Thumbnail",
+              "status": "DEADLINE_EXCEEDED", "why": "unreachable" } }
+```
+
+`why` is `unreachable`, `partitioned` or `lost`.
+
+<Warning>
+**A call with no deadline waits five seconds and then gives up on your behalf**, so
+a scenario that forgot to set one still terminates. Five seconds of *reference*
+time is a very long time in a run whose horizon is six. Set deadlines.
+</Warning>
+
+<Card title="Next: deadlines" icon="arrow-right" href="/write/deadlines">
+  Why `withDeadlineAfter(200, MILLISECONDS)` means 200 refMs.
+</Card>

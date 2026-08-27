@@ -1,0 +1,100 @@
+---
+title: "events"
+description: "Every event kind losim writes, and what each carries."
+icon: "bolt"
+---
+
+```json
+{ "t": 61.4, "kind": "rpc_call", "vm": "coordinator",
+  "detail": { "to": "w0", "method": "lab.Thumbnailer.Thumbnail", "call": 14 } }
+```
+
+| field | |
+|---|---|
+| `t` | simulated milliseconds since the run began |
+| `kind` | one of the kinds below |
+| `vm` | the machine it happened on, or `"-"` for the run itself |
+| `detail` | key-value pairs; **a key whose value would be null is omitted**, never recorded as null |
+
+## The run
+
+| kind | `vm` | detail |
+|---|---|---|
+| `scenario` | `-` | `file`, `seed`, `kTime`, `machines`, `job`, `tightMargin` |
+| `boot` | machine | `instance`, `zone`, `vcpu`, `memoryMb`, `diskMb` |
+| `done` | job's machine | `value` — the job's answer, rendered |
+| `job_failed` | job's machine | `error` |
+| `over_horizon` | `-` | `expectedRefMs`, `actualRefMs`, `note` |
+| `trust` / `trust_unchecked` | machine or `-` | what the verifier found before anything ran |
+
+## Calls
+
+| kind | `vm` | detail |
+|---|---|---|
+| `rpc_call` | caller | `to`, `method`, `call` |
+| `rpc_timeout` | caller | `to`, `method`, `call`, `status`, `why` |
+| `rpc_error` | caller | `to`, `method`, `call`, `status`, `why` |
+| `handler_start` | callee | `method`, `call` |
+| `handler_end` | callee | `method`, `call`, `status`, `ms`, `grossMs`, `arg`, `result` |
+| `queue_wait` | callee | `ms` |
+| `retry` | caller | `method`, `attempt`, `of`, `after`, `backoffRefMs`, `unsafe` |
+| `retry_done` | caller | `method`, `attempts`, `status` |
+
+<Note>
+`call` is the **same number on both sides** — the caller's span id, sent across in a
+metadata header. That is what lets a reader join the two halves of one call.
+
+`why` on a failure is `unreachable`, `partitioned` or `lost`. The caller could not
+tell them apart; the trace can.
+
+`ms` on `handler_end` is what the **program** took — losim's own bookkeeping inside
+that window is metered and subtracted. `grossMs` is open-to-close including it.
+</Note>
+
+## From your code
+
+| kind | detail | written by |
+|---|---|---|
+| `state` | `key`, `value` | `Losim.current().reveal(k, v)` |
+| `log` | `message` | `Losim.current().log(m)` or `cluster.log(m)` |
+| `sleep` | `refMs` | `Losim.current().sleep(refMs)` |
+
+## Weather
+
+| kind | `vm` | detail |
+|---|---|---|
+| `kill` | victim | `reason` |
+| `freeze` | victim | `forRefMs` |
+| `thaw` | victim | — |
+| `degrade` | victim | `factor` |
+| `restart` | victim | `state` (`kept` or `lost`), `note` |
+| `spot_notice` | victim | `inRefMs` |
+| `partition` | one end | `from` |
+| `heal` | one end | `with` |
+| `chaos` | victim | `kind`, `among`, `atRefMs` |
+
+A `chaos` event is followed by the ordinary `kill`, `freeze` or `degrade` event for
+that machine, so a scripted fault and a drawn one are otherwise identical.
+
+## Running out
+
+| kind | detail |
+|---|---|
+| `oom` | `resource`, `capMb`, `demandMb`, `objects`, `cause` |
+| `disk_full` | `resource`, `capMb`, `demandMb`, `cause` |
+
+Both are recorded **once per machine** — the first time it happens.
+
+## Counting them
+
+```python
+import collections, json
+t = json.load(open("build/thumbs.json"))
+print(collections.Counter(e["kind"] for e in t["events"]))
+```
+
+```
+Counter({'state': 320, 'handler_start': 160, 'handler_end': 160,
+         'rpc_call': 160, 'queue_wait': 22, 'boot': 5,
+         'rpc_timeout': 3, 'kill': 1, 'scenario': 1, 'done': 1})
+```

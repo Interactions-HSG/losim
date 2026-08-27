@@ -1,0 +1,130 @@
+---
+title: "Troubleshooting"
+description: "Symptoms, causes, and the line to change."
+icon: "wrench"
+---
+
+## The scenario is refused, and nothing runs
+
+Exit code **2**, with the file and line. These read like compiler errors on purpose.
+
+<AccordionGroup>
+  <Accordion title="'900' does not say what kind of time it is">
+    Every duration is reference-machine time and has to say so: `900 refMs` or
+    `2 refSeconds`. A bare number is ambiguous between the simulated world and your
+    afternoon, and the two differ by `k_time`, which whoever writes the scenario
+    never sees. [Durations →](/ref/durations)
+  </Accordion>
+  <Accordion title="unknown key 'zones'; expected one of instance, zone, serves, …">
+    A typo in a key. Every block declares exactly what it accepts, so this is caught
+    at load rather than discovered as a setting that silently did nothing.
+  </Accordion>
+  <Accordion title="unknown instance type 'c5.medium'">
+    The message lists the whole catalogue. [Instances →](/ref/instances)
+  </Accordion>
+  <Accordion title="there is no machine called 'w7' in this scenario">
+    A fault aimed at a machine that does not exist. The message lists the ones that
+    do. Remember a pool named `workers` with `prefix: w` and `count: 4` produces
+    `w0 w1 w2 w3` — not `workers0`.
+  </Accordion>
+  <Accordion title="no class called 'lab.Shrinkr' is on the classpath">
+    `serves:` names a **class**, fully qualified. Check `--cp` points at the
+    directory you compiled into, and that the name is spelt as the class is.
+  </Accordion>
+  <Accordion title="'lab.Shrinker' is not a gRPC service">
+    It has to extend the `ImplBase` protoc generated. Machines talk over gRPC and
+    nothing else.
+  </Accordion>
+  <Accordion title="'lab.Shrinker' needs a no-argument constructor">
+    losim builds a fresh one when a machine restarts. Whatever it needs, it asks
+    `Losim.current()` for.
+  </Accordion>
+  <Accordion title="retrying lab.Volley.Hit is refused">
+    The `.proto` declares no `idempotency_level`. Declare it, or write
+    `unsafe: true` in the policy if you mean it. [Retries →](/write/retries)
+  </Accordion>
+  <Accordion title="retry policy names 'Thumbnial', which no machine in this fleet serves">
+    A typo in a policy would otherwise be a policy that silently does nothing.
+  </Accordion>
+  <Accordion title="two machines are both called 'w1'">
+    A pool's generated names collided with an explicitly named machine. Change the
+    `prefix:`.
+  </Accordion>
+</AccordionGroup>
+
+## The run happens, but something is wrong
+
+<AccordionGroup>
+  <Accordion title="'none of the classes this scenario names are on the classpath it was given'">
+    ```
+    A jar is not walked; point --cp at the directory the lab compiles to.
+    ```
+    The verifier reads class files off disk. Everything still ran — but nothing was
+    checked, and the trace records that nothing was claimed either way.
+  </Accordion>
+  <Accordion title="could not start machine w0: IllegalStateException">
+    A name still held by another server. Closing a fleet now waits for its machines
+    to give their names back, so fleets run back to back in one JVM are fine — as
+    long as each one is actually closed. If you see this together with
+    `losim: w0 did not release its name in time`, the previous fleet's shutdown
+    timed out rather than the name being genuinely taken.
+
+  </Accordion>
+  <Accordion title="the job did not finish within ten times its declared expectedRun">
+    A backstop, not a deadline. Look for a call with no deadline (five reference
+    seconds each), a coordinator waiting on a machine that was killed, or a loop
+    that never terminates because `cluster.records()` was ignored.
+  </Accordion>
+  <Accordion title="an over_horizon event">
+    ```
+    chaos was only drawn out to the horizon, so nothing happened to this fleet
+    after it
+    ```
+    The run overran `expectedRun` by more than a quarter. Past the horizon the
+    sampler thins out and chaos stops firing — a quiet second half that looks
+    exactly like a fleet behaving well. Raise `expectedRun`.
+  </Accordion>
+  <Accordion title="'this thread has no machine'">
+    Work started on a thread the machine did not create. [Concurrency
+    →](/write/concurrency)
+  </Accordion>
+  <Accordion title="w3 has no disk left: 33.4 MB written against a 32.0 MB volume">
+    Working as intended. `wroteDisk` throws when the cap is exceeded, because
+    recording the write and carrying on would let a design that does not fit appear
+    to work.
+  </Accordion>
+  <Accordion title="a trust block at the end of the run">
+    Nothing was stopped. Each finding is a **wrong number**, not a broken run, and
+    it names the file and line. [Trust markers →](/engine/trust)
+  </Accordion>
+</AccordionGroup>
+
+## The numbers look wrong
+
+| symptom | first thing to check |
+|---|---|
+| every machine has `"calls": 0` except one | the service name passed to `peersServing` — it is the `.proto` name, not the Java class |
+| handlers never overlap | a blocking stub inside the dispatch loop |
+| timings are implausibly fast | a handler with no `@Takes` takes no time, deliberately |
+| the per-record cost seems to do nothing | the handler never called `records(n)` |
+| a deadline fires immediately | it is reference time; at `kTime: 40` a 200 refMs deadline is 5 real ms — that part is fine, but check the declared cost it is racing |
+| memory is far lower than expected | `memoryMb` is *retained*, not allocated. A streaming design genuinely holds nothing |
+| bytes are zero | the message is not a protobuf `Message`, or the channel was built by hand |
+
+## Environment
+
+<AccordionGroup>
+  <Accordion title="no vendored protoc for Linux-aarch64">
+    Only macOS/arm64 and Linux/x86-64 binaries are committed. Use the devcontainer.
+  </Accordion>
+  <Accordion title="OutOfMemoryError running the reference suite or a scaled run">
+    Give the JVM more: `java -Xmx3g …`, which is what the bundled scripts do.
+  </Accordion>
+  <Accordion title="the scaled run refits its plan every time">
+    The cache is keyed on the scenario, the code and the telemetry level. Changing
+    any class the scenario names invalidates it — which is correct.
+  </Accordion>
+  <Accordion title="exit code 3">
+    Something inside losim. `LOSIM_DEBUG=1` prints the stack behind the message.
+  </Accordion>
+</AccordionGroup>

@@ -1,0 +1,205 @@
+---
+title: "The viewer"
+description: "A run, watched: the fleet at an instant, a scrubber over the whole thing, and the money as it is spent."
+icon: "eye"
+---
+
+A trace is a few thousand JSON objects. The viewer is how you look at one — and it
+opens **a raw `losim run` trace**, with no baking step in between, because the case it
+exists for is a student pointing it at their own run.
+
+## Try it now
+
+It is already open. In a Codespace or the devcontainer the lab server started when you
+attached, on **http://localhost:8000/**, and every run under `build/runs` is in the
+picker — a run is listed because it is on disk, which is the only fact that cannot go
+stale.
+
+If you would rather say which runs to look at, `show()` opens the viewer on exactly
+the ones you just made:
+
+```java RunExperiments.java
+Experiments.here()
+        .run("my-system")
+        .show();
+```
+
+<Note>
+**Every example in this manual makes its own trace.** There is no shared set of
+prepared runs you are expected to have, and nothing here depends on one existing —
+each page that shows you a picture also shows you the run that produced it.
+</Note>
+
+<Note>
+**You need no Node and no install.** The page is committed as a static export and
+served by the JDK that is already there, so it is the same in the devcontainer, on a
+laptop and in a Codespace, with no setup step and no first-run download.
+
+`npm` belongs to whoever *changes* the viewer. [Developing it →](/viewer/developing)
+</Note>
+
+
+## What is on the screen
+
+<Columns cols={2}>
+  <Card title="The film" icon="film">
+    The fleet at an instant. Zones are bands, roles are columns, and a machine is
+    drawn **the size it is** — wider with more memory, taller with more cores.
+
+    Each one says **how much is left**, not how much is used: "holding 255 MB"
+    predicts nothing on its own, and "180 MB left" is the number the out-of-memory
+    is going to be about.
+  </Card>
+  <Card title="The scrubber" icon="sliders">
+    Shaped like the control everybody already knows. Its **chapters are the run's own
+    phases**, and its **markers are what went wrong** — every kill, freeze,
+    out-of-memory, disk-full, timeout and retry, at the instant it happened.
+  </Card>
+  <Card title="Spans" icon="bars-staggered">
+    The distributed call stack — waterfall, swimlanes and a rollup. Where the wall
+    clock actually went, and **most of the time at the top is the bottom waiting**.
+  </Card>
+  <Card title="Topology" icon="circle-nodes">
+    The shape of the system, edges weighted by **bytes** rather than call count,
+    thickening as the clock runs.
+  </Card>
+  <Card title="The machine panel" icon="rectangle-list">
+    Hover to sample; pin to **watch**. That is how you see a machine fill up rather
+    than discover that it did.
+  </Card>
+  <Card title="The ledger" icon="receipt">
+    Five buckets, accruing **while the film plays** — and hovering a machine shows
+    its share of every one of them.
+  </Card>
+</Columns>
+
+[What each one shows, in detail →](/viewer/views)
+
+## The clock is in reference milliseconds
+
+<Note>
+The scrubber reads the clock **the scenario was written in**, not the compressed one
+the host actually ran at — whatever `k_time` happened to be. That is the only reading
+a student can carry back to the YAML they wrote.
+</Note>
+
+<Warning>
+**The playhead does not move at a constant rate, and `1x` is not one simulated second
+per real second.** A call that took three refMs would be on screen for three
+*thousandths* of a second — and the short, fast control messages are exactly the ones
+carrying the payloads worth reading, so the interesting things were the invisible
+ones.
+
+The clock therefore **slows down wherever something quick is happening**, so that
+every leg of every message and every stretch of work is on screen for at least a
+second. The **hold** button cycles `1s → 0.5s → 0.25s → off`.
+</Warning>
+
+Nothing but the pace changes, and that is what makes it honest rather than a
+distortion:
+
+| | |
+|---|---|
+| **monotone** | trace time never goes backwards, so nothing is reordered and nothing overlaps that did not overlap |
+| **read at the true instant** | every number on screen is taken from the trace at the trace time the playhead is at — a machine's memory at 400 refMs is what it was at 400 refMs |
+| **the scrubber is still refMs** | the axis is unchanged; only the speed along it varies |
+
+**So the film is longer than the run, often much longer** — a five-second run is
+commonly a fifty-second film, and a run full of short messages is longer still. That
+is the price of the guarantee, and the clock says the number: beside the elapsed time
+it prints how long the film itself runs.
+
+Turn `hold` down, or off, when you want the run back at its own speed.
+
+### `fit`, and the one place the guarantee lapses
+
+`fit` plays **the whole film in thirty seconds** — the film, not the run. The pacing is
+kept, so the quick parts still get far more than their share of the time; they are
+simply squeezed along with everything else.
+
+Which means the one-second floor is a **`1x` promise**. At `fit`, each moment gets
+`30s ÷ the film's length`:
+
+| | run | film | each moment at `fit` |
+|---|---|---|---|
+| a small run | 5.2s | 57.0s | ~0.53s |
+| a run full of failures | 8.9s | 165.0s | ~0.18s |
+
+So `fit` is for getting the shape of a run you have already understood, and `1x` is for
+reading one. `hold` decides the **shape** of the film; `fit` decides **how long you
+spend watching it**. Pressing any numbered rate clears `fit`.
+
+<Tip>
+Turn `hold` **off** and `fit` becomes what you would first assume it was: the whole run
+in thirty seconds, at a constant rate, short things flashing past.
+</Tip>
+
+
+
+<Tip>
+**Do not judge relative duration from the film** — that is what the pacing trades
+away. The film answers *what is happening*; the
+[waterfall](/viewer/views#spans) answers *how long did it take*, and it draws
+
+a plain linear axis for exactly that reason. It is deliberately not paced.
+</Tip>
+
+
+## Status
+
+All four views are built: **Film** (dataflow), **Spans**, **Topology** and
+**Ledger**. [What each one shows →](/viewer/views)
+
+Two runs can also be watched **side by side on one clock**: pick a second from
+`compare with…` and both films run against the same instant, with a line underneath
+saying which is ahead on money and by how much.
+[How that works →](/viewer/views#two-runs-on-one-clock)
+
+
+## Why it is a film after all
+
+An earlier Python prototype rendered a run as a **video file**, and it was measured
+and dropped: a rendered video cannot be hovered, scrubbed or interrogated, and all the
+views that matter are interrogation views.
+
+What replaced it keeps the playback and adds everything a video cannot do. Every
+element is a pure function of the frame it is given — no state, no imperative drawing
+— which is what makes **scrubbing, playing and recording one code path**.
+
+Four of its modules survive as the **reference the port is checked against** — glyph
+path by glyph path, layout by layout. The renderer that produced the video is not one
+of them. [How that is checked →](/viewer/developing)
+
+<Note>
+So the MP4 the recorder produces is literally the film you watched. And because the
+clock is an *input* to the encoder rather than a consequence of it, a slow laptop
+produces a byte-for-byte identically-timed file to a fast one; it just takes longer to
+make.
+</Note>
+
+## What it is built out of
+
+| | |
+|---|---|
+| **Next 16** + **React 19** | `output: 'export'` — a static site, no server |
+| **d3 7** | scales, timers, geometry |
+| **mediabunny** | MP4 export through WebCodecs |
+
+Considered and rejected: elkjs, Radix, framer-motion, react-virtual. A viewer with
+fifteen dependencies is a viewer that stops building in two years. Nothing is fetched
+at runtime, so nothing depends on the network being there.
+
+<CardGroup cols={2}>
+  <Card title="Opening a trace" icon="folder-open" href="/viewer/opening-a-trace">
+    `build/runs` is the place to point a run at.
+  </Card>
+  <Card title="The views" icon="table-columns" href="/viewer/views">
+    The film, the scrubber, the panel, the ledger — and the keys.
+  </Card>
+  <Card title="Make a run worth looking at" icon="wand-magic-sparkles" href="/viewer/make-it-worth-looking-at">
+    Five things your job can do that change the picture.
+  </Card>
+  <Card title="Developing the viewer" icon="code" href="/viewer/developing">
+    `export.sh`, the dev server, and why the export is committed.
+  </Card>
+</CardGroup>

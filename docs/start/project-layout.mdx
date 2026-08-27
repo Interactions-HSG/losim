@@ -1,0 +1,114 @@
+---
+title: "Where everything lives"
+description: "The directories you will touch, the ones you will read, and the one you cannot compile against."
+icon: "folder-tree"
+---
+
+## Your project
+
+```
+RunExperiments.java      press the ▶ — builds, runs, opens the viewer
+DisplayDocs.java         press the ▶ — the manual, on port 3000
+
+<system>/                a folder with code in it is a system
+<system>/*.proto         its schema
+<system>/main.yaml       the world it runs in; variants beside it
+<system>/src/            your Java
+<system>/gen/            generated from the schema. Gitignored, never edited.
+
+lib/                     losim.jar, the gRPC jars, protoc, the price list
+docs/                    this manual
+viewer/                  the viewer, committed as a static export
+build/runs/              your traces, and a bill beside each
+```
+
+<Note>
+**Nothing is declared.** There is no manifest listing what to build: a directory *is* a
+system if it has code in it, its schema is whatever `.proto` files it holds, and its
+world is whatever scenarios sit beside it. Add a file and it is in the next run.
+
+`build/` and `gen/` are gitignored. Your traces are yours and are not handed in — the
+examiner re-runs your code rather than reading a picture you exported.
+</Note>
+
+## The simulator's own repository
+
+Only if you are working on losim itself. Nothing below is in a lab:
+
+```
+build.sh                 the simulator -> build/losim.jar
+check.sh                 losim's own acceptance criteria
+tests/run.sh             the reference suite, run end to end
+docs/                    this manual
+viewer/                  the viewer's source — npm lives here and nowhere else
+prices/                  course data: what egress costs, what being late costs
+vendor/                  grpc 1.83.1, protobuf 4.36.0, protoc for two platforms
+build/                   generated. Except build/viewer, which is committed.
+
+
+losim/src/losim/api/     what a handler may say to losim — and all it can reach
+losim/src/losim/runtime/ the fleet, the machines, the two interceptors
+losim/src/losim/trace/   the three-channel recorder and the trace it writes
+losim/src/losim/time/    the compressed clock, and fault placement
+losim/src/losim/res/     instance types, the heap walk, losim's own meter
+losim/src/losim/scale/   the probe grid, the laws, the solve — and the refusals
+losim/src/losim/scenario/ a fleet and its weather, as data
+losim/src/losim/verify/  what makes a number stop meaning what it says
+losim/src/losim/price/   five buckets, and what cannot be put in them
+losim/src/losim/cli/     losim run | bill | diff
+```
+
+## The rule about `losim/src`
+
+<Warning>
+**Your code compiles against `build/losim.jar` and the vendored jars — never
+against `losim/src`.**
+
+This is not bureaucracy. The jar exposes exactly one package a program may
+mention, `losim.api`, and that package depends on no runtime type. That is what
+lets a handler be compiled, constructed and unit-tested with nothing simulating
+anything. A system that reached into `losim.runtime` would be a system that could
+only run inside the simulator, which is the opposite of the point.
+</Warning>
+
+In a lab this is what the ▶ compiles with, and you never type it:
+
+```bash
+javac --release 21 -cp "lib/losim.jar:lib/jars/*" -d build/<system>/classes \
+      $(find <system>/gen <system>/src -name '*.java')
+```
+
+
+## What `build/` holds after a run
+
+| | |
+|---|---|
+| `build/losim.jar` | the simulator |
+| `build/classes/` | your compiled system — this is what `--cp` points at |
+| `build/<scenario>.json` | the trace, unless `--out` said otherwise |
+| `build/runs/` | **where to point `--out`** — the viewer picks up whatever is here |
+| `build/.losim-plans/` | cached scale plans, keyed on the scenario, the code and the telemetry level |
+| `build/viewer/` | the viewer's static export. **Committed**, like the generated protobuf sources, so a student never needs npm. |
+
+The plan cache is worth knowing about: fitting a scale plan costs a grid of about
+thirty small runs, and it is paid once. Delete `build/.losim-plans` to force a
+refit. [More on that →](/engine/probe-grid)
+
+## Seeing a run
+
+You do not have to do anything: the lab server is already showing every trace under
+`build/runs`, and `show()` in `RunExperiments.java` opens the viewer on whatever it
+just ran. [The viewer →](/viewer/index)
+
+
+## The manual's own check
+
+```bash
+docs-check/check.sh
+```
+
+This repository ships worked solutions to the coursework. The manual must not
+contain them, and "must not" is a thing you check rather than a thing you
+remember — so every page is scanned against a rule set in `docs-check/`, and the
+check tests itself against known-bad and known-good samples before it scans
+anything. It runs in CI on every push.

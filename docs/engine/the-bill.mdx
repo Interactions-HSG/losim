@@ -1,0 +1,101 @@
+---
+title: "The bill"
+description: "Five buckets, and the discipline of leaving one of them empty."
+icon: "receipt"
+---
+
+Generic over labs: it reads only the trace, so any gRPC system gets a cost view
+without anyone writing one for it.
+
+## Five buckets, printed apart
+
+| | what it is a model of |
+|---|---|
+| `revenue` | the service earns only when the job completes |
+| `capacity` | the fleet, for the period — an idle machine costs exactly as much as a busy one |
+| `consumption` | what the work burned: cross-zone egress, storage |
+| `incidents` | zero until something breaks, then large |
+| `build` | engineering time to construct and carry this design, per distinct service |
+
+<Note>
+Adding them together would hide the trade every design makes. Replication triples
+capacity and adds to build in order to empty incidents — and one number cannot say
+that.
+
+A line appears only when there is a quantity to put in it. A bucket nobody could fill
+in is not a bucket that cost nothing, and the total says explicitly that it is a total
+**of what could be priced**.
+</Note>
+
+## Capacity is priced in reference time
+
+The run took a few seconds of your afternoon. The job it is a model of takes what the
+simulated clock says, and **that** is the number anyone would be invoiced for.
+
+A machine that received a `spot_notice` is billed at the spot rate — 70% off by
+default — so choosing reclaimable capacity is a genuine trade rather than a hazard.
+
+## Two bills for a scaled run
+
+Once for what happened, and once for the job it is a model of. The second is where
+this gets interesting.
+
+<Warning>
+A bill is **quantities times prices**, and the engine will not project every quantity.
+
+Capacity depends on the timeline. The timeline is the noisiest thing losim measures
+and is routinely refused. And capacity is usually the **largest line on the bill**.
+</Warning>
+
+```
+  capacity    the fleet, for the period            -           CHF   refused
+      its exponent moves by 0.793 between independent seed sets of the same
+      workload, which over a factor of 6 is an error bar of x4.1 — wider than
+      anything it would be asked to distinguish
+```
+
+So the honest account routinely says: *the bytes cost this much, the storage costs
+this much, and nobody can tell you what the machines cost, because nobody can tell you
+how long the job takes.*
+
+<Note>
+**That is a useful answer.** It says where the uncertainty in the cost of a design
+actually lives, which is not where most people would look for it.
+</Note>
+
+## Each quantity carries its own factor
+
+Because that is the whole point of the engine: resources do not share one.
+
+Cross-zone bytes are grown by the **wire** law rather than a law of their own — which
+calls cross a zone is a property of the topology and not of the size, so the share is
+held fixed and the total is what moves. If the wire law itself was refused, the line is
+refused rather than printed with an observed quantity under a full-scale heading.
+
+## Incidents are never projected
+
+A machine either failed or it did not. An incident bucket extrapolated from one
+afternoon would be a forecast dressed as an observation.
+
+## Prices are course data
+
+They live in `prices/`, outside the simulator, so they can be updated or deliberately
+distorted for an exercise. Billing is a **pure function of the trace**, so re-billing
+under a different price list costs nothing and needs no re-run — which makes "is this
+design's advantage real, or is it a price assumption?" a one-command question.
+
+<Warning>
+**What a machine costs to rent is not in the price list.** That belongs to the
+instance catalogue, beside its vCPUs and its memory, because it is a property of the
+machine rather than a choice the course makes. Two places declaring what an
+`r5.large` costs would be two places to drift apart, and the drift would be silent.
+</Warning>
+
+<CardGroup cols={2}>
+  <Card title="losim bill" icon="terminal" href="/ref/cli-bill">
+    The command and every line it can print.
+  </Card>
+  <Card title="Price list keys" icon="tag" href="/ref/prices">
+    Every field, and what distorting it teaches.
+  </Card>
+</CardGroup>

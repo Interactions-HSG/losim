@@ -1,0 +1,9 @@
+# The weather page. "partition" is losim's own vocabulary and has to survive.
+A scenario can cut the link between two machines with a partition, and put it
+back with heal. Both partitions carry on serving whoever they can still reach,
+which is what makes a deadline interesting. A machine can also be killed,
+frozen, degraded by a factor, reclaimed with notice, or restarted after a delay.
+
+    faults:
+      - { at: 400 refMs, partition: [w1, w2] }
+      - { at: 900 refMs, heal: [w1, w2] }

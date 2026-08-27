@@ -1,0 +1,129 @@
+---
+title: "Fitting the laws"
+description: "Candidate variables, wobble, and why R² is not the test."
+icon: "function"
+---
+
+```
+resource = fixed + coefficient × variable ^ beta
+```
+
+```
+memoryMb = 0.0597 + 0.00187 * revealed.distinctItems^1.013  (R2 1.0000, wobble 0.000)
+```
+
+| term | |
+|---|---|
+| `fixed` | overhead that is real at every scale. A JVM's baseline heap does not shrink because the workload did. |
+| `coefficient`, `beta` | the variable part |
+| `variable` | what the resource turned out to be a function of |
+| `R2` | how well the line went through the points it was given |
+| `wobble` | how far the exponent moves when the whole thing is fitted again on independent seeds |
+
+## Candidate variables
+
+Every quantity that **varied** across the ladder and could plausibly drive something:
+
+- `records` — what the scenario declared
+- every numeric `Losim.current().reveal(key, value)` your code made
+
+Each resource is fitted against **every** candidate, and the best is kept.
+
+<Note>
+This is why `reveal` is worth using well. `reveal("distinctItems", index.size())`
+gives the engine the chance to discover that memory follows what you hold rather than
+what went past — and those grow at different rates.
+</Note>
+
+## The two-step composition
+
+A variable that is not `records` is **itself fitted against records**:
+
+```
+memoryMb      = f(distinctItems)
+distinctItems = g(records)
+```
+
+So the projection composes two well-behaved laws instead of one fragile one. The
+variable's own uncertainty rides along, **raised to the resource's exponent** — a law
+built on a projected quantity cannot be more certain than the quantity it is built on.
+
+## How the best candidate is chosen
+
+Not by R². In order:
+
+<Steps>
+  <Step title="Would it be reproduced?">
+    A usable candidate has an error bar within limits **and** a ladder that does not
+    bend. Unusable candidates lose to usable ones outright.
+  </Step>
+  <Step title="Which has the narrower error bar?">
+    Compared to within 0.01.
+  </Step>
+  <Step title="A tie goes to `records`">
+    Because `records` is known **exactly** at full scale rather than itself being
+    projected.
+
+    Anything else has to earn its place by **halving** the variance the simpler
+    answer leaves unexplained. Otherwise a variable that is merely records-plus-a-
+    constant wins on a hair of R² and then extrapolates its own offset as though it
+    were growth.
+  </Step>
+  <Step title="Only then, R²">
+  </Step>
+</Steps>
+
+<Warning>
+That order is deliberate. **R² is about the points already taken; the question is
+about the next ones.**
+</Warning>
+
+## Wobble, and the error bar
+
+```java
+wobble  = the spread of beta across independent seed sets
+errorBar = scaleFactor ^ (wobble + carried)
+```
+
+An uncertainty of `wobble` in the exponent becomes a factor of `F^wobble` in the
+answer, where `F` is how far the projection reaches. Over a factor of 5000, a wobble
+of 0.66 is an error bar of **×268**.
+
+Past **×2.0** the projection no longer distinguishes anything a reader would have
+wanted distinguished, and it is refused.
+
+<Note>
+Wobble is measured **per host and per workload** rather than assumed, because a
+two-core Codespace is noisier than a laptop and the same constant would not serve
+both.
+</Note>
+
+## A law per cost site, not one for the whole run
+
+A hash lookup is flat in `n`; a per-record scan is linear; a sort is `n log n`; a
+fan-out is quadratic in the fleet. One exponent for all of them would be wrong for
+most.
+
+Cost-site laws are kept only where they would **survive being measured again**. On
+handlers shorter than the host's own jitter, that is usually nowhere — which is
+exactly what the `k_time` feasibility check reads.
+
+## Fault amplification
+
+Each resource carries a multiplier derived from the fault column: how much more of it
+the weathered runs demanded than the clean ones. Applied at projection time, and
+printed beside the law when it is meaningfully above 1:
+
+```
+  memoryMb   = 0.0597 + 0.00187 * revealed.distinctItems^1.013  +-x1.10  x1.97 under fault
+```
+
+## The plan travels
+
+Every law, every variable-of-records law, every refusal and every solved cap is
+written into the trace — so `projected = f(observed)` is recomputable by whoever
+reads it, rather than a number they have to take on trust.
+
+<Card title="When a law is refused" icon="ban" href="/engine/refusals">
+  The two tests, and why R² could not have made either call.
+</Card>

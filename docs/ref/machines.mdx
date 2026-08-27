@@ -1,0 +1,112 @@
+---
+title: "machines"
+description: "Single machines, pools, overrides, caps and zones."
+icon: "server"
+---
+
+```yaml
+machines:
+  coordinator:                       # one machine, named by its key
+    instance: m5.large
+    zone: eu-central-1a
+
+  workers:                           # a pool: w0 w1 w2 w3
+    count: 4
+    prefix: w
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b]
+    serves: [lab.Shrinker]
+    memoryMb: 2048
+    diskMb: 8192
+    overrides:
+      w3: { instance: t3.small, memoryMb: 512, zone: eu-central-1c }
+```
+
+At least one machine is required.
+
+## Keys
+
+<ParamField path="instance" type="instance type" required>
+  From the [catalogue](/ref/instances). Decides vCPU count, memory, disk, network
+  and the on-demand rate the bill uses.
+</ParamField>
+
+<ParamField path="zone" type="string or list" default="default">
+  For a single machine, a string. For a pool, a list — zones are dealt **round
+  robin**, so `[a, b]` over four machines gives `a b a b`.
+</ParamField>
+
+<ParamField path="serves" type="list of class names">
+  **Java class names**, fully qualified, each extending the `ImplBase` protoc
+  generated and each having a no-argument constructor. losim builds one instance
+  per machine.
+
+  A machine with no `serves` still exists and still listens — it offers nothing.
+  That is what a coordinator usually is.
+</ParamField>
+
+<ParamField path="count" type="int" default="0">
+  Makes this key a **pool** of `count` machines. Zero (or absent) means one machine
+  named by the key itself.
+</ParamField>
+
+<ParamField path="prefix" type="string" default="the pool's key">
+  Machines are named `prefix0` … `prefix{count-1}`. A pool called `workers` with
+  `prefix: w` produces `w0 w1 w2 w3` — **not** `workers0`, which matters when you
+  aim a fault at one.
+</ParamField>
+
+<ParamField path="memoryMb" type="double" default="the instance type's">
+  The memory cap, enforced against a retained-heap walk.
+</ParamField>
+
+<ParamField path="diskMb" type="double" default="the instance type's storage">
+  The disk cap. `Losim.current().wroteDisk(bytes)` throws past it.
+</ParamField>
+
+<ParamField path="overrides" type="map by machine name">
+  Per-machine changes within a pool. Accepts `instance`, `zone`, `memoryMb` and
+  `diskMb` — not `serves`; every machine in a pool serves the same things.
+</ParamField>
+
+## Two namespaces
+
+<Warning>
+| | names | example |
+|---|---|---|
+| `serves:` | your **Java class** | `lab.Shrinker` |
+| `peersServing(…)`, `cluster.serving(…)` | the **service in your `.proto`** | `Thumbnailer` |
+
+Both correct, both different strings. The scenario names a class because losim
+constructs it; your job names a service because that is what peers are found by.
+</Warning>
+
+## Making one machine the problem
+
+The most useful thing in this section:
+
+```yaml
+overrides:
+  w3: { memoryMb: 4 }        # cannot hold its share, and will say so
+  w2: { instance: t3.small } # half the cores of the rest
+```
+
+A fleet where every machine is identical teaches nothing about placement, and
+placement is most of what a coordinator is for.
+
+## In scaled mode
+
+**Do not write caps.** The engine solves for them, per machine and per resource, so
+that demand-over-capacity is preserved at both scales. What you write is the fleet's
+*shape*; the engine decides its size. [Solving caps →](/engine/solving-caps)
+
+## What a machine is, at run time
+
+| | |
+|---|---|
+| one in-process gRPC server | named after the machine |
+| one thread pool | sized to the instance's vCPU count, platform threads, never `directExecutor` |
+| a memory cap | checked against a retained-heap walk every eighth sampler tick, and once at the end |
+| a disk cap | checked on every `wroteDisk` |
+| a zone | which decides latency, and which bytes are billed |
+| one channel per peer | made once, owned by the machine |

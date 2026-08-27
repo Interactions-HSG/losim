@@ -1,0 +1,143 @@
+---
+title: "The scenario file"
+description: "Every top-level key, and the rule that governs all of them."
+icon: "file-lines"
+---
+
+A fleet, its weather and its bad afternoon — as data. Nothing here is computed;
+anything that needs code points at a class by name, so the file stays diffable,
+sweepable and readable by someone who did not write it.
+
+## Every top-level key
+
+```yaml
+seed: 7                       # long,     default 1
+kTime: 4                      # double,   default 1, must be positive
+job: lab.ThumbnailJob         # class,    required
+expectedRun: 6 refSeconds     # duration, default 10 refSeconds
+tightMargin: false            # bool,     default false
+mode: direct                  # direct | scaled, default direct
+
+machines: { … }               # required, at least one
+workload: { … }               # required in scaled mode
+network:  { … }
+faults:   [ … ]
+chaos:    [ … ]
+retries:  [ … ]
+```
+
+Any other key at this level is refused with the line it was written on.
+
+<ParamField path="seed" type="long" default="1">
+  Everything random draws from it: chaos placement, network jitter, packet loss,
+  and your own workload through `cluster.seed()`. `--seed` overrides it.
+</ParamField>
+
+<ParamField path="kTime" type="double" default="1">
+  How much faster than reality the run goes. Must be positive. Global — there is
+  one wall clock, and two machines sleeping under different factors would disagree
+  about when *now* is.
+</ParamField>
+
+<ParamField path="job" type="class name" required>
+  Fully qualified. Must implement `losim.api.Job` and have a no-argument
+  constructor. Runs on the **first machine in the file**.
+</ParamField>
+
+<ParamField path="expectedRun" type="duration" default="10 refSeconds">
+  A horizon, not a prediction. Sizes the sampler's cadence and how far ahead chaos
+  is drawn; ten times it is the backstop that stops a job that will not finish.
+</ParamField>
+
+<ParamField path="mode" type="direct | scaled" default="direct">
+  There are exactly two, and no third. Scaled mode always uses the engine: a
+  hand-declared shrink factor would be a third mode whose numbers nobody could
+  account for.
+</ParamField>
+
+<ParamField path="tightMargin" type="boolean" default="false">
+  Recorded in the trace's `meta` as a marker for exercises where the margin between
+  a design working and not working is deliberately thin.
+</ParamField>
+
+## The rule that governs the whole file
+
+<Warning>
+**Everything that can be wrong is refused at load, with the line it was written
+on** — an unknown key, an unknown instance type, a duration that forgot its unit, a
+fault aimed at a machine that is not in the fleet, a retry policy the schema does
+not support, two machines with the same name.
+
+Nothing runs, and the exit code is 2. None of these should be discovered halfway
+through a run as a puzzling number.
+</Warning>
+
+## The sections
+
+<CardGroup cols={2}>
+  <Card title="Durations" icon="clock" href="/ref/durations">
+    Why `900` and `900ms` are both refused.
+  </Card>
+  <Card title="machines" icon="server" href="/ref/machines">
+    Single machines, pools, overrides, caps and zones.
+  </Card>
+  <Card title="network" icon="network-wired" href="/ref/network">
+    Latency, jitter and loss.
+  </Card>
+  <Card title="faults" icon="bolt" href="/ref/faults">
+    Seven things that can happen at an instant.
+  </Card>
+  <Card title="chaos" icon="dice" href="/ref/chaos">
+    Three of them, as a standing rate.
+  </Card>
+  <Card title="retries" icon="rotate" href="/ref/retries">
+    And the gate the schema holds.
+  </Card>
+  <Card title="workload" icon="chart-line" href="/ref/workload">
+    Records, the probe ladder and the fleet ladder.
+  </Card>
+</CardGroup>
+
+## A complete example
+
+```yaml
+seed: 7
+kTime: 4
+job: lab.ThumbnailJob
+expectedRun: 6 refSeconds
+
+workload:
+  records: 4000
+
+machines:
+  coordinator:
+    instance: m5.large
+    zone: eu-central-1a
+
+  workers:
+    count: 4
+    prefix: w
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b]
+    serves: [lab.Shrinker]
+    overrides:
+      w3: { instance: t3.small, memoryMb: 512 }
+
+network:
+  sameZone:  0.4 refMs
+  crossZone: 3 refMs
+  jitter:    0.5 refMs
+  loss:      0.01
+
+faults:
+  - { at: 900 refMs,  kill: w1, restart_after: 400 refMs }
+  - { at: 1200 refMs, degrade: w2, factor: 4 }
+  - { at: 1600 refMs, partition: [coordinator, w0] }
+  - { at: 2400 refMs, heal:      [coordinator, w0] }
+
+chaos:
+  - freeze: { every: 900 refMs, among: workers, for: 120 refMs }
+
+retries:
+  - { method: Thumbnail, attempts: 3, backoff: 50 refMs, multiplier: 2 }
+```

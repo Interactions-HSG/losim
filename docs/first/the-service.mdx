@@ -1,0 +1,233 @@
+---
+title: "3. The service"
+description: "Twelve lines of adapter, and a handler that is an ordinary method."
+icon: "gear"
+---
+
+## The problem the adapter solves
+
+protoc generates this signature:
+
+```java
+public void thumbnail(Batch request, StreamObserver<Thumbs> responseObserver)
+```
+
+A method that returns nothing and writes its answer to a callback is a method you
+cannot call from a test without building a fake observer, and cannot reason about
+without holding two control flows in your head. So the first thing every service
+in this course does is turn it back into a function.
+
+Create `src/lab/ThumbnailerBase.java`:
+
+```java src/lab/ThumbnailerBase.java
+package lab;
+
+import io.grpc.Status;
+import io.grpc.stub.StreamObserver;
+import lab.pb.Batch;
+import lab.pb.Empty;
+import lab.pb.Health;
+import lab.pb.Thumbs;
+import lab.pb.ThumbnailerGrpc;
+
+/** grpc-java's callback shape, turned back into two ordinary methods. */
+public abstract class ThumbnailerBase extends ThumbnailerGrpc.ThumbnailerImplBase {
+
+    protected abstract Thumbs thumbnail(Batch request);
+    protected abstract Health capacity(Empty request);
+
+    @Override public final void thumbnail(Batch request, StreamObserver<Thumbs> out) {
+        respond(out, () -> thumbnail(request));
+    }
+
+    @Override public final void capacity(Empty request, StreamObserver<Health> out) {
+        respond(out, () -> capacity(request));
+    }
+
+    private static <T> void respond(StreamObserver<T> out, java.util.function.Supplier<T> body) {
+        try {
+            out.onNext(body.get());
+            out.onCompleted();
+        } catch (RuntimeException e) {
+            // A call that failed has to carry why. Letting the exception escape
+            // gives the caller a bare UNKNOWN and the trace a blank row.
+            out.onError(Status.INTERNAL
+                    .withDescription(String.valueOf(e.getMessage()))
+                    .withCause(e)
+                    .asRuntimeException());
+        }
+    }
+}
+```
+
+<Note>
+Write this **once per service**, not once per handler. It is the only place your
+system will mention `StreamObserver`.
+</Note>
+
+## The handler
+
+Create `src/lab/Shrinker.java`:
+
+```java src/lab/Shrinker.java
+package lab;
+
+import com.google.protobuf.ByteString;
+import lab.pb.*;
+import losim.api.Losim;
+import losim.api.Takes;
+
+public final class Shrinker extends ThumbnailerBase {
+
+    /** Longest edge of a thumbnail, in pixels. */
+    private static final int EDGE = 128;
+
+    @Takes(refMs = 3, refNsPerRecord = 240_000)
+    @Override protected Thumbs thumbnail(Batch request) {
+        var here = Losim.current();
+
+        // What the variable part of @Takes is charged against, and what the scale
+        // engine needs in order to know which variable this call is a function of.
+        here.records(request.getFramesCount());
+
+        var out = Thumbs.newBuilder();
+        long bytes = 0;
+        for (Frame frame : request.getFramesList()) {
+            Thumb thumb = shrink(frame);
+            bytes += thumb.getJpeg().size();
+            out.addThumbs(thumb);
+        }
+
+        // Silent in a bare unit test; a row in the trace inside a run.
+        here.reveal("frames", request.getFramesCount());
+        here.reveal("jpegKb", bytes / 1024.0);
+
+        return out.setBytes((int) bytes).build();
+    }
+
+    @Takes(refMs = 0.5)
+    @Override protected Health capacity(Empty request) {
+        // Local knowledge only: this machine's own limits, never a peer's.
+        var spec = Losim.current().here();
+        return Health.newBuilder()
+                .setMachine(spec.machine())
+                .setInstance(spec.instance())
+                .setZone(spec.zone())
+                .setVcpu(spec.vcpu())
+                .setMemoryCapMb(spec.memoryCapMb())
+                .build();
+    }
+
+    private Thumb shrink(Frame frame) {
+        int w = frame.getWidth(), h = frame.getHeight();
+        double scale = EDGE / (double) Math.max(w, h);
+        int tw = Math.max(1, (int) (w * scale)), th = Math.max(1, (int) (h * scale));
+
+        byte[] src = frame.getPixels().toByteArray();
+        byte[] dst = new byte[tw * th];
+        for (int y = 0; y < th; y++)
+            for (int x = 0; x < tw; x++)
+                dst[y * tw + x] = src[Math.min(src.length - 1,
+                        (int) (y / scale) * w + (int) (x / scale))];
+
+        return Thumb.newBuilder()
+                .setId(frame.getId()).setWidth(tw).setHeight(th)
+                .setJpeg(ByteString.copyFrom(dst))
+                .build();
+    }
+}
+```
+
+## What losim added, and what it did not
+
+<Columns cols={2}>
+  <Card title="Not in any signature" icon="check">
+    `Thumbs thumbnail(Batch)` mentions no losim type. You can construct a
+    `Shrinker`, call `thumbnail(...)` and assert on the result, with nothing
+    simulating anything. That is what the adapter bought.
+  </Card>
+  <Card title="Three lines that are losim's" icon="circle-info">
+    One annotation, one `records(…)`, two `reveal(…)`. All four are optional and
+    all four earn their place. The next sections say what each is for.
+  </Card>
+</Columns>
+
+### `@Takes` — what this call costs
+
+```java
+@Takes(refMs = 3, refNsPerRecord = 240_000)
+```
+
+Two terms, answering different questions:
+
+| | |
+|---|---|
+| `refMs` | what one call takes **regardless of what is in it** — the fixed part. Known before the handler runs, and slept before it. |
+| `refNsPerRecord` | what each unit of input adds. Nothing outside the handler can know how much input there was, so the handler declares it with `records(n)` and this part is slept **after the body returns**, before the response leaves. |
+
+Both are **reference-machine** time, so they compose with everything else: the
+interceptor sleeps `refMs × machineFactor ÷ k_time`. A machine with half the
+reference's vCPUs takes twice as long, and the whole run is compressed by `k_time`.
+
+<Warning>
+Why declare it at all, when everything else is measured? Because at the scale a
+laptop can hold, your handler is genuinely instant — the host's CPU is not shrunk
+along with the workload, so it runs at full speed on a fraction of the data.
+Without a declared duration there is no queueing, no contention, no deadline
+pressure and no critical path, which is most of what a fleet is interesting for.
+
+Measuring instead does not work: handler durations at probe size sit inside the
+host's own jitter, where the fitted time exponent moves by 0.25 between seed sets
+of an identical workload. [The full argument →](/write/declaring-time)
+</Warning>
+
+An unannotated method takes **no time**, deliberately, rather than a made-up
+amount.
+
+### `records(n)` — what this call processed
+
+Two things need it. `refNsPerRecord` is charged against it, and the scale engine
+needs to know which independent variable a cost site is a function of. A handler
+that never declares a count is charged the fixed part only, and its span says so.
+
+### `reveal(key, value)` — what the computation was doing
+
+Without it, a trace says a handler *happened*. With it, a trace says what it did.
+
+<Tip>
+**Prefer the primitive overloads.** `reveal(String, Object)` boxes an `int` at the
+call site — before losim's accounting can open — so the box is charged to your
+program though it exists only because the parameter is an `Object`. At one call
+per handler that is invisible. At a thousand it bends the fitted memory exponent
+by 0.04, and the exponent is the one number that must not bend.
+</Tip>
+
+## Prove it is an ordinary object
+
+Before any simulation, before any scenario:
+
+```java test/ShrinkerTest.java
+@Test void makesOneThumbnailPerFrame() {
+    var shrinker = new Shrinker();
+
+    Thumbs thumbs = shrinker.thumbnail(Batch.newBuilder()
+            .addFrames(frame("a", 640, 480))
+            .addFrames(frame("b", 800, 600))
+            .build());
+
+    assertEquals(2, thumbs.getThumbsCount());
+    assertEquals(128, thumbs.getThumbs(0).getWidth());
+}
+```
+
+No fleet, no scenario, no interceptor, no clock. Set a breakpoint inside
+`shrink` and step into it: it is ordinary Java, and stopping on it stops nothing
+else, because nothing else is running.
+
+losim is on the classpath because `@Takes` is a compile-time annotation and
+`Losim.current()` has to resolve — but it does nothing here. Recording calls are
+silent; state calls throw. [Why that asymmetry →](/write/unit-testing)
+
+<Card title="Next: the job" icon="arrow-right" href="/first/the-job">
+  Finding peers, asking them how big they are, and fanning work out.
+</Card>

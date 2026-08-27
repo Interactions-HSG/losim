@@ -1,0 +1,118 @@
+---
+title: "The trace format"
+description: "Five top-level channels, and the contract that keeps two runs weeks apart comparable."
+icon: "file-code"
+---
+
+One run, one JSON file. Everything downstream reads it: the bill, the viewer, your
+own assertions.
+
+```json
+{
+  "schema": 2,
+  "meta":     { … },
+  "events":   [ … ],
+  "spans":    [ … ],
+  "series":   { "dtMs": 6.0, "t": [ … ], "channels": { … } },
+  "machines": [ … ]
+}
+```
+
+## The contract
+
+<Warning>
+**The trace is the interchange format, so its shapes are a contract.**
+
+Event kinds and their keys are extended **only additively**. `spans` and `series`
+are new top-level channels rather than changes to `events`, for exactly that reason.
+The acceptance test is diffing a trace's event kinds and keys before and after a
+change and finding it empty — which is also what
+[`losim diff`](/ref/cli-diff) checks across environments.
+
+`schema` is bumped only when a shape changes incompatibly, which is meant never to
+happen. It is currently **2**.
+</Warning>
+
+## meta
+
+```json
+"meta": {
+  "schemaVersion": 2,
+  "kTime": 4.0,
+  "telemetry": "FULL",
+  "scenario": "thumbs.yaml",
+  "seed": 7,
+  "job": "lab.ThumbnailJob",
+  "completed": true,
+  "durationRefMs": 2416,
+  "trusted": true
+}
+```
+
+| key | |
+|---|---|
+| `schemaVersion`, `kTime`, `telemetry` | written by the recorder |
+| `scenario`, `seed`, `job` | what was asked for |
+| `completed` | whether the job returned normally |
+| `failure` | present only when it did not, naming the cause |
+| `durationRefMs` | the run's length, in reference milliseconds, rounded |
+| `trusted` | present only when a classpath was given; `false` if anything was flagged |
+| `tightMargin` | present only when the scenario set it |
+| `mode`, `scale`, `projections` | present only for a scaled run |
+
+## The four data channels
+
+<CardGroup cols={2}>
+  <Card title="events" icon="bolt" href="/ref/events">
+    Sparse moments. `t`, `kind`, `vm`, `detail`.
+  </Card>
+  <Card title="spans" icon="bars-staggered" href="/ref/spans">
+    Intervals with a parent that crosses the RPC boundary.
+  </Card>
+  <Card title="series" icon="chart-area" href="/ref/series">
+    Dense numbers on a fixed cadence, run-length encoded.
+  </Card>
+  <Card title="machines" icon="server" href="/ref/machines-channel">
+    The run's closing balance, per machine.
+  </Card>
+</CardGroup>
+
+## Ordering and rounding
+
+`events` and `spans` are sorted by start time, so a reader can scrub. Every time and
+every span detail is rounded to **three decimal places**; a `NaN` is written as `0`.
+
+Machine figures in the `machines` channel are megabytes to about a byte — six
+decimal places, because three would be a kilobyte and a run small enough to be
+measured in kilobytes would report every byte it moved as zero.
+
+## Two traps
+
+<Warning>
+**`method` is dotted.** gRPC writes `lab.Thumbnailer/Thumbnail`; the trace writes
+`lab.Thumbnailer.Thumbnail`, everywhere, so everything downstream can split on a
+dot.
+
+**Payload collections are truncated at 12 entries**, with a `"+1106 more"` marker.
+The real count is *kept plus marker*, never the surviving length.
+</Warning>
+
+## Reading it
+
+It is plain JSON with no custom types:
+
+```python
+import json
+t = json.load(open("build/thumbs.json"))
+
+assert t["schema"] == 2
+print(t["meta"]["durationRefMs"], "refMs")
+print(len(t["events"]), "events,", len(t["spans"]), "spans")
+for m in t["machines"]:
+    print(f'{m["name"]:<12} {m["calls"]:>4} calls  {m["memoryMb"]:>8.2f} MB held')
+```
+
+losim reads it back with its own reader for `bill` and `diff`, and that path is
+exercised by the reference suite — every assertion there reads the trace off disk,
+because a build whose trace was unreadable would pass every check losim makes of
+itself.

@@ -1,0 +1,207 @@
+---
+title: "4. The job"
+description: "One class, one method, and the only thing in a scenario that is code."
+icon: "diagram-project"
+---
+
+A scenario declares machines and weather. The job is the one thing in it that is
+code, and it is *named* rather than embedded so the file stays pure data.
+
+It is an ordinary class with a no-argument constructor. Nothing is injected and
+nothing is inherited — whatever it needs, it asks `Cluster` for.
+
+## The whole thing
+
+```java src/lab/ThumbnailJob.java
+package lab;
+
+import com.google.common.util.concurrent.ListenableFuture;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import lab.pb.*;
+import losim.api.Cluster;
+import losim.api.Job;
+
+public final class ThumbnailJob implements Job {
+
+    private static final int FRAMES_PER_BATCH = 25;
+
+    @Override public void run(Cluster cluster) throws Exception {
+
+        // 1. Who can do the work? By what they serve, never by hostname.
+        List<String> workers = cluster.serving("Thumbnailer");
+        if (workers.isEmpty()) throw new IllegalStateException("nobody serves Thumbnailer");
+        cluster.log(workers.size() + " machines can make thumbnails");
+
+        // 2. How big is each of them? You cannot look, so you ask.
+        var capacity = new LinkedHashMap<String, Health>();
+        try (var survey = cluster.phase("survey")) {
+            for (String worker : workers) {
+                var stub = ThumbnailerGrpc.newBlockingStub(cluster.channelTo(worker))
+                                          .withDeadlineAfter(500, TimeUnit.MILLISECONDS);
+                capacity.put(worker, stub.capacity(Empty.getDefaultInstance()));
+            }
+            survey.note("machines", capacity.size());
+        }
+
+        // A share per machine, proportional to its cores. Crude on purpose.
+        var share = new ArrayList<String>();
+        capacity.forEach((name, health) -> {
+            for (int i = 0; i < Math.max(1, health.getVcpu()); i++) share.add(name);
+        });
+
+        // 3. The album. Work the job does itself needs a span, or the busiest
+        //    stretch of the run reads as idle.
+        List<Frame> album = cluster.compute("read the album",
+                () -> Album.of(cluster.records(), cluster.seed()));
+
+        // 4. Fan out. Every call is asynchronous, so they overlap.
+        int thumbs = 0, failed = 0;
+        try (var work = cluster.phase("thumbnails")) {
+            var inflight = new ArrayList<ListenableFuture<Thumbs>>();
+
+            for (int i = 0; i * FRAMES_PER_BATCH < album.size(); i++) {
+                var batch = Batch.newBuilder().addAllFrames(album.subList(
+                        i * FRAMES_PER_BATCH,
+                        Math.min(album.size(), (i + 1) * FRAMES_PER_BATCH))).build();
+
+                String worker = share.get(i % share.size());
+                var stub = ThumbnailerGrpc.newFutureStub(cluster.channelTo(worker))
+                                          .withDeadlineAfter(2_000, TimeUnit.MILLISECONDS);
+                inflight.add(stub.thumbnail(batch));
+            }
+
+            for (ListenableFuture<Thumbs> f : inflight) {
+                try {
+                    thumbs += f.get().getThumbsCount();
+                } catch (ExecutionException e) {
+                    // A machine that has gone is a machine that stopped answering,
+                    // and finding that out costs a call and a deadline.
+                    failed++;
+                    cluster.log("a batch did not come back: " + e.getCause().getMessage());
+                }
+            }
+            work.note("batches", inflight.size()).note("thumbnails", thumbs);
+        }
+
+        // 5. Say what the answer was, structurally rather than as a line of text.
+        cluster.done(Map.of("thumbnails", thumbs,
+                            "framesIn", album.size(),
+                            "batchesLost", failed));
+    }
+}
+```
+
+You also need the album generator. Nothing about it is losim-specific:
+
+```java src/lab/Album.java
+package lab;
+
+import com.google.protobuf.ByteString;
+import java.util.*;
+import lab.pb.Frame;
+
+final class Album {
+    static List<Frame> of(long frames, long seed) {
+        var rng = new Random(seed);              // the scenario's seed, not one of our own
+        var out = new ArrayList<Frame>((int) frames);
+        for (int i = 0; i < frames; i++) {
+            int w = 320 + rng.nextInt(1600), h = 240 + rng.nextInt(1200);
+            byte[] pixels = new byte[w * h / 64];
+            rng.nextBytes(pixels);
+            out.add(Frame.newBuilder().setId("f" + i).setWidth(w).setHeight(h)
+                    .setPixels(ByteString.copyFrom(pixels)).build());
+        }
+        return out;
+    }
+}
+```
+
+## What each `Cluster` call bought
+
+<AccordionGroup>
+  <Accordion title="serving(…) — peers by what they offer" icon="magnifying-glass" defaultOpen>
+    Dead machines are not listed. That is discovery working, **not** a liveness
+    check: no real network offers you one, and a design that depends on knowing
+    whether a peer is alive is a design that will not survive contact with a real
+    network. A machine that has gone is a machine that has stopped answering, and
+    finding that out still costs a call and a deadline — which is exactly what
+    happens in step 4 when a batch does not come back.
+
+    The argument is the **service name from your `.proto`** — `Thumbnailer` —
+    not the Java class that implements it. Those are two different namespaces and
+    mixing them up is the most common first mistake. [More →](/write/finding-peers)
+  </Accordion>
+
+  <Accordion title="channelTo(…) — a channel with losim on it" icon="plug">
+    What comes back is an ordinary `io.grpc.Channel`, and the call site is plain
+    gRPC. The machine owns the channel, makes it once and keeps it, so your code
+    never sees a lifetime.
+
+    A channel you build yourself with `ManagedChannelBuilder` has none of losim's
+    interceptors attached: the call happens at full speed, costs no bytes, waits
+    out no latency, survives a partition, and leaves nothing in the trace to say
+    it happened. That is why the verifier flags it.
+  </Accordion>
+
+  <Accordion title="phase(…) — a stretch larger than a call" icon="bars-staggered">
+    ```java
+    try (var work = cluster.phase("thumbnails")) {
+        …
+        work.note("batches", inflight.size());
+    }
+    ```
+
+    A phase names a stretch of the job so the trace contains something bigger than
+    a single call, and it is what the viewer's columns and chapters are built from.
+
+    Unlike `compute`, a phase does **not** mark the machine busy: a coordinator
+    waiting on four workers is not using a core, and reporting that it is would
+    make every occupancy figure in the run a lie.
+  </Accordion>
+
+  <Accordion title="compute(…) — work with no RPC to carry it" icon="microchip">
+    Reading the album happens on the coordinator, and no call covers it. Without
+    `compute`, no span covers it either: the coordinator looks idle during the
+    most expensive thing it does all run.
+
+    `compute` opens a span **and** marks the machine busy, because it is really
+    using a core.
+  </Accordion>
+
+  <Accordion title="records() and seed() — where the workload comes from" icon="dice">
+    `cluster.records()` is how much work this run is to do. In direct mode it is
+    what the scenario declared. In scaled mode it is what the engine chose — a
+    fraction of full scale, picked so the machines and the workload shrink by the
+    same factor. **A job that ignores it cannot be scaled, and the trace will say
+    so.**
+
+    `cluster.seed()` is the scenario's seed. A job that generates its own input
+    needs one and it has to come from here: a sweep of seeds is meant to vary the
+    *data* as well as the weather, and a workload that draws from a constant of
+    its own is a workload whose every run is the same afternoon.
+  </Accordion>
+
+  <Accordion title="done(…) — the answer, structurally" icon="flag-checkered">
+    `cluster.done(Map.of(…))` records the result as data rather than as a line of
+    text, so a later run can be compared to this one without parsing English.
+  </Accordion>
+</AccordionGroup>
+
+## Two things this job does that are worth copying
+
+**Every outbound call has a deadline.** `withDeadlineAfter(2_000, MILLISECONDS)`
+means 2000 *reference* milliseconds, like every other duration — losim rewrites it
+into real time so it survives `k_time`. A call with no deadline waits five seconds
+and then gives up on your behalf, and the trace says that is what happened.
+
+**The fan-out is asynchronous.** `newFutureStub` dispatches every batch and then
+collects. With `newBlockingStub` in the loop, four machines would be used strictly
+one at a time, the answer would be correct, and the whole exercise would teach
+nothing. This is the single most common way a first fleet turns out to be
+sequential — and the [Spans view](/viewer/views) makes it obvious in one glance.
+
+<Card title="Next: the scenario" icon="arrow-right" href="/first/the-scenario">
+  Five machines, two zones, and a bad afternoon.
+</Card>

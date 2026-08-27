@@ -1,0 +1,93 @@
+---
+title: "workload"
+description: "How much work there is, and the two ladders the engine climbs."
+icon: "chart-line"
+---
+
+```yaml
+workload:
+  records: 40000000
+  probe: [1000, 2000, 4000, 8000]
+  fleets: [2, 4]
+```
+
+Required in `mode: scaled`; optional and useful in direct mode, where `records`
+is simply what `cluster.records()` returns.
+
+<ParamField path="records" type="long" required>
+  The size the design is meant to handle. At least 1.
+
+  In **direct** mode this is what runs. In **scaled** mode it is what gets projected
+  to, and the engine picks a much smaller size to actually run.
+</ParamField>
+
+<ParamField path="probe" type="list of int" default="[1000, 2000, 4000, 8000]">
+  The data ladder the engine climbs to fit its laws.
+
+  **At least four rungs**: *"a ladder needs at least four rungs: three cannot show
+  whether the law bends, and a law that bends must be refused rather than
+  extrapolated across."*
+</ParamField>
+
+<ParamField path="fleets" type="list of int" default="[max(2, declared/2), max(3, declared)]">
+  Fleet shapes to vary **independently of the data**, so a resource can be
+  attributed to the right variable rather than to whichever one happened to move
+  with it.
+
+  The default is derived from how many machines in the scenario serve something.
+</ParamField>
+
+## Why two ladders
+
+<Warning>
+A resource that grows with the **data** and a resource that grows with the **fleet**
+look identical if the two only ever move together — and an engine that folds one
+into the other produces projections that are plausible and wrong, which is the
+failure mode hardest to notice because nothing looks broken.
+
+So the grid varies them on separate axes: the data ladder is climbed on the fleet
+that will actually run, and the fleet ladder holds the data still.
+</Warning>
+
+## What the grid actually runs
+
+```
+   data ladder    1k 2k 4k 8k    ×  6 seeds   on the scenario's own fleet, weather off
+   fleet ladder   2, 4 workers   ×  2 seeds   at the middle data size,   weather off
+   fault column   the top size   ×  2 seeds   the scenario's own weather
+```
+
+About thirty runs. Six seeds on the data ladder because the law is fitted on the
+median of all of them and its reproducibility is measured by refitting **independent
+sets of two** the same way — three sets is the fewest from which a spread means
+anything.
+
+The fleet ladder and the fault column are cross-checks rather than sources of an
+error bar, so they run at fewer seeds.
+
+<Note>
+**Choosing a probe ladder.** All four rungs should be in a region where your code
+behaves consistently. If it spills, switches algorithm, or stops fitting in a cache
+somewhere in the middle of the ladder, the engine will see the law bend and refuse
+it — correctly. Move the ladder to one side of the threshold.
+
+Bigger rungs also help when a fixed overhead dominates: the engine refuses a run
+size where the variable part is less than ten times the fixed part.
+</Note>
+
+## The fault column
+
+If the scenario declares any `faults:` or `chaos:`, the grid runs a weathered column
+and folds the result in as an **amplification** term. A killed machine's work is
+redone elsewhere, so a survivor absorbs its share — measured, that roughly doubles
+peak memory on a machine that accumulates.
+
+With no weather declared, you get a note instead:
+
+```
+note: this scenario declares no faults, so the model carries no amplification term
+      — a projection from it describes a fleet where nothing goes wrong
+```
+
+A model fitted only on clean runs under-predicts by that much, and it under-predicts
+**optimistically**.

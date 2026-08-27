@@ -1,0 +1,99 @@
+---
+title: "The sleep debt"
+description: "How a cost fifty times below the timer floor still totals correctly."
+icon: "scale-balanced"
+---
+
+## The problem
+
+The clock cannot express a duration finer than about **0.05 ms** of real time. At
+`kTime: 40`, a declared cost of 1 refMs is 25 µs — comfortably below it. At
+`kTime: 100`, so is a cost of 4 refMs.
+
+Rounding those up would make the run slower than it should be. Dropping them would
+make it faster. Both distort exactly the thing the run is measuring.
+
+## The mechanism
+
+A cost finer than the floor is **owed** rather than slept:
+
+```java
+owed += refMs / kTime;
+if (owed < FLOOR) return;            // nothing to sleep yet
+park(owed / correction);
+owed -= actuallySlept;               // settle against reality, not intent
+```
+
+The debt is per **thread** — a debt is a property of whoever incurred it — and it
+accumulates until it is large enough to express, then is paid off in one park.
+
+## Why the ledger is closed-loop
+
+<Note>
+The debt is settled against what was **actually** slept, not against what was asked
+for.
+
+Open-loop, the calibration's residual compounds across thousands of tiny sleeps:
+**6.8% aggregate error typically and 16% at worst**. Crediting the overshoot back, so
+the next sleeps shorten to absorb it, brings that to **0.3% and 2%**.
+</Note>
+
+That is what makes costs fifty times below the floor still total correctly, and it is
+why `k_time` is not capped by timer resolution.
+
+## What is lost, and what is not
+
+<Columns cols={2}>
+  <Card title="Kept" icon="check">
+    **Aggregate time.** A hundred 0.001 refMs costs still add up to 0.1 refMs.
+
+    **Ordering.** Events happen in the order they happened.
+  </Card>
+  <Card title="Lost" icon="xmark">
+    **Per-call observability.** Where inside the debt window a particular cost fell
+    is not recoverable — several sub-floor costs are paid off together.
+  </Card>
+</Columns>
+
+The trace has to say so, which is why the engine checks the `k_time` against the
+finest cost site it fitted rather than letting it drift silently.
+
+## The limit, and the message
+
+The ledger is good for about **fifty times** below the floor. Past that the residual
+stops being absorbed and the run's own timings drift.
+
+```
+k_time 400 is finer than this workload can express: lab.Thumbnailer.Capacity costs
+0.5000 refMs, which at that compression is 4x below what the sleep debt can still
+settle. Lower k_time to 100 or less, or give that cost site more to do.
+```
+
+<Tip>
+Two ways out, and they are genuinely different decisions:
+
+**Lower `k_time`.** The run takes longer in real time, and everything else is
+unchanged.
+
+**Give that cost site more to do.** If a handler is declared at 0.5 refMs, it is
+below the noise floor of the thing it is modelling anyway — and a `@Takes` that small
+usually means the handler should not have been annotated at all, or should be
+declared at what it really costs.
+</Tip>
+
+## Calibration is per host
+
+```java
+double[] targets = {0.05, 0.1, 0.25, 0.5, 1, 2};
+```
+
+Two hundred repetitions at the short end, sixty at the long end, and the mean ratio
+of *slept* to *asked for* is the correction. A host that never overshoots gets a
+correction of 1.
+
+<Note>
+Measured per host rather than assumed, because a two-core Codespace behaves
+differently from a laptop and the same constant would not serve both. It is also why
+`losim diff` treats every duration as a **measurement** rather than something that
+must agree across environments.
+</Note>

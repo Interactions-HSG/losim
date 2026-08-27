@@ -1,0 +1,8 @@
+# A page that would give the logical-time assignment away.
+Each replica carries a vector clock — a version vector, in the other literature,
+and a vclock in most code. It is the Lamport counter generalised to one entry
+per replica: on a local event a replica applies increment to its own entry, and
+on receiving a message it applies merge, taking the larger of the two entries at
+every position. Comparing two of them decides happens-before, and where neither
+dominates, the two writes are concurrent. The structure is a causal history in
+compressed form, which is why concurrent writes cannot be ordered by it.

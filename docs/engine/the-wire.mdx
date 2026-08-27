@@ -1,0 +1,134 @@
+---
+title: "The wire"
+description: "Two interceptors, and everything that happens between a call site and a handler."
+icon: "right-left"
+---
+
+losim is on both sides of every call as gRPC's own interceptors. That is the whole
+mechanism — there is no separate transport and no message bus.
+
+```
+caller                                                   callee
+  │
+  ├─ Retrying          (only if the scenario declared a policy)
+  │    └─ ClientSide   the network, byte counts, spans, deadlines
+  │         │
+  │         ├──── in-process transport ────────────────┐
+  │                                                    │
+  │                                        ServerSide ─┤  cost, context, records
+  │                                                    └─ your handler
+```
+
+## Before the call is even made
+
+Three ways a message never arrives, checked in order:
+
+| | `why` |
+|---|---|
+| the target machine is not alive | `unreachable` |
+| the two ends cannot reach each other | `partitioned` |
+| the draw against `loss` came up | `lost` |
+
+Any of them returns a `Dropped` call: it opens a span marked `delivered: false`,
+counts the bytes the caller tried to send, waits out the caller's **own deadline**,
+and then fails with `DEADLINE_EXCEEDED`.
+
+<Note>
+The caller cannot tell the three apart — which is the point. Modelling any of them as
+an immediate `UNAVAILABLE` would turn the most instructive failure in distributed
+systems into a tidy error code: a socket that refuses is a machine that *answered*.
+
+A call with no deadline waits five reference seconds, so a scenario that forgot one
+still terminates.
+</Note>
+
+## Client side
+
+<Steps>
+  <Step title="The deadline is rewritten into real time">
+    `withDeadlineAfter(200, MILLISECONDS)` means 200 **reference** milliseconds. The
+    remaining time is divided by `k_time` here, at the one place the caller's intent
+    is still visible.
+  </Step>
+  <Step title="A span opens, and its id goes into a metadata header">
+    `losim-parent-span`. The callee opens its own span **under** that id, so
+    causality survives the boundary and the span tree is a real distributed call
+    stack.
+  </Step>
+  <Step title="The request is weighed">
+    Serialized size plus five bytes of framing. Counted against the caller's
+    `bytesOut`, and separately against `crossZoneBytes` if the two machines are in
+    different zones.
+  </Step>
+  <Step title="The response is weighed too">
+    In **both** directions, because counting only the request would make a fetch look
+    free — a call that asks for a region in forty bytes and is sent a megabyte back
+    travels almost entirely in the direction that was not counted.
+  </Step>
+  <Step title="The round trip is slept, on close">
+    Once, on the thread that delivers the response: the caller's own thread for a
+    blocking call, the channel's executor for a future. Neither the callee's pool
+    thread nor the handler's measured duration is touched.
+  </Step>
+  <Step title="Then the deadline is checked again">
+    Paying the network after the fact would otherwise let a call succeed that the
+    wire had already outrun.
+  </Step>
+</Steps>
+
+## Server side
+
+<Steps>
+  <Step title="The parent is read from the header, not from the context">
+    It arrived from a thread on another machine this one has no context from. Read it
+    from the ambient context instead and every server span hangs off the root —
+    silently.
+  </Step>
+  <Step title="A frozen machine holds the call">
+    Not a refusal. The call waits at the door, on the machine's own thread, which is
+    exactly why a freeze is harder to diagnose than a crash.
+  </Step>
+  <Step title="`handler_start`, then the fixed cost is slept">
+    In that order, or every gantt block in the trace collapses.
+  </Step>
+  <Step title="Your handler runs">
+    With the machine ambient, so `Losim.current()` works.
+  </Step>
+  <Step title="The per-record cost is slept before the response leaves">
+    Not after — a caller waits for work that has not finished, and by now the handler
+    has said how much there was via `records(n)`.
+  </Step>
+  <Step title="`handler_end`, with both durations">
+    `ms` is what the **program** took; `grossMs` is open-to-close including whatever
+    losim did inside that window.
+  </Step>
+</Steps>
+
+## Retries sit outside all of it
+
+The retry interceptor is installed **outside** `ClientSide`, so every attempt is a
+genuinely separate call: its own span, its own byte count, its own draw against loss,
+its own look at whether the callee is still alive.
+
+A retry that reused the first attempt's accounting would make a design that retries
+look cheaper than one that does not.
+
+## Byte counting
+
+<Warning>
+gRPC's in-process transport **does not serialize** — it hands the receiver the same
+object reference. Protobuf messages are immutable, so that is otherwise harmless, but
+it means a byte count can never be inferred from the transport.
+
+So the message is marshalled explicitly: `getSerializedSize()` plus **5 bytes** —
+one compressed-flag byte and a four-byte length prefix, per message.
+
+Anything that is not a protobuf `Message` weighs **zero**. If your bytes are all
+zero, that is usually why.
+</Warning>
+
+## Method naming
+
+gRPC writes `lab.Thumbnailer/Thumbnail`. Everything in the trace writes
+`lab.Thumbnailer.Thumbnail`, so that everything downstream can split on a dot. Retry
+policies match either form, or any dotted suffix, or `*`.

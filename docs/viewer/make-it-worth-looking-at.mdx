@@ -1,0 +1,146 @@
+---
+title: "Make a run worth looking at"
+description: "Six things your job can do that visibly change the picture — each one connected to something on the screen."
+icon: "wand-magic-sparkles"
+---
+
+The viewer can only draw what the trace contains. All six are things you were going to
+want anyway, and each one has a specific consequence you can point at.
+
+<Steps>
+  <Step title="Name your phases — they become the chapters on the scrubber">
+    ```java
+    try (var p = cluster.phase("thumbnails")) {
+        …
+        p.note("batches", 40);
+    }
+    ```
+
+    Literally. Every `cluster.phase("…")` is a labelled chapter on the bar, and
+    *"which stage was this?"* is the question a viewer asks before any other.
+
+    A run with no phases is one undifferentiated bar and you count pixels. A run with
+    three is a story you can seek around — and in the
+    [Spans view](/viewer/views#spans) they are the top of the tree that everything
+    else hangs beneath.
+  </Step>
+
+  <Step title="Reveal real numbers — they fill the machine panel">
+    ```java
+    Losim.current().reveal("frames", request.getFramesCount());
+    Losim.current().reveal("jpegKb", bytes / 1024.0);
+    ```
+
+    This is what puts **real numbers on a machine** instead of "it was busy". Pin the
+    machine and watch them move — pinning docks the panel beside the film, so the
+    picture stays visible while you read.
+
+    Use the primitive overloads — the `Object` one boxes at the call site, and at a
+    thousand calls per handler that bends the fitted memory exponent.
+  </Step>
+
+  <Step title="Declare what your handlers cost — or the film has no duration">
+    ```java
+    @Takes(refMs = 3, refNsPerRecord = 240_000)
+    ```
+
+    Without it every handler is instant, every message crosses in a single frame, and
+    there is no queueing, no contention and no critical path to watch. An unannotated
+    handler takes no time, deliberately — so an unannotated fleet is a blur.
+
+    The annotation is **`@Takes`**. If you have seen `@Cost` in older notes, that is
+    not what compiles.
+  </Step>
+
+  <Step title="Declare how many records each call processed">
+    ```java
+    Losim.current().records(request.getFramesCount());
+    ```
+
+    It lands on the span, so a handler's duration reads against the work it actually
+    did rather than against nothing — and it is on the span in the
+    [Spans view](/viewer/views#spans), beside the duration it explains.
+  </Step>
+
+  <Step title="Account for disk — it is the only way the Ledger gets a storage line">
+    ```java
+    Losim.current().wroteDisk(bytes);
+    ```
+
+    It throws when the cap is exceeded — that is the disk model, not bookkeeping — and
+    a `disk_full` puts a red marker on the scrubber at the instant it happened.
+  </Step>
+
+  <Step title="Put the trace where the viewer looks">
+    ```bash
+    --out build/runs/mine.json
+    ```
+
+    A run is priced as part of making it, so the Ledger has money in it straight away.
+
+    A trace dragged onto the page has no bill beside it and shows none.
+  </Step>
+</Steps>
+
+## And two that change the picture more than anything else
+
+<Columns cols={2}>
+  <Card title="Wrap local work in compute" icon="microchip">
+    ```java
+    cluster.compute("read the album", () -> …);
+    ```
+    Without it, the coordinator sits **idle on screen** during the most expensive
+    thing it does all run. No span covers it and nothing shows it busy — so the
+    picture says the fleet was waiting when it was working.
+  </Card>
+  <Card title="Dispatch asynchronously" icon="arrows-split-up-and-left">
+    ```java
+    ThumbnailerGrpc.newFutureStub(channel)
+    ```
+    With a blocking stub in the dispatch loop, exactly one machine is ever lit at a
+    time and the rest sit idle for the whole run. It is the single most obvious thing
+    the film shows you, and the single most common reason a first fleet turns out to
+    be one machine with extra steps.
+  </Card>
+</Columns>
+
+## Telemetry level
+
+```bash
+--telemetry FULL          # the default, and what you want for looking
+```
+
+`FULL` records every call's **real argument and real result**. That is by a distance
+the most expensive part of recording — and it is what the film draws on a message in
+flight, and what the pinned panel shows in full rather than as a digest.
+
+Use `NO_PAYLOAD` for a run you are going to *measure*, and `FULL` for a run you are
+going to *watch*.
+
+<Note>
+A real system would never put arguments and results in its telemetry. losim does
+deliberately: the point is to watch a computation happen, and machines exchanging
+opaque byte counts teach nothing.
+</Note>
+
+## Give the fleet something to look at
+
+A last one that is about the scenario rather than the code. A fleet of four identical
+machines in one zone draws as four identical boxes.
+
+```yaml
+workers:
+  count: 4
+  prefix: w
+  instance: c5.large
+  zone: [eu-central-1a, eu-central-1b]
+  serves: [lab.Shrinker]
+  overrides:
+    w3: { instance: t3.small }
+
+faults:
+  - { at: 900 refMs, kill: w1 }
+```
+
+Two zones become two bands. A `t3.small` among three `c5.large`s is visibly a smaller
+box. And the kill is a red marker on the bar you can jump straight to with `]`.

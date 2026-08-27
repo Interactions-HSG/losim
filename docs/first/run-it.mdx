@@ -1,0 +1,143 @@
+---
+title: "6. Run it"
+description: "Press the ▶ above main, and understand the report that comes back."
+icon: "play"
+---
+
+## Press the ▶
+
+There is no command to learn and no terminal to open. At the root of the project is
+an ordinary Java file with an ordinary `main`, and your editor already puts a **▶**
+above it:
+
+```java RunExperiments.java
+import losim.cli.Experiments;
+
+public final class RunExperiments {
+
+    public static void main(String[] args) throws Exception {
+        Experiments.here()
+                .run("thumbs")
+                .show();
+    }
+}
+```
+
+Each `run` reads the system's schema, compiles its Java, runs the scenario beside it
+and prices what happened. `show` then opens the viewer on **everything just run** and
+stays open.
+
+<Note>
+**This file is the experiment, and you edit it.** Comment lines in and out to choose
+what you are looking at. Two `run` lines are two runs side by side in the picker,
+which is the only way to compare a design against itself:
+
+```java
+Experiments.here()
+        .run("thumbs")
+        .run("thumbs", "slow.yaml")     // the same system, a worse afternoon
+        .show();
+```
+
+A run that fails is reported and the rest carry on. When you are comparing three
+scenarios, the one that fell over is a result about the design, not a reason to stop.
+</Note>
+
+<Tip>
+`show()` does not return — a viewer that closed itself the moment it opened would be a
+screenshot. Stop it with the stop button in your editor.
+
+`done()` instead of `show()` writes the traces and opens nothing, for when you only
+want the files. `runAll()` runs every system in the project that has code and a
+scenario.
+</Tip>
+
+## What it is doing on your behalf
+
+Nothing here is hidden, and none of it is yours to type. Per system: `protoc` with the
+vendored plugin, then `javac` against `lib/losim.jar` and the vendored gRPC, then the
+run itself in **its own JVM**, then the bill.
+
+Generated code lands in `<system>/gen/` — inside the system rather than under
+`build/`, so your editor resolves it and completion works with nothing configured. It
+is gitignored, and you never edit it.
+
+<Warning>
+Each run is a **separate JVM**, deliberately. A system that exhausts its heap is a
+result this course is about, and it must not take the tooling down with it — nor may
+two runs share a heap and an ordering, or an out-of-memory in one becomes a mystery in
+the other.
+</Warning>
+
+<Accordion title="The two classpaths, if you ever do drive it by hand">
+`-cp` is what the **JVM** loads: losim, the vendored gRPC, and your classes.
+`--cp` is where **losim** looks for the job and the services the scenario names, and
+it is also what the trust verifier reads class files from.
+
+Point `--cp` at a **directory**. A jar is not walked, and the run will tell you so:
+*"none of the classes this scenario names are on the classpath it was given, so
+nothing was read."*
+</Accordion>
+
+
+## What comes out
+
+```
+thumbs.yaml  seed 7  completed in 2416 refMs
+  1044 events, 322 spans, 68 series -> build/thumbs.json
+```
+
+If something went wrong you get a second line naming it, and a non-zero exit code:
+
+```
+thumbs.yaml  seed 7  did not complete in 6104 refMs
+  IllegalStateException: nobody serves Thumbnailer
+```
+
+## The options
+
+<ParamField path="--cp <paths>" type="path list">
+  Where the job and the services are compiled to. Colon-separated, directories.
+</ParamField>
+
+<ParamField path="--out <file>" type="path" default="build/<scenario>.json">
+  Where to write the trace.
+</ParamField>
+
+<ParamField path="--seed <n>" type="long">
+  Overrides the scenario's seed, for one run. A **sweep** is not twenty of these —
+  it is a loop in Java over `scenario.withSeed(n)`, which never touches the disk.
+  [Sweeps →](/run/sweeps)
+
+</ParamField>
+
+<ParamField path="--telemetry <level>" type="FULL | NO_PAYLOAD | OFF" default="FULL">
+  How much is recorded. `FULL` includes every call's real argument and real
+  result, which is the most expensive part by a distance and also the thing that
+  makes a trace worth looking at. `NO_PAYLOAD` keeps events, spans and series but
+  renders nothing. `OFF` keeps nothing.
+
+  Recording runs on the machines' own threads, so what it costs lands on the
+  counters being read — which makes "how much" a measurable question rather than
+  a matter of taste. [What losim charges itself →](/engine/self-accounting)
+</ParamField>
+
+## Exit codes
+
+| | |
+|---|---|
+| `0` | the job completed |
+| `1` | the job did not complete: it threw, or it outstayed ten times its `expectedRun` |
+| `2` | the scenario is wrong. Nothing ran, and the message reads like a compiler error. |
+| `3` | something went wrong inside losim |
+
+<Note>
+A run that failed is a **result**, not an absence of one. The trace is written
+either way, with `meta.completed: false` and `meta.failure` naming the cause. A
+scenario that kills the machine your coordinator is waiting on is *supposed* to
+produce a job that does not finish, and the trace of that is the interesting part.
+</Note>
+
+<Card title="Next: read the trace" icon="arrow-right" href="/first/read-the-trace">
+  Three channels, and what to look at first.
+</Card>

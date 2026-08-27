@@ -1,0 +1,200 @@
+---
+title: "When the engine refuses"
+description: "Every refusal, what it actually means, and what to change — or whether to change anything."
+icon: "ban"
+---
+
+<Note>
+**A refusal is an output, not an error.** A projection carries its confidence or it
+is absent; a field filled with a plausible number is indistinguishable from a good
+one until the cluster bill arrives.
+
+Several of these are telling you something true about your design that you would
+otherwise never have learnt. Read them before trying to make them go away.
+</Note>
+
+## Refusals about one resource
+
+The run still happens and everything else is still projected.
+
+<AccordionGroup>
+  <Accordion title="the ladder bends" icon="stairs" defaultOpen>
+    ```
+    diskMb  REFUSED: the ladder bends: over the lower half it grows as records^0.59
+    and over the upper half as records^0.87, a difference of 0.28. Something behaves
+    differently small than large — a threshold, a different code path, or a
+    granularity that only shows up when the pieces are few — and no extrapolation
+    across that means anything. R2 over the whole ladder is still 0.883, which is
+    why no threshold on R2 could have separated this from a merely noisy straight
+    line.
+    ```
+
+    **What it means.** Your code does something different at the small end of the
+    probe ladder than at the large end. Almost always one of: a size threshold, a
+    cache that stops fitting, a batch that stops being one batch, or a fixed
+    overhead that stops dominating.
+
+    **What to change.** Usually nothing about your code. Move the probe ladder so
+    that all four rungs are on the *same side* of the threshold:
+
+    ```yaml
+    workload:
+      probe: [8000, 16000, 32000, 64000]
+    ```
+
+    The engine now fits a region where behaviour is consistent, and the projection
+    means something. If both regions matter to your design, that is a genuine
+    finding: this resource has two regimes and one law cannot describe both.
+  </Accordion>
+
+  <Accordion title="its exponent moves between seed sets" icon="wave-square">
+    ```
+    makespan  REFUSED: its exponent moves by 0.66 between independent seed sets of
+    the same workload, which over a factor of 5000 is an error bar of x268 — wider
+    than anything it would be asked to distinguish
+    ```
+
+    **What it means.** Refitted on independent seeds, the law lands somewhere else.
+    R² says how well a line went through the points it was given; it says nothing
+    about whether those points would land there again.
+
+    **This is normal for the timeline.** On handlers shorter than the host's own
+    jitter, the time exponent moves by around 0.25 between seed sets of an
+    identical workload, while memory does not move at all. A two-core Codespace is
+    noisier than a laptop, and the engine measures that per host rather than
+    assuming it.
+
+    **What to change.** Either accept it — a refused makespan is the honest answer,
+    and it tells you the uncertainty in what a design costs lives in the timeline —
+    or give the handlers more to do, so the signal rises above the host's jitter:
+
+    ```java
+    @Takes(refMs = 20)      // instead of 0.4
+    ```
+  </Accordion>
+
+  <Accordion title="it was never measured above zero" icon="0">
+    ```
+    diskMb  REFUSED: it was never measured above zero, so there is nothing to fit
+    ```
+
+    Your system never wrote to disk. Not a problem; there is simply no law. If you
+    expected disk usage, you are missing a `Losim.current().wroteDisk(bytes)` call.
+  </Accordion>
+
+  <Accordion title="nothing measured varied with it" icon="equals">
+    ```
+    memoryMb  REFUSED: nothing measured varied with it, so it has no law here
+    ```
+
+    No candidate variable moved. The usual cause is a job that ignores
+    `cluster.records()` and does a fixed amount of work regardless — so the whole
+    probe ladder measured the same thing four times.
+    [Writing to scale →](/write/writing-to-scale)
+  </Accordion>
+</AccordionGroup>
+
+## Refusals about the whole run
+
+Nothing runs and nothing is projected.
+
+<AccordionGroup>
+  <Accordion title="the variable part does not dominate the fixed overhead" icon="weight-hanging">
+    ```
+    memoryMb at 8000 records is only 2.4x its own fixed overhead (0.31 against
+    0.13); below 10x the fit is describing the overhead rather than the workload
+    ```
+
+    **What it means.** At every size on the ladder, most of the resource is
+    something the workload does not move — a baseline heap, a fixed index, a
+    constant table.
+
+    **What to change.** Bigger rungs:
+
+    ```yaml
+    workload:
+      probe: [10000, 20000, 40000, 80000]
+    ```
+
+    Or, if the fixed cost genuinely is most of the design, accept that this
+    resource is not a function of the workload — which is a true statement about
+    your system and worth knowing.
+  </Accordion>
+
+  <Accordion title="the fleet would not fit this host" icon="server">
+    ```
+    at 8000 records the fleet would hold 4200 MB, and this host offers 1843 MB to
+    work in — the run does not fit the laptop it is meant to fit on
+    ```
+
+    The engine will use at most **60%** of the JVM's max heap. Either raise it:
+
+    ```bash
+    java -Xmx6g -cp "$CP" losim.cli.Main run …
+    ```
+
+    or add a smaller rung so the engine has a feasible size to choose:
+
+    ```yaml
+    probe: [500, 1000, 2000, 4000]
+    ```
+  </Accordion>
+
+  <Accordion title="k_time is finer than the workload can express" icon="stopwatch">
+    ```
+    k_time 400 is finer than this workload can express: lab.Thumbnailer.Capacity
+    costs 0.5000 refMs, which at that compression is 4x below what the sleep debt
+    can still settle. Lower k_time to 100 or less, or give that cost site more to
+    do.
+    ```
+
+    **What it means.** The clock cannot express a duration finer than about 0.05 ms
+    of real time; below that a cost is *owed* rather than slept, and the ledger is
+    good for about fifty times below the floor. Past that, timings drift.
+
+    **What to change.** Exactly what it says — the message computes the largest
+    `k_time` that works. [The sleep debt →](/engine/the-sleep-debt)
+  </Accordion>
+
+  <Accordion title="a ladder of three cannot show whether a law bends" icon="ruler">
+    ```
+    a ladder of 3 cannot show whether a law bends; four is the fewest that can
+    ```
+
+    ```yaml
+    workload:
+      probe: [1000, 2000, 4000, 8000]     # at least four
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Notes, which are not refusals
+
+Printed under the projections, and worth reading:
+
+```
+  note: this scenario declares no faults, so the model carries no amplification
+        term — a projection from it describes a fleet where nothing goes wrong
+```
+
+A killed machine's work is redone elsewhere, so a survivor absorbs its share —
+measured, that roughly doubles peak memory on a machine that accumulates. A model
+fitted only on clean runs under-predicts by that much, and it under-predicts
+**optimistically**. Declare some weather.
+
+## The two things never to do about a refusal
+
+<Warning>
+**Do not multiply the small run by the size ratio.** That is precisely what the
+engine refused to do, and on a workload where memory follows something sublinear it
+lands 34% out.
+
+**Do not lower a threshold until something is accepted.** There is no threshold to
+lower — the tests are structural (does the ladder bend, is the exponent
+reproducible), not a tunable confidence level. A projection that only appears
+because a check was loosened is worth less than no projection.
+</Warning>
+
+<Card title="Next: troubleshooting" icon="arrow-right" href="/run/troubleshooting">
+  Everything else that goes wrong.
+</Card>

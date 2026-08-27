@@ -1,0 +1,96 @@
+---
+title: "chaos"
+description: "A standing chance of a bad day, rather than a scripted one."
+icon: "dice"
+---
+
+```yaml
+chaos:
+  - kill:    { every: 800 refMs, among: workers }
+  - freeze:  { every: 400 refMs, among: workers, for: 150 refMs }
+  - degrade: { every: 600 refMs, among: w2,      factor: 3 }
+```
+
+<Note>
+A scenario with a fault at 900 refMs teaches the fleet to survive 900 refMs. A rate
+teaches it to survive **whenever**, which is the harder and more honest thing — and
+it is why sweeps exist: one seed shows a design survived an afternoon, twenty show
+it survives afternoons.
+</Note>
+
+## Only three kinds
+
+`kill`, `freeze` and `degrade`. Anything else is refused:
+
+```
+thumbs.yaml:31: partition happens at a moment, not at a rate; put it under faults:
+thumbs.yaml:33: chaos cannot 'explode'; it can kill, freeze or degrade
+```
+
+## Fields
+
+<ParamField path="every" type="duration" required>
+  The **mean** gap between events. Draws are exponential — `-ln(1 - u) × every` —
+  so the gaps vary the way real bad afternoons do rather than arriving on a metronome.
+</ParamField>
+
+<ParamField path="among" type="pool name or machine name" required>
+  Which machines are eligible. A pool key (`workers`) or one machine's name (`w2`).
+  Anything else is refused, and the message lists the pools this scenario has.
+
+  Only **live** machines are candidates at the moment of the draw. If every eligible
+  machine is already dead, nothing happens.
+</ParamField>
+
+<ParamField path="factor" type="double" default="2">
+  For `degrade`.
+</ParamField>
+
+<ParamField path="for" type="duration" default="1000 refMs">
+  For `freeze`. The thaw is scheduled at `at + for`.
+</ParamField>
+
+## What lands in the trace
+
+```json
+{ "kind": "chaos", "vm": "w2",
+  "detail": { "kind": "kill", "among": "workers", "atRefMs": 1843.2 } }
+```
+
+followed by the ordinary `kill`, `freeze` or `degrade` event for that machine — so a
+reader can tell a scripted fault from a drawn one, and both are otherwise identical.
+
+## Chaos stops at the horizon
+
+<Warning>
+Draws are generated up to `expectedRun` and no further. If a run overruns it,
+**nothing happens to the fleet after that point** — a quiet second half that looks
+exactly like a fleet behaving well.
+
+The trace says so:
+
+```json
+{ "kind": "over_horizon", "vm": "-", "detail": {
+    "expectedRefMs": 6000, "actualRefMs": 11840,
+    "note": "chaos was only drawn out to the horizon, so nothing happened to this
+             fleet after it" } }
+```
+
+Raise `expectedRun` when you see it. Unsaid, it is a finding; said out loud, it is a
+scenario to fix.
+</Warning>
+
+## Sweep it
+
+Chaos placement is drawn from the seed, so a single run tells you about one
+afternoon:
+
+```java
+for (long seed = 1; seed <= 20; seed++) {
+    var r = Run.of(base.withSeed(seed), loader, Telemetry.Level.OFF);
+    if (!r.completed()) System.out.printf("seed %2d  %s%n", seed, r.failure());
+}
+```
+
+
+Report the spread, not the best run. [Sweeps →](/run/sweeps)

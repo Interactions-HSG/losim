@@ -1,0 +1,111 @@
+---
+title: "retries"
+description: "The policy, the schema's veto, and what an attempt costs."
+icon: "rotate"
+---
+
+```yaml
+retries:
+  - { method: Thumbnail, attempts: 3, backoff: 50 refMs, multiplier: 2 }
+  - { method: Append,    attempts: 2, unsafe: true }
+```
+
+## Fields
+
+<ParamField path="method" type="string" required>
+  Matched against every method the fleet actually serves:
+
+  | form | example |
+  |---|---|
+  | the bare rpc name | `Thumbnail` |
+  | fully qualified, **dotted** | `lab.Thumbnailer.Thumbnail` |
+  | any dotted suffix | `Thumbnailer.Thumbnail` |
+  | everything | `*` |
+
+  A policy naming a method **no machine serves** is refused — a typo would
+  otherwise be a policy that silently does nothing.
+</ParamField>
+
+<ParamField path="attempts" type="int" required>
+  Total attempts including the first. Must be at least 1: *"a call is attempted at
+  least once."* A policy of 1 does nothing.
+</ParamField>
+
+<ParamField path="backoff" type="duration" default="0 refMs">
+  Waited before the **second** attempt.
+</ParamField>
+
+<ParamField path="multiplier" type="double" default="1">
+  Each subsequent backoff is multiplied by this. `backoff: 50 refMs, multiplier: 2`
+  waits 50 before the second attempt and 100 before the third.
+</ParamField>
+
+<ParamField path="unsafe" type="boolean" default="false">
+  Retry a method the schema does not declare safe. This is the point of the gate,
+  not a way round it: it makes *"we retry a call that is not safe to run twice"* one
+  visible line in a diff.
+</ParamField>
+
+## The gate
+
+```
+thumbs.yaml:22: retrying lab.Volley.Hit is refused — its .proto declares no
+idempotency_level, so running it twice is not known to be safe. Declare
+'option idempotency_level = IDEMPOTENT;' on the rpc if it is, or write
+'unsafe: true' here if you mean to retry it anyway.
+```
+
+Either level satisfies it:
+
+```proto
+rpc Thumbnail (Batch) returns (Thumbs) { option idempotency_level = NO_SIDE_EFFECTS; }
+rpc Announce  (Health) returns (Empty) { option idempotency_level = IDEMPOTENT; }
+```
+
+<Note>
+Retrying is an **operational** decision, so the policy lives in the scenario where
+it can be diffed and swept. Whether retrying is **safe** is a property of the
+method, so it lives in the `.proto`. The two have to agree, and losim checks it
+against what the fleet really serves before a single call is made.
+</Note>
+
+## What is retried
+
+| retried | not retried |
+|---|---|
+| `UNAVAILABLE` | everything else — an `INVALID_ARGUMENT` will be invalid the second time too |
+| `DEADLINE_EXCEEDED` | a call where a message already arrived |
+| `RESOURCE_EXHAUSTED` | a cancelled call |
+| `ABORTED` | any **streaming** call |
+| `UNKNOWN` | |
+
+<Note>
+Only unary calls. Replaying a stream means buffering it, and a buffer whose size
+nobody declared is its own failure mode.
+</Note>
+
+## Every attempt is a real call
+
+The retry interceptor sits **outside** the recording one, so each attempt gets its
+own span, its own byte count, its own draw against loss, and its own look at whether
+the callee is still alive. A retry that reused the first attempt's accounting would
+make a design that retries look cheaper than one that does not.
+
+```json
+{ "kind": "retry", "vm": "coordinator", "detail": {
+    "method": "lab.Thumbnailer.Thumbnail", "attempt": 1, "of": 3,
+    "after": "DEADLINE_EXCEEDED", "backoffRefMs": 50.0 } }
+
+{ "kind": "retry_done", "vm": "coordinator", "detail": {
+    "method": "lab.Thumbnailer.Thumbnail", "attempts": 3, "status": "OK" } }
+```
+
+`retry_done` appears only when there was more than one attempt. `unsafe: true`
+appears on the `retry` event when the policy claimed it.
+
+<Warning>
+Every attempt shares the **same absolute deadline**, because it is the same
+`CallOptions`. Three attempts with a growing backoff can exhaust the deadline before
+they exhaust the attempts — and the trace will say `"attempts": 2` where you asked
+for 3.
+</Warning>

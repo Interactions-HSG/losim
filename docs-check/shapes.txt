@@ -1,0 +1,11 @@
+# Shapes, for a page that gives the answer away without using its vocabulary:
+#
+#     <regex> + <regex> + ...:::<what the combination gives away>
+#
+# All terms must appear somewhere in the same file — a rule here is about a page
+# as a whole, not a line. Rules above catch a name; these catch a diagram.
+
+\bmap\b + \breduce\b:::a two-stage pipeline, whatever the page calls it
+\bkeys?\b + \bbuckets?\b + \bhash\b + \bmodulo|%[[:space:]]*n\b:::splitting keys across workers by hash
+\bclock\b + \bmerge\b + \bincrement\b:::the update rule of a logical clock
+\bpairwise\b + \bmaximum|max\b + \bper[[:space:]-]replica\b:::comparing two logical clocks entry by entry

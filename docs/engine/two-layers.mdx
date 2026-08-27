@@ -1,0 +1,113 @@
+---
+title: "Two layers"
+description: "The design decision everything else follows from."
+icon: "layer-group"
+---
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  losim                                                       │
+│    ClientSide + ServerSide interceptors on every call        │
+│    a machine model that caps memory and disk                 │
+│    a compressed clock                                        │
+│    a scaler engine, a verifier, a bill                       │
+├─────────────────────────────────────────────────────────────┤
+│  your system                                                 │
+│    real .proto, real generated stubs, real marshalling       │
+│    real threads, real allocation, real contention            │
+└─────────────────────────────────────────────────────────────┘
+                    one JVM, one laptop
+```
+
+<Note>
+No ports. No containers. No simulated scheduler. No virtual clock. The machines run
+on real threads against a real wall clock, and losim shapes what happens through
+**gRPC's own extension points** — one in-process server per machine, one executor per
+machine sized to its vCPUs, and an interceptor on each side of every call.
+</Note>
+
+## What the separation buys
+
+<Columns cols={2}>
+  <Card title="Failures are real" icon="fire">
+    "Runs out of memory" is not accounting fiction. The machine really was made
+    small, your data structure really did fill it, and the failure happened in your
+    code for the reason it would happen at full size.
+  </Card>
+  <Card title="Your code is portable" icon="box-open">
+    No losim type appears in any signature. Delete losim from the classpath and the
+    only thing that stops compiling is one annotation. A handler is an ordinary
+    object with an ordinary method.
+  </Card>
+</Columns>
+
+## The one package your code may mention
+
+`losim.api`, and it depends on no runtime type:
+
+| | |
+|---|---|
+| `Losim` | the static entry point |
+| `LosimCtx` | what you may say to losim from inside a handler |
+| `Spec` | what **this** machine is made of |
+| `Takes` | a compile-time annotation |
+| `Cluster`, `Job` | what a job is handed, and what a job is |
+
+`losim.runtime`, `losim.trace`, `losim.scale`, `losim.verify` and the rest are
+behind it. A system that reached into them would be a system that could only run
+inside the simulator.
+
+## Two implementations, and the difference is the point
+
+`Losim.current()` returns one of exactly two singletons:
+
+| | inside a run | outside one |
+|---|---|---|
+| recording — `reveal`, `log`, `records`, `sleep` | reach the machine | **silent** |
+| state — `machine`, `here`, `peers`, `clockMs`, `channelTo` | reach the machine | **throw** |
+
+A silent `reveal` lets a handler be called directly from a test. A **fabricated**
+empty fleet would let the same test pass while asserting nothing, which is worse than
+failing.
+
+## How the machine gets to your handler
+
+Not through a parameter. gRPC's own `Context` is the carrier: the server interceptor
+attaches the machine with `Contexts.interceptCall`, and it is then ambient for
+anything the handler does on that thread.
+
+<Warning>
+The context does **not** follow work onto a thread the machine did not create. Either
+the machine's executor is wrapped once with `Context.currentContextExecutor`, or that
+work loses its machine identity — and is flagged rather than silently attributed to
+nobody.
+</Warning>
+
+## Why in-process gRPC
+
+Because it is real gRPC. Real stubs, real marshalling, real interceptors, real status
+codes, real deadlines, real metadata. What it is not is real *sockets* — and that has
+exactly one consequence you have to know about:
+
+<Note>
+**The in-process transport does not serialize.** It hands the receiver the same
+object reference. Protobuf messages are immutable, so passing by reference is
+otherwise harmless — but it means a byte count can never be inferred from the
+transport. It has to come from marshalling the message explicitly, which is what
+losim does, plus the five bytes of framing gRPC would have put around it.
+</Note>
+
+## Where every piece of losim lives
+
+| | |
+|---|---|
+| `losim.api` | the facade — all a program can reach |
+| `losim.runtime` | the fleet, the machines, the two interceptors |
+| `losim.trace` | the three-channel recorder and the trace it writes |
+| `losim.time` | the compressed clock, and fault placement |
+| `losim.res` | instance types, the heap walk, losim's own meter |
+| `losim.scale` | the probe grid, the laws, the solve — and the refusals |
+| `losim.scenario` | a fleet and its weather, as data |
+| `losim.verify` | what makes a number stop meaning what it says |
+| `losim.price` | five buckets, and what cannot be put in them |
+| `losim.cli` | `run`, `bill`, `diff` |

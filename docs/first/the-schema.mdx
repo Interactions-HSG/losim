@@ -1,0 +1,139 @@
+---
+title: "2. The schema"
+description: "Everything one machine can ask another, in one file."
+icon: "file-code"
+---
+
+Create `proto/thumbs.proto`:
+
+```proto proto/thumbs.proto
+syntax = "proto3";
+
+package lab;
+
+option java_package = "lab.pb";
+option java_multiple_files = true;
+
+message Frame {
+  string id     = 1;
+  int32  width  = 2;
+  int32  height = 3;
+  bytes  pixels = 4;
+}
+
+message Thumb {
+  string id     = 1;
+  int32  width  = 2;
+  int32  height = 3;
+  bytes  jpeg   = 4;
+}
+
+message Batch  { repeated Frame frames = 1; }
+message Thumbs { repeated Thumb thumbs = 1; int32 bytes = 2; }
+message Empty  {}
+
+// What a machine will tell you about itself, if you ask it.
+message Health {
+  string machine     = 1;
+  string instance    = 2;
+  string zone        = 3;
+  int32  vcpu        = 4;
+  double memoryCapMb = 5;
+}
+
+service Thumbnailer {
+  // Safe to run twice: it computes and returns, and changes nothing.
+  rpc Thumbnail (Batch) returns (Thumbs) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  rpc Capacity (Empty) returns (Health) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
+```
+
+## Three things in there that matter
+
+<AccordionGroup>
+  <Accordion title="A batch, not a frame" icon="layer-group" defaultOpen>
+    `Thumbnail` takes a `Batch` rather than one `Frame`. That is not a
+    micro-optimisation — it changes what the system is.
+
+    Every call costs a round trip on the wire, a declared fixed duration, and a
+    row in the trace. A design that sends one frame per call is a design whose
+    cost is dominated by the calls, and losim will show you that as clearly as it
+    shows you anything. Batching is the first knob you will want to turn, so the
+    schema has to let you turn it.
+
+    It also gives the handler something to declare: `refNsPerRecord` is charged
+    against however many frames were actually in the batch.
+  </Accordion>
+
+  <Accordion title="`idempotency_level`, and why it is not decoration" icon="rotate">
+    A scenario can declare a retry policy. losim **refuses** to retry a method
+    whose `.proto` does not say running it twice is safe:
+
+    ```
+    thumbs.yaml:22: retrying lab.Thumbnailer.Thumbnail is refused — its .proto
+    declares no idempotency_level, so running it twice is not known to be safe.
+    ```
+
+    Whether retrying is an operational decision belongs in the scenario, where it
+    can be diffed and swept. Whether retrying is *safe* is a property of the
+    method, so it belongs in the schema. The two have to agree, and the check
+    happens at load — before a single call is made.
+
+    `NO_SIDE_EFFECTS` is the stronger of the two: it means the call is a pure
+    read. `IDEMPOTENT` means running it twice lands in the same place as running
+    it once. Either satisfies the gate. [More →](/write/retries)
+  </Accordion>
+
+  <Accordion title="`Capacity`, because you cannot look" icon="eye-slash">
+    A machine can read *its own* instance type, zone, cores and caps. It cannot
+    read anyone else's — there is no API for it, deliberately.
+
+    A real process can read its own cgroup limit and its own instance metadata
+    without a network, and cannot read yours at all. So an orchestrator that wants
+    to send small work to small machines has to **ask**, over gRPC, like a
+    scheduler does. That is the whole reason a resource manager has a registration
+    call, and handing your coordinator a free table of everyone's capacity would
+    teach that placement is a lookup — when the interesting part is that the table
+    is stale the moment it is built.
+  </Accordion>
+</AccordionGroup>
+
+## Generating the Java
+
+**You do not run `protoc`.** Pressing the ▶ does it, with the vendored compiler and
+the plugin that matches your machine, every time — so a schema you just edited is
+never one stale build away from the code that uses it.
+
+Generated code lands in **`<system>/gen/`**, beside the system rather than under
+`build/`. That is an editor decision: `lab.pb.Batch` resolves and completion works with
+nothing configured, and you can open what `protoc` actually produced if you are
+curious. It is gitignored, and you never edit it.
+
+losim's trust verifier knows to skip it — recognised by protobuf's own superclass and
+grpc-java's `@GrpcGenerated`, not by a guess about its name.
+
+<Accordion title="What it runs, if you want to see it">
+The vendored compiler, chosen by host — `protoc-osx-aarch_64` on Apple silicon,
+`protoc-linux-x86_64` on Linux x86-64 — with grpc-java's plugin, an include path per
+schema directory, and every `.proto` in the system:
+
+```bash
+vendor/bin/protoc-$P \
+  --plugin=protoc-gen-grpc-java=vendor/bin/protoc-gen-grpc-java-$P \
+  --java_out=<system>/gen --grpc-java_out=<system>/gen \
+  -I proto proto/thumbs.proto
+```
+
+Nothing is downloaded. Both binaries are committed, which is why a schema compiles the
+same way on a laptop and in a Codespace.
+</Accordion>
+
+
+<Card title="Next: the service" icon="arrow-right" href="/first/the-service">
+  Twelve lines of adapter, and a handler you can unit-test.
+</Card>

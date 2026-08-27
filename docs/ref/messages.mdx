@@ -1,0 +1,96 @@
+---
+title: "Messages"
+description: "Every message losim can print at you, and what to do about it."
+icon: "message"
+---
+
+Grouped by when it happens. Scenario errors read like compiler errors on purpose.
+
+## At load — exit code 2, nothing ran
+
+| message | fix |
+|---|---|
+| `'900' does not say what kind of time it is` | write `900 refMs` or `900 refSeconds` |
+| `unknown key 'zones'; expected one of …` | a typo in a key; the message lists what is accepted |
+| `unknown instance type 'c5.medium'; known types: …` | [the catalogue](/ref/instances) |
+| `k_time must be positive` | |
+| `a scenario needs at least one machine` | |
+| `two machines are both called 'w1'` | a pool's generated names collided; change `prefix:` |
+| `a pool cannot have -2 machines` | |
+| `there is no machine called 'w7' in this scenario; it has …` | a fault aimed at nothing. Remember `prefix: w` + `count: 4` gives `w0 w1 w2 w3` |
+| `this fault does two things at once (kill and freeze); write them as two` | |
+| `a fault has to do something: kill, freeze, degrade, spot_reclaim, partition, heal or restart` | |
+| `degrade needs a factor: how many times slower the machine becomes` | |
+| `partition takes exactly two machines, got 3` | |
+| `chaos cannot 'explode'; it can kill, freeze or degrade` | |
+| `partition happens at a moment, not at a rate; put it under faults:` | |
+| `'w9' is neither a pool nor a machine; this scenario has pools …` | `among:` in a chaos block |
+| `loss is a probability, from 0 to 1` | |
+| `a call is attempted at least once` | `attempts:` must be ≥ 1 |
+| `retry policy names 'Thumbnial', which no machine in this fleet serves` | a typo would otherwise silently do nothing |
+| `retrying lab.Volley.Hit is refused — its .proto declares no idempotency_level …` | declare it, or write `unsafe: true` |
+| `mode is 'direct' or 'scaled', not 'auto'` | |
+| `scaled mode needs a workload: to scale down from` | |
+| `a workload has at least one record` | |
+| `a ladder needs at least four rungs …` | `probe:` needs four entries |
+| `no such scenario: thumbs.yaml` | |
+
+## Wiring up
+
+| message | fix |
+|---|---|
+| `no class called 'lab.Shrinkr' is on the classpath` | check `--cp` and the spelling. `serves:` names a **class**, fully qualified |
+| `'lab.Shrinker' is not a gRPC service` | it must extend the `ImplBase` protoc generated |
+| `'lab.Shrinker' needs a no-argument constructor` | losim builds a fresh one when a machine restarts |
+| `'lab.MyJob' is named as the job, so it has to implement losim.api.Job` | |
+| `no class called 'lab.MyJb' is on the classpath to run as the job` | |
+| `could not start machine w0: …` | usually a name still held by a previous run's server |
+| `there is already a machine called 'w1'` | |
+
+## During a run
+
+| message | meaning |
+|---|---|
+| `w3 has no disk left: 33.4 MB written against a 32.0 MB volume` | working as intended — `wroteDisk` throws past the cap |
+| `w2 ran out of memory: 11.83 MB against a 4.0 MB cap` | the retained-heap walk found it over. The machine is killed. |
+| `this thread has no machine: work started on a thread the machine did not create …` | [concurrency](/write/concurrency) |
+| `no simulation is running, so Losim.current().peers() has no answer here` | a state call in a unit test |
+| `there is no machine called 'w9'; this fleet has …` | `channelTo` with a name that is not in the fleet |
+| `DEADLINE_EXCEEDED: w1 did not answer (unreachable)` | dead, partitioned or lost — `why` says which |
+| `DEADLINE_EXCEEDED: the network outlasted the deadline` | the callee answered, but the round trip took too long |
+| `the job did not finish within ten times its declared expectedRun` | a backstop, not a deadline |
+
+## At the end
+
+| message | meaning |
+|---|---|
+| `over_horizon` in the trace | the run overran `expectedRun` by more than a quarter; past it the sampler thinned out and chaos stopped firing |
+| `trust: 4 machines report figures that do not mean what they say` | [trust rules](/ref/trust-rules). Nothing was stopped. |
+| `none of the classes this scenario names are on the classpath it was given …` | point `--cp` at a **directory**; a jar is not walked |
+| `ABANDONED — the run ended while this was in flight` | a span that was still open when the run ended. Normal. |
+| `losim: w0 did not release its name in time` | shutting the machine down took longer than two seconds. Harmless for the trace, which is already written — but if you run several fleets in one JVM, the next one may fail to bind that name. |
+
+
+## From the scale engine
+
+| message | what to change |
+|---|---|
+| `the ladder bends: over the lower half it grows as records^0.59 …` | move the probe ladder to one side of the threshold |
+| `its exponent moves by 0.66 between independent seed sets …` | normal for the timeline; give handlers more to do, or accept it |
+| `it was never measured above zero, so there is nothing to fit` | your system never used that resource |
+| `nothing measured varied with it, so it has no law here` | the job probably ignores `cluster.records()` |
+| `memoryMb at 8000 records is only 2.4x its own fixed overhead …` | bigger rungs on the ladder |
+| `at 8000 records the fleet would hold 4200 MB, and this host offers 1843 MB …` | more heap, or a smaller rung |
+| `k_time 400 is finer than this workload can express …` | the message computes the largest `k_time` that works |
+| `no size on the ladder satisfies every resource at once` | |
+
+[Every refusal, in full →](/run/when-it-refuses)
+
+## Exit codes
+
+| | |
+|---|---|
+| `0` | the job completed |
+| `1` | the job did not complete, or scaled mode found no feasible size |
+| `2` | the scenario is wrong. Nothing ran. |
+| `3` | something inside losim. `LOSIM_DEBUG=1` prints the stack. |

@@ -1,0 +1,138 @@
+---
+title: "Refusals"
+description: "Two tests, and why R² could not have made either call."
+icon: "ban"
+---
+
+<Note>
+**A projection carries its confidence, or it is absent.** A field filled with a
+plausible number is indistinguishable from a good one until the cluster bill arrives.
+
+So the engine tries to break every law before printing it, and where it succeeds the
+projected column says why instead of what.
+</Note>
+
+## Test 1 — does the ladder bend?
+
+Split the ladder in half. Fit the lower half and the upper half separately. Compare
+the exponents.
+
+```
+diskMb  REFUSED: the ladder bends: over the lower half it grows as records^0.59 and
+over the upper half as records^0.87, a difference of 0.28. Something behaves
+differently small than large — a threshold, a different code path, or a granularity
+that only shows up when the pieces are few — and no extrapolation across that means
+anything. R2 over the whole ladder is still 0.883, which is why no threshold on R2
+could have separated this from a merely noisy straight line.
+```
+
+<Warning>
+**R² cannot make this call.** On a workload that spills above a key count, R² over
+the whole ladder falls only to about **0.74** — a value a merely noisy *linear*
+workload scores just as easily.
+
+That is why the refusal quotes the R² in its own text. A reader who reaches for R²
+instead — and it is the obvious thing to reach for — should be able to see from the
+refusal itself why it would not have served.
+</Warning>
+
+The test is applied on the axis the ladder was climbed on, **records**. A resource
+that bends against records has changed behaviour between the small end and the large
+end, and no choice of variable makes that legitimate — re-parameterising a bend only
+hides it, and the hidden version extrapolates confidently and wrongly.
+
+## Test 2 — would the exponent land in the same place again?
+
+Refit on independent seed sets: same workload, same sizes, different random draws.
+The spread is the error bar.
+
+```
+makespan  REFUSED: its exponent moves by 0.66 between independent seed sets of the
+same workload, which over a factor of 5000 is an error bar of x268 — wider than
+anything it would be asked to distinguish
+```
+
+R² says how well a line went through the points it was given. It says nothing about
+whether those points would land there again.
+
+<Note>
+Measured: on short handlers the **time** exponent moves by about 0.25 between
+independent seed sets of an identical workload, while **memory** does not move at
+all. The engine measures that per host and per workload rather than assuming a
+constant.
+</Note>
+
+## The order matters
+
+An exponent that cannot be reproduced cannot establish that a ladder bends either. So
+an unreproducible measurement is refused **as unreproducible**, rather than as a
+discontinuity it has no standing to claim.
+
+## Refusals about the whole run
+
+These stop the run before it happens.
+
+<AccordionGroup>
+  <Accordion title="the variable part does not dominate the fixed overhead">
+    ```
+    memoryMb at 8000 records is only 2.4x its own fixed overhead (0.31 against 0.13);
+    below 10x the fit is describing the overhead rather than the workload
+    ```
+
+    Checked only for the resources the solve actually caps — memory and disk. A large
+    fixed term elsewhere (allocation carries the JVM's own warm-up, which is real at
+    every scale) says the law for *that* resource is weak, not that the run size is
+    wrong, and refusing a whole run over it would leave nothing runnable at all.
+  </Accordion>
+  <Accordion title="the fleet would not fit this host">
+    ```
+    at 8000 records the fleet would hold 4200 MB, and this host offers 1843 MB to
+    work in — the run does not fit the laptop it is meant to fit on
+    ```
+
+    The engine will use at most **60%** of the JVM's max heap.
+  </Accordion>
+  <Accordion title="k_time is finer than the workload can express">
+    The finest fitted cost site, against the sleep debt's fifty-times-below-the-floor
+    limit. The message computes the largest `k_time` that works.
+    [The sleep debt →](/engine/the-sleep-debt)
+  </Accordion>
+</AccordionGroup>
+
+When there is no feasible size at all:
+
+```
+thumbs-scaled.yaml  scaled mode: no feasible size
+  <the reason>
+  Nothing was run and nothing is projected, which is the point:
+  a projection that could not be made must be absent, not guessed.
+```
+
+## Refusals reach the bill
+
+Capacity depends on the timeline. When the timeline is refused, so is the capacity
+line — and it quotes the engine's own reason rather than paraphrasing it:
+
+```
+  capacity    the fleet, for the period            -           CHF   refused
+      its exponent moves by 0.793 between independent seed sets of the same
+      workload, which over a factor of 6 is an error bar of x4.1
+```
+
+Cross-zone egress is grown by the **wire** law rather than one of its own — which
+calls cross a zone is a property of the topology, not of the size. If the wire law was
+refused, that line is refused too, rather than printing an observed quantity under a
+full-scale heading.
+
+## What not to do about a refusal
+
+<Warning>
+**There is no threshold to lower.** The tests are structural — does the ladder bend,
+is the exponent reproducible — not a tunable confidence level.
+
+And do not fall back on multiplying the small run by the size ratio. That is
+precisely what the engine refused to do, and on a workload where memory follows
+something sublinear it lands 34% out.
+</Warning>
+
+[What to change instead →](/run/when-it-refuses)

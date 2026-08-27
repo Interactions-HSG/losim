@@ -1,0 +1,102 @@
+---
+title: "Instance types"
+description: "The catalogue: what each machine is made of, and what it costs to rent."
+icon: "microchip"
+---
+
+Anything not in this table is refused at load, with the list.
+
+| instance | family | vCPU | memory | network | storage | burstable | $/hour |
+|---|---|---|---|---|---|---|---|
+| `t3.nano` | t3 | 2 | 512 MB | 0.5 Gbps | 8 GB | yes | 0.0060 |
+| `t3.micro` | t3 | 2 | 1 GB | 0.5 Gbps | 8 GB | yes | 0.0120 |
+| `t3.small` | t3 | 2 | 2 GB | 1.0 Gbps | 16 GB | yes | 0.0240 |
+| `t3.medium` | t3 | 2 | 4 GB | 1.0 Gbps | 16 GB | yes | 0.0480 |
+| `m5.large` | m5 | 2 | 8 GB | 0.75 Gbps | 32 GB | no | 0.1150 |
+| `m5.xlarge` | m5 | 4 | 16 GB | 1.25 Gbps | 32 GB | no | 0.2300 |
+| `m5.2xlarge` | m5 | 8 | 32 GB | 2.5 Gbps | 32 GB | no | 0.4600 |
+| `c5.large` | c5 | 2 | 4 GB | 0.75 Gbps | 32 GB | no | 0.1020 |
+| `c5.xlarge` | c5 | 4 | 8 GB | 1.25 Gbps | 32 GB | no | 0.2040 |
+| `c5.4xlarge` | c5 | 16 | 32 GB | 5.0 Gbps | 32 GB | no | 0.8160 |
+| `r5.large` | r5 | 2 | 16 GB | 0.75 Gbps | 32 GB | no | 0.1520 |
+| `r5.xlarge` | r5 | 4 | 32 GB | 1.25 Gbps | 32 GB | no | 0.3040 |
+| `i3.large` | i3 | 2 | 15.25 GB | 0.75 Gbps | **475 GB** | no | 0.1720 |
+
+## What each family is for
+
+<Columns cols={2}>
+  <Card title="t3 — burstable" icon="battery-half">
+    The **straggler generator**. Cheap, and only sustains a fraction of a vCPU once
+    its credits are gone. Put one in an otherwise uniform fleet and find out whether
+    your placement notices.
+  </Card>
+  <Card title="m5 — balanced" icon="scale-balanced">
+    The default. Use it when the point of the scenario is not the machines.
+  </Card>
+  <Card title="c5 — compute" icon="gauge-high">
+    More cores per franc, less memory. `c5.4xlarge` is the one to reach for when you
+    want real contention inside one machine — sixteen threads on one pool.
+  </Card>
+  <Card title="r5 — memory" icon="memory">
+    Twice the memory of an `m5` at the same core count. The shape for a design that
+    holds things.
+  </Card>
+</Columns>
+
+`i3.large` is the storage-shaped one — 475 GB against everyone else's 8 to 32.
+
+## What losim derives from the row
+
+<ParamField path="vCPU" type="int">
+  The size of the machine's **thread pool**, and its speed relative to the reference
+  machine: `machineFactor = 2 ÷ vcpu`. A `c5.4xlarge` runs a `@Takes(refMs = 8)`
+  handler in 1 refMs; a `t3.small` takes the full 8.
+</ParamField>
+
+<ParamField path="memory" type="MB">
+  The default memory cap, enforced against the retained-heap walk. Overridable per
+  machine with `memoryMb:` in direct mode; **solved by the engine** in scaled mode.
+</ParamField>
+
+<ParamField path="storage" type="GB">
+  The default disk cap. `wroteDisk` throws past it.
+</ParamField>
+
+<ParamField path="$/hour" type="double">
+  The on-demand rate, used by the bill's **capacity** bucket. A machine that received
+  a `spot_notice` is billed at the spot rate — 70% off by default.
+</ParamField>
+
+<Note>
+**What a machine costs to rent lives here, not in the price list.** It is a property
+of the machine, beside its vCPUs and its memory, rather than a choice the course
+makes. Two places declaring what an `r5.large` costs would be two places to drift
+apart, and the drift would be silent.
+</Note>
+
+## Burstable machines
+
+`t3` instances carry `baselineFraction` and `creditSeconds`: a sustained share of a
+vCPU, and how many seconds of full speed they get first. The throttled factor is
+`cpuFactor ÷ baselineFraction` — so a `t3.small` at 20% baseline is **five times**
+slower than its core count suggests once its credits are gone.
+
+## Choosing them
+
+<Tip>
+The most instructive fleet is not a uniform one:
+
+```yaml
+workers:
+  count: 4
+  prefix: w
+  instance: c5.large
+  serves: [lab.Shrinker]
+  overrides:
+    w3: { instance: t3.small }
+```
+
+Three compute machines and one that will fall behind. Whether your coordinator
+notices — and what it does about it — is the whole exercise, and a fleet of four
+identical machines cannot ask the question.
+</Tip>

@@ -1,0 +1,4 @@
+# The comparison rule, with none of the vocabulary.
+When two of these meet, keep the pairwise maximum: for each position, the larger
+of the two counters, per-replica, so nothing that either side had already seen is
+ever lost.

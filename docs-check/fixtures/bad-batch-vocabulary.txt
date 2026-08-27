@@ -1,0 +1,14 @@
+# A page that would give the batch assignment away by name.
+Losim was built to run a MapReduce job. The coordinator splits the corpus and
+hands each chunk to a mapper; the map tasks run in parallel and write their
+intermediate data to disk. A combiner folds the counts locally first, which cuts
+the bytes on the wire. The partitioning is by hash, so every occurrence of a
+word lands on the same reducer. Once the shuffle finishes, each reducer sees its
+share grouped by key and produces one line per word.
+
+    @Takes(refMs = 2)
+    protected Counts map(Chunk request) {
+        for (String w : request.getText().split(" ")) emit(w, 1);
+    }
+
+The classic worked example is word count, and it is what this page walks through.

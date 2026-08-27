@@ -1,0 +1,201 @@
+---
+title: "Retries"
+description: "Declared in the scenario, gated by the schema, and never free."
+icon: "rotate"
+---
+
+```yaml
+retries:
+  - { method: Thumbnail, attempts: 3, backoff: 50 refMs, multiplier: 2 }
+```
+
+Three attempts, waiting 50 refMs before the second and 100 before the third.
+
+## Why the policy lives in the scenario
+
+Retrying is an **operational** decision, so it belongs where it can be diffed and
+swept — a line in a file, not a `for` loop buried in a handler. Two designs that
+differ only in their retry policy differ by two lines of YAML, and the bill will
+tell you which one was worth it.
+
+## Why the schema has a veto
+
+Whether retrying is *safe* is a property of the **method**, not of the deployment.
+So it lives in the `.proto`, and losim refuses at load when the two disagree:
+
+```
+thumbs.yaml:22: retrying lab.Volley.Hit is refused — its .proto declares no
+idempotency_level, so running it twice is not known to be safe. Declare
+'option idempotency_level = IDEMPOTENT;' on the rpc if it is, or write
+'unsafe: true' here if you mean to retry it anyway.
+```
+
+Declare it if it is true:
+
+```proto
+service Thumbnailer {
+  // A pure read: computes and returns, changes nothing.
+  rpc Thumbnail (Batch) returns (Thumbs) { option idempotency_level = NO_SIDE_EFFECTS; }
+}
+
+service Registry {
+  // Not a read, but running it twice lands in the same place as running it once.
+  rpc Announce (Health) returns (Empty) { option idempotency_level = IDEMPOTENT; }
+}
+```
+
+Or say you mean it:
+
+```yaml
+retries:
+  - { method: Append, attempts: 3, unsafe: true }
+```
+
+<Note>
+`unsafe: true` is the point of the gate, not a way round it. It makes *"we retry a
+call that is not safe to run twice"* **one visible line in a diff**, rather than an
+emergent property of a configuration nobody read.
+</Note>
+
+## Matching a method
+
+```yaml
+- { method: Thumbnail }                      # the bare rpc name
+- { method: lab.Thumbnailer.Thumbnail }      # fully qualified, dotted
+- { method: Thumbnailer.Thumbnail }          # a suffix of the dotted name
+- { method: "*" }                            # everything the fleet serves
+```
+
+A policy naming a method **no machine in the fleet serves** is refused too — a typo
+in a policy would otherwise be a policy that silently does nothing.
+
+## Every attempt is a real call
+
+The retry interceptor sits **outside** the recording one. So each attempt gets:
+
+- its own span and its own row in the trace,
+- its own byte count, in both directions,
+- its own draw against packet loss,
+- its own look at whether the callee is still alive.
+
+<Warning>
+A retry that reused the first attempt's accounting would make a design that retries
+look **cheaper** than one that does not, which is the opposite of the truth. If your
+fleet retries under load, the bill's wire and capacity lines go up, and they should.
+</Warning>
+
+The trace says what happened:
+
+```json
+{ "kind": "retry", "vm": "coordinator", "detail": {
+    "method": "lab.Thumbnailer.Thumbnail", "attempt": 1, "of": 3,
+    "after": "DEADLINE_EXCEEDED", "backoffRefMs": 50.0 } }
+
+{ "kind": "retry_done", "vm": "coordinator", "detail": {
+    "method": "lab.Thumbnailer.Thumbnail", "attempts": 3, "status": "OK" } }
+```
+
+`retry_done` only appears when there was more than one attempt.
+
+## What gets retried
+
+<Columns cols={2}>
+  <Card title="Retried" icon="rotate">
+    `UNAVAILABLE`, `DEADLINE_EXCEEDED`, `RESOURCE_EXHAUSTED`, `ABORTED`, `UNKNOWN`.
+
+    Nothing answered, the callee was overloaded, or time ran out.
+  </Card>
+  <Card title="Not retried" icon="ban">
+    Everything else — an `INVALID_ARGUMENT` will be invalid the second time too.
+
+    Also: any call where a message already arrived, any cancelled call, and any
+    **streaming** call. Replaying a stream means buffering it, and a buffer whose
+    size nobody declared is its own failure mode.
+  </Card>
+</Columns>
+
+## Retries and deadlines interact badly by default
+
+Each attempt gets the same `CallOptions`, which means the same **absolute**
+deadline. A three-attempt policy with a growing backoff can exhaust the deadline
+before it exhausts its attempts:
+
+```json
+{ "kind": "retry_done", "detail": { "attempts": 2, "status": "DEADLINE_EXCEEDED" } }
+```
+
+Two attempts out of three, and the second one never had time to succeed. If you
+mean three real attempts, the deadline has to cover three of them plus the
+backoffs.
+
+## When to roll your own instead
+
+The scenario's policy is fixed per method. Use `Losim.current().sleep(refMs)` in
+your own loop when the decision depends on something only the program knows — which
+peer to try next, how many are left, whether this piece has already been redone:
+
+```java
+for (int attempt = 1; ; attempt++) {
+    var workers = Losim.current().peersServing("Thumbnailer");
+    if (workers.isEmpty()) throw new IllegalStateException("nobody left");
+    try {
+        return call(workers.get(attempt % workers.size()), batch);   // a different peer
+    } catch (StatusRuntimeException e) {
+        if (attempt >= 3) throw e;
+        Losim.current().sleep(50 * Math.pow(2, attempt));
+    }
+}
+```
+
+Retrying the *same* peer that just failed is what the declarative policy does.
+Retrying a **different** one is usually the better design, and only your code can
+decide that.
+
+## See it
+
+Loss high enough that retrying is visibly a decision:
+
+```yaml retrying.yaml
+seed: 4
+kTime: 2
+job: lab.ThumbnailJob
+expectedRun: 6 refSeconds
+workload: { records: 2000 }
+
+machines:
+  coordinator: { instance: m5.large, zone: eu-central-1a }
+  workers:
+    count: 3
+    prefix: w
+    instance: c5.large
+    zone: eu-central-1a
+    serves: [lab.Shrinker]
+
+network:
+  loss: 0.08
+
+retries:
+  - { method: Thumbnail, attempts: 3, backoff: 40 refMs, multiplier: 2 }
+```
+
+Save a second scenario beside the first with the `retries:` block deleted, then run
+both — two worlds for one system is exactly what variants are for:
+
+```java RunExperiments.java
+Experiments.here()
+        .run("thumbs", "retrying.yaml")
+        .run("thumbs", "no-retries.yaml")
+        .show();
+```
+
+
+**What to look for.** Open `retrying` and put `no-retries` beside it with
+`compare with…`. The retrying one finishes and the other may not — and the verdict
+line underneath prices exactly what that was worth. Every attempt is a real call, so
+the wire and capacity lines are higher: retrying bought reliability and it is on the
+bill.
+
+
+<Card title="Next: unit-testing a handler" icon="arrow-right" href="/write/unit-testing">
+  With nothing simulating anything.
+</Card>

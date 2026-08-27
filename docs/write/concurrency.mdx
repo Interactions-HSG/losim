@@ -1,0 +1,160 @@
+---
+title: "Concurrency"
+description: "The pool is the machine. Real threads, real queueing, and one rule you cannot break."
+icon: "microchip"
+---
+
+Each machine has one thread pool, sized to its **vCPU count** from the instance
+catalogue. Four concurrent calls into a two-vCPU machine genuinely queue.
+
+```
+t3.small    2 vCPU        m5.large   2 vCPU
+c5.large    2 vCPU        m5.xlarge  4 vCPU
+c5.xlarge   4 vCPU        m5.2xlarge 8 vCPU
+c5.4xlarge 16 vCPU        r5.large   2 vCPU
+```
+
+Nothing about this is simulated. They are real platform threads on a real wall
+clock, and a handler really can race with itself.
+
+## Queueing is visible
+
+```json
+{ "kind": "queue_wait", "vm": "w3", "detail": { "ms": 18.4 } }
+```
+
+Recorded when a call waited more than a microsecond for a core. Without it, a
+queued call would be indistinguishable from a slow one — which is the single most
+common misreading of a fleet under load.
+
+The series carries both halves per machine:
+
+| | |
+|---|---|
+| `inflight` | handlers **using** a core right now |
+| `queued` | handlers **waiting** for one |
+| `busyPct` | `inflight ÷ vcpu`, capped at 100 |
+
+A machine at `busyPct: 100` with a growing `queued` is a machine you are sending
+too much to. A machine at `busyPct: 0` with work left to do is a machine your
+placement forgot about.
+
+## The rule you cannot break
+
+<Warning>
+**Work must run on the machine's own threads.**
+
+Every thread in a machine's pool belongs to exactly one machine, which is what
+makes `getThreadAllocatedBytes` an exact attribution rather than an estimate. A
+thread you started yourself is summed by nobody and contends for nobody's cores, so
+the machine reads cheaper and less busy than it is.
+
+```java
+new Thread(() -> heavyWork()).start();                    // flagged
+Executors.newFixedThreadPool(4).submit(this::heavyWork);  // flagged
+CompletableFuture.supplyAsync(this::heavyWork);           // flagged — common pool
+list.parallelStream().map(this::heavyWork).toList();      // flagged — common pool
+Thread.ofVirtual().start(() -> heavyWork());              // flagged
+```
+
+None of them throw. Each produces a machine whose memory and CPU figures are quietly
+wrong, so the verifier names the file and line instead.
+</Warning>
+
+A handler that reaches for `Losim.current()` from such a thread gets told directly:
+
+```
+this thread has no machine: work started on a thread the machine did not create
+loses its identity, and its memory and CPU are attributed to nobody.
+Wrap the machine's executor with Context.currentContextExecutor.
+```
+
+## What to do instead
+
+<Columns cols={2}>
+  <Card title="Serve more calls at once" icon="arrows-split-up-and-left">
+    A machine's concurrency comes from its pool serving several calls
+    simultaneously. Batch smaller, dispatch more calls, and the pool does the rest
+    — that is what the pool is.
+  </Card>
+  <Card title="Call more machines" icon="server">
+    Work is spread by **calling peers**, not by starting threads. That is the
+    whole model: a fleet gets faster by being a fleet.
+  </Card>
+</Columns>
+
+<Note>
+Raw threads are **not banned**, and real concurrency inside a machine is a feature.
+What is flagged is work outside the machine's own pool, because that work is
+attributed to nobody. If you genuinely need to fan out inside one machine, the
+mechanism exists — but for almost everything a course asks for, more concurrent
+calls is the answer, and it is the answer that scales.
+</Note>
+
+## Concurrency inside a handler is real
+
+Two calls into the same service instance run on two threads against the same
+fields. If your service holds a `HashMap`, two handlers can corrupt it — and
+losim will not save you, because that is your program behaving exactly as it would.
+
+```java
+public final class Shrinker extends ThumbnailerBase {
+    private final Map<String, Thumb> cache = new ConcurrentHashMap<>();   // yes
+    private final Map<String, Thumb> broken = new HashMap<>();            // a real bug
+}
+```
+
+<Tip>
+This is worth causing on purpose once. Set a service's instance to `c5.4xlarge`
+(16 vCPUs), fan out enough calls to keep them all busy, use a plain `HashMap`, and
+watch what comes out. It is the cheapest lesson in the course.
+</Tip>
+
+## Making contention happen
+
+```yaml
+machines:
+  small:
+    instance: c5.large       # 2 vCPU
+    serves: [lab.Shrinker]
+```
+
+Dispatch eight 100 refMs calls at it and you get roughly four waves, not one and not
+eight. That is the model working, and it is the thing to check first if a fleet's
+timings look impossibly good.
+
+## See it
+
+Save this as `queueing.yaml`. One two-vCPU machine, eight concurrent calls at 100 refMs:
+
+```yaml queueing.yaml
+seed: 1
+kTime: 1
+job: lab.FanOutJob            # dispatches 8 calls with newFutureStub, then collects
+expectedRun: 2 refSeconds
+workload: { records: 8 }
+
+machines:
+  coordinator: { instance: m5.large, zone: eu-central-1a }
+  small:       { instance: c5.large, zone: eu-central-1a, serves: [lab.Slow] }
+```
+
+```java RunExperiments.java
+Experiments.here()
+        .run("thumbs", "queueing.yaml")
+        .show();
+```
+
+**What to look for.** Roughly four waves, not one and not eight — and `queue_wait`
+events on the scrubber. Pin `small` in the [machine panel](/viewer/views) and watch
+`inflight` sit at 2 while `queued` climbs. Then change the instance to `c5.4xlarge`
+and run it again into `build/runs/queueing-16.json`; put the two up
+[on one clock](/viewer/views#two-runs-on-one-clock) and watch where the `queue_wait`
+markers are on each — that is the whole difference between the two runs, in the one
+place it is visible.
+
+
+
+<Card title="Next: telemetry" icon="arrow-right" href="/write/telemetry">
+  Making a run worth looking at.
+</Card>

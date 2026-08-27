@@ -1,0 +1,63 @@
+---
+title: "On a laptop"
+description: "What you need if you are not using the container, and what to do when protoc is missing."
+icon: "laptop"
+---
+
+## What you need
+
+| | |
+|---|---|
+| **A JDK, 21 or newer** | losim compiles at `--release 21`. The container ships 25. |
+| **bash** | the scripts are bash, not POSIX sh. |
+| **python3** | used by a couple of run scripts to summarise traces, and to serve the viewer. |
+| **git** | for the vendored jars, which are committed. |
+
+Nothing else. There is no package manager step, no lockfile, and no download.
+
+## Build and check
+
+```bash
+./build.sh          # -> build/losim.jar
+./check.sh          # losim's own acceptance criteria, plus one plain JUnit test
+tests/run.sh        # the reference suite
+```
+
+## Supported platforms for `protoc`
+
+`build.sh` needs no `protoc` — it only compiles the simulator. Everything that
+compiles a `.proto` (`check.sh`, `tests/run.sh`, your own build) picks a vendored
+binary from `vendor/bin/`:
+
+| host | binary |
+|---|---|
+| macOS, Apple silicon | `protoc-osx-aarch_64` |
+| Linux, x86-64 | `protoc-linux-x86_64` |
+
+<Warning>
+On anything else — Linux on ARM, Windows, an Intel Mac — the scripts stop with
+`no vendored protoc for <uname>`. Use the devcontainer; that is what it is for.
+Adding a third binary means committing it, because fetching one at build time is
+exactly what the vendoring rule exists to prevent.
+</Warning>
+
+## Heap
+
+Runs are given `-Xmx3g` by the bundled scripts. The scale engine checks the host's
+heap before choosing a run size and will refuse a size that does not fit, naming
+the number:
+
+```
+at 8000 records the fleet would hold 4200 MB, and this host offers 1843 MB to
+work in — the run does not fit the laptop it is meant to fit on
+```
+
+If you see that, either give the JVM more heap or let the engine pick a smaller
+rung by adding one to the probe ladder.
+
+## Editor setup
+
+The repository ships `.vscode/settings.json` pointing the Java extension at
+`vendor/jars/*.jar`, so imports resolve without a build system. Any editor works —
+there is no Maven or Gradle file to import, on purpose: the build is fifteen lines
+of `javac` and you can read all of it.

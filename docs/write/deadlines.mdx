@@ -1,0 +1,141 @@
+---
+title: "Deadlines"
+description: "Why withDeadlineAfter(200, MILLISECONDS) means 200 reference milliseconds."
+icon: "clock"
+---
+
+```java
+var stub = ThumbnailerGrpc.newBlockingStub(channel)
+        .withDeadlineAfter(2_000, TimeUnit.MILLISECONDS);   // 2000 refMs
+```
+
+You write it in milliseconds because that is gRPC's API. losim reads it as
+**reference** milliseconds, like every other duration, and divides the remaining
+time by `k_time` before handing it to gRPC's own deadline machinery.
+
+<Note>
+Left alone, an 800 refMs deadline at `kTime: 80` would fire eighty times too early
+against a cost that had itself been compressed — so every timing lesson in the
+course would depend on which laptop it ran on. The rewrite happens in the client
+interceptor, at the one place where your intent is still visible.
+</Note>
+
+## The deadline is checked after the network has been served
+
+Latency is slept when the response comes back. A call that succeeded on the callee
+but whose round trip outlasted the deadline is turned into a failure:
+
+```
+DEADLINE_EXCEEDED: the network outlasted the deadline
+```
+
+Paying the network after the fact without this check would let a call succeed that
+the wire had already outrun — so `crossZone: 30 refMs` and
+`withDeadlineAfter(50, MILLISECONDS)` mean exactly what they look like they mean.
+
+## What happens when it expires
+
+The caller gets `StatusRuntimeException` with `DEADLINE_EXCEEDED`, and the trace
+gets an `rpc_timeout` event carrying `why`:
+
+```json
+{ "kind": "rpc_timeout", "vm": "coordinator",
+  "detail": { "to": "w1", "method": "lab.Thumbnailer.Thumbnail",
+              "call": 41, "status": "DEADLINE_EXCEEDED", "why": "unreachable" } }
+```
+
+<Warning>
+**The callee is not told.** A machine that is frozen holds the call on its own
+threads; a machine that is dead never received it. Your handler may well still be
+running, still holding memory, still occupying a core, after the caller has given
+up — which is real, and is one of the more expensive things about a fleet under
+load.
+</Warning>
+
+## A call with no deadline
+
+losim waits **five seconds** and then gives up on your behalf, so a scenario that
+forgot to set one still terminates.
+
+Five seconds of reference time is enormous — often longer than the whole run's
+horizon. If a run mysteriously takes ten times as long as it should and ends with a
+wall of timeouts, the first thing to check is whether the stub had a deadline.
+
+## Choosing one
+
+A deadline is a claim about how long the callee should take, and the two numbers
+are related:
+
+```java
+@Takes(refMs = 3, refNsPerRecord = 240_000)     // 25 frames -> 3 + 6 = 9 refMs
+```
+
+Nine reference milliseconds of work on a two-vCPU machine. On the `t3.small` in the
+fleet, still 9. But if four calls arrive at once and the machine has two cores,
+the fourth waits for two others to finish — so the *observed* duration is nearer 27,
+plus the round trip.
+
+<Tip>
+Deadlines that are too tight look exactly like a broken fleet: everything times
+out, nothing is obviously wrong, and the run is slower than the no-deadline case
+because every attempt is paid for and then thrown away. Set the first one
+generously, look at the `handler` spans in the trace, and tighten it to something
+just above what you actually saw under load.
+</Tip>
+
+## Deadlines and retries interact
+
+The scenario's retry policy sits **outside** the recording interceptor, so each
+attempt is a fresh call — and each gets the *same* `CallOptions`, which means the
+same absolute deadline. A policy of three attempts with a growing backoff can
+therefore exhaust the deadline before it exhausts its attempts, and the trace shows
+exactly that:
+
+```json
+{ "kind": "retry", "detail": { "attempt": 1, "of": 3, "after": "DEADLINE_EXCEEDED",
+                               "backoffRefMs": 50.0 } }
+{ "kind": "retry_done", "detail": { "attempts": 2, "status": "DEADLINE_EXCEEDED" } }
+```
+
+## See it
+
+The same call, run twice, against a deadline that is and is not enough:
+
+```yaml patience.yaml
+seed: 3
+kTime: 1
+job: lab.ThumbnailJob
+expectedRun: 3 refSeconds
+workload: { records: 400 }
+
+machines:
+  coordinator: { instance: m5.large, zone: eu-central-1a }
+  workers:
+    count: 2
+    prefix: w
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b]
+    serves: [lab.Shrinker]
+
+network:
+  sameZone:  1 refMs
+  crossZone: 40 refMs           # enough that a zone hop matters
+
+faults:
+  - { at: 500 refMs, freeze: w1, for: 900 refMs }
+```
+
+```java RunExperiments.java
+Experiments.here()
+        .run("thumbs", "patience.yaml")
+        .show();
+```
+
+**What to look for.** The frozen machine does not go red — it stays there, answering
+nothing, which is exactly why a freeze is harder to diagnose than a crash. Then watch
+the caller: with a generous deadline it waits the whole 900 refMs; tighten it and the
+`rpc_timeout` markers appear on the bar the moment patience runs out.
+
+<Card title="Next: memory" icon="arrow-right" href="/write/memory">
+  What a machine holds, versus what it allocated.
+</Card>

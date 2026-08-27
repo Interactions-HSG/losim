@@ -1,0 +1,122 @@
+---
+title: "Opening a trace"
+description: "Everything under build/runs is already in the picker. Or drop any trace on the page."
+icon: "folder-open"
+---
+
+## The short version
+
+There is no step. Run something, and it is there:
+
+```java RunExperiments.java
+Experiments.here()
+        .run("my-system")
+        .show();
+```
+
+<Note>
+**`build/runs` is the place, and nothing sweeps it.** The lab server lists the
+directory on every request, so a run is in the picker because it is on disk — not
+because something copied, registered or indexed it. Delete a trace and it is gone from
+the picker; drop one in and it is there.
+
+The directory is created for you whether or not anything is in it.
+</Note>
+
+**`show()` opens the viewer on the runs it just made.** The lab server on port 8000
+shows *everything* you have ever run. Both read the same directory; they differ only
+in what they put in front of you, which is why listing two `run` lines and pressing ▶
+is how you get exactly two runs side by side.
+
+<Warning>
+**Nothing in this manual assumes a trace you did not make.** Every page that shows a
+picture also shows the run behind it. If your picker is empty, that is not a broken
+install — it means you have not run anything yet.
+</Warning>
+
+
+<Warning>
+**Nothing in this manual assumes a trace you did not make.** Every page that shows a
+picture also shows the run behind it. If your picker is empty, that is not a broken
+install — it means `build/runs` is empty, and the fix is to run something.
+</Warning>
+
+## Or just drop it on the page
+
+Drag any `.json` anywhere onto the window. It opens the same way — it is a **raw
+losim trace**, exactly as `losim run` wrote it, with nothing baked in between. A trace
+a classmate sends you works; so does one from a run that failed.
+
+## What the server does
+
+It serves three things on one port: the viewer as static files, the runs under
+`build/runs`, and the list of systems with a way to run each. Written in Java and
+served by the JDK that is already there — **no node and no Python**, so it behaves the
+same in the devcontainer, on a laptop and in a Codespace.
+
+Port 8000 is forwarded automatically in both containers; in a Codespace, use the
+forwarded URL from the **Ports** panel rather than `localhost`.
+
+<Note>
+**There is no index to keep in step.** The directory is listed on every request, so a
+run appears because it is on disk. Nothing has to be swept, registered or rebuilt, and
+there is no stale manifest to explain when a run you can see on disk is missing from
+the picker.
+</Note>
+
+## The money, when it is there
+
+A bill is written beside each trace as `<name>.bill.json`, from `losim bill --json`,
+at the moment the run is made. The viewer loads it **by convention** — `foo.json` →
+`foo.bill.json` — and uses it for the [Ledger](/viewer/views#the-ledger).
+
+
+<Warning>
+A trace you **drag onto the page** has no bill beside it, so the money is simply not
+shown. That is the right failure: the viewer never prices anything itself, because two
+implementations of a pricing model are two accountants who will eventually disagree.
+
+A run made by pressing ▶ always has its bill beside it, because pricing is part of the
+run rather than a second command.
+</Warning>
+
+
+## Linking to a moment
+
+```
+http://localhost:8000/?run=mine&t=2400&view=spans&sv=waterfall&fail=1
+```
+
+The URL carries the run, the instant, the view, the sub-view, a pinned machine, an
+open ledger and the filters — written whenever the clock is parked. So *"look at the
+failures in `mine` at 2,400"* is a link you can paste into an issue, not an
+instruction to go and click four things.
+
+A second run goes in the same URL as `vs=`, so a **comparison** is a link too:
+
+```
+http://localhost:8000/?run=mine&vs=mine-fixed&t=2400
+```
+
+
+[Every parameter →](/viewer/views#driving-it)
+
+## What a run leaves behind
+
+| | |
+|---|---|
+| `build/runs/<name>.json` | the trace — the only artefact that matters |
+| `build/runs/<name>.bill.json` | what it cost, for the Ledger |
+
+Two files, both under `build/runs`, both gitignored. Nothing is copied anywhere else
+and there is no listing to rebuild.
+
+
+## Traces from a run that did not finish
+
+Open them — it is usually the more interesting picture. The trace is written either
+way, and `meta.completed: false` shows as a red **did not finish** chip in the header.
+
+
+Spans still open when the run ended are closed as `ABANDONED`, so they render as what
+they were rather than as missing data.

@@ -1,0 +1,117 @@
+---
+title: "network"
+description: "Latency, jitter and loss — all in reference time."
+icon: "network-wired"
+---
+
+```yaml
+network:
+  sameZone:  0.4 refMs
+  crossZone: 3 refMs
+  jitter:    0.5 refMs
+  loss:      0.01
+```
+
+All four are optional; the default is a network with no latency, no jitter and no
+loss.
+
+<ParamField path="sameZone" type="duration" default="0 refMs">
+  One-way latency between two machines in the same zone. losim charges the **round
+  trip**, so this is doubled.
+</ParamField>
+
+<ParamField path="crossZone" type="duration" default="0 refMs">
+  One-way latency between machines in different zones. Typically five to ten times
+  `sameZone`, which is what makes zone placement a decision.
+</ParamField>
+
+<ParamField path="jitter" type="duration" default="0 refMs">
+  Uniform spread either side of the mean, drawn from the seed. A round trip of
+  `crossZone: 3 refMs, jitter: 0.5 refMs` falls somewhere in `[5, 7]` refMs.
+</ParamField>
+
+<ParamField path="loss" type="double, 0 to 1" default="0">
+  The probability that a message is **simply never delivered**. Anything outside
+  `[0, 1]` is refused: *"loss is a probability, from 0 to 1."*
+</ParamField>
+
+## Where latency is spent
+
+The whole round trip is slept **once**, in `onClose`, on the thread that delivers
+the response. For a blocking call that is the caller's own thread, which was waiting
+anyway; for a future it is the channel's executor, so the caller is never blocked by
+it. Neither the callee's pool thread nor the handler's measured duration is touched.
+
+<Note>
+The approximation this buys is worth naming: the handler starts one leg earlier than
+it should, because the outbound delay is folded into the return. The alternatives
+all cost something worse — an occupied core, an extra thread per call, or a blocked
+async caller — and spacing is precisely what the scale engine reconstructs rather
+than measures.
+</Note>
+
+## The deadline is checked after the delay has been served
+
+```
+DEADLINE_EXCEEDED: the network outlasted the deadline
+```
+
+Paying the network after the fact without this check would let a call succeed that
+the wire had already outrun. So `crossZone: 30 refMs` and
+`withDeadlineAfter(50, MILLISECONDS)` mean exactly what they look like.
+
+## Loss, partitions and dead machines are one event from the caller
+
+```java
+catch (StatusRuntimeException e) {
+    e.getStatus().getCode();   // DEADLINE_EXCEEDED, always
+}
+```
+
+Nothing answers, and the caller finds out by running out of time. That is
+deliberately **not** modelled as an immediate `UNAVAILABLE`: a socket that refuses
+is a machine that answered, and the interesting failure is the one where nothing
+answers at all — where you cannot tell a slow peer from a gone one.
+
+The trace *can* tell them apart, in `why`:
+
+| `why` | what it was |
+|---|---|
+| `unreachable` | the machine is dead |
+| `partitioned` | the link between these two is cut |
+| `lost` | the draw against `loss` came up |
+
+## Bytes
+
+Counted by marshalling the message explicitly — gRPC's in-process transport passes
+the object by reference and never serializes, so a byte count can never be inferred
+from the transport. Serialized size plus **five bytes** of gRPC framing per message.
+
+Cross-zone bytes are counted separately, **in both directions**. Counting only the
+request would make a fetch look free: a call that asks for something in forty bytes
+and is sent a megabyte back travels almost entirely in the direction that was not
+counted.
+
+<Note>
+**Both directions are charged to the machine that made the call**, not to the one that
+answered. A machine whose only cross-zone traffic is other people's requests therefore
+shows `crossZoneMb: 0`.
+
+That is the reading you want when the question is *which design is expensive*: the
+egress on the bill follows whoever decided to reach across a zone, so it changes when
+you change the placement, and not when you change who happens to hold the data.
+</Note>
+
+
+## Cutting a link
+
+Not here — a partition is an event, so it goes under [`faults`](/ref/faults):
+
+```yaml
+faults:
+  - { at: 900 refMs,  partition: [coordinator, w1] }
+  - { at: 2500 refMs, heal:      [coordinator, w1] }
+```
+
+Cut in **both directions**, and only between that pair. `w1` stays alive, stays
+listed by discovery, and keeps serving anyone who can still reach it.

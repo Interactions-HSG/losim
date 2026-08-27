@@ -1,0 +1,173 @@
+---
+title: "Comparing two designs"
+description: "Two scenarios, two sweeps, two bills — and the one thing losim diff is actually for."
+icon: "code-compare"
+---
+
+The scenario is data precisely so that two designs can be compared by comparing two
+files. Nothing in it is computed; anything that needs code points at a class by
+name.
+
+## The discipline
+
+<Steps>
+  <Step title="Change one thing">
+    Two scenarios that differ in the fleet **and** the job are two experiments, not
+    a comparison. If you are comparing jobs, hold the fleet identical; if you are
+    comparing fleets, hold the job identical.
+  </Step>
+  <Step title="Use the same declared costs">
+    A handler declared at 3 refMs in one design and 30 in the other is not a
+    comparison of designs, it is a comparison of two claims. `@Takes` is a claim
+    about your code — keep it honest across both.
+  </Step>
+  <Step title="Sweep both, not run both">
+    Twenty seeds each. A single run of each can differ by more than the designs do.
+  </Step>
+  <Step title="Read the bill, not just the clock">
+    A design decision that costs nothing is not a design decision. Two designs that
+    finish in the same time can differ by an order of magnitude in egress.
+  </Step>
+</Steps>
+
+## Two films, side by side
+
+```bash
+java -cp "$CP" losim.cli.Main run design-a.yaml --cp build/classes --out build/runs/a.json
+java -cp "$CP" losim.cli.Main run design-b.yaml --cp build/classes --out build/runs/b.json
+```
+
+Open `a`, then pick `b` from **`compare with…`**. Both run on
+[one clock](/viewer/views#two-runs-on-one-clock), in absolute refMs, so the moment one
+finishes and the other has not is the moment you can see. Underneath, each run's profit
+and which is ahead by how much.
+
+This answers *when* and *where* they diverge. The bill answers *what it cost*, which
+is the next section — and the two are worth doing in that order, because the bill
+tells you a design is more expensive and the film tells you which twenty seconds of it
+were.
+
+## Two bills, side by side
+
+
+```bash
+java -cp "$CP" losim.cli.Main bill build/design-a.json > build/a.bill
+java -cp "$CP" losim.cli.Main bill build/design-b.json > build/b.bill
+diff -y --width=160 build/a.bill build/b.bill
+```
+
+The five buckets are printed apart rather than summed, and this is where that pays
+off. A design that replicates triples **capacity** and adds to **build** in order to
+empty **incidents** — and a single total would hide exactly that trade.
+
+<Tip>
+Distort a price to find out what a design is really sensitive to. Copy
+`prices/eu-central-1.yaml`, make egress ruinous, and re-bill **the same traces**:
+
+```yaml prices/expensive-egress.yaml
+egress_per_gb: 4.00
+```
+
+```bash
+java -cp "$CP" losim.cli.Main bill build/design-a.json --prices prices/expensive-egress.yaml
+```
+
+Billing is a pure function of the trace, so this costs nothing to try and needs no
+re-run. A design whose ranking flips is a design whose advantage was a price
+assumption.
+</Tip>
+
+## What `losim diff` is for — and is not
+
+```bash
+java -cp "$CP" losim.cli.Main diff build/a.json build/b.json
+```
+
+<Warning>
+`diff` answers **"are these two the same simulator?"**, not "which of these designs
+is better". It is the tool for checking that a laptop, the devcontainer and a
+Codespace produce the same thing — which is exactly what CI uses it for.
+</Warning>
+
+It splits everything it compares into two kinds:
+
+<Columns cols={2}>
+  <Card title="Structural — must agree" icon="lock">
+    The schema version. The scenario, job, seed, `kTime`, telemetry level, mode.
+    Which machines existed. Which sampled channels exist. What each kind of event
+    **carries**. What each span kind is labelled. **What each resource was found to
+    be a function of**, and what the engine refused.
+
+    A difference here is a defect: the two environments are not running the same
+    simulator.
+  </Card>
+  <Card title="Measured — printed, not judged" icon="ruler">
+    The duration. The run size the engine chose. Every fitted exponent.
+
+    Runs are not reproducible and hosts are not identical, so a textual diff could
+    never pass — and a check that can never pass is not a check.
+  </Card>
+</Columns>
+
+```
+build/runs-runner/t10.json
+build/runs-codespace/t10.json
+
+  same    schema
+  same    meta.scenario
+  same    what each event kind carries
+  same    what each resource is a function of
+  same    what the engine refused
+  differs meta.durationRefMs          4820 vs 6113
+  differs exponent of memoryMb        1.013 vs 1.011
+```
+
+<Note>
+Note which line is in which column. That **`what each resource is a function of`**
+agrees is the strong claim: attribution is a fact about your program and must not
+depend on where the program ran. That the exponent moves slightly is a measurement,
+and the size of the movement is worth seeing rather than judging.
+</Note>
+
+## Comparing designs properly
+
+Since `diff` is not the tool, here is one:
+
+```python compare.py
+import glob, json, statistics, sys
+
+def summarise(pattern):
+    runs = [json.load(open(f)) for f in glob.glob(pattern)]
+    ok = [t for t in runs if t["meta"].get("completed")]
+    return {
+        "runs":      len(runs),
+        "completed": len(ok),
+        "medianRefMs": statistics.median([t["meta"]["durationRefMs"] for t in ok]) if ok else None,
+        "p90RefMs":  sorted(t["meta"]["durationRefMs"] for t in ok)[int(len(ok) * 0.9)] if ok else None,
+        "peakHeldMb": max((m["memoryMb"] for t in ok for m in t["machines"]), default=0),
+        "crossZoneMb": statistics.median(
+            [sum(m["crossZoneMb"] for m in t["machines"]) for t in ok]) if ok else 0,
+        "timeouts":  sum(1 for t in runs for e in t["events"] if e["kind"] == "rpc_timeout"),
+    }
+
+a, b = summarise(sys.argv[1]), summarise(sys.argv[2])
+for k in a:
+    print(f"  {k:<14} {str(a[k]):>14}   {str(b[k]):>14}")
+```
+
+```
+  runs                       20               20
+  completed                  17               20
+  medianRefMs              2503             2881
+  p90RefMs                 5940             3102
+  peakHeldMb              13.44             7.11
+  crossZoneMb             0.912            0.088
+  timeouts                   41                4
+```
+
+Design B is slower at the median and **much** better everywhere else. That is a
+normal shape for this trade-off, and it is not visible from one run of each.
+
+<Card title="Next: scaled mode" icon="arrow-right" href="/run/scaled-mode">
+  Comparing designs at a size no laptop can hold.
+</Card>

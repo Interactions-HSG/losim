@@ -1,0 +1,90 @@
+---
+title: "Spec"
+description: "What the machine serving this call is made of — and why it is only ever this machine's."
+icon: "id-card"
+---
+
+```java
+losim.api.Spec spec = Losim.current().here();
+```
+
+```java
+public record Spec(String machine, String instance, String zone, int vcpu,
+                   double memoryCapMb, double diskCapMb) {
+    public double cores();      // vcpu / 2.0
+}
+```
+
+<ResponseField name="machine()" type="String">This machine's name, e.g. `"w3"`.</ResponseField>
+<ResponseField name="instance()" type="String">Its instance type, e.g. `"t3.small"`.</ResponseField>
+<ResponseField name="zone()" type="String">Its availability zone.</ResponseField>
+<ResponseField name="vcpu()" type="int">How many threads its pool has.</ResponseField>
+<ResponseField name="memoryCapMb()" type="double">
+  The memory cap it is under **on this run**.
+</ResponseField>
+<ResponseField name="diskCapMb()" type="double">
+  The disk cap it is under on this run.
+</ResponseField>
+<ResponseField name="cores()" type="double">
+  `vcpu / 2.0` — how much work this machine can be given relative to a two-core one.
+
+  Deliberately crude, and deliberately **not** a score losim computes for you.
+  Placing work well is the exercise, and a ready-made ranking is the exercise
+  already done. This is the obvious first thing to try, which is what makes it a
+  useful thing to beat.
+</ResponseField>
+
+## Local knowledge only
+
+<Warning>
+There is no way to read a **peer's** `Spec`. Not by design accident — by design.
+
+A real process can read its own limits and its own instance metadata without a
+network, and cannot read anyone else's at all. An orchestrator that wants to send
+small work to small machines therefore has to **ask** them, over gRPC, which is the
+whole reason a resource manager has a registration call and why that call is worth
+writing.
+
+Handing the coordinator a table of everyone's capacity for free would teach that
+placement is a lookup, when the interesting part is that the table is stale the
+moment it is built.
+</Warning>
+
+So a service that wants to be placed well answers a question about itself:
+
+```java
+@Takes(refMs = 0.5)
+@Override protected Health capacity(Empty request) {
+    var spec = Losim.current().here();
+    return Health.newBuilder()
+            .setMachine(spec.machine())
+            .setInstance(spec.instance())
+            .setZone(spec.zone())
+            .setVcpu(spec.vcpu())
+            .setMemoryCapMb(spec.memoryCapMb())
+            .build();
+}
+```
+
+## The caps are the scaled caps
+
+`memoryCapMb()` and `diskCapMb()` are what this machine is allowed **on this run**,
+not what the instance type says at full scale. In scaled mode the engine has solved
+for them.
+
+That is deliberate and load-bearing: a job that places work by comparing them places
+it the **same way at either scale**, which is the property the whole scale model
+exists to preserve.
+
+## Free to call
+
+Every field is final on the machine and the record is built once, before it boots.
+Nothing here is measured, and nothing is charged for asking.
+
+## Outside a run
+
+Throws, like every other state call:
+
+```java
+assertThrows(IllegalStateException.class, () -> Losim.current().here());
+```

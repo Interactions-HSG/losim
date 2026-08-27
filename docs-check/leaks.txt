@@ -1,0 +1,38 @@
+# What the manual may not contain, one rule per line:
+#
+#     <extended regex>:::<what it would give away>
+#
+# Matched case-insensitively against every text file under docs/, except this
+# directory. A hit fails the build. Nothing here is about style — every rule
+# names a thing a student is supposed to arrive at themselves, and a page that
+# contains it has handed in their answer for them.
+#
+# To retire a rule, delete the line and delete its fixture. To add one, add the
+# line and add a fixture that only the new rule catches; check.sh refuses to run
+# with a rule that nothing proves works.
+
+# ── the batch-processing assignment ──────────────────────────────────────────
+map[[:space:]_-]*reduce:::the name of the assignment
+\bmappers?\b:::the name of the first stage's worker
+\breducers?\b:::the name of the second stage's worker
+\bcombiners?\b:::the optimisation students are meant to discover
+\bpartition(er|ers|ing)\b:::how work is split between the second stage's workers
+\bshuffl(e|es|ed|ing|er)\b:::the middle of the assignment, which is its hard part
+\bword[[:space:]_-]*count\b:::the canonical worked example of it
+\bemit\b:::the verb its handler signature is usually taught with
+\bintermediate[[:space:]]+(key|keys|data|pairs|results?|output)\b:::what the middle stage carries
+\b(map|reduce)[[:space:]]+(task|tasks|phase|phases|stage|stages|step|steps|function|worker|workers|side)\b:::its two-stage shape
+\bgroup(ed|ing)?[[:space:]]+by[[:space:]]+key\b:::what the middle stage does
+
+# ── the logical-time assignment ──────────────────────────────────────────────
+vector[[:space:]_-]*clocks?:::the name of the assignment
+\bvclocks?\b:::its usual abbreviation
+version[[:space:]_-]*vectors?:::the same structure under its other name
+\blamport\b:::the scalar clock it is built out of
+\bhappens[[:space:]_-]*before\b:::the relation it exists to compute
+\bcausal[[:space:]_-]+(history|histories|context|contexts|order|ordering)\b:::what it is a representation of
+\bconcurrent[[:space:]_-]+(updates?|writes?|versions?)[[:space:]_-]+(cannot|can't|are[[:space:]]+not)[[:space:]]+be[[:space:]]+ordered\b:::the conclusion the assignment is for
+
+# ── the worked solutions that live in this repo ──────────────────────────────
+gallery/:::the gallery is the worked solution to the batch assignment
+tests/systems/:::the reference suite implements it too

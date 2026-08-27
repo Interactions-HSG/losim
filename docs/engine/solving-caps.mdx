@@ -1,0 +1,95 @@
+---
+title: "Solving the caps"
+description: "Why the machines are solved for rather than divided by one factor."
+icon: "sliders"
+---
+
+What the scale model preserves is not size but **ratio**: demand over capacity, per
+machine, per resource.
+
+```
+cap = fixed + declared × (variable at run scale ÷ variable at full scale)
+```
+
+## Why not one factor for everything
+
+<Warning>
+Memory follows what a machine holds. Disk follows data volume. Those grow at
+**different rates** — so a uniform shrink factor would give both the same treatment
+and be wrong about at least one.
+
+The engine therefore solves each resource with its **own** ratio, taken from that
+resource's own law.
+</Warning>
+
+## Why the fixed term is added back at full size
+
+A JVM's baseline heap does not shrink because the workload did. Scaling the fixed
+overhead down along with everything else would give a machine less baseline than a
+JVM needs to exist — and then the machine would fail for a reason that has nothing to
+do with the design under test.
+
+So `fixed` is added at full size, and only the **variable** part is scaled.
+
+## Worked
+
+Suppose memory's law is
+
+```
+memoryMb = 0.06 + 0.00187 × distinctItems^1.013
+```
+
+and the run size is 8,000 records against a full scale of 40,000,000.
+
+<Steps>
+  <Step title="Project the variable at both scales">
+    `distinctItems` is itself a law of records, so evaluate it at 8,000 and at
+    40,000,000, then take the variable part of memory at each.
+  </Step>
+  <Step title="Take the ratio">
+    `variablePart(8000) ÷ variablePart(40000000)`, clamped to at most 1.
+  </Step>
+  <Step title="Apply it to what the scenario declared">
+    An `r5.large` declares 16,384 MB. Multiply by the ratio, add the fixed term back,
+    floor at 1 MB.
+  </Step>
+</Steps>
+
+The machine now stands in the same relation to its share of the shrunken workload as
+the full-size machine would to its share of the real one. **That is the property the
+whole model exists to preserve** — and it is why an out-of-memory in a scaled run is
+a real finding about the design rather than an artefact of the shrinking.
+
+## Choosing the run size
+
+The largest rung on the probe ladder that is **feasible** in both directions:
+
+| | |
+|---|---|
+| large enough | the variable part is at least **ten times** the fixed overhead, or the fit is describing the overhead rather than the workload |
+| small enough | the whole scaled fleet fits in **60%** of the host's max heap |
+
+Deliberately a rung that was **actually measured**. Choosing a size beyond the ladder
+would mean extrapolating the very thing the ladder exists to establish.
+
+If no rung satisfies both, the engine names the resource and stops.
+
+## What your job sees
+
+```java
+cluster.records();                       // the size the engine chose
+Losim.current().here().memoryCapMb();    // the cap this machine is under NOW
+```
+
+<Note>
+`Spec` reports the **scaled** caps, not what the instance type says at full scale. So
+a job that places work by comparing them places it the **same way at either scale**.
+
+That is not a convenience — it is the reason a placement decision measured in a
+scaled run tells you anything about the real one.
+</Note>
+
+## And it all travels in the trace
+
+Every solved cap, every law, every refusal, and the size chosen — written into the
+trace's `meta`, so `projected = f(observed)` is recomputable by whoever reads it.

@@ -1,0 +1,156 @@
+---
+title: "Unit-testing a handler"
+description: "An ordinary object, an ordinary method, and no simulation at all."
+icon: "vial"
+---
+
+This is what the adapter was for. A handler is a plain method, so it gets a plain
+test:
+
+```java test/ShrinkerTest.java
+import static org.junit.jupiter.api.Assertions.*;
+
+import lab.pb.*;
+import losim.api.Losim;
+import org.junit.jupiter.api.Test;
+
+class ShrinkerTest {
+
+    @Test void makesOneThumbnailPerFrame() {
+        var shrinker = new Shrinker();
+
+        Thumbs thumbs = shrinker.thumbnail(Batch.newBuilder()
+                .addFrames(frame("a", 640, 480))
+                .addFrames(frame("b", 800, 600))
+                .build());
+
+        assertEquals(2, thumbs.getThumbsCount());
+        assertEquals(128, thumbs.getThumbs(0).getWidth());
+    }
+
+    private static Frame frame(String id, int w, int h) {
+        return Frame.newBuilder().setId(id).setWidth(w).setHeight(h)
+                .setPixels(com.google.protobuf.ByteString.copyFrom(new byte[w * h / 64]))
+                .build();
+    }
+}
+```
+
+No fleet. No scenario. No interceptor. No clock. Nothing is running.
+
+## losim is on the classpath, and does nothing
+
+It has to be: `@Takes` is a compile-time annotation and `Losim.current()` has to
+resolve. But there are two implementations behind that call, and outside a run you
+get the other one.
+
+<Columns cols={2}>
+  <Card title="Recording calls are silent" icon="volume-xmark">
+    ```java
+    Losim.current().reveal("frames", 3);   // returns
+    Losim.current().log("counted");        // returns
+    Losim.current().records(1);            // returns
+    Losim.current().wroteDisk(4096);       // returns
+    Losim.current().sleep(5_000);          // returns AT ONCE
+    ```
+    So a test need not know losim exists for a handler to be callable.
+  </Card>
+  <Card title="State calls throw" icon="triangle-exclamation">
+    ```java
+    Losim.current().machine();        // throws
+    Losim.current().here();           // throws
+    Losim.current().peers();          // throws
+    Losim.current().peersServing(…);  // throws
+    Losim.current().clockMs();        // throws
+    Losim.current().channelTo(…);     // throws
+    ```
+  </Card>
+</Columns>
+
+```
+no simulation is running, so Losim.current().peers() has no answer here.
+Recording calls (reveal, log, records) are silent outside a run; state calls are
+not, because a fabricated fleet would make a passing test meaningless.
+```
+
+<Note>
+**That asymmetry is deliberate.** A silent `reveal` lets a handler be called
+directly from a test. A *fabricated* empty fleet would let the same test pass while
+asserting nothing — which is worse than failing.
+
+`sleep` returning immediately matters for the same reason from the other side:
+there is no compressed clock to spend against, and a suite that really slept would
+be slower for nothing. A handler that waits would then be one nobody unit-tests.
+</Note>
+
+## Asserting on the parts that touch losim
+
+```java
+@Test void isRunningIsFalseInATest() {
+    assertFalse(Losim.current().isRunning());
+}
+
+@Test void recordingDoesNotThrow() {
+    assertDoesNotThrow(() -> Losim.current().reveal("frames", 3));
+}
+
+@Test void askingAboutAFleetThatIsNotThereFails() {
+    var e = assertThrows(IllegalStateException.class, () -> Losim.current().machine());
+    assertTrue(e.getMessage().contains("no simulation is running"));
+}
+```
+
+If a handler genuinely needs the machine's own identity, guard it:
+
+```java
+@Takes(refMs = 3)
+@Override protected Thumbs thumbnail(Batch request) {
+    var here = Losim.current();
+    if (here.isRunning()) here.reveal("on", here.machine());
+    return work(request);
+}
+```
+
+<Tip>
+Better still, keep the losim-dependent part out of the method you test. A handler
+whose *logic* is a private method taking only its own arguments is a handler whose
+logic has no branch for whether a simulation is running.
+</Tip>
+
+## Running the tests
+
+JUnit is not vendored for lab use — it belongs to a test and must not be reachable
+from a system. This repository keeps its own copy under `vendor/test-jars/` and
+runs it on a separate classpath:
+
+```bash
+CP=$(ls vendor/jars/*.jar | tr '\n' ':')
+TCP=$(ls vendor/test-jars/*.jar | tr '\n' ':')
+
+javac -nowarn --release 21 -cp "${CP}${TCP}build/losim.jar:build/classes" \
+      -d build/test-classes $(find test -name '*.java')
+
+java -jar vendor/test-jars/junit-platform-console-standalone-*.jar execute \
+     --class-path "${CP}build/losim.jar:build/classes:build/test-classes" \
+     --scan-class-path build/test-classes --details=tree
+```
+
+## What a unit test cannot tell you
+
+Everything interesting about a fleet:
+
+| | |
+|---|---|
+| whether the fan-out actually overlapped | a run, and the span tree |
+| whether a machine ran out of memory | a run, with a cap |
+| whether the coordinator noticed a dead peer | a run, with a fault |
+| what any of it cost | a run, and the bill |
+
+So the division of labour is: **unit tests for what one handler computes, runs for
+everything about how the machines behave together.** A handler you can only test
+inside a simulation is a handler you will end up debugging inside a simulation, and
+that is much harder.
+
+<Card title="Next: debugging" icon="arrow-right" href="/write/debugging">
+  Breakpoints, and what to do when it only fails inside a run.
+</Card>

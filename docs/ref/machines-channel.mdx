@@ -1,0 +1,91 @@
+---
+title: "machines"
+description: "The run's closing balance — the channel everything that reasons about quantities reads."
+icon: "server"
+---
+
+```json
+"machines": [
+  { "name": "w0", "instance": "c5.large", "zone": "eu-central-1a", "vcpu": 2,
+    "serves": ["Thumbnailer"],
+    "memoryMb": 41.2, "allocMb": 388.4, "diskMb": 0.0,
+    "wireMb": 6.31, "inMb": 24.9, "crossZoneMb": 0.0,
+    "calls": 41,
+    "losimMb": 0.44, "losimRegions": 1284,
+    "memCapMb": 4096.0, "alive": true }
+]
+```
+
+## Why it is its own channel
+
+<Note>
+These are **not moments** — they are the run's closing balance. Anything that reasons
+about quantities rather than about what happened (the bill, a comparison against
+ground truth, a machine's row in the viewer) needs them without reconstructing a peak
+from a sampled series that was quantised for scrubbing and may have missed the last
+walk entirely.
+
+A final heap walk happens after the job ends, so a machine that filled up in the last
+tick is not reported at whatever it held eight ticks ago.
+</Note>
+
+## What it was
+
+| field | |
+|---|---|
+| `name` | |
+| `instance` | its instance type — recorded here rather than read back off a `boot` event, so a bill does not depend on a telemetry level being on |
+| `zone` | |
+| `vcpu` | |
+| `serves` | the **service** names it offered, bare |
+| `memCapMb` | the cap it was under on this run |
+| `alive` | whether it survived to the end |
+
+## What it did
+
+| field | |
+|---|---|
+| `memoryMb` | **peak retained heap** — the most it was ever seen holding |
+| `allocMb` | everything it allocated, losim's own subtracted |
+| `diskMb` | bytes declared through `wroteDisk` |
+| `wireMb` | bytes out |
+| `inMb` | bytes in |
+| `crossZoneMb` | bytes this machine's calls sent across a zone boundary **in both directions** — request out and answer back — which is the traffic anyone pays for |
+
+| `calls` | handlers it completed |
+
+<Warning>
+`memoryMb` and `allocMb` are different questions. A design that accumulates and one
+that streams **allocate about the same**; only the first one retains, and only
+retention decides an out-of-memory.
+</Warning>
+
+## What losim cost this machine
+
+| field | |
+|---|---|
+| `losimMb` | bytes losim itself allocated on this machine's threads, and took back off `allocMb` |
+| `losimRegions` | how many times it stopped to meter |
+
+Published rather than kept private, because *"`allocMb` is the program's own"* is a
+claim, and a reader is entitled to see the size of what was taken off it before
+believing it. [Self-accounting →](/engine/self-accounting)
+
+## Units
+
+Megabytes, to six decimal places — about a byte. Megabytes because that is what the
+scale engine names its laws in, so an observed figure and a projected one sit beside
+each other without a conversion in between. Six places because three would be a
+kilobyte, and a run small enough to be measured in kilobytes would report every byte
+it moved as zero.
+
+## Reading it
+
+```python
+import json
+t = json.load(open("build/thumbs.json"))
+print(f'{"machine":<12} {"calls":>6} {"held MB":>9} {"cap MB":>9} {"out MB":>9}  alive')
+for m in sorted(t["machines"], key=lambda m: -m["memoryMb"]):
+    print(f'{m["name"]:<12} {m["calls"]:>6} {m["memoryMb"]:>9.2f} '
+          f'{m["memCapMb"]:>9.0f} {m["wireMb"]:>9.2f}  {m["alive"]}')
+```

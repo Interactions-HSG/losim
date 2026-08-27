@@ -1,0 +1,10 @@
+# Belt and braces. The manual's own guard, its rule set and its deliberately
+# poisoned fixtures live in docs-check/ — outside this directory entirely — so
+# that nothing which must not be published is here to be published.
+#
+# This file is what keeps that true if something strays back in: a non-page file
+# under docs/ is served as a static asset, so "it is not in the navigation" is
+# not the same as "it cannot be fetched".
+*.sh
+*.py
+check/

@@ -1,0 +1,263 @@
+---
+title: "Developing the viewer"
+description: "The only part of this repository where npm exists — and the rules that keep it out of a student's way."
+icon: "code"
+---
+
+<Note>
+**Students never run any of this.** The built page is committed, so
+[`./viewer/serve.sh`](/viewer/opening-a-trace) is `python3 -m http.server` and nothing
+else. Everything here is for whoever *changes* the viewer.
+</Note>
+
+## The loop
+
+```bash
+cd viewer
+npm install          # once
+
+./serve.sh --dev     # the Next dev server on :8000, with hot reload
+./check.sh           # everything a machine can decide
+./export.sh          # build and copy to build/viewer
+```
+
+`export.sh` is the one that matters:
+
+```bash
+npx next build
+rm -rf ../build/viewer
+cp -r out ../build/viewer
+mkdir -p ../build/viewer/traces
+echo '{"runs": []}' > ../build/viewer/traces/index.json
+```
+
+<Note>
+**The export ships with no traces in it** — an empty index, and `serve.sh` fills it in
+at serve time. So what is committed is the application, about 1.4 MB, and never
+somebody else's runs.
+</Note>
+
+
+<Warning>
+**Commit `build/viewer` with your change.** It is committed the way the generated
+protobuf sources are, for the same reason: a student must never need npm, and must
+never wait for a first-run download. A viewer change that is not exported is a viewer
+change nobody else can see.
+</Warning>
+
+## The layout
+
+```
+viewer/
+  app/            page.tsx — pick a run, watch it. Plus two spike pages.
+  components/     Film, Dataflow, Scrubber, MachinePanel, Ledger,
+                  Spans (+ spans/Waterfall, Swimlanes, Rollup), Topology
+  lib/            trace, frame, layout, spans, design, glyphs, theme,
+                  playback, record, ledger, runs
+  spikes/         the checks, and the Python they are checked against
+  export.sh       build -> ../build/viewer          (developers)
+  serve.sh        serve the export, or --dev        (everyone)
+  check.sh        the four arithmetic spikes        (developers)
+  traces.sh       traces + bills + index.json       (called by the others)
+build/viewer/     the committed static export
+build/runs/       where a lab's runs land, and what the lab server serves
+build/traces/     this repo's own scratch directory, for `traces.sh` below
+
+```
+
+## `./viewer/check.sh`
+
+Everything about the viewer that **a machine can decide**, in one command. It needs
+`./viewer/traces.sh` to have run, because these check against runs that actually
+happened rather than against fixtures that agree with them by construction.
+
+| | |
+|---|---|
+| `s1-glyphs` | do the glyph paths match the Python, **character for character** |
+| `s2-parity` | does the layout port compute the same layout, on every trace |
+| `s7-ledger` | does the accruing ledger close on `losim bill`, to the rappen |
+| `s3-s8-cost` | is a frame cheap enough to be a frame, at the largest fleet |
+
+<Note>
+**Exactly four Python modules are load-bearing**, and it is worth being precise about
+which, because the rest of `view/` is the abandoned renderer:
+
+```
+view/losim_view/design.py     216 lines   imported by viewer/spikes/glyph_ref.py
+view/losim_view/glyphs.py     155         imported by viewer/spikes/glyph_ref.py
+view/losim_view/layout.py     383         imported by viewer/spikes/layout_ref.py
+view/losim_view/trace.py      335         imported by viewer/spikes/layout_ref.py
+```
+
+Those two spike scripts put `view/` on `sys.path` and import them directly, so
+deleting any of the four breaks `./viewer/check.sh`.
+
+`view/losim_view/film.py`, `view/dataflow.py` and `view/sheet.py` are the manim
+sidecar. Nothing imports the last two, `film.py` is imported only by them, and `manim`
+is not installed here — so they cannot run and nothing depends on them.
+
+This is why the glyph paths were authored in SVG's own convention and compared by
+**string equality** rather than by looking at two pictures and arguing about them.
+</Note>
+
+The other four spikes are about what a *browser* does — do the glyphs look right, does
+the MP4 play in a slide deck, is a 25-machine fleet legible, does the export serve
+with no npm — and a browser is where those are answered: `./viewer/serve.sh`, then the
+pages.
+
+## Four decisions in the code worth knowing before you change it
+
+<AccordionGroup>
+  <Accordion title="Every pixel is a pure function of (trace, t, selection)" icon="function" defaultOpen>
+    Nothing accumulates, nothing is remembered between frames, no view knows what it
+    drew last time. One constraint, and it pays for itself four times:
+
+    - **the transience rule enforces itself** — a call that has finished is simply not
+      in the frame. There is nothing to remove, so nothing to forget to remove. In the
+      renderer that came before this, "the picture holds only what is currently true"
+      was a rule that had to be *remembered*, and a rule left to discipline decays
+      until the last frame is the static figure again;
+    - **scrubbing is free** — seeking backwards is the same operation as playing;
+    - **recording is the same code path as playing** — only the clock's driver differs;
+    - **the views cannot disagree**, because they are functions of one value.
+
+    If you find yourself adding state to a view, that is the thing to push back on.
+  </Accordion>
+
+  <Accordion title="Attribution is a partition, never a re-price" icon="scale-balanced">
+    Pointing at a machine lights up its money, and that needs a second question
+    answered — *whose line is this?* The amount never changes; only the claim about
+    who is answerable for it.
+
+    Its own (a capacity line names one machine), its share (a fleet total split by a
+    quantity the trace already holds), or **nobody's** (revenue and the late penalty
+    belong to the job, and spreading them over nine machines would invent a claim
+    nothing supports).
+
+    The classification is matched against the exact line labels `losim.price.Bill`
+    writes. That coupling is deliberate and checked: an unrecognised line is `unknown`
+    and attributed to nobody, rather than guessed at.
+  </Accordion>
+
+  <Accordion title="Colours arrive as values, never as CSS variables" icon="palette">
+    The recorder serialises the `<svg>` into a standalone image, and a standalone
+    image has no page to inherit `var(--ink)` from — so a film themed through CSS
+    records as black on black.
+
+    The theme comes down as a **prop**. `lib/theme.ts` carries the ground (surface,
+    strokes, greys) and follows `prefers-color-scheme`; `lib/design.ts` carries the
+    meanings (amber near a cap, red past it, a task's hue) and does **not** change
+    between themes.
+  </Accordion>
+
+  <Accordion title="The clock lives outside React" icon="stopwatch">
+    At 60 fps a clock in `useState` is sixty re-renders of the whole tree per second,
+    and the scrubber, the panel and the views do not all need that.
+
+    So `t` lives in a plain object a `d3.timer` advances, and components subscribe
+    through `useSyncExternalStore`, each deciding how much of it it needs. The
+    snapshot has to stay a primitive, or every subscriber re-renders forever.
+  </Accordion>
+
+  <Accordion title="Two runtime dependencies, and that is the budget" icon="box">
+    `d3` and `mediabunny`, on top of Next and React. elkjs, Radix, framer-motion and
+    react-virtual were each considered and rejected.
+
+    A viewer with fifteen dependencies is a viewer that stops building in two years —
+    and this one has to still build when the course runs again.
+  </Accordion>
+</AccordionGroup>
+
+## Three things `next.config.mjs` sets, and why
+
+| | |
+|---|---|
+| `output: 'export'` | a static site. There is no server, because a student runs `python3 -m http.server`. |
+| `trailingSlash: true` | `/spikes/s4/index.html`, not `/spikes/s4.html` — `http.server` has never heard of Next and will not try `.html` for a path without it. Without this every link in the exported app 404s on exactly the setup it exists to support. |
+| `turbopack.root` | pinned, because a `package.json` somewhere up the tree would otherwise decide where the project root is — a stray directory on a laptop, somewhere else entirely in a Codespace. |
+
+## Two numbers in `lib/trace.ts` that are not the same
+
+| | |
+|---|---|
+| `trace.duration` | covers **every event**, not just the job |
+| `trace.jobRefMs` | `meta.durationRefMs` — what the money is priced against |
+
+They differ because the heap walk runs every eighth tick, so an out-of-memory can land
+*after* the job it ended. Clipped at the job's end, that OOM could not be scrubbed to
+and never reached the bill.
+
+<Warning>
+Use `jobRefMs` for anything that must agree with `losim bill`, and `duration` for
+anything that must be able to *show* the whole run.
+</Warning>
+
+## `traces.sh`
+
+Writes what a static page cannot discover for itself:
+
+```bash
+./viewer/traces.sh                    # build/traces — your runs, and nothing else
+./viewer/traces.sh build/mine         # one directory, or one file, anywhere on disk
+./viewer/traces.sh --suite            # ...and the reference suite's
+```
+
+**Only `build/traces` by default.** The collections have to be asked for, so what a
+student sees is their own work. For each trace it copies the file, runs
+`losim bill --json` beside it as `<name>.bill.json` when losim is built and the bill is
+missing or stale, and rewrites `index.json`. A listed directory that exists but yields
+nothing says so — a silent fall-through is exactly how twenty-two suite traces once
+went missing from the picker.
+
+Each run is tagged with where it came from, and the picker groups on that tag with
+yours first. `serve.sh` forwards its own arguments here, so `./viewer/serve.sh
+~/my-project/runs` works — which is the case that matters, because losim is a library
+and your traces live in your project, not in this tree.
+
+<Warning>
+`build/viewer/traces` is a **mirror of the last sweep**: anything not swept this time
+is deleted from it. That is what makes a collection un-askable-for once asked for,
+rather than something that accumulates forever.
+</Warning>
+
+
+<Note>
+The bill is best-effort on purpose. Missing, the film still plays and the money is
+simply absent — which is the right failure, because a viewer that invented its own
+prices would be a second accountant.
+</Note>
+
+## The spike pages
+
+| | |
+|---|---|
+| `/spikes/s1/` | the glyphs, drawn on their own — the visual language without a run behind it |
+| `/spikes/s4/` | the recorder, in isolation |
+
+They are exported with the app, and linked from its header.
+
+## The design language
+
+`lib/design.ts` holds it as data — colours, sizes, proportions, and the rules about
+which to use when. Nothing in it imports d3 or React. A palette that lived inside a
+component would be a palette the next component had to reimplement, and two pictures
+that must agree but are written twice are two pictures that will not.
+
+Its one real idea is **layer discipline**:
+
+| layer | how it is drawn | what it says |
+|---|---|---|
+| system | thin dark strokes on paper, data in pale green | what exists |
+| mechanics | small italic serif, parenthesised | what an edge does |
+| narration | bold red, numbered | what you are being shown |
+
+<Warning>
+**Red is never part of the system.** It is the lecturer's pen. The moment it starts
+filling shapes it stops meaning *look here*, and the picture goes flat.
+</Warning>
+
+`lib/glyphs.ts` holds the geometry as SVG path data, authored origin-centred with **y
+down** — SVG's own convention, because they were always meant for a browser. The path
+strings are checkable against the Python renderer they were ported from by **string
+equality**, which is why the port could be verified rather than argued about in front
+of two pictures.

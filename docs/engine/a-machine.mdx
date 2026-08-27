@@ -1,0 +1,120 @@
+---
+title: "What a machine is"
+description: "A thread pool, a server, and two caps — with the heap walk that enforces one of them."
+icon: "server"
+---
+
+## The pool is the model
+
+One `ThreadPoolExecutor`, core and maximum both set to the instance's **vCPU count**,
+platform threads, prestarted.
+
+That single choice carries three things at once:
+
+<Steps>
+  <Step title="It is the concurrency model">
+    Four calls into a two-vCPU machine really queue. Nothing simulates that.
+  </Step>
+  <Step title="It is the unit of measurement">
+    Every thread in it belongs to exactly one machine, so
+    `getThreadAllocatedBytes` over those thread ids is an **exact attribution**
+    rather than an estimate.
+  </Step>
+  <Step title="It is the boundary">
+    Work on a thread outside it carries no machine identity, is summed by nobody,
+    and contends for nobody's cores.
+  </Step>
+</Steps>
+
+<Warning>
+Two consequences, neither negotiable:
+
+`directExecutor()` must never be used, or the caller's thread runs the handler and
+the whole vCPU model evaporates.
+
+The threads must be **platform** threads, because `getThreadAllocatedBytes` returns
+−1 for a virtual one.
+</Warning>
+
+The pool is wrapped so that time spent *waiting for a core* is separable from time
+spent *using one* — without the wrapper a queued call is indistinguishable from a
+slow one, which is the most common misreading of a fleet under load.
+
+## Memory: allocated versus held
+
+| | measured by | tells you |
+|---|---|---|
+| `allocMb` | `getThreadAllocatedBytes`, exactly | how much churn |
+| `memoryMb` | a **retained-heap walk** from the machine's roots | what would kill it |
+
+Allocation counts garbage as well as survivors, and it is the survivors that decide
+an out-of-memory.
+
+### The walk
+
+From the machine's own service instances, outward, summing what is reachable and
+stopping at the machine's edge. Two rules make it work on a modern JDK without
+launcher flags:
+
+- **application objects are reflected into** — they live in the unnamed module, so
+  their fields are accessible without opening anything;
+- **JDK containers are modelled, not reflected into** — `java.util` is not open, and
+  `setAccessible` on `HashMap.table` throws. Modelling their layout avoids needing
+  `--add-opens` at all, which matters because losim has to run identically in three
+  places without launcher flags.
+
+Object sizes assume compressed oops — on by default below a 32 GiB heap, which is
+every case here.
+
+### Where a machine ends
+
+| inside | outside |
+|---|---|
+| your fields, your collections | another machine, the fleet |
+| the protobuf messages you hold — exactly your data | telemetry, spans, the clock, the network |
+| | gRPC's transport, which everyone shares |
+| | servers, channels, executors, threads |
+
+That boundary is **asserted rather than assumed**: losim's own structures sit outside
+every machine's edge by construction.
+
+### The cadence, and the last walk
+
+A walk costs about 0.06 µs an object, so a busy machine is walked every **eighth**
+sampler tick. That is why `retainMb` steps rather than glides.
+
+<Note>
+There is also **one final walk after the job ends**. A machine that fills up between
+the last walk and the end of the run has still filled up — a service handed its share
+in the closing moments is exactly that case, and without this it would be reported as
+comfortably inside a cap it had already exceeded. That is the one direction an
+out-of-memory must never be wrong in.
+</Note>
+
+## Disk
+
+Declared, not written. `wroteDisk(bytes)` adds to a counter and **throws** past the
+cap, so the handler fails the way it would have failed for real.
+
+## Faults, from the machine's side
+
+| | what it does to the machine |
+|---|---|
+| kill | `alive = false`. Callers get `Dropped` calls that wait out their deadlines. |
+| freeze | calls are **held at the door** on the machine's own threads, rechecked every couple of milliseconds so a machine thawed early is not still asleep |
+| degrade | a multiplier on every declared cost |
+| restart | a machine declared with `serves:` gets **fresh service instances**, so whatever it was holding is gone |
+
+## Shutting one down
+
+<Note>
+`shutdownNow` is asynchronous: it asks the server to stop and returns, and the
+in-process transport keeps the name registered until it actually has. One run per JVM
+never notices — the process exits.
+
+The probe grid runs thirty fleets back to back in one JVM, all of them with a machine
+called `w0`, and the thirty-first fails to bind a name the thirtieth has not finished
+releasing. So the shutdown waits. It surfaced only under chaos — more machines dying
+means more servers shutting down at once, so the race is wider — which is what made it
+worth chasing rather than retrying.
+</Note>

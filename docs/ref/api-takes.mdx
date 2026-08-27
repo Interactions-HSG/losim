@@ -1,0 +1,96 @@
+---
+title: "@Takes"
+description: "How long this method's work takes on the reference machine."
+icon: "stopwatch"
+---
+
+```java
+import losim.api.Takes;
+
+@Takes(refMs = 3, refNsPerRecord = 240_000)
+@Override protected Thumbs thumbnail(Batch request) { … }
+```
+
+`@Retention(RUNTIME)`, `@Target(METHOD)`. Both elements default to `0`, and an
+unannotated method takes **no time** — deliberately, rather than a made-up amount.
+
+<ParamField path="refMs" type="double" default="0">
+  What one call takes **regardless of what is in it** — the fixed part. Known before
+  the handler runs, and slept before it.
+</ParamField>
+
+<ParamField path="refNsPerRecord" type="double" default="0">
+  What each record processed adds, in reference **nanoseconds**. The handler
+  declares the count with `Losim.current().records(n)`, and this part is slept
+  **after the body returns**, before the response leaves — because a caller waits
+  for work that has not finished, and by then the handler has said how much there
+  was.
+</ParamField>
+
+## What gets slept
+
+```
+refMs × (2 ÷ vcpu) × degradeFactor ÷ k_time
+```
+
+Reference-machine time is two vCPUs running alone. So a 4-vCPU machine takes half as
+long, a machine under `degrade: factor: 4` takes four times as long, and the whole
+run is compressed by `k_time`.
+
+## Why this is declared when everything else is measured
+
+losim shrinks the workload **and** the machines by the same factor, so memory and
+bytes survive it honestly. Time does not, because the host's CPU is not shrunk — it
+runs at full speed on a fraction of the data, so every handler is genuinely instant.
+Without a declared duration there is no queueing, no contention, no deadline
+pressure and no critical path.
+
+Measuring instead does not work at this scale: handler durations at probe size sit
+inside the host's own jitter, where the fitted time exponent moves by 0.25 between
+seed sets of an identical workload.
+
+## Where the annotation is looked for
+
+gRPC knows the method as `lab.Thumbnailer/Thumbnail`; you wrote `thumbnail`. The
+bridge is grpc-java's own naming rule — an rpc `Thumbnail` becomes a Java method
+`thumbnail` — applied to whatever the service actually registered, then searched up
+the class hierarchy.
+
+So the annotation is found on your handler, on a shared base class, or on the
+generated base. Put it on the **value-returning** method, whose body is the work:
+
+```java
+public abstract class ThumbnailerBase extends ThumbnailerGrpc.ThumbnailerImplBase {
+    protected abstract Thumbs thumbnail(Batch request);              // not here
+    @Override public final void thumbnail(Batch r, StreamObserver<Thumbs> o) { … }
+}
+
+public final class Shrinker extends ThumbnailerBase {
+    @Takes(refMs = 3, refNsPerRecord = 240_000)                       // here
+    @Override protected Thumbs thumbnail(Batch request) { … }
+}
+```
+
+## `@Takes` versus `sleep`
+
+| | `@Takes` | `Losim.current().sleep(refMs)` |
+|---|---|---|
+| what it is | declared **work** | a declared **wait** |
+| fixed per method? | yes, it is an annotation | no, the program decides |
+| stretches on a slow machine? | **yes** | no |
+| occupies a vCPU? | **yes** | no |
+
+Measured at `k_time` 100 on a machine at half speed: `@Takes(500)` takes 1019 refMs
+and `sleep(500)` takes 596.
+
+## The floor
+
+The clock cannot express a duration finer than about **0.05 ms** of real time. Below
+that a cost is *owed* rather than slept, and the ledger settles it later — good for
+about fifty times below the floor. Past that the engine refuses the `k_time`:
+
+```
+k_time 400 is finer than this workload can express: lab.Thumbnailer.Capacity costs
+0.5000 refMs, which at that compression is 4x below what the sleep debt can still
+settle. Lower k_time to 100 or less, or give that cost site more to do.
+```

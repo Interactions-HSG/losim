@@ -1,0 +1,186 @@
+---
+title: "9. What it cost"
+description: "Five buckets, printed apart, because they are five different kinds of decision."
+icon: "receipt"
+---
+
+```bash
+java -cp build/losim.jar losim.cli.Main bill build/thumbs.json
+```
+
+This is the run you broke on the last page — one machine killed, one slowed down.
+
+<Note>
+**Your figures will not match these exactly.** losim runs your real code on real
+threads, so a run is not reproducible down to the event ([why](/engine/two-layers)) —
+the timeout count especially moves between hosts. What holds is the *shape*: which
+buckets are large, and which rows appear at all.
+</Note>
+
+
+```
+build/thumbs.json
+
+what happened
+  revenue     job completed                         1.000 jobs           CHF    5.0000
+  build       services carried                      1.000 services       CHF    0.2500
+  capacity    coordinator (m5.large)              0.01670 machine-hours  CHF    0.0019
+  capacity    w0 (c5.large)                       0.01670 machine-hours  CHF    0.0017
+  capacity    w1 (c5.large)                       0.01670 machine-hours  CHF    0.0017
+  capacity    w2 (c5.large)                       0.01670 machine-hours  CHF    0.0017
+  capacity    w3 (t3.small)                       0.01670 machine-hours  CHF    0.0004
+  consumption cross-zone egress                   0.02300 GB             CHF    0.0002
+  incidents   calls that did not answer in time     40.00 reruns         CHF    0.8000
+  incidents   machines lost                         1.000 failures       CHF    0.2000
+  ------------------------------------------------------------------------------------
+  revenue      CHF       5.0000
+  build        CHF       0.2500
+  capacity     CHF       0.0074
+  consumption  CHF       0.0002
+  incidents    CHF       1.0000
+  TOTAL COST   CHF       1.2576
+  PROFIT       CHF       3.7424
+```
+
+Three things to notice before the buckets themselves.
+
+**Incidents are 135 times capacity.** `CHF 1.0000` against `CHF 0.0074`. One machine
+killed and one machine slowed down cost more than the entire fleet did — and this is
+the ordinary case, not a contrived one. Before you tune anything, look at which bucket
+is actually large.
+
+**Capacity is one line per machine, with the instance type on it.** `w3` is the
+`t3.small` you gave it in the scenario, and it costs a quarter of what its neighbours
+do for exactly the same reserved period. That row is where an instance choice becomes
+money.
+
+**Every machine shows the same `0.01670` machine-hours**, and that is the **billing
+minimum**, not the run. The minimum is 60 seconds, so every machine is billed 60
+seconds — `60 ÷ 3600 = 0.01667` hours.
+
+<Warning>
+Until your run is longer than a minute of reference time, capacity is a flat charge
+and making the job faster will not move it. That is not losim being coarse — it is
+what a per-second cloud bill with a one-minute floor actually does. Raise `records`,
+or read the `consumption` line instead, which responds immediately.
+</Warning>
+
+<Tip>
+**Comment the `faults:` block out and bill it again.** Same fleet, same work, no
+weather: profit goes from `3.7424` to `4.7421`. That difference is what one kill and
+one slow machine cost you, and it is the number a fault-tolerance mechanism has to
+beat to be worth building.
+</Tip>
+
+
+
+
+## Why five, and why they are not added up
+
+<Columns cols={2}>
+  <Card title="capacity" icon="server">
+    The fleet, for the period. **An idle machine costs exactly as much as a busy
+    one** — priced in reference time, because the run took a few seconds of your
+    afternoon but the job it is a model of takes what the simulated clock says,
+    and that is the number anyone would be invoiced for.
+  </Card>
+  <Card title="consumption" icon="gauge">
+    What the work actually burned: cross-zone egress and storage. Traffic
+    **between** availability zones is billed; traffic inside one is free, so it is
+    counted apart rather than derived afterwards.
+  </Card>
+  <Card title="incidents" icon="triangle-exclamation">
+    Zero until something breaks, then large. Timeouts, machines lost, machines
+    that filled up, and a penalty per second past the service level.
+  </Card>
+  <Card title="build" icon="hammer">
+    Engineering time to construct and carry this design, spread over its life,
+    per distinct service. Carried whether or not it is ever needed.
+  </Card>
+</Columns>
+
+The fifth is **revenue**: the service earns only when the job completes.
+
+<Note>
+There is no storage line above because nothing in this system writes to disk. A
+line appears only when there is a quantity to put in it — a bucket nobody could
+fill in is not a bucket that cost nothing, and the difference is worth keeping
+visible. Once you add `Losim.current().wroteDisk(bytes)`, the consumption bucket
+grows a `GB-month` row.
+</Note>
+
+Adding them together would hide the trade every design makes. Replication triples
+capacity and adds to build in order to empty incidents; one number cannot say that.
+The total, when it is printed, says explicitly that it is a total *of what could be
+priced*.
+
+## Prices are course data
+
+They live in [`prices/`](/ref/prices), outside the simulator, so they can be
+changed — or deliberately distorted for an exercise. Make egress ruinous and watch
+which designs stop being sensible:
+
+```yaml prices/expensive-egress.yaml
+egress_per_gb: 4.00        # instead of 0.01
+```
+
+
+```bash
+java -cp build/losim.jar losim.cli.Main bill build/thumbs.json \
+     --prices prices/expensive-egress.yaml
+```
+
+<Note>
+**What a machine costs to rent is deliberately not in the price list.** That
+belongs to the instance catalogue, beside its vCPUs and its memory, because it is
+a property of the machine rather than a choice the course makes. Two places
+declaring what a `c5.large` costs would be two places to drift apart, and the drift
+would be silent.
+</Note>
+
+## The bill you cannot always get
+
+Run a scaled scenario and you get **two** bills: one for what happened, and one for
+the job it is a model of. The second one is where this gets interesting, because a
+bill is quantities times prices and the engine will not project every quantity:
+
+```
+  capacity    the fleet, for the period            -             CHF   refused
+      its exponent moves by 0.793 between independent seed sets of the same
+      workload, which over a factor of 6 is an error bar of x4.1 — wider than
+      anything it would be asked to distinguish
+```
+
+Capacity depends on the timeline, the timeline is the noisiest thing losim
+measures, and capacity is usually the largest line on the bill. So the honest
+account routinely says: *the bytes cost this much, the storage costs this much, and
+nobody can tell you what the machines cost, because nobody can tell you how long
+the job takes.*
+
+That is a useful answer. It says where the uncertainty in the cost of a design
+actually lives, which is not where most people would look for it.
+
+<Note>
+**Incidents are never projected.** A machine either failed or it did not, and an
+incident bucket extrapolated from one afternoon would be a forecast dressed as an
+observation.
+</Note>
+
+## You have now built the whole thing
+
+<CardGroup cols={2}>
+  <Card title="Writing systems" icon="wrench" href="/write/services">
+    Every part of the above, in depth: memory, disk, deadlines, concurrency,
+    telemetry, surviving weather.
+  </Card>
+  <Card title="Make it scale" icon="chart-line" href="/write/writing-to-scale">
+    What a job has to do to be projectable, and how the engine decides whether to
+    believe itself.
+  </Card>
+  <Card title="Compare two designs" icon="code-compare" href="/run/comparing-designs">
+    Sweeps, `losim diff`, and reading two bills against each other.
+  </Card>
+  <Card title="See it" icon="eye" href="/viewer/index">
+    The viewer: Dataflow, Spans, Topology and Ledger.
+  </Card>
+</CardGroup>

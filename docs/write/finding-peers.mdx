@@ -1,0 +1,130 @@
+---
+title: "Finding peers"
+description: "By what they serve, never by hostname — and why there is no liveness check."
+icon: "magnifying-glass"
+---
+
+## From a handler, and from the job
+
+<CodeGroup>
+```java inside a handler
+var here = Losim.current();
+List<String> workers = here.peersServing("Thumbnailer");   // never includes itself
+List<String> everyone = here.peers();                      // every other machine
+```
+
+```java inside the job
+List<String> workers = cluster.serving("Thumbnailer");     // may include the job's machine
+List<String> everyone = cluster.machines();
+```
+</CodeGroup>
+
+<Warning>
+`peersServing` excludes **this** machine, on purpose: a blocking call to itself
+would occupy one of its own pool threads waiting for another of its own pool
+threads, and on a two-vCPU machine that is one deadlock away from being a habit.
+
+`cluster.serving` does not exclude anything, because the job's machine is usually
+the coordinator and usually serves nothing anyway.
+</Warning>
+
+## The argument is the service name from the `.proto`
+
+```proto
+package lab;
+service Thumbnailer { … }
+```
+
+```java
+here.peersServing("Thumbnailer");        // works — the bare name
+here.peersServing("lab.Thumbnailer");    // works — the fully qualified name
+here.peersServing("Shrinker");           // finds nothing: that is your Java class
+```
+
+Both forms are registered. The Java class name is what the **scenario** names in
+`serves:`, and it is a different string. Two namespaces, both correct, and
+confusing them is the single most common first mistake.
+
+## Dead machines are not listed, and that is not a liveness check
+
+```java
+cluster.serving("Thumbnailer")   // ["w0", "w2", "w3"] — w1 was killed
+```
+
+<Note>
+This is **discovery working**, not a health API. losim deliberately offers no way
+to ask "is `w1` alive?", because no real network offers one, and a design that
+depends on knowing is a design that will not survive contact with one.
+
+A machine that has gone is a machine that has stopped answering. Finding that out
+still costs a call and a deadline — and it will, because between your last call to
+`serving()` and your next dispatch, a machine can leave.
+</Note>
+
+That distinction has a practical consequence. Compare:
+
+<CodeGroup>
+```java asks once
+var workers = cluster.serving("Thumbnailer");     // before the loop
+for (var batch : batches)
+    dispatch(workers.get(i++ % workers.size()), batch);
+```
+
+```java asks again
+for (var batch : batches) {
+    var workers = cluster.serving("Thumbnailer"); // each time round
+    if (workers.isEmpty()) throw new IllegalStateException("nobody left");
+    dispatch(workers.get(i++ % workers.size()), batch);
+}
+```
+</CodeGroup>
+
+The first keeps sending work to a machine that died at 900 refMs, and pays a full
+deadline for each batch. The second stops after the first failure. Neither is
+*wrong* — the second costs a lookup per batch — but only one of them is a design
+that noticed.
+
+## Registration, when discovery is not enough
+
+Discovery tells you a machine serves something. It does not tell you how big it is,
+what zone it is in, or how loaded it is — and there is no API for asking about
+someone else's machine.
+
+So a real resource manager has a registration call, and yours will too:
+
+```proto
+service Registry {
+  rpc Announce (Health) returns (Empty) { option idempotency_level = IDEMPOTENT; }
+}
+```
+
+```java
+// On a worker, the first time it is asked to do anything:
+if (announced.compareAndSet(false, true)) {
+    var spec = Losim.current().here();
+    var desk = Losim.current().peersServing("Registry").get(0);
+    RegistryGrpc.newBlockingStub(Losim.current().channelTo(desk))
+        .announce(Health.newBuilder()
+            .setMachine(spec.machine()).setVcpu(spec.vcpu())
+            .setMemoryCapMb(spec.memoryCapMb()).build());
+}
+```
+
+That table is stale the moment it is built, and finding out how stale is most of
+what makes placement interesting.
+
+## Zones
+
+```java
+Losim.current().here().zone()      // "eu-central-1b"
+```
+
+Only your own — but a peer will tell you its zone if you ask it, and that is worth
+asking. Traffic **between** availability zones is billed and traffic inside one is
+free, and cross-zone latency in a scenario is typically five to ten times
+same-zone. A coordinator that ignores zones is a coordinator whose bill has a line
+on it that need not have been there.
+
+<Card title="Next: calling a peer" icon="arrow-right" href="/write/calling-peers">
+  What `channelTo` gives you, and what building your own costs.
+</Card>

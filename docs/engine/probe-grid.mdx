@@ -1,0 +1,120 @@
+---
+title: "The probe grid"
+description: "The same system, run small, thirty ways — with the axes varied independently."
+icon: "table-cells"
+---
+
+```
+  data size      ×  fleet size  ×  fault schedule
+  1k 2k 4k 8k    ×  2, 4        ×  none | the scenario's      × seeds, median taken
+```
+
+## Why it is a grid and not a ladder
+
+<Warning>
+A resource that grows with the **data** and a resource that grows with the **fleet**
+look identical if the two only ever move together. An engine that folds one into the
+other produces projections that are plausible and wrong — the failure mode hardest to
+notice, because nothing looks broken.
+</Warning>
+
+So each axis moves alone:
+
+<Steps>
+  <Step title="The data ladder: the fleet holds still, the weather is off">
+    Four sizes × **six seeds**. Climbed on the fleet the scenario declares — not the
+    largest shape in the fleet ladder. A law fitted on eight workers and applied to a
+    run of two describes a differently-shaped system.
+  </Step>
+  <Step title="The fleet ladder: the data holds still, the weather is off">
+    Two shapes × 2 seeds, at the middle data size. Every pool with more than one
+    machine is regenerated at that size, keeping its instance type, zones and
+    services. **Singletons — the coordinator — are left alone.**
+  </Step>
+  <Step title="The fault column: both hold still, the weather moves">
+    The top data size × 2 seeds, with the scenario's own faults and chaos.
+  </Step>
+</Steps>
+
+The fleet ladder and the fault column are **cross-checks** rather than sources of an
+error bar, which is why only the data ladder runs at six seeds: only its exponent has
+to be shown to be reproducible.
+
+## Six seeds, in three sets of two
+
+The law is fitted on the **median of all six**. Its reproducibility is measured by
+refitting each independent set of two **the same way** and looking at the spread.
+
+<Note>
+Refitting on a single seed would measure the noise in one run and report it as the
+uncertainty of a law that was never fitted that way — overstating the error bar by
+roughly the square root of the set size. Three sets is the fewest from which a spread
+means anything.
+
+Seeds are derived from the scenario's own: `seed × 1000 + i`. So a plan is
+reproducible from the file.
+</Note>
+
+## The fault column is not optional
+
+A killed machine's work is redone elsewhere, so a survivor absorbs its share.
+Measured, that roughly **doubles** peak memory on a machine that accumulates.
+
+A model fitted only on clean runs under-predicts by that much — and it under-predicts
+**optimistically**, which is the worse direction. The engine folds the difference in
+as an amplification term per resource.
+
+With no weather declared you get a note instead:
+
+```
+note: this scenario declares no faults, so the model carries no amplification term —
+      a projection from it describes a fleet where nothing goes wrong
+```
+
+## Four rungs, minimum
+
+```
+a ladder of 3 cannot show whether a law bends; four is the fewest that can
+```
+
+Four is what it takes to split the ladder in half and compare the two halves'
+exponents, which is the test that catches a discontinuity. Three cannot.
+
+## The plan cache
+
+Thirty runs is a real cost, and it is paid **once**:
+
+```
+[plan fitted from 30 probe runs in 41.2s]
+[plan cached]
+```
+
+Cached in `build/.losim-plans/`, keyed on **the scenario, the code it profiles, and
+the telemetry level**.
+
+<Note>
+Keyed on the telemetry level because the whole claim of losim's self-accounting is
+that a fitted law does not depend on how much you instrumented — and a cache that
+ignored the level would make that claim untestable, because three of four runs at
+different levels would silently reuse the first one's plan.
+</Note>
+
+```bash
+rm -rf build/.losim-plans      # force a refit
+```
+
+## Choosing the ladder
+
+```yaml
+workload:
+  records: 40000000
+  probe: [1000, 2000, 4000, 8000]
+  fleets: [2, 4]
+```
+
+All four rungs should sit in a region where your code behaves **consistently**. If it
+spills, switches algorithm, or stops fitting in a cache somewhere in the middle, the
+engine will see the law bend and refuse it — correctly. Move the ladder to one side.
+
+Bigger rungs also help when a fixed overhead dominates: the engine refuses a run size
+where the variable part is less than **ten times** the fixed part.

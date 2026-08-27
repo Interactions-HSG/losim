@@ -1,0 +1,123 @@
+---
+title: "Codespaces and the devcontainer"
+description: "Everything is already built when the container comes up. Here is what is in it and why."
+icon: "cloud"
+---
+
+## Open it
+
+<Tabs>
+  <Tab title="GitHub Codespaces">
+    From the repository page: **Code → Codespaces → Create codespace**.
+
+    The container builds, `.devcontainer/setup.sh` runs, and when the terminal
+    appears `build/losim.jar` already exists. Nothing else to install.
+  </Tab>
+  <Tab title="VS Code, locally">
+    With Docker running and the **Dev Containers** extension installed, open the
+    repository and accept **Reopen in Container**.
+
+    Same image, same setup script, same result as a Codespace — which is the
+    point, and is checked in CI rather than assumed.
+  </Tab>
+</Tabs>
+
+## What the container gives you
+
+| | |
+|---|---|
+| **Java 25** | from the base image `mcr.microsoft.com/devcontainers/java:25-bookworm`. losim compiles at `--release 21`, so anything from 21 up works. |
+| **The vendored toolchain** | gRPC 1.83.1, protobuf 4.36.0 and `protoc` for two platforms, committed under `vendor/`. Nothing is fetched to build or to run. |
+| **Node 22** | only for developing the viewer. Neither losim nor this manual needs it. |
+| **Port 8000** | **the lab** — the viewer, your runs, and a button per system. |
+| **Port 3000** | **the manual**, as a process of its own. |
+
+Both ports are forwarded automatically. In a Codespace, VS Code offers the URL in
+the **Ports** panel; the forwarded address works in your own browser.
+
+<Note>
+**The two are separate processes on purpose.** The manual is where you look when
+something will not start, so it must not be served by the thing that will not start.
+Nothing your code does — no compile, no fork, no classpath — can reach the manual.
+
+There are three ways to read it and none can take out another: this port, the
+published site, and the `.mdx` files under `docs/` in the editor you are already in.
+</Note>
+
+## What `setup.sh` did
+
+```bash
+./build.sh                     # the simulator -> build/losim.jar
+```
+
+<Note>
+**Nothing is fetched.** The manual used to need Mintlify's CLI over npm; it is now
+rendered by the JDK that is already in the image. A container whose setup depends on a
+registry being up is a container that sometimes does not come up — and that stopped
+being hypothetical when the package in question began returning 404.
+</Note>
+
+
+## The commands worth knowing
+
+<CodeGroup>
+```bash losim
+./build.sh          # the simulator, into build/losim.jar
+./check.sh          # losim's own acceptance criteria
+tests/run.sh        # the reference suite: gRPC systems, end to end
+```
+
+```bash your work
+J="java -cp lib/losim.jar losim.cli.Main"       # in a lab; see Quickstart
+$J run  mine.yaml --cp build/classes --out build/runs/mine.json
+$J bill build/runs/mine.json
+$J diff build/runs/a.json build/runs/b.json
+```
+
+
+
+```bash the servers
+# started for you on attach; this is what runs
+java -cp lib/losim.jar losim.cli.Main serve         # the lab    -> :8000
+java -cp lib/losim.jar losim.cli.Main serve docs    # the manual -> :3000
+
+```
+
+
+```bash the manual's check
+docs-check/check.sh       # that it gives no assignment away
+```
+
+</CodeGroup>
+
+<Note>
+Node 22 is in the image for two things only: previewing this manual, and
+**developing** the viewer. Neither losim nor watching a run needs it — the viewer's
+page is committed built, and the JDK serves it — no node and no Python.
+
+</Note>
+
+They are also VS Code tasks: **Terminal → Run Task**.
+
+## Why the toolchain is vendored
+
+Two runs of the same scenario on different hosts must be the *same simulator*.
+If the gRPC version could drift between a laptop and a Codespace, a byte count
+would drift with it — and a byte count that depends on where it was computed is
+not a measurement.
+
+CI enforces this rather than trusting it. The reference suite runs twice, once on
+a plain runner and once **inside the image a Codespace boots**, and the two traces
+are then compared with `losim diff`. What has to agree is structure and
+attribution — what kinds of thing happened, what each carried, which machines
+existed, what each resource was found to be a function of. What is allowed to
+differ is the measurements, and those are printed rather than judged, because runs
+are not reproducible and hosts are not identical.
+
+<Warning>
+**The one thing a Codespace changes is noise.** A two-core Codespace has more
+timing jitter than a laptop, and the scale engine measures that jitter rather than
+assuming it — so it may refuse to project a timeline in a Codespace that it would
+have projected on a laptop. That is the engine working. See
+[when the engine refuses](/run/when-it-refuses).
+</Warning>

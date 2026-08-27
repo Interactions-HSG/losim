@@ -1,0 +1,150 @@
+---
+title: "Losim.current()"
+description: "The one losim type a handler mentions, and every method on it."
+icon: "code"
+---
+
+```java
+import losim.api.Losim;
+
+var here = Losim.current();
+```
+
+Returns one of **two singletons**, so reaching for it allocates nothing. That
+matters: a handler calling it a thousand times must not thereby allocate a thousand
+objects against the machine whose allocation is being fitted.
+
+| | inside a run | outside one |
+|---|---|---|
+| recording calls | reach the machine serving this call | **silent** |
+| state calls | reach the machine serving this call | **throw** |
+
+<Note>
+The asymmetry is deliberate. A silent `reveal` lets a handler be called directly
+from a unit test without the test having to know losim exists. A fabricated empty
+fleet would let the same test pass while asserting nothing, which is worse than
+failing.
+</Note>
+
+## isRunning
+
+```java
+boolean isRunning()
+```
+
+False in a bare unit test. Use it to guard the state calls if a handler genuinely
+needs the machine's identity.
+
+## Recording — silent outside a run
+
+<ResponseField name="reveal(String key, int value)" type="void">
+  Also `long`, `double`, `boolean`, `String`, and an `Object` fallback.
+
+  Records a named value from inside a handler, so a reader of the trace can see what
+  the computation was doing and not merely that it happened. Lands as a `state`
+  event, inside the handler's span.
+
+  <Warning>
+  **Prefer the primitive overloads.** `reveal(String, Object)` boxes an `int` at the
+  call site — before losim's accounting can open — so the box is charged to your
+  program though it exists only because the parameter is an `Object`. At one call
+  per handler that is invisible; at a thousand it bends the fitted memory exponent
+  by 0.04, and the exponent is the one number that must not bend.
+  </Warning>
+</ResponseField>
+
+<ResponseField name="log(String message)" type="void">
+  A line of narration. Lands as a `log` event.
+</ResponseField>
+
+<ResponseField name="records(long n)" type="void">
+  How many records **this call** processed.
+
+  Two things need it: `@Takes(refNsPerRecord = …)` is charged against it, and the
+  scale engine needs to know which independent variable a cost site is a function
+  of. A handler that never declares a count is charged the fixed part only, and its
+  span says so.
+</ResponseField>
+
+<ResponseField name="wroteDisk(long bytes)" type="void — but throws">
+  Records that this call wrote bytes to the machine's disk.
+
+  **Not a recording call, and it does not behave like one.** A machine whose disk is
+  full cannot take the write, so this throws `IllegalStateException` when the cap is
+  exceeded and the handler fails the way it would have failed for real. Recording
+  the write and carrying on would let a design that cannot fit on its disks appear
+  to work.
+
+  Silent outside a run — a unit test has no disk to fill.
+</ResponseField>
+
+## Time
+
+<ResponseField name="sleep(double refMs)" type="void">
+  Waits, for a duration written in reference-machine time. `sleep(200)` waits two
+  hundred milliseconds of the simulated world, whatever the compression is.
+
+  **Waiting is not work**, and two things follow: it does not stretch on a degraded
+  machine, where `@Takes` does; and it does not mark the machine busy, because a
+  backoff occupies no vCPU.
+
+  For a duration only the running program knows — a backoff that grows with the
+  attempt, a poll interval, a lease. Returns immediately outside a run.
+</ResponseField>
+
+## State — throws outside a run
+
+<ResponseField name="machine()" type="String">
+  The name of the machine serving this call.
+</ResponseField>
+
+<ResponseField name="here()" type="Spec">
+  What this machine is made of: instance type, zone, vCPUs and caps. Local knowledge
+  only — this machine's, never a peer's. Free to call.
+  [Spec →](/ref/api-spec)
+</ResponseField>
+
+<ResponseField name="peers()" type="List<String>">
+  Every **other** machine in the fleet, by name.
+</ResponseField>
+
+<ResponseField name="peersServing(String service)" type="List<String>">
+  The machines serving a given gRPC service, by name — the service's name as written
+  in the `.proto`, bare (`Thumbnailer`) or qualified (`lab.Thumbnailer`).
+
+  Never includes this machine: a blocking call to itself would occupy one of its own
+  pool threads waiting for another. Dead machines are not listed.
+</ResponseField>
+
+<ResponseField name="channelTo(String machine)" type="io.grpc.Channel">
+  A channel to another machine, with losim on it. Made once and owned by the
+  machine, so a handler never sees a lifetime.
+
+  What comes back is an ordinary `io.grpc.Channel` — hand it to a generated stub and
+  the call site is plain gRPC. What it is **not** is a channel of your own: losim
+  rides on gRPC's own interceptors, and a channel built by hand has none of them
+  attached.
+</ResponseField>
+
+<ResponseField name="clockMs()" type="double">
+  Simulated milliseconds since the run began — the clock the scenario was written
+  against, not wall clock.
+</ResponseField>
+
+## Outside a run
+
+```
+no simulation is running, so Losim.current().peers() has no answer here.
+Recording calls (reveal, log, records) are silent outside a run; state calls are
+not, because a fabricated fleet would make a passing test meaningless.
+```
+
+## Every method meters its own body
+
+These run inside your handler, on the machine's own thread, between the two marks
+that measure that machine. So what losim spends here is charged to losim and taken
+back off what the machine reports.
+
+The boundary is exact and worth knowing: in `reveal("keys", map.size())` the
+`size()` is **your** cost and stays with your program; everything after the argument
+is evaluated is losim's. [Self-accounting →](/engine/self-accounting)

@@ -1,0 +1,169 @@
+---
+title: "7. Read the trace"
+description: "Five channels, and the three questions to ask them first."
+icon: "magnifying-glass-chart"
+---
+
+`build/thumbs.json` is the only artefact that matters. The bill reads it, the
+viewer reads it, and your own assertions should read it too.
+
+```json build/thumbs.json (abridged)
+{
+  "schema": 2,
+  "meta": {
+    "schemaVersion": 2, "kTime": 4.0, "telemetry": "FULL",
+    "scenario": "thumbs.yaml", "seed": 7, "job": "lab.ThumbnailJob",
+    "completed": true, "durationRefMs": 2416, "trusted": true
+  },
+  "machines": [
+    { "name": "w0", "instance": "c5.large", "zone": "eu-central-1a", "vcpu": 2,
+      "serves": ["Thumbnailer"], "memoryMb": 41.2, "allocMb": 388.4,
+      "diskMb": 0.0, "wireMb": 6.31, "inMb": 24.9, "crossZoneMb": 0.0,
+      "calls": 41, "losimMb": 0.44, "losimRegions": 1284,
+      "memCapMb": 4096.0, "alive": true }
+  ],
+  "events": [
+    { "t": 0.0,    "kind": "boot",          "vm": "w0", "detail": { "instance": "c5.large", "vcpu": 2 } },
+    { "t": 61.4,   "kind": "rpc_call",      "vm": "coordinator",
+      "detail": { "to": "w0", "method": "lab.Thumbnailer.Thumbnail", "call": 14 } },
+    { "t": 64.9,   "kind": "handler_start", "vm": "w0",
+      "detail": { "method": "lab.Thumbnailer.Thumbnail", "call": 14 } },
+    { "t": 71.2,   "kind": "state",         "vm": "w0", "detail": { "key": "frames", "value": 25 } },
+    { "t": 74.0,   "kind": "queue_wait",    "vm": "w3", "detail": { "ms": 18.4 } }
+  ],
+  "spans": [
+    { "id": 14, "parent": 2, "vm": "coordinator", "kind": "rpc",
+      "label": "lab.Thumbnailer.Thumbnail", "t0": 61.4, "t1": 79.9, "status": "OK",
+      "detail": { "to": "w0", "bytes": 611_432, "ms": 18.5, "netRefMs": 0.8 } },
+    { "id": 15, "parent": 14, "vm": "w0", "kind": "handler",
+      "label": "lab.Thumbnailer.Thumbnail", "t0": 64.9, "t1": 78.9, "status": "OK",
+      "records": 25,
+      "detail": { "call": 14, "inBytes": 611_432, "outBytes": 41_206, "status": "OK" } }
+  ],
+  "series": {
+    "dtMs": 6.0,
+    "t": [0.0, 6.0, 12.0, 18.0],
+    "channels": {
+      "w0.busyPct":  { "vm": "w0", "metric": "busyPct",  "form": "runs",
+                       "ticks": 402, "runs": [[0.0, 11], [100.0, 46], [50.0, 8]] },
+      "w0.memCapMb": { "vm": "w0", "metric": "memCapMb", "form": "constant",
+                       "ticks": 402, "value": 4096.0 }
+    }
+  }
+}
+```
+
+## Why three telemetry channels and not one
+
+A change log — one record per state change — is **silent exactly when a system is
+stuck**, which is exactly when you want to look at it. Measured against the
+questions a debugger answers, one channel answered one and a half out of five.
+
+<Columns cols={3}>
+  <Card title="events" icon="bolt">
+    Sparse, rich, one moment each. *This machine was killed. This call timed out.
+    This handler saw 25 frames.*
+  </Card>
+  <Card title="spans" icon="bars-staggered">
+    Intervals that carry a **parent across the RPC boundary**, so the span tree is
+    a real distributed call stack.
+  </Card>
+  <Card title="series" icon="chart-area">
+    Dense numbers on a fixed cadence. *And this is what everything held meanwhile.*
+    A stuck system produces as much evidence as a busy one.
+  </Card>
+</Columns>
+
+## The three questions to ask first
+
+<Steps>
+  <Step title="Did the work actually overlap?">
+    Look at the `handler` spans. If `w0`'s handler ends before `w1`'s begins,
+    every time, your fan-out is sequential and your fleet is one machine with
+    extra steps.
+
+    ```bash
+    python3 -c "
+    import json; t = json.load(open('build/thumbs.json'))
+    h = [s for s in t['spans'] if s['kind'] == 'handler']
+    print('handlers:', len(h))
+    print('span of time:', min(s['t0'] for s in h), '->', max(s['t1'] for s in h))
+    print('busy time summed:', round(sum(s['t1'] - s['t0'] for s in h), 1))
+    "
+    ```
+
+    Summed busy time much larger than the wall span means real concurrency.
+    Roughly equal means you built a queue.
+  </Step>
+
+  <Step title="Did every machine get work?">
+    ```bash
+    python3 -c "
+    import json, collections; t = json.load(open('build/thumbs.json'))
+    print(collections.Counter(m['name'] + ':' + str(m['calls'])
+          for m in t['machines']))
+    "
+    ```
+
+    A machine with zero calls is usually a discovery bug — the wrong service name,
+    or a coordinator that found peers once and cached them.
+  </Step>
+
+  <Step title="Did anything queue, or fill up?">
+    `queue_wait` events say a call waited for a core. A few are healthy. A wall of
+    them on one machine says your placement is ignoring how big the machines are —
+    which, with a `t3.small` in the fleet, is what you should expect on the first
+    attempt.
+
+    `oom` and `disk_full` events name the machine, the resource, the cap and the
+    **measured** demand.
+  </Step>
+</Steps>
+
+## Two traps in the format
+
+<Warning>
+**`method` is dotted.** gRPC writes `lab.Thumbnailer/Thumbnail`; the trace writes
+`lab.Thumbnailer.Thumbnail`, everywhere, so that everything downstream can split
+on a dot. If you are matching method names, match the dotted form.
+
+**Payload collections are truncated at 12 entries** with a `"+1106 more"` marker.
+The real count is *kept plus marker*, never the surviving length. A `Batch` of 25
+frames renders as 12 frames and a marker — do not read that as 12.
+</Warning>
+
+## What `machines` gives you that events do not
+
+The `machines` array is the run's **closing balance**, not a moment: peak retained
+memory, total disk, bytes out and in, cross-zone bytes, calls handled, and the
+caps each machine was under.
+
+It is a separate channel rather than a fifth kind of event because these are not
+moments. Anything that reasons about quantities rather than about what happened —
+the bill, a comparison against ground truth, a machine's row in the viewer — needs
+them without reconstructing a peak from a series that was quantised for scrubbing
+and may have missed the last walk entirely.
+
+<Note>
+`memoryMb` is **peak retained heap** — what the machine was still holding.
+`allocMb` is everything it ever allocated. Those are different numbers and only
+the first one decides an out-of-memory. A design that accumulates and a design
+that streams allocate about the same; only one of them dies.
+</Note>
+
+## Or look at it instead
+
+Everything on this page is a question you can also answer by watching the run:
+
+```bash
+java -cp "$CP" losim.cli.Main run thumbs.yaml \
+     --cp build/classes --out build/runs/thumbs.json
+```
+
+Did the work overlap, did every machine get work, did anything queue or fill up — the
+film answers all three at a glance, and the scrubber puts a marker on every moment
+something went wrong. [The viewer →](/viewer/index)
+
+<Card title="Next: break it" icon="arrow-right" href="/first/break-it">
+  Kill a machine mid-run and watch how the coordinator finds out.
+</Card>

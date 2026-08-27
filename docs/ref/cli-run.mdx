@@ -1,0 +1,94 @@
+---
+title: "losim run"
+description: "Run a scenario and write the trace everything downstream reads."
+icon: "terminal"
+---
+
+```bash
+java -cp build/losim.jar losim.cli.Main run <scenario.yaml> [options]
+```
+
+In practice the classpath needs the vendored jars and your classes too:
+
+```bash
+CP=$(ls vendor/jars/*.jar | tr '\n' ':')
+java -Xmx3g -cp "${CP}build/losim.jar:build/classes" \
+     losim.cli.Main run thumbs.yaml --cp build/classes --out build/thumbs.json
+```
+
+## Options
+
+<ParamField path="--cp <paths>" type="path list" default="the JVM's own classpath">
+  Colon-separated **directories** where the job and the services are compiled to.
+  losim loads the classes the scenario names from here, and the trust verifier
+  reads their bytecode from here.
+
+  A jar is not walked. If you point this at one, the run happens and the trace
+  records that nothing was checked:
+  *"A jar is not walked; point --cp at the directory the lab compiles to."*
+</ParamField>
+
+<ParamField path="--out <file>" type="path" default="build/<scenario>.json">
+  Where to write the trace. Parent directories are created.
+
+  <Tip>
+  Point it at **`build/runs/`** and the viewer picks the run up with no arguments
+  and no configuration:
+
+  ```bash
+  --out build/runs/mine.json
+  ```
+
+  [Opening a trace in the viewer →](/viewer/opening-a-trace)
+  </Tip>
+</ParamField>
+
+<ParamField path="--seed <n>" type="long">
+  Overrides the scenario's `seed`. Everything drawn from the seed changes with it:
+  chaos placement, network jitter, packet loss, and — through `cluster.seed()` —
+  your own workload.
+</ParamField>
+
+<ParamField path="--telemetry <level>" type="FULL | NO_PAYLOAD | OFF" default="FULL">
+  `FULL` records everything including every call's real argument and real result.
+  `NO_PAYLOAD` keeps events, spans and series but renders nothing. `OFF` keeps
+  nothing at all — the baseline the other two are measured against.
+</ParamField>
+
+## Environment
+
+<ParamField path="LOSIM_DEBUG" type="set / unset">
+  When set, an exit-code-3 failure prints its stack trace as well as its message.
+  Kept behind a switch so an ordinary run reads like a tool rather than like a
+  crash.
+</ParamField>
+
+## Output
+
+Direct mode:
+
+```
+thumbs.yaml  seed 7  completed in 2416 refMs
+  1044 events, 322 spans, 68 series -> build/thumbs.json
+```
+
+Plus, when they apply: the failure that ended the run; one line per machine that ran
+out of memory or disk; and the trust block.
+
+Scaled mode prints the plan, the fitted laws, the refusals, and both scales for
+every measurement. [Scaled mode →](/run/scaled-mode)
+
+## Exit codes
+
+| | |
+|---|---|
+| `0` | the job completed |
+| `1` | the job did not complete — it threw, or outstayed **ten times** its `expectedRun`; or scaled mode found no feasible size |
+| `2` | the scenario is wrong. Nothing ran. |
+| `3` | something went wrong inside losim |
+
+<Note>
+A run that failed still writes its trace, with `meta.completed: false` and
+`meta.failure` naming the cause. A run that failed is a result, not an absence of
+one.
+</Note>

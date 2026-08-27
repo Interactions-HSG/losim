@@ -1,0 +1,172 @@
+---
+title: "Memory"
+description: "What a machine holds versus what it allocated, and why only one of them kills it."
+icon: "memory"
+---
+
+## Two numbers, and they are not the same
+
+| | |
+|---|---|
+| **`allocMb`** | everything this machine ever allocated, exactly, from `getThreadAllocatedBytes` on its own pool threads. |
+| **`memoryMb`** | the **most it was ever seen holding** — a retained-heap walk from the machine's own service instances. |
+
+A design that accumulates and a design that streams allocate about the same amount.
+Only one of them dies. Allocation cannot tell them apart; retention can, and
+retention is what the cap is enforced against.
+
+```
+accumulating service: allocated 21.9 MB, retains 20.6 MB
+streaming service:    allocated 15.6 MB, retains  0.0 MB
+```
+
+## Running out
+
+When a walk finds a machine holding more than its cap:
+
+```json
+{ "kind": "oom", "vm": "w2", "detail": {
+    "resource": "memory", "capMb": 4.0, "demandMb": 11.83,
+    "objects": 148_221, "cause": "retained heap exceeded the machine" } }
+```
+
+and the machine is killed. It is a real failure with a real cause — your data
+structure, in your code — and the caller finds out the way it finds out about any
+dead machine: by running out of time.
+
+<Note>
+The check runs on the sampler's cadence **and** once more at the end of the run,
+because a machine that fills up between the last walk and the end of the run has
+still filled up. A service handed its share in the closing moments is exactly that
+case, and without the final walk it would be reported as comfortably inside a cap
+it had already exceeded — the one direction an out-of-memory must never be wrong
+in.
+</Note>
+
+## Where the boundary of a machine is
+
+The walk starts from the machine's own service instances — whatever your
+`BindableService` objects hold in their fields — and stops at anything that is not
+this machine's data:
+
+<Columns cols={2}>
+  <Card title="Counted" icon="check">
+    Your fields. Your collections. The protobuf messages you are holding, which
+    are exactly your data.
+  </Card>
+  <Card title="Not counted" icon="xmark">
+    Another machine. The fleet. Telemetry, spans, the clock, the network. gRPC's
+    transport, which everyone shares. Servers, channels, executors, threads.
+  </Card>
+</Columns>
+
+So if a machine needs to hold something that does not hang off a service:
+
+```java
+Losim.current();                      // …no. There is no API for this from a handler.
+```
+
+it has to be reachable from a service instance. Put it in a field. A cache in a
+static field is not this machine's — it is *everyone's*, which is a different
+problem and is [flagged](/engine/trust).
+
+## Making a design fill up on purpose
+
+Memory caps come from the instance type, and a scenario can override one machine:
+
+```yaml
+machines:
+  workers:
+    count: 4
+    prefix: w
+    instance: c5.large              # 4096 MB
+    serves: [lab.Shrinker]
+    overrides:
+      w2: { memoryMb: 4 }           # cannot hold its share, and will say so
+```
+
+That is the cheapest way to find out whether your design degrades or collapses when
+one machine is smaller than the others — and whether the rest of the fleet notices.
+
+<Tip>
+In **scaled mode** you do not write caps at all. The engine solves for them, per
+machine and per resource, so that demand-over-capacity is preserved: a design that
+would exhaust a 16 GiB machine at full scale exhausts its scaled-down counterpart
+here, for the same reason. [How caps are solved →](/engine/solving-caps)
+</Tip>
+
+## What the series shows
+
+Per machine, per tick:
+
+| channel | |
+|---|---|
+| `retainMb` | what it is holding now |
+| `memCapMb` | its cap |
+| `memPct` | the first over the second |
+| `allocMb` | what it has allocated so far, cumulative |
+
+The heap walk costs about 0.06 µs per object, so a busy machine is walked every
+eighth tick rather than every tick. `retainMb` therefore steps rather than glides —
+that is the cadence, not your program.
+
+## Keeping a design honest
+
+<AccordionGroup>
+  <Accordion title="Hold the answer, not the input" icon="lightbulb">
+    A handler that keeps the request alive in order to build the response holds
+    both. Building into a fresh message and letting the request go is usually the
+    difference between fitting and not.
+  </Accordion>
+  <Accordion title="Streaming beats accumulating, and losim will prove it" icon="water">
+    Two services, the same work, one keeping its answers and one not. Run both
+    against the same cap and read `memoryMb` from the `machines` channel. The
+    numbers are the argument.
+  </Accordion>
+  <Accordion title="reveal the variable, not just the size" icon="eye">
+    `reveal("distinctItems", index.size())` tells the scale engine what your memory
+    is *really* a function of. Peak memory on an accumulating machine is usually a
+    function of how many distinct things it saw, not how many records went past —
+    and the two grow at different rates. Fitting against the wrong one gives an
+    exponent that will not survive a change of input. [Writing to
+    scale →](/write/writing-to-scale)
+  </Accordion>
+</AccordionGroup>
+
+## See it
+
+One machine deliberately too small for what it is asked to hold:
+
+```yaml filling-up.yaml
+seed: 1
+kTime: 2
+job: lab.AccumulateJob
+expectedRun: 4 refSeconds
+workload: { records: 20000 }
+
+machines:
+  coordinator: { instance: m5.large, zone: eu-central-1a }
+  workers:
+    count: 3
+    prefix: w
+    instance: c5.large
+    zone: eu-central-1a
+    serves: [lab.Accumulator]
+    overrides:
+      w2: { memoryMb: 8 }        # cannot hold its share, and will say so
+```
+
+```java RunExperiments.java
+Experiments.here()
+        .run("thumbs", "filling-up.yaml")
+        .show();
+```
+
+**What to look for.** `w2` is drawn the same size as its peers but fills up visibly
+faster, and the number under it — **how much is left** — runs down to nothing. Press
+`]` to jump straight to the `oom` marker. Pin `w2` first and you watch it happen
+rather than discover that it did.
+
+<Card title="Next: disk" icon="arrow-right" href="/write/disk">
+  A write that can be refused.
+</Card>

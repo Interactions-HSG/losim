@@ -1,0 +1,193 @@
+---
+title: "Writing a job that can be scaled"
+description: "Four things a system has to do before the engine can project it — and what happens when it does not."
+icon: "up-right-and-down-left-from-center"
+---
+
+Scaled mode declares a size no laptop can hold, shrinks the workload **and** the
+machines by the same factor, runs what fits, and projects full-scale numbers from
+what it actually observed.
+
+That only works if your system cooperates. Four things.
+
+## 1. Take the workload from `Cluster`, not from a constant
+
+```java
+List<Frame> album = cluster.compute("read the album",
+        () -> Album.of(cluster.records(), cluster.seed()));   // ← both from the scenario
+```
+
+<Warning>
+A job that generates a fixed amount of work **cannot be scaled**, and the trace
+will say so: the engine varies `records` up the probe ladder, sees nothing move,
+and finds that no resource is a function of anything.
+
+The same goes for the seed. A workload that draws from a constant of its own is a
+workload whose every run is the same afternoon — so the engine's twenty probe runs
+measure one thing twenty times, and the error bar it computes is meaningless.
+</Warning>
+
+## 2. Declare how much each call processed
+
+```java
+Losim.current().records(request.getFramesCount());
+```
+
+Without it, `@Takes(refNsPerRecord = …)` charges nothing and the engine has no
+per-call independent variable.
+
+## 3. Reveal what your resources are *actually* functions of
+
+This is the one that decides whether a projection is any good.
+
+```java
+Losim.current().reveal("distinctItems", index.size());
+Losim.current().reveal("payloadKb", bytes / 1024.0);
+```
+
+Peak memory on a machine that accumulates is usually **not** a function of how many
+records went past. It is a function of how many *distinct* things it had to hold —
+and that grows at a different rate. Fit against the wrong variable and you get an
+exponent that will not survive a change of input.
+
+<Note>
+Measured on a workload where those two genuinely diverge: fitting memory against
+the revealed distinct count gives R² 1.0000 and a projection within 3% of ground
+truth. Fitting it against records gives a projection **34% out** — which is exactly
+what multiplying the small run by the size ratio would have got you.
+
+Every numeric `reveal` becomes a candidate variable. The engine fits each resource
+against every candidate and keeps the one that would be **reproduced**, not the one
+with the best R². [How the laws are chosen →](/engine/laws)
+</Note>
+
+## 4. Let the fleet vary independently of the data
+
+The probe grid varies data size and fleet size on separate axes, and regenerates
+every pool that has more than one machine at the size it wants. That works as long
+as your job asks the fleet how big it is:
+
+```java
+var workers = cluster.serving("Thumbnailer");    // however many there are
+```
+
+A job with `for (int i = 0; i < 4; i++)` hard-coded in it cannot be run at two
+workers or at eight, so the fleet axis collapses — and a resource that grows with
+the fleet becomes indistinguishable from one that grows with the data. That is the
+failure mode that makes every projection plausible and wrong, because nothing looks
+broken.
+
+<Tip>
+Singleton machines — the coordinator — are left alone when the fleet is resized.
+Only pools with `count:` are regenerated, so put your workers in a pool.
+</Tip>
+
+## What a scaled scenario looks like
+
+```yaml thumbs-scaled.yaml
+mode: scaled
+seed: 5
+kTime: 20
+job: lab.ThumbnailJob
+expectedRun: 30 refSeconds
+
+workload:
+  records: 40000000            # forty million frames, which is the design's problem
+  probe: [1000, 2000, 4000, 8000]
+  fleets: [2, 4]
+
+machines:
+  coordinator:
+    instance: m5.2xlarge
+    zone: eu-central-1a
+  workers:
+    count: 4
+    prefix: w
+    instance: r5.large         # memory-shaped, because holding is what fills up
+    zone: [eu-central-1a, eu-central-1b]
+    serves: [lab.Shrinker]
+```
+
+Note what is **not** there: no caps, and no shrink factor. The engine solves for the
+caps per machine and per resource, and a hand-declared factor would be a third mode
+whose numbers nobody could account for.
+
+## What comes out
+
+```
+thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 records (x5,000), k_time 20
+                                              [plan fitted from 30 probe runs in 41.2s]
+
+  memoryMb   = 0.0597 + 0.00187 * revealed.distinctItems^1.013  (R2 1.0000, wobble 0.000)
+  wireMb     = 0.0    + 0.000151 * records^0.952                (R2 1.0000, wobble 0.004)
+  diskMb       REFUSED: the ladder bends — over the lower half it grows as records^0.59
+               and over the upper half as records^0.87 …
+  makespan     REFUSED: its exponent moves by 0.66 between independent seed sets of the
+               same workload, which over a factor of 5000 is an error bar of x268 …
+
+                     observed              projected
+  memoryMb              6.823                34.07 k  +-x1.10
+  wireMb                0.460                 2.63 k  +-x1.04
+```
+
+Two resources projected with error bars, two refused with reasons. **That is a
+correct output, not a partial one.** A projection carries its confidence or it is
+absent; a field filled with a plausible number is indistinguishable from a good one
+until the cluster bill arrives.
+
+## The habits that make a design projectable
+
+<AccordionGroup>
+  <Accordion title="Avoid thresholds, or expect the disk law to be refused" icon="stairs">
+    Code that switches behaviour above some size — spilling above a count, changing
+    algorithm above a length — makes the ladder **bend**, and no extrapolation
+    across a bend means anything. The engine catches it by splitting the ladder in
+    half and comparing the exponents.
+
+    This is not a reason to write worse code. It is a reason to know that *this*
+    resource cannot be projected from *this* probe range, which is a true and
+    useful thing to be told.
+  </Accordion>
+  <Accordion title="Keep fixed overhead small relative to the variable part" icon="weight-hanging">
+    The engine refuses a run size where the variable part is less than **ten times**
+    the fixed overhead, because below that the fit is describing the overhead rather
+    than the workload:
+
+    ```
+    memoryMb at 8000 records is only 2.4x its own fixed overhead (0.31 against
+    0.13); below 10x the fit is describing the overhead rather than the workload
+    ```
+
+    A 64 MB index that every machine holds regardless of the workload will do this.
+    Either give the probe ladder bigger rungs, or accept that this resource is
+    dominated by something the workload does not move.
+  </Accordion>
+  <Accordion title="Declare faults if you want the projection to survive them" icon="cloud-bolt">
+    A killed machine's work is redone elsewhere, so a survivor absorbs its share —
+    measured, that roughly doubles peak memory. A model fitted only on clean runs
+    under-predicts by that much, and it under-predicts **optimistically**.
+
+    The grid runs a fault column when the scenario declares any weather, and folds
+    the result in as an amplification term. A scenario with no faults gets a note
+    saying the projection describes a fleet where nothing goes wrong.
+  </Accordion>
+  <Accordion title="Do not expect a timeline" icon="clock">
+    The makespan is the noisiest thing losim measures, and on short handlers its
+    exponent moves more between seed sets than the effect being measured. It is
+    routinely refused — and because capacity is the largest line on the bill and
+    depends on the timeline, the projected bill routinely says nobody can tell you
+    what the machines cost.
+
+    That is the useful answer. It says where the uncertainty in the cost of a
+    design actually lives.
+  </Accordion>
+</AccordionGroup>
+
+<CardGroup cols={2}>
+  <Card title="Running scaled mode" icon="play" href="/run/scaled-mode">
+    The commands, the plan cache, and reading the output.
+  </Card>
+  <Card title="How the engine decides" icon="gears" href="/engine/laws">
+    Candidate variables, wobble, and why R² is not the test.
+  </Card>
+</CardGroup>

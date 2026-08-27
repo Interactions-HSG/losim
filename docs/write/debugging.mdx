@@ -1,0 +1,290 @@
+---
+title: "Debugging gRPC, without losim"
+description: "Four levels of isolation. Start at the one where a breakpoint still means something."
+icon: "bug"
+---
+
+The two-layer design has a payoff nobody mentions until something breaks:
+**your system runs perfectly well without the simulator.** It is ordinary gRPC. So
+when something is wrong, the first question is not *what is losim doing* — it is
+*which layer is this in*, and the way to answer that is to take layers away.
+
+<Warning>
+**Do not put a breakpoint in a running simulation as a first move.**
+
+A run is real threads on a real wall clock. Stopping one machine's pool thread does
+not stop the others, does not stop the clock, does not stop the sampler and does not
+stop the fault dispatcher. Every duration, every deadline and every fault time in
+that run is now wrong, and the trace will show a fleet that was never there.
+
+There is a place for it — [level 4](#level-4-inside-a-run) — but it is the last
+resort, not the first.
+</Warning>
+
+## Level 1 — the handler, alone
+
+Nothing simulating anything. This is where a breakpoint means exactly what it
+means in any other Java program, because nothing else is running.
+
+```java
+@Test void oneFrameBecomesOneThumbnail() {
+    var shrinker = new Shrinker();                       // ← breakpoint here
+    Thumbs thumbs = shrinker.thumbnail(oneBatch());      // ← step into this
+    assertEquals(1, thumbs.getThumbsCount());
+}
+```
+
+Step into `thumbnail`. It is your code, called directly, on the test thread.
+
+| what this catches | |
+|---|---|
+| wrong arithmetic, wrong loop bounds, an off-by-one in the output | almost everything, in practice |
+| a builder you forgot to `build()` | yes |
+| a message field you never set, so it silently defaults | yes |
+| anything about how machines behave together | **no** |
+
+<Note>
+`Losim.current()` still resolves here and does nothing: recording calls are silent,
+state calls throw. So a handler that reveals and records is testable as it stands.
+[The full asymmetry →](/write/unit-testing)
+</Note>
+
+## Level 2 — two handlers, wired by hand
+
+Still no gRPC. If handler A calls handler B, test the pair by calling the methods
+directly:
+
+```java
+@Test void aForwardedBatchComesBackWhole() {
+    var big   = new Shrinker();
+    var small = new Shrinker();
+
+    // Whatever your handler would have done over a channel, done as a method call.
+    Thumbs thumbs = small.thumbnail(batchOf(40));
+    assertEquals(40, thumbs.getThumbsCount());
+}
+```
+
+This catches protocol logic — *did I put the right thing in the request, do I read
+the right thing out of the reply* — with no transport in the way at all. Most
+"distributed" bugs are actually here.
+
+## Level 3 — real gRPC, in a test, with no simulator
+
+<div id="level-3" />
+
+When you genuinely suspect the wire — a marshalling problem, a status that is not
+what you thought, a `oneof` that renders wrong — stand up a real gRPC server in the
+test. grpc-java's in-process transport is vendored, so this costs nothing:
+
+```java test/WireTest.java
+import io.grpc.*;
+import io.grpc.inprocess.*;
+import lab.pb.*;
+import org.junit.jupiter.api.*;
+
+class WireTest {
+
+    private Server server;
+    private ManagedChannel channel;
+    private ThumbnailerGrpc.ThumbnailerBlockingStub stub;
+
+    @BeforeEach void start() throws Exception {
+        String name = InProcessServerBuilder.generateName();
+
+        // directExecutor: the handler runs on the CALLING thread, so a breakpoint
+        // inside it stops everything, and the stack you land in goes all the way
+        // back to the test. That is the whole reason to do it this way.
+        server = InProcessServerBuilder.forName(name)
+                .directExecutor()
+                .addService(new Shrinker())
+                .build()
+                .start();
+
+        channel = InProcessChannelBuilder.forName(name).directExecutor().build();
+        stub = ThumbnailerGrpc.newBlockingStub(channel);
+    }
+
+    @AfterEach void stop() {
+        channel.shutdownNow();
+        server.shutdownNow();
+    }
+
+    @Test void aBatchSurvivesTheWire() {
+        Thumbs thumbs = stub.thumbnail(batchOf(3));      // ← step into the handler
+        assertEquals(3, thumbs.getThumbsCount());
+    }
+
+    @Test void aFailureCarriesItsReason() {
+        var e = assertThrows(StatusRuntimeException.class,
+                () -> stub.thumbnail(Batch.getDefaultInstance()));
+        assertEquals(Status.Code.INTERNAL, e.getStatus().getCode());
+        assertTrue(e.getStatus().getDescription().contains("empty"));  // your adapter's message
+    }
+}
+```
+
+This is the level at which you can check things a simulation would only obscure:
+
+- that your **adapter turns an exception into a status with a description**, rather
+  than a bare `UNKNOWN` — which is the difference between a readable trace and a
+  blank row;
+- that a `oneof` or a `map` field round-trips the way you expect;
+- that a `NO_SIDE_EFFECTS` annotation actually landed on the descriptor:
+  ```java
+  assertTrue(ThumbnailerGrpc.getThumbnailMethod().isIdempotent()
+          || ThumbnailerGrpc.getThumbnailMethod().isSafe());
+  ```
+  which is precisely what losim's [retry gate](/write/retries) will check later, and
+  much easier to diagnose here than as a scenario refusal.
+
+<Warning>
+**`ManagedChannelBuilder`, `InProcessServerBuilder` and `directExecutor()` are all
+things the verifier flags** — in a *system*. Here they are correct, because there is
+no simulation to be wrong about.
+
+Keep this code in a **test source set that no service or job references.** The
+verifier walks outward from the classes your scenario names; a test nothing points
+at is never reached. If you put a harness like this in a class your service imports,
+it will be walked, and it will be flagged — rightly, because then it could run
+inside a real fleet.
+</Warning>
+
+### What is *not* true at this level
+
+| | |
+|---|---|
+| `@Takes` | does nothing. There is no interceptor, so no duration is slept. |
+| `k_time` | does not exist. Everything is your afternoon. |
+| memory and disk caps | not enforced. Nothing is walking the heap. |
+| `peers()`, `channelTo()`, `here()` | throw — there is no fleet. |
+| byte counts, spans, faults | not recorded. |
+
+So never conclude anything about *performance* from level 3. It is for behaviour.
+
+## Level 4 — inside a run
+
+<div id="level-4-inside-a-run" />
+
+When the bug is genuinely about how machines behave together, the trace is the
+debugger — that is what the three channels are for. Reach for these in order:
+
+<Steps>
+  <Step title="Shrink the fleet and stop compressing time">
+    ```yaml
+    kTime: 1                 # no compression: refMs are real ms, and easier to reason about
+    machines:
+      coordinator: { instance: m5.large, zone: eu-central-1a }
+      w0:          { instance: m5.large, zone: eu-central-1a, serves: [lab.Shrinker] }
+    faults: []               # nothing goes wrong yet
+    ```
+    One coordinator, one worker, no weather. If it is broken here, none of the
+    interesting things are the cause.
+  </Step>
+
+  <Step title="Read the span tree, not the events">
+    Every server span is opened **under** the call that reached it, so the tree is a
+    real distributed call stack.
+
+    The fastest way to read it is the [Spans view](/viewer/views#spans):
+
+    ```java RunExperiments.java
+    Experiments.here().run("mine").show();   // then: view=spans
+    ```
+
+
+    Each bar is segmented into **out / queue / working / back**, so "it was slow" is
+    immediately "it waited 300 refMs for a core". Self time is drawn lighter inside
+    the bar, the critical path is outlined, and `slower than` finds a straggler
+    instead of making you notice one.
+
+    Or print it, which needs nothing but python:
+
+    ```python
+    import json, collections
+    t = json.load(open("build/mine.json"))
+    kids = collections.defaultdict(list)
+    for s in t["spans"]: kids[s["parent"]].append(s)
+
+    def show(pid, depth=0):
+        for s in sorted(kids[pid], key=lambda s: s["t0"]):
+            print(f'{"  "*depth}{s["vm"]:<12} {s["kind"]:<8} {s["label"]:<34} '
+                  f'{s["t0"]:8.1f} -> {s["t1"]:8.1f}  {s["status"]}')
+            show(s["id"], depth + 1)
+    show(0)
+    ```
+
+    A call that hangs off the **root** instead of under its caller means the parent
+    header did not travel — almost always a channel you built yourself. In the
+    waterfall it is the row with no indent that should have had one.
+  </Step>
+
+  <Step title="Turn payloads on and read what actually crossed">
+    `--telemetry FULL` is the default and records every call's real argument and
+    real result. If a handler produced the wrong answer, the argument it was given
+    is right there in its span's `detail.arg`.
+  </Step>
+
+  <Step title="Ask losim for its own stack">
+    ```bash
+    LOSIM_DEBUG=1 java -cp "$CP" losim.cli.Main run mine.yaml --cp build/classes
+    ```
+
+    Exit code 3 means something went wrong **inside losim**, and one line of it is
+    not enough to find. This prints the stack behind it. Exit code 2 is your
+    scenario and already reads like a compiler error.
+  </Step>
+
+  <Step title="Only then, a breakpoint">
+    If you must: use **one worker**, `kTime: 1`, no faults, no chaos, a generous
+    `expectedRun`, and no deadline on the call you are stopping inside. Accept that
+    every number in the resulting trace is fiction — you are looking at control
+    flow, not at measurements.
+  </Step>
+</Steps>
+
+## Symptom table
+
+<AccordionGroup>
+  <Accordion title="Every call times out, and nothing looks wrong">
+    Check for a deadline that is too tight for the declared cost plus queueing.
+    Then check `queue_wait` — a two-vCPU machine given eight concurrent calls takes
+    four waves, and the fourth wave's caller may have given up before its turn.
+  </Accordion>
+  <Accordion title="The run takes ten times as long as it should, and ends in timeouts">
+    A stub with **no deadline** waits five reference seconds before losim gives up
+    on your behalf. Set deadlines.
+  </Accordion>
+  <Accordion title="One machine does all the work; the others show zero calls">
+    Discovery. You are almost certainly passing the Java class name to
+    `peersServing`, where it wants the **service name from the `.proto`** — or you
+    fetched the peer list once and are indexing it with something that is always
+    zero.
+  </Accordion>
+  <Accordion title="Handlers never overlap — the span tree is a staircase">
+    A blocking stub inside the dispatch loop. Use `newFutureStub`, dispatch
+    everything, then collect. [Calling peers →](/write/calling-peers)
+  </Accordion>
+  <Accordion title="`Losim.current()` throws inside a handler">
+    ```
+    this thread has no machine: work started on a thread the machine did not create…
+    ```
+    Something is running your work on a thread the machine did not create — a raw
+    `Thread`, an `Executors` pool, `CompletableFuture.supplyAsync`, or a
+    `parallelStream`. [Concurrency →](/write/concurrency)
+  </Accordion>
+  <Accordion title="It works, but the numbers are implausibly good">
+    Read the trust block at the end of the run. A channel built by hand costs no
+    bytes and survives partitions; a real file bypasses the disk cap; a static field
+    shared between machines makes every per-machine figure meaningless.
+    [Trust markers →](/engine/trust)
+  </Accordion>
+  <Accordion title="The scenario is refused and nothing runs">
+    Exit code 2, with the file and line. That is the loader, and the message names
+    exactly what is wrong. [Messages →](/ref/messages)
+  </Accordion>
+</AccordionGroup>
+
+<Card title="Next: writing to scale" icon="arrow-right" href="/write/writing-to-scale">
+  What a job has to do to be projectable.
+</Card>

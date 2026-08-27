@@ -1,0 +1,163 @@
+---
+title: "Trust rules"
+description: "Everything that makes a number stop meaning what it says — flagged, never refused."
+icon: "shield-halved"
+---
+
+The verifier reads your compiled classes **before anything runs**, walking outward
+from the job and the services the scenario names. It never fails a run.
+
+<Note>
+Each rule names something that yields a **wrong number** rather than a broken run.
+Code that reads the real clock still works; it simply reports the host's afternoon as
+though it were the simulated world, and the two differ by `k_time`.
+
+So the useful output is not *"this code is bad"* but *"this number is a lower
+bound"*, attached to the machine and to the figure it undermines.
+</Note>
+
+## The eight rules
+
+<AccordionGroup>
+  <Accordion title="REAL_CLOCK — reads the real clock" icon="clock">
+    Every duration losim knows is reference time divided by `k_time`. A handler that
+    reads the host clock gets your afternoon instead, mixes the two scales in one
+    number, and reports whichever the code happened to use.
+
+    `System.nanoTime`, `System.currentTimeMillis`, `Instant.now`, `LocalDate.now`,
+    `LocalDateTime.now`, `LocalTime.now`, `OffsetDateTime.now`, `OffsetTime.now`,
+    `ZonedDateTime.now`, `Year.now`, `YearMonth.now`, `Clock.system*`
+
+    **Instead:** `Losim.current().clockMs()`.
+  </Accordion>
+
+  <Accordion title="REAL_SLEEP — sleeps in host milliseconds" icon="bed">
+    The same lie from the other end, and it is about the **unit** rather than about
+    waiting. A hand-rolled backoff that sleeps 100 ms sleeps 100 ms whatever `k_time`
+    is — at a compression of forty, four thousand reference milliseconds.
+
+    `Thread.sleep`, `TimeUnit.sleep`, `LockSupport.parkNanos`, `LockSupport.parkUntil`
+
+    **Instead:** `Losim.current().sleep(refMs)`.
+
+    Blocking on real work — a latch, a future, `Object.wait`, a bare
+    `LockSupport.park()` — is **not this and is not flagged**: waiting for something
+    that is happening is what a distributed program is mostly made of, and its length
+    is set by that something's own progress. Timed forms of those are left alone too,
+    because the timeout is only spent when the wait fails and a static check cannot
+    see which run that is.
+  </Accordion>
+
+  <Accordion title="UNATTRIBUTED_THREAD — work on a thread the machine did not create" icon="ghost">
+    A machine **is** its pool: every thread in it belongs to exactly one machine,
+    which is how allocation is attributed at all. A thread outside it is summed by
+    nobody and contends for nobody's cores.
+
+    `Thread.start`, `Thread.ofVirtual`, `Thread.startVirtualThread`, `Executors.*`,
+    `ForkJoinPool.*`, `CompletableFuture.supplyAsync`, `CompletableFuture.runAsync`,
+    `*.parallelStream`, `java.util.stream.*.parallel`
+
+    Virtual threads are here rather than in a rule of their own, because the failure
+    is the same one and switching to a platform thread would not fix it.
+
+    **Instead:** spread work by **calling more machines**, and let each machine's own
+    concurrency come from serving several calls at once on its pool. Raw threads are
+    not banned — real concurrency inside a machine is a feature. What is flagged is
+    work that is attributed to nobody.
+  </Accordion>
+
+  <Accordion title="FILE_IO — writes to a real disk" icon="hard-drive">
+    losim accounts disk through `Losim.current().wroteDisk(n)` and caps it per
+    machine. Bytes written past that are invisible to the cap and to every projection
+    of it — and they are written to the host, outside the one-machine boundary.
+
+    `java.nio.file.Files.*`, `FileOutputStream.*`, `FileInputStream.*`,
+    `FileWriter.*`, `FileReader.*`, `RandomAccessFile.*`, `File.delete`, `File.mkdir`,
+    `File.mkdirs`, `File.createNewFile`, `File.renameTo`
+  </Accordion>
+
+  <Accordion title="OUTSIDE_THE_JVM — reaches outside the JVM" icon="globe">
+    *On one machine* is the boundary the whole design rests on. Anything that leaves
+    the JVM is neither simulated, nor measured, nor reproducible on the next host.
+
+    `java.net.Socket.*`, `ServerSocket.*`, `DatagramSocket.*`, `URL.openStream`,
+    `URL.openConnection`, `java.net.http.*`, `SocketChannel.*`,
+    `ServerSocketChannel.*`, `ProcessBuilder.*`, `Runtime.exec`
+  </Accordion>
+
+  <Accordion title="OWN_CHANNEL — a channel or server the fleet did not make" icon="plug">
+    losim is on both sides of every call as gRPC's own interceptors: that is where
+    latency, loss, partitions, cost, spans and byte counts come from. A channel built
+    by hand has none of them attached, so the call happens and nothing in the trace
+    records that it did.
+
+    `ManagedChannelBuilder.*`, `ServerBuilder.*`, `Grpc.newChannelBuilder*`,
+    `Grpc.newServerBuilder*`, `io.grpc.inprocess.*`, `io.grpc.netty.*`,
+    `io.grpc.okhttp.*`
+
+    **Instead:** `Losim.current().channelTo(peer)` or `cluster.channelTo(machine)`.
+
+    <Note>
+    This is exactly what a [level-3 debugging harness](/write/debugging) uses — and
+    correctly, because there is no simulation to be wrong about. Keep such code in a
+    test source set that no service or job references, and the walk never reaches it.
+    </Note>
+  </Accordion>
+
+  <Accordion title="SHARED_STATE — mutable state in a static field" icon="share-nodes">
+    A static field is one field for the whole fleet, so a fleet of eight "machines"
+    holding a static map holds **one map**. It is the one flag that undermines every
+    per-machine figure at once.
+
+    **Constants are not this.** `static final String[] WORDS = {"a", "the"}` is a
+    table and is not flagged; `static final Map M = new HashMap<>()` is one map for
+    eight machines and is. The difference is that nothing is *called* to build the
+    second — the class initialiser is read, rather than the declaration guessed at.
+  </Accordion>
+
+  <Accordion title="MACHINES_TOUCHING — one machine reaching into another" icon="hand">
+    The sharpest form of the above, and worth saying separately because it is not a
+    measurement problem but a modelling one. A static handle on another machine's
+    service is a call that crosses no network, waits out no latency, survives a
+    partition, and keeps working after the machine at the other end is killed.
+  </Accordion>
+</AccordionGroup>
+
+## What is deliberately not a rule
+
+<Note>
+**Nothing is flagged for determinism's sake.** Unseeded `Random`, `Math.random` and
+identity-hash iteration order are all fine, because runs are not reproducible anyway
+and a sweep of seeds is the answer to that.
+
+**Raw threads are not banned.** Real concurrency inside a machine is a feature. Work
+outside the machine's own pool is merely attributed to nobody, and that is what gets
+said.
+</Note>
+
+## What a flag undermines
+
+Each rule carries a flag, and each flag names the measured resources it makes
+meaningless:
+
+| flag | consequence | undermines |
+|---|---|---|
+| `timeline` | its timeline is not projectable | `makespanRefMs` |
+| `memory` | its memory figure is a lower bound | `memoryMb`, `allocMb` |
+| `disk` | its disk figure is a lower bound | `diskMb` |
+| `wire` | its wire bytes are a lower bound | `wireMb` |
+| `isolation` | its figures are not only its own | **all of them** |
+
+In scaled mode the caveat is printed **beside the projection it undermines** — because
+an error bar says how well a law was fitted, and says nothing about whether what it
+was fitted to meant anything.
+
+## Generated code is skipped
+
+protoc's output trips these rules freely — a `*Grpc` class holds six mutable statics.
+It is recognised by protobuf's own superclass and grpc-java's `@GrpcGenerated`, not
+by a guess about its name.
+
+<Card title="How the verifier reads your code" icon="microscope" href="/engine/trust">
+  Including the two things a verifier reading only instructions would miss.
+</Card>

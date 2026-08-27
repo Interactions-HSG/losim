@@ -1,0 +1,109 @@
+---
+title: "The price list"
+description: "Course data, deliberately outside the simulator."
+icon: "tag"
+---
+
+```yaml prices/eu-central-1.yaml
+currency: CHF
+spot_discount: 0.70
+egress_per_gb: 0.01
+storage_per_gb_month: 0.10
+billing_minimum_seconds: 60
+build_per_service_month: 250.0
+revenue_per_job: 5.0
+sla_seconds: 10
+late_penalty_per_second: 0.50
+incident_per_rerun: 0.02
+incident_per_lost_machine: 0.20
+```
+
+```bash
+java -cp "$CP" losim.cli.Main bill build/thumbs.json --prices prices/eu-central-1.yaml
+```
+
+If the file does not exist, the built-in defaults above are used and the command says
+so. Any key not in this list is refused.
+
+## Every field
+
+<ParamField path="currency" type="string" default="CHF">
+  Printed beside every figure. Cosmetic.
+</ParamField>
+
+<ParamField path="spot_discount" type="double" default="0.70">
+  How much off the on-demand rate a reclaimable machine costs. A machine that
+  received a `spot_notice` is billed at `onDemand × (1 - spot_discount)`.
+</ParamField>
+
+<ParamField path="egress_per_gb" type="double" default="0.01">
+  Per GB of **cross-zone** traffic. Traffic inside a zone is free.
+</ParamField>
+
+<ParamField path="storage_per_gb_month" type="double" default="0.10">
+  Applied to the worst machine's disk usage, held for the period.
+</ParamField>
+
+<ParamField path="billing_minimum_seconds" type="long" default="60">
+  The shortest period a machine can be billed for. A run of 2 reference seconds is
+  still billed a minute of capacity.
+</ParamField>
+
+<ParamField path="build_per_service_month" type="double" default="250.0">
+  Engineering time to construct and carry one service, monthly. Carried whether or
+  not it is ever needed — which is what makes adding a service a real decision.
+</ParamField>
+
+<ParamField path="revenue_per_job" type="double" default="5.0">
+  Earned only when `meta.completed` is true.
+</ParamField>
+
+<ParamField path="sla_seconds" type="double" default="10">
+  The service level, in reference seconds.
+</ParamField>
+
+<ParamField path="late_penalty_per_second" type="double" default="0.50">
+  Per second past the service level.
+</ParamField>
+
+<ParamField path="incident_per_rerun" type="double" default="0.02">
+  Per `rpc_timeout` — work redone because a machine did not answer inside its
+  deadline.
+</ParamField>
+
+<ParamField path="incident_per_lost_machine" type="double" default="0.20">
+  Per `kill` or `spot_notice`. A machine that **filled up** — an `oom` or a
+  `disk_full` — is charged **five times** this, because a machine sized too small for
+  what its design asked it to hold is a different kind of mistake from one that
+  simply went away.
+</ParamField>
+
+## Why prices are not in the simulator
+
+<Note>
+So a price list can be updated, or **deliberately distorted for an exercise**,
+without touching the simulator. That is the whole reason it lives in `prices/`.
+
+Billing is a pure function of the trace, so re-billing the same run under a different
+price list costs nothing and needs no re-run. A design whose ranking flips is a design
+whose advantage was a price assumption.
+</Note>
+
+```yaml prices/expensive-egress.yaml
+currency: CHF
+egress_per_gb: 4.00
+```
+
+```bash
+java -cp "$CP" losim.cli.Main bill build/a.json --prices prices/expensive-egress.yaml
+java -cp "$CP" losim.cli.Main bill build/b.json --prices prices/expensive-egress.yaml
+```
+
+Now find out whether a design that moved data across zones for convenience was ever
+really cheaper.
+
+<Warning>
+**What a machine costs to rent is not here.** That belongs to the [instance
+catalogue](/ref/instances), beside its vCPUs and its memory, because it is a property
+of the machine rather than a choice the course makes.
+</Warning>

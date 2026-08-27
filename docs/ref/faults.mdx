@@ -1,0 +1,119 @@
+---
+title: "faults"
+description: "Seven things that can happen to a fleet, at an instant you choose."
+icon: "bolt"
+---
+
+```yaml
+faults:
+  - { at: 900 refMs,  kill: w1, restart_after: 400 refMs }
+  - { at: 1200 refMs, freeze: w2, for: 300 refMs }
+  - { at: 1400 refMs, degrade: w0, factor: 4 }
+  - { at: 1600 refMs, spot_reclaim: w3, notice: 200 refMs }
+  - { at: 1800 refMs, partition: [coordinator, w0] }
+  - { at: 2400 refMs, heal:      [coordinator, w0] }
+  - { at: 2600 refMs, restart: w1 }
+```
+
+Every entry has an `at:` and does **exactly one** thing. A fault that does two is
+refused: *"this fault does two things at once (kill and freeze); write them as two."*
+
+## The seven
+
+<ParamField path="kill: <machine>" type="fault">
+  The machine stops answering. Callers find out by running out of time.
+
+  Optional `restart_after: <duration>` brings it back that long afterwards.
+
+  A restart due **after the run has ended** does not happen: a machine that has been
+  shut down stays shut down. So if a killed machine never comes back, check that
+  `at + restart_after` lands inside the run rather than past the end of it.
+
+</ParamField>
+
+<ParamField path="freeze: <machine>" type="fault">
+  A stop-the-world pause. Calls **do not fail** — they are held at the door, on the
+  machine's own threads, so the caller cannot tell it from slowness.
+
+  `for: <duration>` (default `1000 refMs`) says how long. The thaw is scheduled
+  independently, so a pause ends whether or not a call happened to be waiting.
+</ParamField>
+
+<ParamField path="degrade: <machine>" type="fault">
+  Every declared cost is multiplied. `factor:` is **required** — *"degrade needs a
+  factor: how many times slower the machine becomes."*
+
+  A straggler rather than a casualty, which is the failure most designs handle
+  worst.
+</ParamField>
+
+<ParamField path="spot_reclaim: <machine>" type="fault">
+  A `spot_notice` event fires at `at:`, then the machine is killed `notice:` later
+  (default `0 refMs`). `restart_after:` works here too.
+
+  The bill prices a machine that received a notice at the spot rate — 70% off by
+  default — so this is a genuine trade rather than a hazard.
+</ParamField>
+
+<ParamField path="partition: [a, b]" type="fault">
+  Cuts the link between exactly two machines, in **both directions**. Both stay
+  alive and keep serving whoever they can still reach.
+
+  Exactly two names: *"partition takes exactly two machines, got 3."*
+</ParamField>
+
+<ParamField path="heal: [a, b]" type="fault">
+  Restores it.
+</ParamField>
+
+<ParamField path="restart: <machine>" type="fault">
+  Brings a machine back. What it remembers depends on how it was registered — a
+  machine declared with `serves:` gets **fresh service instances**, so whatever it
+  was holding is gone.
+
+  ```json
+  { "kind": "restart", "vm": "w1",
+    "detail": { "state": "lost",
+                "note": "fresh services: whatever it was holding is gone" } }
+  ```
+</ParamField>
+
+## Every field
+
+| field | applies to | default |
+|---|---|---|
+| `at` | all | required |
+| `for` | `freeze` | `1000 refMs` |
+| `factor` | `degrade` | required |
+| `notice` | `spot_reclaim` | `0 refMs` |
+| `restart_after` | `kill`, `spot_reclaim` | `0 refMs` (never) |
+
+## Checked at load
+
+A fault aimed at a machine that does not exist is refused with the line:
+
+```
+thumbs.yaml:24: there is no machine called 'w7' in this scenario;
+it has coordinator, w0, w1, w2, w3
+```
+
+<Warning>
+Remember pool naming. A pool keyed `workers` with `prefix: w` and `count: 4`
+produces `w0 w1 w2 w3`. Aiming a fault at `workers` or `workers0` is the mistake
+this message exists for.
+</Warning>
+
+## Faults are scheduled against a clock that starts at zero
+
+Building in-process servers costs real milliseconds, and at `kTime: 10` that would
+be hundreds of reference milliseconds of a run that has not begun — putting every
+early fault in the past, so they would all fire at once during setup. The clock is
+zeroed after the fleet is built, so a fault written at 120 refMs lands at 120 refMs
+in the trace.
+
+## Faults do not vary with the seed
+
+A fault at 900 refMs is at 900 refMs in every seed. That is what makes them right
+for a specific lesson — *the coordinator must notice a machine that went away after
+the survey and before the work finished* — and what makes [`chaos`](/ref/chaos) the
+right tool for *does this survive afternoons*.

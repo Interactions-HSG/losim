@@ -1,0 +1,114 @@
+---
+title: "Waiting"
+description: "A backoff, a poll interval, a lease — and why waiting is not work."
+icon: "hourglass-half"
+---
+
+```java
+Losim.current().sleep(200);      // 200 reference milliseconds
+```
+
+Same unit as everything else, same division by `k_time`. At `kTime: 40` that waits
+five real milliseconds and two hundred simulated ones.
+
+## Why not `@Takes`?
+
+`@Takes` is an annotation, so it is fixed per method. This is for a duration **only
+the running program knows**: a backoff that grows with the attempt, a poll
+interval, a lease held until something else happens.
+
+## Why not `Thread.sleep`?
+
+Because `k_time` never touches it. `Thread.sleep(200)` waits two hundred
+milliseconds of *your afternoon*, which at a compression of forty is eight thousand
+milliseconds of the simulated world — the one duration in a run that does not move
+when the compression does. That is why the verifier flags it, and this is what it
+flags it in favour of.
+
+## Waiting is not work, and two things follow
+
+<Columns cols={2}>
+  <Card title="It does not stretch on a slow machine" icon="gauge-simple">
+    A machine at half speed **computes** slower. It does not **wait** longer. So a
+    declared wait is not multiplied by `machineFactor` or by a degrade factor,
+    where `@Takes` is.
+
+    Measured, at `k_time` 100 on a machine at half speed: `@Takes(500)` takes 1019
+    refMs and `sleep(500)` takes 596.
+  </Card>
+  <Card title="It does not mark the machine busy" icon="bed">
+    A backoff occupies no vCPU. Counting it as occupancy would overstate how loaded
+    the fleet was, and `busyPct` is one of the numbers a reader trusts most.
+
+    The `sleep` event is what puts it on the timeline — which is enough to tell a
+    stretch of waiting from a stretch of doing nothing.
+  </Card>
+</Columns>
+
+## The shapes it is for
+
+<CodeGroup>
+```java a growing backoff
+int attempt = 0;
+while (true) {
+    try { return call(); }
+    catch (StatusRuntimeException e) {
+        if (++attempt >= 4) throw e;
+        Losim.current().sleep(50 * Math.pow(2, attempt));   // 100, 200, 400 refMs
+    }
+}
+```
+
+```java a poll interval
+while (!done()) {
+    Losim.current().sleep(100);
+}
+```
+
+```java a load generator
+var cluster = …;
+while (cluster.clockMs() < cluster.expectedRunMs()) {
+    fireOneRequest();
+    Losim.current().sleep(1000.0 / requestsPerSecond);
+}
+```
+</CodeGroup>
+
+<Tip>
+Prefer the scenario's own retry policy to a hand-rolled backoff where you can. It
+is declared data, so it can be diffed and swept, and losim gives every attempt its
+own span and its own byte count. Roll your own when the policy depends on something
+only the program knows. [Retries →](/write/retries)
+</Tip>
+
+## Blocking on something real is not this
+
+Waiting for something that is *happening* — a latch, a future, `Object.wait`, a
+queue take — is what a distributed program is mostly made of, and it is neither
+flagged nor charged. Its length is set by that something's own progress rather than
+written down anywhere.
+
+```java
+Thumbs thumbs = future.get();        // fine: waiting for a call that is in flight
+latch.await();                        // fine
+Losim.current().sleep(200);           // fine: a declared wait
+Thread.sleep(200);                    // flagged: your afternoon, not the run's
+```
+
+<Note>
+Timeouts on those waits — `future.get(2, SECONDS)`, `latch.await(1, SECONDS)` — are
+real durations that `k_time` does not touch, but they are only *spent* when the
+wait fails, and a static check cannot see which run that is. So they are left
+alone. If a timeout is load-bearing in your design, prefer a gRPC deadline, which
+losim does rewrite into reference time.
+</Note>
+
+## Outside a run
+
+`sleep` returns immediately when nothing is simulating anything. There is no
+compressed clock to spend against in a unit test, and a suite that really slept
+would be slower for no reason.
+
+<Card title="Next: deadlines" icon="arrow-right" href="/write/deadlines">
+  The other half of waiting: giving up.
+</Card>

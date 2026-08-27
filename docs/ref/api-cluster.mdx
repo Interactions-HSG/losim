@@ -1,0 +1,138 @@
+---
+title: "Cluster"
+description: "The fleet, as the job sees it. Deliberately narrow."
+icon: "sitemap"
+---
+
+```java
+public final class MyJob implements Job {
+    @Override public void run(Cluster cluster) throws Exception { … }
+}
+```
+
+## Discovery
+
+<ResponseField name="machines()" type="List<String>">
+  Every machine in the fleet, by name.
+</ResponseField>
+
+<ResponseField name="serving(String service)" type="List<String>">
+  The machines serving a given service, by name. The service's name from the
+  `.proto`, bare or qualified.
+
+  **Dead ones are not listed** — which is discovery working, not a liveness check: no
+  real network offers one, and a design that depends on knowing is a design that
+  will not survive contact with one. A machine that has gone is a machine that has
+  stopped answering, and finding that out still costs a call and a deadline.
+
+  **Each machine appears once**, however many times it announced itself. It announces
+  more than once in the ordinary course of things: a machine's server is rebuilt every
+  time a service is added to it, and a machine that dies and restarts announces
+  everything it serves all over again. So you can write `for (var m : serving(s))` and
+  give each machine one task, without checking.
+
+</ResponseField>
+
+<ResponseField name="channelTo(String machine)" type="io.grpc.Channel">
+  A channel to a peer. Build whatever stub the `.proto` generated on top of it.
+
+  It is the **machine's** channel, not the job's: a handler on this machine and the
+  job driving it should not be holding two channels to the same peer, and only one
+  of the two would then be closed by anybody.
+</ResponseField>
+
+## The workload
+
+<ResponseField name="records()" type="long">
+  How many records this run is to process.
+
+  In direct mode, what the scenario declared. In scaled mode, what the engine chose
+  — a fraction of full scale, picked so that the machines and the workload shrink by
+  the same factor and the ratios a design lives or dies by are preserved.
+
+  **A job that ignores this cannot be scaled, and the trace will say so.**
+</ResponseField>
+
+<ResponseField name="seed()" type="long">
+  The scenario's seed.
+
+  A job that generates its own input needs one and it has to come from here: a
+  sweep of five to twenty seeds is meant to vary the **data** as well as the
+  weather, and a workload that draws from a constant of its own is a workload whose
+  every run is the same afternoon.
+</ResponseField>
+
+## Time
+
+<ResponseField name="clockMs()" type="double">
+  Simulated milliseconds since the run began — the clock the scenario is written in.
+</ResponseField>
+
+<ResponseField name="expectedRunMs()" type="double">
+  How long the scenario said this run should take, in reference milliseconds.
+
+  For a job whose shape is *keep going until the run is over* — a load generator, a
+  poller — rather than *do this much work*. Without it such a job has to guess, and
+  a job that guesses short finishes before the scenario's weather has happened to it.
+
+  ```java
+  while (cluster.clockMs() < cluster.expectedRunMs()) {
+      fireOneRequest();
+      Losim.current().sleep(50);
+  }
+  ```
+</ResponseField>
+
+## Structure
+
+<ResponseField name="compute(String label, Supplier<T> body)" type="T">
+  Work the job does itself, with no RPC to carry it. Opens a `compute` span **and**
+  marks the machine busy, because it really is using a core.
+
+  Without this a coordinator merging locally is indistinguishable from one doing
+  nothing: no span covers it, and the busiest stretch of a run reads as idle.
+</ResponseField>
+
+<ResponseField name="phase(String label)" type="Cluster.Phase">
+  Names a stretch of the job, so the trace contains something larger than a call.
+
+  ```java
+  try (var p = cluster.phase("thumbnails")) {
+      …
+      p.note("batches", 40).note("thumbnails", 1000);
+  }
+  ```
+
+  Unlike `compute`, a phase does **not** mark the machine busy: a coordinator
+  waiting on four workers is not using a core, and reporting that it is would make
+  every occupancy figure in the run a lie.
+
+  Anything opened inside is attributed beneath it, including every RPC.
+</ResponseField>
+
+<ResponseField name="Phase.note(String key, Object value)" type="Phase">
+  Something worth knowing about this stretch, recorded on its span. Chainable.
+</ResponseField>
+
+## Output
+
+<ResponseField name="log(String message)" type="void">
+  A line of narration in the trace.
+</ResponseField>
+
+<ResponseField name="done(Object answer)" type="void">
+  The job's answer, recorded **structurally** rather than as a line of text — so a
+  later run can be compared to this one without parsing English.
+
+  ```java
+  cluster.done(Map.of("thumbnails", 4000, "framesIn", 4000, "batchesLost", 0));
+  ```
+</ResponseField>
+
+## What it cannot do
+
+<Warning>
+No way to reach into another machine's memory. No way to start a thread nothing
+accounts for. No way to ask whether a peer is alive — that last one because no real
+network offers it.
+</Warning>

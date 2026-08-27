@@ -1,0 +1,138 @@
+---
+title: "Writing a job"
+description: "The one thing in a scenario that is code, and the narrow surface it gets."
+icon: "diagram-project"
+---
+
+```java
+public final class MyJob implements Job {
+    @Override public void run(Cluster cluster) throws Exception { … }
+}
+```
+
+Returning normally ends the run. Throwing ends it too, and the trace says which and
+why — a run that failed is a result, not an absence of one.
+
+The job runs on the **first machine in the scenario file**, on that machine's own
+threads, so everything it does is attributed to that machine like any other work.
+
+## What `Cluster` gives you, and what it deliberately does not
+
+<AccordionGroup>
+  <Accordion title="machines() and serving(service)" icon="magnifying-glass">
+    Every machine by name; and the machines serving a named service, live ones
+    only. [Finding peers →](/write/finding-peers)
+  </Accordion>
+  <Accordion title="channelTo(machine)" icon="plug">
+    A channel with losim on it. Build whatever stub your `.proto` generated on top.
+  </Accordion>
+  <Accordion title="records() and seed()" icon="dice">
+    How much work this run is to do, and the scenario's seed. Both come from the
+    scenario, and a job that generates its own input needs both.
+  </Accordion>
+  <Accordion title="clockMs() and expectedRunMs()" icon="clock">
+    Simulated milliseconds since the run began, and how long the scenario said the
+    run should take.
+
+    `expectedRunMs()` is for a job whose shape is *keep going until the run is
+    over* — a load generator, a poller — rather than *do this much work*. Without
+    it such a job has to guess, and a job that guesses short finishes before the
+    scenario's weather has happened to it:
+
+    ```java
+    while (cluster.clockMs() < cluster.expectedRunMs()) {
+        fireOneRequest();
+        Losim.current().sleep(50);
+    }
+    ```
+  </Accordion>
+  <Accordion title="phase(label) and compute(label, body)" icon="bars-staggered">
+    Two ways to put something bigger than a call in the trace, and the difference
+    between them matters — see below.
+  </Accordion>
+  <Accordion title="log(message) and done(answer)" icon="flag-checkered">
+    A line of narration, and the job's answer recorded structurally rather than as
+    a line of text.
+  </Accordion>
+  <Accordion title="What it cannot do" icon="ban">
+    It cannot reach into another machine's memory, start a thread nothing accounts
+    for, or ask whether a peer is alive. The last one because no real network
+    offers it, and a design that depends on knowing is a design that will not
+    survive contact with one.
+  </Accordion>
+</AccordionGroup>
+
+## `phase` versus `compute`, and why it is not a style question
+
+<Columns cols={2}>
+  <Card title="phase — a stretch of the job" icon="bars-staggered">
+    ```java
+    try (var p = cluster.phase("thumbnails")) {
+        …
+        p.note("batches", 40);
+    }
+    ```
+    Opens a span. Does **not** mark the machine busy.
+
+    A coordinator waiting on four workers is not using a core. Reporting that it is
+    would make every occupancy figure in the run a lie.
+  </Card>
+  <Card title="compute — work with no RPC to carry it" icon="microchip">
+    ```java
+    var album = cluster.compute("read the album",
+            () -> Album.of(cluster.records(), cluster.seed()));
+    ```
+    Opens a span **and** marks the machine busy.
+
+    Without it, a coordinator doing expensive local work is indistinguishable from
+    one doing nothing: no span covers it, and the busiest stretch of the run reads
+    as idle.
+  </Card>
+</Columns>
+
+Use `phase` for *waiting on other machines*. Use `compute` for *this machine
+working*. A phase that wraps a `compute` is the normal shape:
+
+```java
+try (var p = cluster.phase("merge")) {
+    var answer = cluster.compute("fold the replies", () -> fold(replies));
+    p.note("bytes", answer.getSerializedSize());
+}
+```
+
+Anything opened inside a phase is attributed beneath it, including every RPC — so
+the phase is what the viewer builds its columns and chapters from.
+
+## `done`, and why it is not a `log`
+
+```java
+cluster.done(Map.of("thumbnails", 4000, "framesIn", 4000, "batchesLost", 0));
+```
+
+Recorded structurally, so a later run can be compared to this one without parsing
+English. It lands as a `done` event with a rendered value, which is what a
+regression check reads:
+
+```bash
+python3 -c "
+import json; t = json.load(open('build/thumbs.json'))
+print([e['detail']['value'] for e in t['events'] if e['kind'] == 'done'])
+"
+```
+
+## A job that outstays its welcome
+
+If the job has not returned after **ten times** the scenario's `expectedRun`, losim
+stops it:
+
+```
+thumbs.yaml  seed 7  did not complete in 61042 refMs
+  the job did not finish within ten times its declared expectedRun
+```
+
+That is a backstop, not a deadline. The thing to notice first is the
+`over_horizon` event you will already have, at 1.25×.
+
+<Card title="Next: declaring time" icon="arrow-right" href="/write/declaring-time">
+  Why `@Takes` exists when everything else is measured.
+</Card>

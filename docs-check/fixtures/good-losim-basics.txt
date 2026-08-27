@@ -1,0 +1,17 @@
+# An ordinary page, which must survive every rule.
+A service is an ordinary gRPC service. One losim annotation says what a call
+costs on the reference machine, and one call records what the handler was doing:
+
+    @Takes(refMs = 2, refNsPerRecord = 40)
+    @Override protected Counts tally(Chunk request) {
+        var seen = new HashMap<String, Long>();
+        Losim.current().records(request.getLineCount());
+        Losim.current().reveal("distinctKeys", seen.size());
+        return build(seen);
+    }
+
+Peers are found by what they serve, never by hostname. A handler asks for the
+machines serving "Worker", dials one, and calls it with the stub protoc emitted
+for that service. What comes back is an io.grpc.Channel and the call site is
+plain gRPC. Batching several records into one call reduces the number of calls
+without changing what any of them does.

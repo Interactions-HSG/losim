@@ -1,0 +1,5 @@
+# How work is split, without naming the thing it is splitting for.
+Each worker holds one of R buckets. To decide where a record belongs, take the
+hash of its key and fold it into the range with a modulo: bucket = h % n. Every
+record with equal keys therefore lands on the same worker, which is exactly the
+property the second round depends on.

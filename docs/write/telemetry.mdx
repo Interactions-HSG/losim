@@ -1,0 +1,158 @@
+---
+title: "Telemetry"
+description: "reveal, log and records — what turns a run that happened into a run you can read."
+icon: "signal"
+---
+
+losim replaces the debugger for anything involving more than one machine, so the
+telemetry is load-bearing: **if it cannot answer a question a debugger would have
+answered, that is a bug in the telemetry — and if watching changes what it reports,
+that is a worse one.**
+
+Your part is small. Four calls, and each one earns its place.
+
+## `reveal(key, value)` — what the computation was doing
+
+```java
+Losim.current().reveal("frames", request.getFramesCount());
+Losim.current().reveal("jpegKb", bytes / 1024.0);
+Losim.current().reveal("cacheHit", hit);
+Losim.current().reveal("strategy", "forwarded");
+```
+
+Without it, a trace says a handler *happened*. With it, a trace says what it did —
+and the viewer puts real numbers on a machine instead of "it was busy".
+
+Lands as a `state` event on the machine, inside the handler's span:
+
+```json
+{ "t": 71.2, "kind": "state", "vm": "w0",
+  "detail": { "key": "frames", "value": 25 } }
+```
+
+<Warning>
+**Use the primitive overloads.** There are five — `int`, `long`, `double`,
+`boolean`, `String` — plus an `Object` fallback.
+
+`reveal(String, Object)` boxes an `int` at the **call site**, before losim's
+accounting can open, so the box is charged to your program though it exists only
+because the parameter is an `Object`. At one call per handler that is invisible. At
+a thousand it bends the fitted memory exponent by 0.04, and the exponent is the one
+number that must not bend. Taking the primitive moves the boxing inside the
+bracket, where it belongs to losim.
+</Warning>
+
+## `records(n)` — the independent variable
+
+```java
+Losim.current().records(request.getFramesCount());
+```
+
+Two things need it:
+
+1. `@Takes(refNsPerRecord = …)` is charged against it. Without it, only the fixed
+   part is slept, and the span says so.
+2. The scale engine needs to know which variable a cost site is a function of.
+   Fitting a resource against the wrong variable gives an exponent that will not
+   survive a change of input.
+
+## `log(message)` — narration
+
+```java
+Losim.current().log("forwarding to a machine with more memory");
+cluster.log(workers.size() + " machines can make thumbnails");
+```
+
+For the sentence a reader needs and no key-value pair captures. Use it sparingly;
+`reveal` is what a later run can be compared against, and `log` is not.
+
+## `phase` and `compute` — structure
+
+Covered in [writing a job](/write/jobs), but the summary belongs here too: `phase`
+names a stretch and does **not** mark the machine busy; `compute` names local work
+and does. Between them they are what the viewer's columns and chapters are derived
+from.
+
+## What losim records for you
+
+You do not have to ask for any of this:
+
+<Columns cols={2}>
+  <Card title="Every call, both ends" icon="right-left">
+    An `rpc` span on the caller and a `handler` span on the callee, the second
+    opened **under** the first. Byte counts in both directions, the status, the
+    round-trip time, and — at `FULL` — the real argument and the real result.
+  </Card>
+  <Card title="Every machine, every tick" icon="chart-area">
+    Memory held, memory cap, disk, disk percent, calls in flight, calls queued,
+    busy percent, alive, frozen, degraded, bytes in and out.
+  </Card>
+</Columns>
+
+Plus every fault, every retry, every queue wait, every out-of-memory, every
+timeout, and the boot of every machine.
+
+## Levels, and what they cost
+
+```bash
+--telemetry FULL        # default: everything, including payloads
+--telemetry NO_PAYLOAD  # events, spans and series, but nothing rendered
+--telemetry OFF         # nothing
+```
+
+Payload rendering is by far the most expensive part, and it is also what makes a
+trace worth looking at. The honest way to think about it: `FULL` is for a run you
+are going to *read*, `NO_PAYLOAD` for a run you are going to *measure*.
+
+<Note>
+Recording runs on the machines' own threads, so what it costs lands on the counters
+being read. losim therefore meters **its own work** in every one of these calls and
+subtracts it, and publishes the size of the subtraction as `losimMb` and
+`losimRegions` in the `machines` channel — because "this is the program's own
+allocation" is a claim, and a reader is entitled to see how big the correction was
+before believing it.
+
+Measured at the extreme — a thousand `reveal` calls per handler, where losim
+charges itself 54 MB and meters 162,000 regions — the *unsubtracted* memory
+exponent moves by 0.026 and the reported one by 0.0004. The law your code is
+projected by does not depend on how much you instrumented it.
+[How that works →](/engine/self-accounting)
+</Note>
+
+## Payloads are bounded
+
+A trace that embeds a gigabyte of payload is its own kind of useless, so:
+
+| | |
+|---|---|
+| collections | first **12** entries, then a `"+1106 more"` marker |
+| strings | first **120** characters, then `"… (4021 chars)"` |
+| nesting | four levels, then `"…"` |
+| map fields | sorted by key, so two runs are comparable |
+| default values | omitted — a zero, an empty string and a `false` are not recorded |
+
+<Warning>
+The real count is **kept plus marker**, never the surviving length. A batch of 25
+frames renders as 12 frames and a marker. Do not read that as 12.
+</Warning>
+
+## Reading it back
+
+The trace is JSON and nothing stops you asserting on it — that is exactly what the
+reference suite does:
+
+```python
+import json
+t = json.load(open("build/thumbs.json"))
+
+frames = sum(e["detail"]["value"] for e in t["events"]
+             if e["kind"] == "state" and e["detail"]["key"] == "frames")
+assert frames == 4000, f"lost some frames: {frames}"
+
+lost = [e for e in t["events"] if e["kind"] == "rpc_timeout"]
+print(len(lost), "calls did not answer in time")
+```
+
+<Card title="Next: surviving weather" icon="arrow-right" href="/write/surviving-weather">
+  Designing for the afternoon that goes badly.
+</Card>

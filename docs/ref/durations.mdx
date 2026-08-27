@@ -1,0 +1,87 @@
+---
+title: "Durations"
+description: "Reference-machine time, and why a bare number is refused."
+icon: "clock"
+---
+
+Every duration in a scenario is **reference-machine time** and has to say so.
+
+```yaml
+expectedRun: 6 refSeconds
+at:          900 refMs
+backoff:     50 refMs
+crossZone:   3 refMs
+```
+
+## Accepted spellings
+
+| | |
+|---|---|
+| `refMs`, `refms` | reference milliseconds |
+| `refSeconds`, `refSec`, `refS`, `refs` | reference seconds — multiplied by 1000 |
+
+The number may have a decimal point, and whitespace before the unit is optional:
+`0.5 refMs`, `2refSeconds` and `900refMs` are all accepted.
+
+## What is refused
+
+```yaml
+at: 900        # refused
+at: 900ms      # refused
+at: "900 ms"   # refused
+```
+
+```
+thumbs.yaml:24: '900' does not say what kind of time it is. Durations are
+reference-machine time: write '900 refMs' or '900 refSeconds'. A bare number would
+be ambiguous between the simulated world and your afternoon, and those differ by
+k_time.
+```
+
+<Note>
+**Why this is worth refusing.** A run is compressed by `k_time`, which is a global
+factor whoever writes the scenario never sees at the point of writing a duration. A
+bare `900` could mean 900 milliseconds of the simulated world or 900 of your
+afternoon, and at `kTime: 40` those differ by a factor of forty.
+
+Writing `refMs` costs five characters and removes the whole class of question.
+</Note>
+
+## What "reference machine" means
+
+Two vCPUs, running alone, nothing else going on. A duration declared in refMs is a
+claim about how long something takes *there*, which stays true whatever fleet it
+lands on:
+
+```
+actual wall time  =  refMs × (2 ÷ vcpu) × degradeFactor ÷ k_time
+```
+
+| | |
+|---|---|
+| a 2-vCPU machine | ×1 |
+| a 4-vCPU machine | ×0.5 |
+| a 16-vCPU machine | ×0.125 |
+| a machine under `degrade: factor: 4` | ×4 on top |
+
+<Warning>
+That multiplication applies to **work** — `@Takes`. It does **not** apply to
+waiting: a machine at half speed computes slower but does not wait longer, so
+`Losim.current().sleep(refMs)` is divided by `k_time` and nothing else.
+</Warning>
+
+## Durations in Java
+
+Two places, and both are reference time as well:
+
+```java
+Losim.current().sleep(200);                                   // 200 refMs
+stub.withDeadlineAfter(2_000, TimeUnit.MILLISECONDS);         // 2000 refMs
+```
+
+The deadline is written in milliseconds because that is gRPC's API; losim divides
+the remaining time by `k_time` in the client interceptor, at the one place where
+your intent is still visible.
+
+`Thread.sleep(200)` is 200 milliseconds of **your afternoon** — the one duration in
+a run that `k_time` never touches. That is why it is flagged.

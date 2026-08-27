@@ -1,0 +1,214 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "losim",
+  "description": "A real gRPC system, in a simulated world. The manual for the decentralized systems lab.",
+  "colors": {
+    "primary": "#1F6F63",
+    "light": "#5CC0AE",
+    "dark": "#0E4A42"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Guides",
+        "groups": [
+          {
+            "group": "Start here",
+            "pages": [
+              "index",
+              "start/quickstart",
+              "start/mental-model",
+              "start/codespaces",
+              "start/laptop",
+              "start/project-layout"
+            ]
+          },
+          {
+            "group": "Your first system",
+            "pages": [
+              "first/the-plan",
+              "first/the-schema",
+              "first/the-service",
+              "first/the-job",
+              "first/the-scenario",
+              "first/run-it",
+              "first/read-the-trace",
+              "first/break-it",
+              "first/what-it-cost"
+            ]
+          },
+          {
+            "group": "Writing systems",
+            "pages": [
+              "write/services",
+              "write/finding-peers",
+              "write/calling-peers",
+              "write/jobs",
+              "write/declaring-time",
+              "write/waiting",
+              "write/deadlines",
+              "write/memory",
+              "write/disk",
+              "write/concurrency",
+              "write/telemetry",
+              "write/surviving-weather",
+              "write/retries",
+              "write/unit-testing",
+              "write/debugging",
+              "write/writing-to-scale"
+            ]
+          },
+          {
+            "group": "Running and comparing",
+            "pages": [
+              "run/one-run",
+              "run/sweeps",
+              "run/comparing-designs",
+              "run/scaled-mode",
+              "run/when-it-refuses",
+              "run/troubleshooting"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "Command line",
+            "pages": [
+              "ref/cli-run",
+              "ref/cli-bill",
+              "ref/cli-diff"
+            ]
+          },
+          {
+            "group": "The scenario file",
+            "pages": [
+              "ref/scenario",
+              "ref/durations",
+              "ref/machines",
+              "ref/network",
+              "ref/faults",
+              "ref/chaos",
+              "ref/retries",
+              "ref/workload"
+            ]
+          },
+          {
+            "group": "The Java API",
+            "pages": [
+              "ref/api-losim",
+              "ref/api-takes",
+              "ref/api-spec",
+              "ref/api-cluster",
+              "ref/api-job"
+            ]
+          },
+          {
+            "group": "The trace",
+            "pages": [
+              "ref/trace",
+              "ref/events",
+              "ref/spans",
+              "ref/series",
+              "ref/machines-channel"
+            ]
+          },
+          {
+            "group": "Catalogues",
+            "pages": [
+              "ref/instances",
+              "ref/prices",
+              "ref/trust-rules",
+              "ref/messages"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "How it works",
+        "groups": [
+          {
+            "group": "The design",
+            "pages": [
+              "engine/two-layers",
+              "engine/a-machine",
+              "engine/the-wire"
+            ]
+          },
+          {
+            "group": "Time",
+            "pages": [
+              "engine/compressed-clock",
+              "engine/the-sleep-debt"
+            ]
+          },
+          {
+            "group": "The scale model",
+            "pages": [
+              "engine/why-scaling",
+              "engine/probe-grid",
+              "engine/laws",
+              "engine/refusals",
+              "engine/solving-caps"
+            ]
+          },
+          {
+            "group": "Honesty",
+            "pages": [
+              "engine/trust",
+              "engine/self-accounting",
+              "engine/the-bill"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Viewer",
+        "groups": [
+          {
+            "group": "The viewer",
+            "pages": [
+              "viewer/index",
+              "viewer/opening-a-trace",
+              "viewer/views",
+              "viewer/make-it-worth-looking-at",
+              "viewer/developing"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "navbar": {
+    "primary": {
+      "type": "button",
+      "label": "Quickstart",
+      "href": "/start/quickstart"
+    }
+  },
+  "footer": {
+    "links": [
+      {
+        "header": "The lab",
+        "items": [
+          {
+            "label": "Quickstart",
+            "href": "/start/quickstart"
+          },
+          {
+            "label": "Scenario reference",
+            "href": "/ref/scenario"
+          },
+          {
+            "label": "Trace format",
+            "href": "/ref/trace"
+          }
+        ]
+      }
+    ]
+  }
+}

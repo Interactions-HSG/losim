@@ -1,0 +1,172 @@
+---
+title: "Sweeps"
+description: "One run tells you a design survived an afternoon. Twenty tell you it survives afternoons."
+icon: "dice"
+---
+
+<Warning>
+**Runs are not reproducible, on purpose.** Real threads, a real wall clock, and a
+deliberate refusal to simulate a scheduler. Two runs of one scenario on one machine
+differ in every duration and most byte counts.
+
+That is not a defect to be worked around — it is the property that makes a sweep
+the unit of evidence rather than a run.
+</Warning>
+
+## The shape of a sweep
+
+**losim is a library, so a sweep is a Java program.** Not a shell loop writing twenty
+files for a second script to read back — `Run.of` hands you the result as an object,
+and a sweep is a loop over it.
+
+```java src/lab/Sweep.java
+package lab;
+
+import java.nio.file.Path;
+import losim.runtime.Run;
+import losim.scenario.Loader;
+import losim.trace.Telemetry;
+
+public final class Sweep {
+
+    public static void main(String[] args) throws Exception {
+        var base = Loader.load(Path.of(args[0]));
+        var loader = Thread.currentThread().getContextClassLoader();
+
+        int completed = 0;
+        double slowest = 0;
+
+        for (long seed = 1; seed <= 20; seed++) {
+            // OFF: a sweep asks whether it finished, not what happened inside.
+            var r = Run.of(base.withSeed(seed), loader, Telemetry.Level.OFF);
+            if (r.completed()) completed++;
+            else System.out.printf("seed %2d  %s%n", seed, r.failure());
+            slowest = Math.max(slowest, r.durationRefMs());
+        }
+
+        System.out.printf("%d of 20 finished, worst %.0f refMs%n", completed, slowest);
+    }
+}
+```
+
+<Note>
+**A run that did not complete is a data point, not an error.** `Run.of` returns
+normally either way — `completed()` says which, and `failure()` says why in words. So
+there is no `|| true` to write and nothing that can swallow a real breakage: a run
+that could not start at all still throws, and only that stops the sweep.
+</Note>
+
+
+## Reading twenty traces
+
+```python summarise.py
+import glob, json, statistics, sys
+
+rows = []
+for f in sorted(glob.glob(sys.argv[1] + "/*.json")):
+    t = json.load(open(f))
+    meta = t["meta"]
+    events = t["events"]
+    kinds = {}
+    for e in events:
+        kinds[e["kind"]] = kinds.get(e["kind"], 0) + 1
+    rows.append({
+        "seed":      meta["seed"],
+        "completed": meta.get("completed", False),
+        "refMs":     meta.get("durationRefMs", 0),
+        "timeouts":  kinds.get("rpc_timeout", 0),
+        "retries":   kinds.get("retry", 0),
+        "oom":       kinds.get("oom", 0),
+        "peakMb":    max((m["memoryMb"] for m in t["machines"]), default=0),
+    })
+
+ok = [r for r in rows if r["completed"]]
+print(f"{len(ok)}/{len(rows)} completed")
+if ok:
+    d = sorted(r["refMs"] for r in ok)
+    print(f"  duration   median {statistics.median(d):8.0f} refMs   "
+          f"worst {d[-1]:8.0f}   best {d[0]:8.0f}")
+    m = sorted(r["peakMb"] for r in ok)
+    print(f"  peak held  median {statistics.median(m):8.2f} MB     worst {m[-1]:8.2f}")
+print(f"  timeouts   total {sum(r['timeouts'] for r in rows)}")
+print(f"  OOMs       total {sum(r['oom'] for r in rows)}")
+```
+
+```
+17/20 completed
+  duration   median     2503 refMs   worst     6104   best     2311
+  peak held  median     6.82 MB      worst    13.44
+  timeouts   total 41
+  OOMs       total 3
+```
+
+<Note>
+**Report the spread, not the best run.** A design whose median is 2503 and whose
+worst is 6104 is a different design from one that is 2900 every time, even though
+the second looks worse on a single run. The second is the one you can put a service
+level on.
+</Note>
+
+## What a sweep varies
+
+Everything that draws from the seed:
+
+| | |
+|---|---|
+| chaos | which machine is picked, and the gaps between events — drawn exponentially |
+| network jitter | how each round trip falls |
+| packet loss | which messages vanish |
+| **your workload** | if you took `cluster.seed()`, which is why you should |
+
+Scripted `faults:` do **not** vary — a fault at 900 refMs is at 900 refMs in every
+seed. That is what makes them useful for a specific lesson, and what makes `chaos:`
+the right tool for "does it survive afternoons".
+
+## Sweeping something other than the seed
+
+The scenario is an object, so change the thing you mean and leave the rest alone.
+No `sed`, no temporary YAML, no chance of the substitution matching something else:
+
+```java
+var base = Loader.load(Path.of("thumbs.yaml")).withoutWeather();
+var loader = Thread.currentThread().getContextClassLoader();
+
+for (int workers : new int[] {2, 4, 8}) {
+    var r = Run.of(base.withWorkers(workers), loader, Telemetry.Level.OFF);
+    System.out.printf("%2d workers  %8.0f refMs  %s%n",
+            workers, r.durationRefMs(), r.completed() ? "completed" : "did not");
+}
+```
+
+```
+ 2 workers      2131 refMs  completed
+ 4 workers      1708 refMs  completed
+
+ 8 workers      1572 refMs  completed
+```
+
+<Note>
+`withWorkers` resizes **every pool that had more than one machine**, keeping its
+instance type, zones and services. Singletons — the coordinator — are left alone,
+because varying the fleet is meant to vary the workers.
+
+The other axes are the same shape: `withRecords`, `withSeed`, `withKTime`,
+`withExpectedRun`, `withoutWeather`. Each returns a copy, so the base scenario you
+loaded is never mutated and every run in the loop differs by exactly one thing.
+</Note>
+
+
+Then read `durationRefMs` and the bill out of each. That curve — does doubling the
+fleet halve the time? — is one of the more instructive things you can produce, and
+it usually does not.
+
+<Tip>
+Vary **one axis at a time**. If the fleet and the workload move together, a
+resource that grows with one is indistinguishable from a resource that grows with
+the other. That is exactly why the scale engine's probe grid varies them on
+separate axes, and the same discipline applies to a hand-run sweep.
+</Tip>
+
+<Card title="Next: comparing two designs" icon="arrow-right" href="/run/comparing-designs">
+  Two scenarios, two bills, and `losim diff`.
+</Card>

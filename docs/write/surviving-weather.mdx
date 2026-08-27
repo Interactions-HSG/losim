@@ -1,0 +1,227 @@
+---
+title: "Surviving weather"
+description: "Designing for the machine that goes away, the one that gets slow, and the link that gets cut."
+icon: "cloud-bolt"
+---
+
+losim can stage six kinds of bad afternoon. Each breaks a different assumption, and
+the design that survives all six is not the design that survives any one of them.
+
+## What each one actually breaks
+
+<AccordionGroup>
+  <Accordion title="kill — the machine stops answering" icon="skull" defaultOpen>
+    ```yaml
+    - { at: 900 refMs, kill: w1 }
+    - { at: 900 refMs, kill: w1, restart_after: 400 refMs }
+    ```
+
+    **Breaks:** the assumption that a peer you found is a peer you can reach.
+
+    You find out by running out of time. `cluster.serving(…)` stops listing it —
+    but only from the next call, so work already dispatched still costs a full
+    deadline.
+
+    **Design response:** re-check discovery before each dispatch, and keep enough
+    state to redo the lost work somewhere else. A coordinator that hands out work
+    and forgets what it handed out cannot recover from this at all.
+  </Accordion>
+
+  <Accordion title="freeze — the machine stops, without failing" icon="snowflake">
+    ```yaml
+    - { at: 900 refMs, freeze: w1, for: 300 refMs }
+    ```
+
+    **Breaks:** the assumption that a machine is either working or gone.
+
+    Calls **do not fail** — they wait, on the machine's own threads. From the
+    caller this is indistinguishable from slowness, which is exactly why a freeze
+    is harder to diagnose than a crash. A stop-the-world pause, a swapping host, a
+    machine that is simply not scheduled.
+
+    **Design response:** deadlines. Without one, a frozen machine can hold your
+    whole fleet.
+  </Accordion>
+
+  <Accordion title="degrade — the machine gets slow and stays" icon="gauge-simple-low">
+    ```yaml
+    - { at: 1200 refMs, degrade: w2, factor: 4 }
+    ```
+
+    **Breaks:** the assumption that machines of the same type are interchangeable.
+
+    Every declared cost is multiplied. A straggler rather than a casualty — and
+    this is **the failure most designs handle worst**, because nothing is wrong
+    enough to trigger anything. The job just takes four times as long as it should
+    and the fleet waits politely.
+
+    **Design response:** notice. Hand out work in smaller pieces, watch how long
+    each one took, and stop feeding the machine that is behind.
+  </Accordion>
+
+  <Accordion title="spot_reclaim — the machine tells you first" icon="bell">
+    ```yaml
+    - { at: 900 refMs, spot_reclaim: w0, notice: 200 refMs }
+    ```
+
+    **Breaks:** nothing, if you listen. Everything, if you do not.
+
+    A `spot_notice` event fires, then the machine dies `notice` later. Spot
+    capacity is roughly 70% cheaper, so this is a genuine trade rather than a
+    hazard, and the bill prices it that way.
+
+    **Design response:** a design that ignores the warning deserves what happens.
+    There is no API to receive the notice — it is a fact in the trace — so the
+    realistic response is *drain work off machines as they finish rather than
+    committing everything up front*, which is the shape that survives it.
+  </Accordion>
+
+  <Accordion title="partition — the link is cut, both ends alive" icon="scissors">
+    ```yaml
+    - { at: 900 refMs,  partition: [coordinator, w1] }
+    - { at: 2500 refMs, heal:      [coordinator, w1] }
+    ```
+
+    **Breaks:** the assumption that unreachable means dead.
+
+    `w1` is alive, is still listed by discovery, and is still serving anyone who
+    can reach it. Only the one link is gone. To the coordinator it looks exactly
+    like a kill.
+
+    **Design response:** this is where a design that routes through a third
+    machine wins, and where one that assumes a single view of the fleet loses.
+  </Accordion>
+
+  <Accordion title="loss — messages that never arrive" icon="ghost">
+    ```yaml
+    network:
+      loss: 0.02
+    ```
+
+    **Breaks:** the assumption that a call that failed did not happen.
+
+    Two per cent of messages simply vanish. Some of them are **responses** to work
+    that was done — so a retry does the work twice, which is what the
+    [idempotency gate](/write/retries) is about.
+  </Accordion>
+</AccordionGroup>
+
+## A rate, not a moment
+
+```yaml
+chaos:
+  - kill:    { every: 800 refMs, among: workers }
+  - freeze:  { every: 400 refMs, among: workers, for: 150 refMs }
+  - degrade: { every: 600 refMs, among: workers, factor: 3 }
+```
+
+A scenario with a fault at 900 refMs teaches the fleet to survive 900 refMs. A rate
+teaches it to survive *whenever*, which is the harder and more honest thing.
+
+`among:` is a pool name or one machine's name. Gaps are drawn exponentially from the
+seed, so they vary the way real bad afternoons do. Only `kill`, `freeze` and
+`degrade` can be rates — the others happen at a moment and belong under `faults:`.
+
+<Warning>
+Chaos is drawn out to `expectedRun` and no further. A run that overruns its horizon
+has a quiet second half that looks exactly like a fleet behaving well — which is
+why the trace carries an `over_horizon` event saying so. Raise `expectedRun` when
+you see it.
+</Warning>
+
+## One seed is an anecdote
+
+```java src/lab/Sweep.java
+var base = Loader.load(Path.of("weather.yaml"));
+var loader = Thread.currentThread().getContextClassLoader();
+
+int ok = 0;
+for (long seed = 1; seed <= 20; seed++) {
+    var r = Run.of(base.withSeed(seed), loader, Telemetry.Level.OFF);
+    if (r.completed()) ok++;
+    else System.out.printf("seed %2d  %s%n", seed, r.failure());
+}
+System.out.printf("%d of 20 survived%n", ok);
+```
+
+A seed that did not survive prints **why** rather than becoming an indistinguishable
+`false`, and there is no `|| true` to swallow a run that broke for some other reason.
+[The whole file →](/run/sweeps)
+
+
+Twenty seeds turn "it survived an afternoon" into "it survives afternoons", and the
+spread is the answer — not the best run and not the worst.
+
+## The shape that survives most things
+
+Not a rule, but it is what the six above keep pointing at:
+
+<Steps>
+  <Step title="Hand out work in pieces, and remember what you handed out">
+    A coordinator that cannot say which piece is outstanding cannot redo it.
+  </Step>
+  <Step title="Put a deadline on everything">
+    It is the only thing that distinguishes a frozen machine from a slow one in
+    finite time.
+  </Step>
+  <Step title="Re-check who is there, rather than caching the fleet">
+    Discovery is cheap. A stale list costs a deadline per piece.
+  </Step>
+  <Step title="Prefer the machine that just answered">
+    The fastest signal about which machines are healthy is which machines
+    responded, and you already have it.
+  </Step>
+</Steps>
+
+## See it
+
+The same fleet, twice: once clean, once with a bad afternoon.
+
+```yaml weather.yaml
+seed: 7
+kTime: 2
+job: lab.ThumbnailJob
+expectedRun: 6 refSeconds
+workload: { records: 4000 }
+
+machines:
+  coordinator: { instance: m5.large, zone: eu-central-1a }
+  workers:
+    count: 4
+    prefix: w
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b]
+    serves: [lab.Shrinker]
+
+faults:
+  - { at: 900 refMs,  kill: w1 }
+  - { at: 1200 refMs, degrade: w2, factor: 4 }
+  - { at: 1600 refMs, partition: [coordinator, w0] }
+  - { at: 2400 refMs, heal:      [coordinator, w0] }
+```
+
+Save a second copy beside it as `calm.yaml` with the `faults:` block removed — the
+same fleet, the same work, no weather. Then run both:
+
+```java RunExperiments.java
+Experiments.here()
+        .run("thumbs", "weather.yaml")
+        .run("thumbs", "calm.yaml")
+        .show();
+```
+
+
+**What to look for.** Open `weather`, then pick `calm` from `compare with…` so both
+run on [one clock](/viewer/views#two-runs-on-one-clock). `w1` goes red and stays red;
+`w2` keeps working and simply falls behind, which is the harder failure to notice; and
+the partition leaves `w0` alive and serving while the coordinator cannot reach it.
+Every one of them is a marker on the bar.
+
+Watching them together is what makes the second one visible: a machine that is merely
+slow looks fine on its own, and looks obviously wrong beside the same machine on a
+calm run at the same instant.
+
+
+<Card title="Next: retries" icon="arrow-right" href="/write/retries">
+  And the gate that stops you retrying something unsafe.
+</Card>

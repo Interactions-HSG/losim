@@ -1,0 +1,7 @@
+# The scaler page. Talks about keys and hashes without giving away a split.
+The engine fits each resource against the variable it is actually a function of.
+Peak memory on a machine that accumulates is usually a function of how many
+distinct keys it saw, not of how many records went past — and the two grow at
+different rates, so fitting against the wrong one gives an exponent that will not
+survive a change of corpus. Declare the count with records(n) and reveal the
+vocabulary size, and the engine has both to choose between.

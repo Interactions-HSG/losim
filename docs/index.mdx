@@ -1,0 +1,114 @@
+---
+title: "losim"
+sidebarTitle: "What losim is"
+description: "You write a real gRPC system. losim runs it for real, on one laptop, in a world it has slowed down, broken and shrunk — then tells you what it would have cost at full size."
+icon: "circle-nodes"
+---
+
+## Two layers, and the whole design is keeping them apart
+
+<Columns cols={2}>
+  <Card title="Underneath: your system" icon="code">
+    Ordinary Java, ordinary `.proto` files, ordinary generated stubs. Real
+    transport, real marshalling, real allocation, real threads contending for
+    real cores. Nothing here is pretend.
+  </Card>
+  <Card title="On top: losim" icon="layer-group">
+    gRPC interceptors that slow calls, drop them and cut links; a machine model
+    that caps memory and disk; an engine that shrinks the world and projects
+    results back out of it.
+  </Card>
+</Columns>
+
+Your program never imports a simulator type into a signature. It calls peers over
+`io.grpc.Channel`. It gets back the messages your schema declared. If you delete
+losim from the classpath, the only thing that stops compiling is one annotation.
+
+That separation is what makes the numbers mean something. When losim says a
+machine ran out of memory, it is not accounting fiction: the machine really was
+made small, your code really did fill it, and the failure happened in your code
+for the reason it would happen at full size.
+
+<Note>
+**Nothing is downloaded and nothing is generated at build time.** The toolchain is
+vendored into the repository, so the same commands produce the same result on a
+laptop, in the devcontainer, and in a Codespace. A number that depends on where it
+was computed is the one thing a simulator cannot afford.
+</Note>
+
+## What you actually do
+
+<Steps>
+  <Step title="Write a schema">
+    A `.proto` with your services and messages. gRPC is the only way machines
+    talk — there is no second messaging path, not even for fire-and-forget.
+  </Step>
+  <Step title="Write services and a job">
+    Handlers are plain methods you can call from a plain unit test. The job is
+    one class with a `run(Cluster)` method that drives the fleet.
+  </Step>
+  <Step title="Write a scenario">
+    A YAML file: how many machines, what they are, what they serve, where they
+    are, and what goes wrong at 400 reference milliseconds. Data, not code.
+  </Step>
+  <Step title="Run it and look">
+    One command produces one trace. The trace is the interchange format —
+    everything downstream reads it: the bill, the viewer, your own assertions.
+  </Step>
+</Steps>
+
+## Start here
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/start/quickstart">
+    Build, run something, and see a trace — in about ten minutes.
+  </Card>
+  <Card title="The mental model" icon="brain" href="/start/mental-model">
+    Reference time, `k_time`, machines, the fleet. Six ideas that explain the
+    rest of the manual.
+  </Card>
+  <Card title="Your first system" icon="wrench" href="/first/the-plan">
+    A complete worked system, from an empty file to a bill, with nothing skipped.
+  </Card>
+  <Card title="Scenario reference" icon="file-code" href="/ref/scenario">
+    Every key the scenario file accepts, and what each one refuses.
+  </Card>
+</CardGroup>
+
+## What makes it different from a toy
+
+<AccordionGroup>
+  <Accordion title="Machines are really small, so running out of memory is real" icon="memory">
+    A machine's memory cap is enforced against a **retained-heap walk** — what the
+    machine is actually still holding — not against how much it allocated. Those
+    are different numbers, and only one of them decides an out-of-memory. A design
+    that accumulates and a design that streams allocate about the same; only one
+    of them dies.
+
+    [How a machine is modelled →](/engine/a-machine)
+  </Accordion>
+  <Accordion title="Concurrency is real, so queueing is real" icon="microchip">
+    Each machine gets one thread pool sized to its vCPU count. Four concurrent
+    calls into a two-vCPU machine genuinely queue, and the wait shows up in the
+    trace as its own event. Nothing is simulated about it.
+
+    [Concurrency inside a machine →](/write/concurrency)
+  </Accordion>
+  <Accordion title="A projection carries its confidence, or it is absent" icon="chart-line">
+    In scaled mode the engine fits a law per resource and then tries to break it:
+    does the ladder bend, and would the exponent land in the same place if the
+    whole thing were measured again? When the answer is no, the field is **empty
+    with a reason** rather than filled with a plausible number.
+
+    [When the engine refuses →](/run/when-it-refuses)
+  </Accordion>
+  <Accordion title="Numbers that stopped meaning what they say are marked" icon="triangle-exclamation">
+    Reading the real clock, writing a real file, opening your own channel, sharing
+    a static field between machines — none of those throw. Each produces a run
+    full of plausible figures, every one of them wrong in a direction nobody can
+    see. So the compiled classes are read before anything runs, and what carries a
+    caveat says so beside itself.
+
+    [Trust markers →](/engine/trust)
+  </Accordion>
+</AccordionGroup>

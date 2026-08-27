@@ -1,0 +1,135 @@
+---
+title: "The mental model"
+description: "Six ideas the rest of the manual assumes. Twenty minutes here saves an afternoon later."
+icon: "brain"
+---
+
+## 1. There is one wall clock, and it is running fast
+
+Everything you declare is written in **reference milliseconds** — `refMs` — which
+is time on a *reference machine*: two vCPUs, running alone, nothing else going on.
+
+The run itself is compressed by a factor called **`k_time`**. At `kTime: 40`, a
+duration of 800 refMs takes 20 real milliseconds of your afternoon. A forty-minute
+job lands in tens of seconds.
+
+<Warning>
+`k_time` is the reason a bare number is refused everywhere in a scenario. `900` is
+ambiguous between the simulated world and your afternoon, and the two differ by a
+factor whoever writes the scenario never sees. Write `900 refMs` or `2 refSeconds`.
+</Warning>
+
+Three ways time is spent, and they behave differently:
+
+| | what it is | stretches on a slow machine? | occupies a core? |
+|---|---|---|---|
+| `@Takes(refMs = …)` | declared **work** in a handler | yes | yes |
+| `Losim.current().sleep(refMs)` | a declared **wait** — a backoff, a poll interval | no | no |
+| `Thread.sleep(…)` | your afternoon, untouched by `k_time` | — | — |
+
+The third one is flagged, and [that page](/write/waiting) explains why in detail.
+Waiting is not work: a machine backing off is not using a vCPU, and counting it as
+occupancy would make every occupancy figure in the run a lie.
+
+## 2. A machine is a thread pool with a budget
+
+Each machine in the fleet is:
+
+- one in-process gRPC server,
+- one thread pool sized to its **vCPU count**,
+- a memory cap and a disk cap,
+- a zone.
+
+The pool is the whole model. Four concurrent calls into a two-vCPU machine really
+do queue, and the wait is recorded. The pool is also the **unit of measurement**:
+every thread in it belongs to exactly one machine, which is what makes per-machine
+allocation an exact attribution rather than an estimate.
+
+Two consequences follow directly:
+
+<Columns cols={2}>
+  <Card title="Work off the pool is charged to nobody" icon="ghost">
+    A thread your handler started itself is not the machine's. Its memory and its
+    CPU are attributed to no one, so the machine reads cheaper and less busy than
+    it is. losim cannot count it — so it flags it.
+  </Card>
+  <Card title="A machine can only read its own limits" icon="lock">
+    `Losim.current().here()` gives you *this* machine's instance type, zone, cores
+    and caps. There is no way to read a peer's. An orchestrator that wants to send
+    small work to small machines has to **ask** — over gRPC, like a real one.
+  </Card>
+</Columns>
+
+## 3. gRPC is the only way machines talk
+
+There is no second messaging path. Fire-and-forget is an `Empty`-returning method
+on an async stub, so costs, faults, telemetry and byte counts apply to it exactly
+as to anything else.
+
+Peers are found by **what they serve**, never by hostname:
+
+```java
+var here = Losim.current();
+String peer = here.peersServing("Thumbnailer").get(0);
+Channel to  = here.channelTo(peer);
+ThumbnailerGrpc.newBlockingStub(to).thumbnail(frame);   // ordinary generated stub
+```
+
+What comes back from `channelTo` is an ordinary `io.grpc.Channel`. The call site is
+plain gRPC. The only thing losim adds is its interceptor — which is where latency,
+byte counts, spans, faults and the retry policy live, and why a channel you built
+yourself is flagged.
+
+## 4. The scenario is data, and it is checked before anything runs
+
+The fleet, its weather and its bad afternoon are a YAML file. Nothing in it is
+computed; anything that needs code points at a class by name. That is what lets two
+designs be compared by comparing two files.
+
+Everything that can be wrong is refused **at load, with the line it was written
+on**: an unknown instance type, a fault aimed at a machine that is not in the
+fleet, a key that is a typo for a real one, a duration that forgot its unit, a
+retry policy the schema does not support.
+
+## 5. The trace is the interchange format
+
+One run, one JSON file. Five top-level channels:
+
+| channel | what it holds |
+|---|---|
+| `meta` | the scenario, the seed, the job, whether it completed, how long it took |
+| `machines` | the closing balance per machine: peak memory, disk, bytes, calls, caps |
+| `events` | sparse, rich moments — *this machine was killed* |
+| `spans` | intervals that carry a parent **across the RPC boundary** |
+| `series` | dense numbers on a fixed cadence — what everything held meanwhile |
+
+Three channels rather than one, because a change log is silent exactly when a
+system is stuck, which is exactly when you want to look at it.
+
+The trace is a **contract**: shapes are extended additively and never changed, so
+two runs weeks apart stay comparable. [Full format →](/ref/trace)
+
+## 6. Two scales, and one of them may be absent
+
+A scenario in `mode: scaled` declares a size no laptop can hold. losim shrinks the
+workload **and the machines** by the same factor, runs what fits, and projects
+full-scale numbers from what it actually observed.
+
+The projection is not a multiplication. The engine fits a law per resource against
+whichever variable that resource is really a function of, then tries to break it:
+
+- does the ladder **bend** between the small end and the large end?
+- would the exponent land in the same place if the whole thing were measured again?
+
+When either answer is bad, the projection is **absent with a reason** rather than
+filled in. A field with a plausible number in it is indistinguishable from a good
+one until the cluster bill arrives.
+
+<CardGroup cols={2}>
+  <Card title="Write your first system" icon="hammer" href="/first/the-plan">
+    Everything above, applied end to end.
+  </Card>
+  <Card title="How the scale model works" icon="chart-line" href="/engine/why-scaling">
+    The probe grid, the laws, and the refusals.
+  </Card>
+</CardGroup>

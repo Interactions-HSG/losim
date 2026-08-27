@@ -1,0 +1,116 @@
+---
+title: "spans"
+description: "Intervals that carry a parent across the RPC boundary — a real distributed call stack."
+icon: "bars-staggered"
+---
+
+```json
+{ "id": 15, "parent": 14, "vm": "w0", "kind": "handler",
+  "label": "lab.Thumbnailer.Thumbnail", "t0": 64.9, "t1": 78.9,
+  "status": "OK", "records": 25,
+  "detail": { "call": 14, "inBytes": 611432, "outBytes": 41206, "status": "OK" } }
+```
+
+| field | |
+|---|---|
+| `id` | unique within the run |
+| `parent` | the span this one happened under; `0` means the root |
+| `vm` | the machine it happened on |
+| `kind` | `job`, `phase`, `rpc`, `handler` or `compute` |
+| `label` | the method, or the label you passed |
+| `t0`, `t1` | simulated milliseconds |
+| `status` | `OK`, a gRPC status code, `FAILED`, `TIMEOUT` or `ABANDONED` |
+| `records` | present only when the handler declared a count |
+| `detail` | see below, sorted by key |
+
+## The five kinds
+
+<ResponseField name="job" type="one per run">
+  The whole job, on the machine it runs on. Its `status` is `OK`, `FAILED` or
+  `TIMEOUT`.
+</ResponseField>
+
+<ResponseField name="phase" type="cluster.phase(label)">
+  A named stretch of the job. Whatever `note(k, v)` added is in `detail`. Does not
+  mark the machine busy.
+</ResponseField>
+
+<ResponseField name="compute" type="cluster.compute(label, body)">
+  Local work with no RPC to carry it. `detail.result` at `FULL`. Marks the machine
+  busy.
+</ResponseField>
+
+<ResponseField name="rpc" type="on the caller">
+  `detail` carries `to`, `bytes` (the request), `ms`, and `netRefMs` when the network
+  had any latency. At `FULL`, `arg` and `result`.
+
+  A call that was never delivered carries `delivered: false` and `why`.
+</ResponseField>
+
+<ResponseField name="handler" type="on the callee">
+  Opened **under the caller's `rpc` span**. `detail` carries `call`, `inBytes`,
+  `outBytes` and `status`; `error` when it failed; `arg` and `result` at `FULL`.
+</ResponseField>
+
+## The parent crosses the wire
+
+<Note>
+The callee's span is opened under a parent id that arrived in a **gRPC metadata
+header**, from a thread on another machine this one has no context from.
+
+Taking the parent from the ambient context instead would hang every server span off
+the root — which is to say there would be no distributed call stack at all. If you
+see spans hanging off `0` that should not be, the call went over a channel losim did
+not make.
+</Note>
+
+## Printing the tree
+
+```python
+import json, collections
+t = json.load(open("build/thumbs.json"))
+kids = collections.defaultdict(list)
+for s in t["spans"]:
+    kids[s["parent"]].append(s)
+
+def show(pid, depth=0):
+    for s in sorted(kids[pid], key=lambda s: s["t0"]):
+        print(f'{"  " * depth}{s["vm"]:<12} {s["kind"]:<8} {s["label"]:<32} '
+              f'{s["t0"]:8.1f} -> {s["t1"]:8.1f}  {s["status"]}')
+        show(s["id"], depth + 1)
+
+show(0)
+```
+
+```
+coordinator  job      lab.ThumbnailJob                    0.0 ->   2416.0  OK
+  coordinator  phase    survey                            2.1 ->     28.4  OK
+    coordinator  rpc    lab.Thumbnailer.Capacity          2.4 ->      9.1  OK
+      w0         handler lab.Thumbnailer.Capacity         3.0 ->      8.6  OK
+  coordinator  compute  read the album                   28.9 ->     54.2  OK
+  coordinator  phase    thumbnails                       54.3 ->   2415.0  OK
+    coordinator  rpc    lab.Thumbnailer.Thumbnail        61.4 ->     79.9  OK
+      w0         handler lab.Thumbnailer.Thumbnail        64.9 ->     78.9  OK
+```
+
+## Two durations, and the difference is losim's
+
+| | |
+|---|---|
+| **gross** | `t1 - t0`, open to close |
+| **program** | gross minus whatever losim spent inside that window, on that thread |
+
+`handler_end` events carry both as `grossMs` and `ms`. The scale engine fits the
+**program** duration, because reporting a handler as slower for having been watched
+would make every projection depend on how much you instrumented it.
+
+## `ABANDONED`
+
+```json
+{ "status": "ABANDONED", "detail": { "why": "the run ended while this was in flight" } }
+```
+
+A run can end with work still in flight — a handler whose caller gave up, a machine
+killed mid-call. Those spans are real and so is their end. Left open they would be
+indistinguishable from a recorder that lost track, which is the one thing a dangling
+span is supposed to mean.

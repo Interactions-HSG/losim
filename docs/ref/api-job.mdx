@@ -1,0 +1,98 @@
+---
+title: "Job"
+description: "The one thing in a scenario that is code."
+icon: "play"
+---
+
+```java
+package losim.api;
+
+@FunctionalInterface
+public interface Job {
+    void run(Cluster cluster) throws Exception;
+}
+```
+
+## The contract
+
+<Steps>
+  <Step title="An ordinary class with a no-argument constructor">
+    Nothing is injected and nothing is inherited. Whatever it needs, it asks
+    [`Cluster`](/ref/api-cluster) for. The constructor may be private; losim calls
+    `setAccessible`.
+  </Step>
+  <Step title="Named in the scenario, not embedded">
+    ```yaml
+    job: lab.ThumbnailJob
+    ```
+    Fully qualified. That is what keeps the scenario pure data, so two designs can be
+    compared by comparing two files.
+  </Step>
+  <Step title="It runs on the first machine in the file">
+    On that machine's own threads, so every call it makes and every byte it allocates
+    is attributed to that machine like any other work. The verifier also attributes
+    the job's findings to that machine.
+  </Step>
+  <Step title="Returning ends the run; throwing ends it too">
+    Both are recorded. A run that failed is a result, not an absence of one.
+  </Step>
+</Steps>
+
+## How a run ends
+
+| | `meta.completed` | exit code |
+|---|---|---|
+| `run` returns | `true` | 0 |
+| `run` throws | `false`, with `meta.failure` | 1 |
+| it outstays **ten times** `expectedRun` | `false` | 1 |
+
+```json
+{ "kind": "job_failed", "vm": "coordinator",
+  "detail": { "error": "IllegalStateException: nobody serves Thumbnailer" } }
+```
+
+<Note>
+The ten-times rule is a backstop, not a deadline. Long before it, an
+`over_horizon` event fires at 1.25× — because past the horizon the sampler thins out
+and chaos stops firing, and a quiet second half looks exactly like a fleet behaving
+well.
+</Note>
+
+## Errors at load
+
+```
+'lab.MyJob' is named as the job, so it has to implement losim.api.Job
+no class called 'lab.MyJb' is on the classpath to run as the job
+```
+
+## The shape that works
+
+```java
+public final class MyJob implements Job {
+    @Override public void run(Cluster cluster) throws Exception {
+
+        var workers = cluster.serving("Worker");
+        if (workers.isEmpty()) throw new IllegalStateException("nobody serves Worker");
+
+        var input = cluster.compute("prepare",
+                () -> Input.of(cluster.records(), cluster.seed()));
+
+        try (var p = cluster.phase("work")) {
+            var inflight = new ArrayList<ListenableFuture<Reply>>();
+            for (var piece : pieces(input))
+                inflight.add(WorkerGrpc
+                        .newFutureStub(cluster.channelTo(pick(workers)))
+                        .withDeadlineAfter(2_000, TimeUnit.MILLISECONDS)
+                        .doWork(piece));
+            for (var f : inflight) collect(f);
+            p.note("pieces", inflight.size());
+        }
+
+        cluster.done(answer());
+    }
+}
+```
+
+Four things worth copying: **check discovery is not empty**, **wrap local work in
+`compute`**, **dispatch asynchronously then collect**, and **put a deadline on
+everything**.

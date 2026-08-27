@@ -1,0 +1,113 @@
+---
+title: "Why scaling is hard"
+description: "What survives being shrunk, what does not, and why multiplying by the size ratio is wrong."
+icon: "up-right-and-down-left-from-center"
+---
+
+The problem: a design is meant for forty million records, and you have a laptop.
+
+## The naive answer, and why it fails
+
+Run a thousandth of the data, multiply everything by a thousand.
+
+<Warning>
+That assumes every resource is **linear in records**, and almost none of them are.
+
+- Memory on a machine that accumulates follows how many *distinct* things it had to
+  hold, which grows sublinearly.
+- Time follows the critical path through a call graph, and four calls into eight
+  cores take one wave while thirty-two take four — so multiplying the first run by
+  eight says eight waves.
+
+Measured: multiplication lands **34% out** on memory for a workload where those
+diverge, and **199% out** on a makespan where replay lands within 2%.
+</Warning>
+
+## What losim does instead
+
+<Steps>
+  <Step title="Shrink the workload and the machines by the same factor">
+    What the scale model preserves is not size but **ratio**: demand over capacity,
+    per machine, per resource. A design that would exhaust a 16 GiB machine at full
+    scale exhausts a 16 MiB one here — in your own code, for the same reason.
+  </Step>
+  <Step title="Climb a ladder rather than running one small case">
+    Four data sizes, six seeds each, plus a fleet ladder and a fault column — about
+    thirty runs. One point cannot show you a shape.
+  </Step>
+  <Step title="Fit each resource against the variable it is really a function of">
+    Not against records by default. Every numeric `reveal` is a candidate.
+  </Step>
+  <Step title="Try to break each law before believing it">
+    Does the ladder bend? Would the exponent land in the same place if the whole
+    thing were measured again? A law that fails either is **refused**, not printed.
+  </Step>
+</Steps>
+
+## What survives shrinking, and what does not
+
+<Columns cols={2}>
+  <Card title="Survives honestly" icon="check">
+    **Memory.** The machines are made proportionally small, so the ratio is
+    preserved and an out-of-memory happens for the right reason.
+
+    **Bytes.** Real messages, really marshalled, at a real size.
+
+    **Disk.** Declared per write, capped proportionally.
+  </Card>
+  <Card title="Does not survive" icon="xmark">
+    **Time.** The host's CPU is *not* shrunk. It runs at full speed on a
+    five-thousandth of the data, so every handler is genuinely instant.
+
+    That is the whole reason `@Takes` is declared rather than measured — without it
+    there is no queueing, no contention, no deadline pressure and no critical path.
+  </Card>
+</Columns>
+
+## The timeline is replayed, not multiplied
+
+Even with declared costs, projecting a makespan by multiplication is wrong, because
+concurrency does not multiply.
+
+The engine replays the **observed call graph** with projected durations and each
+machine's real concurrency. Measured against ground truth: replay lands within 2%
+where multiplication is 199% out.
+
+<Note>
+And even then, the makespan is routinely **refused** — on handlers shorter than the
+host's own jitter its exponent moves more between seed sets than the effect being
+measured. That is a correct output, and it is why the projected bill often cannot
+price capacity.
+</Note>
+
+## The two-step attribution
+
+This is the part that makes projections hold.
+
+```
+memoryMb      = f(distinctItems)      fitted on the ladder
+distinctItems = g(records)            also fitted on the ladder
+```
+
+Peak memory on a machine that accumulates is a function of how many distinct things
+it holds; that count is itself a sublinear function of records. Fitting memory
+against the count and the count against records composes **two well-behaved laws**.
+
+Fitting memory against records directly gives **one fragile exponent** that will not
+survive a change of input — and a projection 34% out.
+
+## The plan travels in the trace
+
+`projected = f(observed)` is written into the trace, so anyone reading it later can
+recompute it rather than taking a number on trust. It is also cached against the
+scenario, the code it profiles and the telemetry level, so a grid of thirty runs is
+paid for once.
+
+<CardGroup cols={2}>
+  <Card title="The probe grid" icon="table-cells" href="/engine/probe-grid">
+    Three axes, varied independently.
+  </Card>
+  <Card title="Fitting the laws" icon="function" href="/engine/laws">
+    Candidate variables, wobble, and why R² is not the test.
+  </Card>
+</CardGroup>

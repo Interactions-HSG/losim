@@ -1,0 +1,5 @@
+# The same answer, with the vocabulary carefully avoided.
+The job runs in two rounds. In the first, every worker applies map to the slice
+of input it was given and writes what it produced to local disk. In the second,
+a different set of workers each collect one slice of that output and apply
+reduce over it, so that everything belonging together is folded on one machine.

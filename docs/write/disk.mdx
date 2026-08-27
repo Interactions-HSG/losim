@@ -1,0 +1,147 @@
+---
+title: "Disk"
+description: "A write that can be refused, and why that matters more than a counter would."
+icon: "hard-drive"
+---
+
+```java
+Losim.current().wroteDisk(bytes);
+```
+
+That is the whole API. There is no file, no path and no stream — the point is not
+to persist anything, it is to make a design that does not fit on its disks fail
+here for the reason it would fail there.
+
+## It throws
+
+Unlike every other recording call, this one is not silent when things go wrong:
+
+```java
+try {
+    Losim.current().wroteDisk(spill.getSerializedSize());
+} catch (IllegalStateException e) {
+    // w3 has no disk left: 33.4 MB written against a 32.0 MB volume
+}
+```
+
+A machine whose disk is full cannot take the write, so the handler fails the way it
+would have failed for real. Recording the write and carrying on would let a design
+that cannot fit on its disks appear to work — the same mistake as an out-of-memory
+that only prints a warning.
+
+The trace records it once per machine:
+
+```json
+{ "kind": "disk_full", "vm": "w3", "detail": {
+    "resource": "disk", "capMb": 32.0, "demandMb": 33.421,
+    "cause": "the machine was asked to write more than it has" } }
+```
+
+<Warning>
+**Do not write a real file.** `Files.write`, `FileOutputStream`, `RandomAccessFile`
+— none of them throw, none of them are seen by the disk model, none of them are
+capped, and all of them write to the host, outside the one-machine boundary. The
+machine's disk figure becomes a lower bound and the verifier says so beside it.
+</Warning>
+
+## What to declare
+
+Whatever your design would actually have written, in bytes:
+
+```java
+byte[] payload = spill.toByteArray();
+Losim.current().wroteDisk(payload.length);
+```
+
+or, without building the array:
+
+```java
+Losim.current().wroteDisk(spill.getSerializedSize());
+```
+
+<Note>
+Nothing checks that you declared the truth, and nothing can. This is a claim about
+your design, like `@Takes` — and like `@Takes`, what matters is that it is
+consistent between the designs you are comparing.
+</Note>
+
+## Reading back
+
+There is no read side, on purpose. A design that spills and re-reads pays for the
+spill; re-reading costs whatever your `@Takes` says it costs. Adding a read API
+would mean modelling a filesystem, and the interesting question — *does this fit,
+and what does the storage cost* — is answered without one.
+
+## Caps
+
+From the instance type's `storageGb`, or overridden per machine:
+
+```yaml
+machines:
+  workers:
+    count: 4
+    prefix: w
+    instance: i3.large           # 475 GB of local storage
+    serves: [lab.Spiller]
+    overrides:
+      w3: { diskMb: 32 }         # deliberately too small
+```
+
+The catalogue's storage-shaped instance is `i3.large`; everything else has 8–32 GB.
+Choosing an instance family is itself a design decision, and the bill will price it.
+
+## What it shows up in
+
+| where | as |
+|---|---|
+| series | `diskMb`, `diskPct` per machine, per tick |
+| `machines` channel | `diskMb`, the closing total |
+| the bill | a `GB-month` row under **consumption** |
+| scaled mode | a `diskMb` law, fitted against whichever variable it turns out to follow |
+
+<Tip>
+Disk is often the resource whose law the engine **refuses**, and for an instructive
+reason: code that spills only above a threshold behaves differently small than
+large, so the ladder bends between the low end and the high end. R² over the whole
+ladder still scores about 0.74 — which a merely noisy straight line reaches just as
+easily — so no threshold on R² could separate them. The engine splits the ladder
+instead. [Refusals →](/engine/refusals)
+</Tip>
+
+## See it
+
+A volume too small for what the design writes to it:
+
+```yaml spill.yaml
+seed: 1
+kTime: 2
+job: lab.SpillJob
+expectedRun: 4 refSeconds
+workload: { records: 50000 }
+
+machines:
+  coordinator: { instance: m5.large, zone: eu-central-1a }
+  workers:
+    count: 2
+    prefix: w
+    instance: i3.large            # the storage-shaped instance
+    zone: eu-central-1a
+    serves: [lab.Spiller]
+    overrides:
+      w1: { diskMb: 32 }          # deliberately too small
+```
+
+```java RunExperiments.java
+Experiments.here()
+        .run("thumbs", "spill.yaml")
+        .show();
+```
+
+**What to look for.** `w1` throws where `w0` does not, and the `disk_full` marker is
+on the bar at the instant it happened. In the [ledger](/viewer/views#the-ledger) the
+consumption bucket now has a storage line that climbs as the run goes on — which is
+the line a better algorithm moves.
+
+<Card title="Next: concurrency" icon="arrow-right" href="/write/concurrency">
+  The thread pool is the machine, and that has consequences.
+</Card>

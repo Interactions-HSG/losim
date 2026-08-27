@@ -1,0 +1,160 @@
+---
+title: "Quickstart"
+description: "Open the lab, press one button, and read what your system did."
+icon: "rocket"
+---
+
+**You do not type anything to get started.** Open the lab and it is already running.
+
+<Steps>
+  <Step title="Open the lab">
+    In a Codespace or the devcontainer, two servers started when you attached —
+    nothing to install, nothing to type. Open **http://localhost:8000/**; in a
+    Codespace, use the forwarded URL from the **Ports** panel rather than
+    `localhost`, and VS Code opens a preview on it for you.
+
+    The other is the manual, on **3000**. If you ever find yourself in a terminal
+    to get started, something is broken and the course wants to hear about it.
+
+
+    <div id="run-something" />
+    You get the list of systems in your project, and the runs you have made so far.
+  </Step>
+
+  <Step title="Press the arrow beside a system">
+    That reads its schema, compiles its Java, runs it in the world its scenario
+    describes, and prices what happened — each step's output appearing in the log
+    as it arrives.
+
+    A system with more than one scenario beside it lists them all. Which one runs
+    is your press: `main.yaml` is the ordinary world, and a variant beside it is a
+    second, deliberate question.
+  </Step>
+
+  <Step title="Or press the ▶ in your editor">
+    At the root of the project is `RunExperiments.java` — an ordinary Java file with
+    an ordinary `main`, and your editor puts a **▶** above it:
+
+    ```java RunExperiments.java
+    Experiments.here()
+            .run("my-system")
+            .show();
+    ```
+
+    Same work, listed rather than clicked. Comment lines in and out to choose what you
+    are looking at; two `run` lines are two runs side by side in the picker. Unlike a
+    click, this file is diffable, commentable and committable — it is a record of the
+    experiment you ran.
+
+    `DisplayDocs.java` beside it does the same for the manual.
+    [More →](/first/run-it)
+  </Step>
+
+
+  <Step title="Watch it">
+    When the run finishes it is in the picker, and the film plays what happened —
+    machines, the messages between them, and the money accruing while it goes.
+
+    Nothing was swept or registered. A run is in the picker because it is on disk
+    under `build/runs`, which is the only fact that cannot go stale.
+  </Step>
+</Steps>
+
+<Note>
+**The manual is a separate process**, on **http://localhost:3000/**, started the same
+way. Separate on purpose: this is where you look when something will not start, so it
+must not be served by the thing that will not start.
+
+Two other ways in, and all three are always true: the published site, and the `.mdx`
+files under `docs/` in the editor you are already sitting in.
+</Note>
+
+## When you do want the command line
+
+**You never need it, and no page in this manual asks you to.** Every shell script left
+in these repositories — `build.sh`, `publish.sh`, `vendor/fetch.sh` — is a maintainer
+tool for whoever works on losim itself.
+
+It is there, though, and it is what the button calls:
+
+
+
+<Note>
+**There is no `losim` command.** `losim` is written here as shorthand for the
+simulator's command line; what you actually type is a JVM invocation, and where the
+jar lives depends on which repository you are in:
+
+```bash
+# in a lab — losim is committed under lib/
+java -cp lib/losim.jar losim.cli.Main run …
+
+# in the losim repository itself — it is built, not committed
+CP="$(ls vendor/jars/*.jar | tr '\n' ':')build/losim.jar"
+java -cp "$CP" losim.cli.Main run …
+```
+
+Later pages use the second form, because they are as much for whoever is building
+losim as for whoever is using it. It is the same program either way.
+</Note>
+
+
+
+```bash
+losim run thumbs.yaml --cp build/classes --out build/runs/thumbs.json
+```
+
+At a terminal this **opens the viewer on what it just ran** and keeps it open. It
+serves the trace's own directory, so several scenarios written into one directory are
+all in the picker together — which is how you put `main.yaml` beside `slow.yaml` and
+compare them.
+
+<Tip>
+`--no-view` writes the trace and stops. A run whose output is redirected does not open
+anything either, so a scripted sweep stays a scripted sweep.
+
+`--cp` is where **your** compiled classes are — the job and the services the scenario
+names. Point it at a directory, not a jar: the trust verifier reads class files off
+disk and does not walk into one.
+</Tip>
+
+
+## What you just saw
+
+A run reports something like this:
+
+```
+thumbs.yaml  seed 7  completed in 3332 refMs
+  874 events, 292 spans, 75 series -> build/runs/thumbs.json
+```
+
+
+Three things worth understanding straight away:
+
+| | |
+|---|---|
+| **`refMs`** | *reference milliseconds* — time in the simulated world, not your afternoon. The two differ by `k_time`. |
+| **events / spans / series** | the three telemetry channels. Events are moments, spans are intervals that carry a parent, series are dense numbers on a fixed cadence. |
+| **the trace path** | the only artefact that matters. Everything downstream reads it. |
+
+The exit code matters only if you are scripting `losim run`; the button reads it for
+you and says which step failed:
+
+
+| code | meaning |
+|---|---|
+| `0` | the job completed |
+| `1` | the job did not complete — it threw, or outstayed its welcome |
+| `2` | the scenario is wrong: an unknown key, an unknown instance type, a duration with no unit. Nothing ran. |
+| `3` | something went wrong inside losim |
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="The mental model" icon="brain" href="/start/mental-model">
+    Six ideas — reference time, `k_time`, the fleet, the trace — that the rest of
+    the manual assumes.
+  </Card>
+  <Card title="Build a system from scratch" icon="hammer" href="/first/the-plan">
+    A complete worked example: schema, service, job, scenario, trace, bill.
+  </Card>
+</CardGroup>

@@ -1,0 +1,138 @@
+---
+title: "Declaring what work costs"
+description: "@Takes, reference time, and why the one thing losim does not measure is time."
+icon: "stopwatch"
+---
+
+```java
+@Takes(refMs = 3, refNsPerRecord = 240_000)
+@Override protected Thumbs thumbnail(Batch request) { … }
+```
+
+## Why this is declared when everything else is measured
+
+losim shrinks the workload **and** the machines by the same factor, so memory and
+bytes survive it honestly: a machine that would exhaust 16 GiB at full scale
+exhausts 16 MiB here, in your own code, for the same reason.
+
+Time does not survive it, because **the host's CPU is not shrunk**. It runs at full
+speed on a five-thousandth of the data, so every handler is genuinely instant.
+Without a declared duration there is no queueing, no contention, no deadline
+pressure and no critical path — which is most of what a fleet is interesting for.
+
+Measuring instead does not work at this scale either. Handler durations at probe
+size sit inside the host's own jitter, where the fitted time exponent moves by 0.25
+between seed sets of an *identical* workload. A number that moves that much when
+nothing changed is not a measurement.
+
+<Note>
+So it is declared, and it is **optional**. An unannotated method takes no time —
+deliberately, rather than a made-up amount. A handler nobody has timed should run
+at whatever speed it runs, not at a speed somebody guessed.
+</Note>
+
+## Reference time
+
+`refMs` is time on a **reference machine**: two vCPUs, running alone. That is the
+unit, and it is the unit precisely so that the declaration composes with everything
+else. The server interceptor sleeps:
+
+```
+refMs × machineFactor ÷ k_time
+```
+
+| | |
+|---|---|
+| `machineFactor` | `2 ÷ vcpu`, from the instance catalogue. A 2-vCPU machine takes 1×; a 4-vCPU machine takes 0.5×; a degraded machine multiplies on top. |
+| `k_time` | the run's global compression. |
+
+A declaration of `refMs = 3` therefore means *three milliseconds of work on a
+two-core machine*, which is a claim about your code that stays true whatever fleet
+it lands on and however compressed the run is.
+
+## The two terms
+
+<ParamField path="refMs" type="double" default="0">
+  What one call takes **regardless of what is in it** — the fixed part. Known
+  before the handler runs, and slept **before** it, on the machine's own pool
+  thread. Marshalling, setup, a lookup: the cost of being called at all.
+</ParamField>
+
+<ParamField path="refNsPerRecord" type="double" default="0">
+  What each unit of input adds, in reference **nanoseconds**. Nothing outside the
+  handler can know how much input there was, so the handler declares it with
+  `Losim.current().records(n)` and this part is slept **after the body returns**,
+  before the response leaves.
+
+  Slept before the response leaves rather than after, because a caller waits for
+  work that has not finished — and by that point the handler has said how much
+  there was.
+</ParamField>
+
+<Warning>
+A handler that never calls `records(n)` is charged the **fixed part only**, and its
+span says so. If your per-record term looks like it is doing nothing, that is
+almost always why.
+</Warning>
+
+## Choosing numbers
+
+There is no right answer, and that is the point — the declaration is a claim about
+your design that you are making explicitly rather than discovering by accident.
+Some anchors:
+
+| | roughly |
+|---|---|
+| a hash lookup, a field copy | far below 0.01 refMs — do not annotate it |
+| parsing or validating a message | 0.1 – 1 refMs |
+| an image operation, a compression, a sort of a few thousand items | 1 – 20 refMs |
+| something you would put on a dashboard | 50 refMs and up |
+
+<Tip>
+Two designs are compared by comparing scenarios, so what matters is that your
+declarations are **consistent between the designs you are comparing**. A handler
+declared at 3 refMs in one design and 30 in the other is not a comparison of
+designs.
+</Tip>
+
+## `k_time` is a floor, not a free parameter
+
+The clock cannot express a duration finer than about **0.05 ms** of real time — the
+measurement's own overhead dominates below that. losim handles it by *owing* the
+cost rather than losing it, and the ledger is good for about fifty times below the
+floor. Past that, the engine says so:
+
+```
+k_time 400 is finer than this workload can express: lab.Thumbnailer.Capacity
+costs 0.5000 refMs, which at that compression is 4x below what the sleep debt can
+still settle. Lower k_time to 100 or less, or give that cost site more to do.
+```
+
+[How the sleep debt works →](/engine/the-sleep-debt)
+
+## Where the annotation is looked for
+
+gRPC knows the method as `lab.Thumbnailer/Thumbnail`. You wrote `Thumbs
+thumbnail(Batch)`. The bridge is grpc-java's own naming rule — an rpc `Thumbnail`
+becomes a Java method `thumbnail` — applied to whatever the service actually
+registered.
+
+The search walks the class and every superclass, so the annotation is found on your
+handler, on a shared base class, or on the generated base. Put it on **the
+value-returning method**, which is the one whose body is the work:
+
+```java
+public abstract class ThumbnailerBase extends ThumbnailerGrpc.ThumbnailerImplBase {
+    protected abstract Thumbs thumbnail(Batch request);            // no annotation here
+    @Override public final void thumbnail(Batch r, StreamObserver<Thumbs> o) { … }
+}
+
+public final class Shrinker extends ThumbnailerBase {
+    @Takes(refMs = 3, refNsPerRecord = 240_000)                     // here
+    @Override protected Thumbs thumbnail(Batch request) { … }
+}
+```
+
+<Card title="Next: waiting" icon="arrow-right" href="/write/waiting">
+  A backoff is not work, and the difference is measurable.
+</Card>

@@ -1,0 +1,131 @@
+---
+title: "Running one scenario"
+description: "The command, the report, the exit code, and what to check first."
+icon: "play"
+---
+
+```bash
+CP=$(ls vendor/jars/*.jar | tr '\n' ':')
+
+java -Xmx3g -cp "${CP}build/losim.jar:build/classes" \
+     losim.cli.Main run thumbs.yaml \
+     --cp build/classes \
+     --out build/thumbs.json
+```
+
+## The report
+
+```
+thumbs.yaml  seed 7  completed in 2416 refMs
+  1044 events, 322 spans, 68 series -> build/thumbs.json
+```
+
+Anything that ran out of something gets its own line:
+
+```
+  w2 ran out of memory: 11.83 MB against a 4.0 MB cap
+  w3 ran out of disk: 33.421 MB against a 32.0 MB cap
+```
+
+And so does anything the verifier found:
+
+```
+  trust: 2 machines report figures that do not mean what they say
+    w0, w1
+      each reads the real clock, so its timeline is not projectable
+        Shrinker.java:41             System.nanoTime() in thumbnail
+    Nothing was stopped: each of these is a wrong number, not a broken run.
+```
+
+## Order of operations
+
+Knowing what happens when explains most of the error messages:
+
+<Steps>
+  <Step title="The scenario is parsed and checked">
+    Unknown keys, unknown instance types, durations with no unit, faults aimed at
+    machines that do not exist. **Exit code 2, nothing ran.**
+  </Step>
+  <Step title="The classes are read, before anything runs">
+    The verifier disassembles the job and the services named in the scenario,
+    walking outward from them. It never stops a run — it produces caveats with an
+    address.
+  </Step>
+  <Step title="Machines are built and start serving">
+    One in-process server each, one pool each, sized to the instance's vCPUs. This
+    is where a missing class or a missing no-argument constructor is discovered.
+  </Step>
+  <Step title="Retry policies are checked against what the fleet actually serves">
+    A policy naming an unserved method, or retrying one the schema does not declare
+    safe, is refused **here** — before a single call is made.
+  </Step>
+  <Step title="The clock is zeroed and the fleet is announced">
+    Everything before this is setup and belongs to no scenario. Building six
+    in-process servers costs real milliseconds, and at `kTime: 10` that would be
+    hundreds of reference milliseconds of a run that has not begun — putting every
+    early fault in the past, so they would all fire at once during setup.
+  </Step>
+  <Step title="The sampler starts, then the weather is scheduled, then the job runs">
+    Faults are placed against a clock that starts at zero, so a fault written at
+    120 refMs lands at 120 refMs in the trace.
+  </Step>
+  <Step title="The run ends, a final heap walk happens, the trace is written">
+    A machine that filled up in the final tick is not reported at whatever it held
+    eight ticks ago.
+  </Step>
+</Steps>
+
+## Exit codes
+
+| | |
+|---|---|
+| `0` | the job completed |
+| `1` | the job did not complete — it threw, or it outstayed **ten times** its `expectedRun` |
+| `2` | the scenario is wrong. Nothing ran. |
+| `3` | something went wrong inside losim. Re-run with `LOSIM_DEBUG=1` for the stack. |
+
+## Options
+
+<ParamField path="--cp <paths>" type="path list">
+  Colon-separated **directories** where the job and the services are compiled to.
+  Not a jar: the verifier reads class files off disk and does not walk into one.
+</ParamField>
+<ParamField path="--out <file>" type="path" default="build/<scenario>.json">
+  Where to write the trace.
+</ParamField>
+<ParamField path="--seed <n>" type="long">
+  Overrides the scenario's seed. This is what a sweep is made of.
+</ParamField>
+<ParamField path="--telemetry <level>" type="FULL | NO_PAYLOAD | OFF" default="FULL">
+  How much is recorded.
+</ParamField>
+
+<ParamField path="LOSIM_DEBUG" type="environment variable">
+  When set, an exit-code-3 failure prints its stack trace as well as its message.
+  Kept behind a switch so an ordinary run still reads like a tool rather than like
+  a crash.
+</ParamField>
+
+## What to check first, every time
+
+<Steps>
+  <Step title="Did it complete?">
+    `meta.completed` in the trace, and the exit code.
+  </Step>
+  <Step title="Did every machine get work?">
+    A machine with `"calls": 0` in the `machines` channel is a discovery bug or a
+    placement bug, and it is the most common first result.
+  </Step>
+  <Step title="Did the work overlap?">
+    Summed `handler` span durations much greater than the wall span means real
+    concurrency. Roughly equal means you built a queue.
+  </Step>
+  <Step title="Was anything flagged?">
+    The trust block. Plausible numbers that mean nothing are worse than obviously
+    broken ones.
+  </Step>
+</Steps>
+
+<Card title="Next: sweeps" icon="arrow-right" href="/run/sweeps">
+  One seed is an anecdote.
+</Card>
