@@ -88,6 +88,11 @@ public final class Run {
      */
     public static Result of(Scenario s, ClassLoader loader, Telemetry.Level level, Trust trust)
             throws Exception {
+        // Before anything: the JVM's first gRPC call costs sixty times what the
+        // ones after it cost, and whichever handler happens to be first would be
+        // billed for it. Paid here, on a fleet of losim's own, in no trace.
+        Warm.once();
+
         var clock = new Clock(s.kTime(), Clock.measureCorrection());
         var tel = new Telemetry(clock, level);
         var net = new Net(s.seed())
