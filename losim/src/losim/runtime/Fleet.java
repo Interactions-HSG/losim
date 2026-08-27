@@ -115,8 +115,28 @@ public final class Fleet implements AutoCloseable {
      */
     void offers(String fullServiceName, String machineName) {
         String bare = fullServiceName.substring(fullServiceName.lastIndexOf('.') + 1);
-        byService.computeIfAbsent(bare, k -> new CopyOnWriteArrayList<>()).add(machineName);
-        byService.computeIfAbsent(fullServiceName, k -> new CopyOnWriteArrayList<>()).add(machineName);
+        register(bare, machineName);
+        register(fullServiceName, machineName);
+    }
+
+    /**
+     * Records the offer once, however many times it is made.
+     *
+     * <p>It is made more than once, twice over. A machine's server is rebuilt from
+     * scratch every time a service is added to it, so a machine offering three
+     * services announces the first one three times; and a machine that dies and
+     * restarts announces everything it serves all over again. Neither is a mistake
+     * in the caller — both are the server being rebuilt, which is what a restart is.
+     *
+     * <p>Unguarded it is a quiet disaster rather than a loud one. Nothing fails: a
+     * peer simply appears twice in {@code serving()}, so a coordinator that fans out
+     * one task per peer does the same work twice on the same machine, and every
+     * count derived from the fleet's shape is wrong by a factor nobody chose. The
+     * fleet is a set, so this is where it becomes one.
+     */
+    private void register(String key, String machineName) {
+        var list = byService.computeIfAbsent(key, k -> new CopyOnWriteArrayList<>());
+        if (!list.contains(machineName)) list.add(machineName);
     }
 
     /** Machines serving a named service, live ones first and dead ones not at all. */

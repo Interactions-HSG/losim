@@ -17,6 +17,12 @@ public interface Bound {
 
     String name();
 
+    /**
+     * What this machine is made of — cached, not measured: every field is final
+     * on the machine and known before it boots.
+     */
+    Spec here();
+
     List<String> peers();
 
     List<String> peersServing(String service);

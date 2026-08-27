@@ -34,6 +34,28 @@ public final class PriceList {
 
     public static PriceList defaults() { return new PriceList(); }
 
+    /**
+     * The rates, as data.
+     *
+     * <p>So that anything computing money from a trace computes it from the same
+     * numbers this did, rather than from a copy of them that will drift.
+     */
+    public java.util.Map<String, Object> asMap() {
+        var m = new java.util.LinkedHashMap<String, Object>();
+        m.put("currency", currency);
+        m.put("spotDiscount", spotDiscount);
+        m.put("egressPerGb", egressPerGb);
+        m.put("storagePerGbMonth", storagePerGbMonth);
+        m.put("billingMinimumSeconds", billingMinimumSeconds);
+        m.put("buildPerServiceMonth", buildPerServiceMonth);
+        m.put("revenuePerJob", revenuePerJob);
+        m.put("slaSeconds", slaSeconds);
+        m.put("latePenaltyPerSecond", latePenaltyPerSecond);
+        m.put("incidentPerRerun", incidentPerRerun);
+        m.put("incidentPerLostMachine", incidentPerLostMachine);
+        return m;
+    }
+
     public static PriceList load(Path p) throws IOException {
         return of(Yaml.parse(p));
     }

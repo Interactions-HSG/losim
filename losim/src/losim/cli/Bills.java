@@ -5,6 +5,7 @@ import java.nio.file.Path;
 import losim.price.Bill;
 import losim.price.PnL;
 import losim.price.PriceList;
+import losim.trace.Json;
 import losim.trace.JsonReader;
 
 /**
@@ -18,6 +19,22 @@ public final class Bills {
     private Bills() {}
 
     public static int run(Path trace, String priceFile) throws Exception {
+        return run(trace, priceFile, false);
+    }
+
+    /**
+     * With {@code --json}, the same five buckets as data, plus the rates they were
+     * computed from.
+     *
+     * <p>The rates are the part that matters. The viewer accrues cost as the film
+     * plays, which the totals here cannot give it — a bill is what a run cost, and
+     * watching profit go negative halfway through a cascade needs to know what it
+     * cost *so far*. So the viewer has to do the arithmetic itself, and the only
+     * thing that stops it and this becoming two accountants who will eventually
+     * disagree is that both work from these numbers and the total is checked against
+     * that one.
+     */
+    public static int run(Path trace, String priceFile, boolean asJson) throws Exception {
         if (!Files.exists(trace)) throw new IllegalArgumentException("no such trace: " + trace);
         Path list = Path.of(priceFile);
         PriceList prices;
@@ -25,11 +42,22 @@ public final class Bills {
             prices = PriceList.load(list);
         } else {
             prices = PriceList.defaults();
-            System.out.println("no price list at " + priceFile + "; using the built-in defaults");
+            // On stderr: a note printed onto stdout would be the first line of what
+            // is supposed to be a JSON document.
+            System.err.println("no price list at " + priceFile + "; using the built-in defaults");
         }
 
         var t = JsonReader.readObject(Files.readString(trace));
         var both = Bill.of(t, prices);
+
+        if (asJson) {
+            var out = new java.util.LinkedHashMap<String, Object>();
+            out.put("trace", trace.toString());
+            out.put("rates", prices.asMap());
+            out.putAll(both.asMap());
+            System.out.println(Json.write(out));
+            return 0;
+        }
 
         System.out.printf("%s%n%n", trace);
         System.out.println("what happened");

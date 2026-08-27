@@ -52,7 +52,35 @@ public final class Machine implements Bound, Telemetry.Sampled {
     private final long allocAtBoot;
     private Server server;
 
+    /**
+     * What this machine is made of, as a program running on it may ask.
+     *
+     * <p>Built once here rather than per call: every field it holds is already
+     * final, so there is nothing to measure and nothing to charge anyone for.
+     */
+    private final losim.api.Spec here;
+
     volatile boolean alive = true;
+
+    /**
+     * Set once this machine has been shut down, and never cleared.
+     *
+     * <p>A fault scheduled inside the run's horizon can still be in flight when the
+     * run ends. The dispatcher is stopped before the fleet is torn down, which is
+     * the tidy half, but stopping the thing that schedules faults does not stop a
+     * fault already running — so a {@code restart_after} could land after every
+     * machine had given its name back, and bind this one's name into a fleet that
+     * no longer exists. Nobody would ever release it, and the <i>next</i> fleet in
+     * the same JVM would find the name taken.
+     *
+     * <p>That is why it showed up in the probe grid and only under chaos: thirty
+     * fleets back to back in one JVM, every one of them with a machine called
+     * {@code m0}, and enough scheduled restarts for one to fall off the end.
+     *
+     * <p>The invariant this enforces is the half that holds whoever fires late: a
+     * machine that has been shut down stays shut down.
+     */
+    private volatile boolean stopped;
     volatile String deadReason;
 
     final AtomicInteger inflight = new AtomicInteger();   // handlers using a core
@@ -91,6 +119,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
         this.memoryCapMb = memoryCapMb;
         this.diskCapMb = diskCapMb;
         this.machineFactor = spec.cpuFactor();
+        this.here = new losim.api.Spec(name, spec.name(), zone, vcpu, memoryCapMb, diskCapMb);
 
         String threadName = "losim-" + name + "-w";
         this.pool = new ThreadPoolExecutor(vcpu, vcpu, 0, TimeUnit.MILLISECONDS,
@@ -108,6 +137,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
     Fleet fleet() { return fleet; }
     Telemetry tel() { return fleet.tel; }
     public String name() { return name; }
+    @Override public losim.api.Spec here() { return here; }
     public int vcpu()    { return vcpu; }
     public String instance() { return spec.name(); }
     public String zone()     { return zone; }
@@ -143,6 +173,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
     }
 
     private Machine start() {
+        if (stopped) return this;      // see `stopped`: a shut-down machine never rebinds
         // The machine's own pool runs the handlers, wrapped so that time spent
         // waiting for a core is separable from time spent using one. Without the
         // wrapper a queued call is indistinguishable from a slow one.
@@ -156,7 +187,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
                 r.run();
             });
         };
-        if (server != null) { server.shutdownNow(); server = null; }
+        releaseName();
         roots.clear();
         declared.clear();
         served.clear();
@@ -174,7 +205,13 @@ public final class Machine implements Bound, Telemetry.Sampled {
             b.addService(ServerInterceptors.intercept(def, new ServerSide(this)));
         }
         try { server = b.build().start(); }
-        catch (Exception e) { throw new IllegalStateException("could not start machine " + name, e); }
+        catch (Exception e) {
+            // Named, because "could not start machine m0" is not a diagnosis and
+            // the thing it usually turns out to be — a name still held by the
+            // previous run's server — is unguessable without it.
+            throw new IllegalStateException("could not start machine " + name + ": "
+                    + e.getClass().getSimpleName() + ": " + e.getMessage(), e);
+        }
         if (announced) announceBoot();
         return this;
     }
@@ -251,6 +288,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
 
     /** Brings a dead machine back. What it remembers depends on how it was registered. */
     public void restart() {
+        if (stopped) return;
         boolean fresh = rebuildable;
         alive = true;
         deadReason = null;
@@ -556,11 +594,49 @@ public final class Machine implements Bound, Telemetry.Sampled {
         into.put("bytesOutMb", bytesOut.get() / 1048576.0);
     }
 
+    /**
+     * Gives the machine's name back, and waits until it really has.
+     *
+     * <p>The waiting is the point, and it is not tidiness. {@code shutdownNow} is
+     * asynchronous: it asks the server to stop and returns, and the in-process
+     * transport keeps the name registered until it actually has. One run per JVM
+     * never notices, because the process exits. Two things here do.
+     *
+     * <p>A <b>restart</b> rebinds the same name immediately, so it does not race
+     * occasionally — it loses outright. And the <b>probe grid</b> runs thirty
+     * fleets back to back in one JVM, all of them with a machine called {@code m0},
+     * so the thirty-first fails to bind a name the thirtieth has not finished
+     * releasing. Both surfaced only under chaos, which is what made them worth
+     * chasing rather than retrying: more machines dying means more servers
+     * shutting down at once, so the race is wider. It was never about the killing.
+     *
+     * <p>Written once and called from both, because the restart path had its own
+     * copy without the wait, and a race fixed in one of two identical places is a
+     * race that has been made rarer rather than removed.
+     */
+    private boolean releaseName() {
+        Server stopping = server;
+        server = null;
+        if (stopping == null) return true;
+        stopping.shutdownNow();
+        try { return stopping.awaitTermination(2, TimeUnit.SECONDS); }
+        catch (InterruptedException e) { Thread.currentThread().interrupt(); return false; }
+    }
+
+    /** Stops the machine for good: its channels, its name, and its pool. */
     void shutdown() {
+        stopped = true;
         dialled.values().forEach(ManagedChannel::shutdownNow);
         dialled.clear();
         if (server != null) server.shutdownNow();
+        // The pool is interrupted *before* the server is waited on, not after.
+        // shutdownNow cancels the calls but not the threads running them, and a
+        // handler parked in a cost sleep goes on parking — so the transport never
+        // terminates, the wait times out, and the name stays bound. Under chaos
+        // there are always such threads, which is why it only ever surfaced there.
         pool.shutdownNow();
+        if (!releaseName())
+            System.err.println("losim: " + name + " did not release its name in time");
     }
 
     static double round(double x) { return Math.round(x * 1000) / 1000.0; }

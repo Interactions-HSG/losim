@@ -120,10 +120,10 @@ public final class Bill {
 
         Double disk = quantity(projections, "diskMb", peak(machines, "diskMb"));
         if (disk == null)
-            pnl.cannotPrice("consumption", "intermediate data on disk",
+            pnl.cannotPrice("consumption", "spilled data on disk",
                     refusal(projections, "diskMb"));
         else if (disk > 0)
-            pnl.add("consumption", "intermediate data on disk", disk / 1024.0, "GB-month",
+            pnl.add("consumption", "spilled data on disk", disk / 1024.0, "GB-month",
                     prices.storagePerGbMonth,
                     "the worst machine's spill, held for the period");
 

@@ -90,7 +90,15 @@ final class ClientSide implements ClientInterceptor {
 
                     @Override public void onMessage(S message) {
                         long c0 = Meter.allocNow(), m0 = System.nanoTime();
-                        from.bytesIn.addAndGet(Wire.sizeOf(message));
+                        long in = Wire.sizeOf(message);
+                        from.bytesIn.addAndGet(in);
+                        // The answer crosses the same zone boundary the question
+                        // did, and is charged for it. Counting only the request
+                        // would make a fetch look free: a shuffle asks for a
+                        // region in forty bytes and is sent a megabyte back, so
+                        // the direction that is not counted is the direction all
+                        // the data is travelling in.
+                        if (crossZone) from.crossZoneBytes.addAndGet(in);
                         if (tel.payloads()) span.detail.put("result", Values.render(message));
                         from.chargeTo(span, Meter.allocNow() - c0, System.nanoTime() - m0);
                         super.onMessage(message);

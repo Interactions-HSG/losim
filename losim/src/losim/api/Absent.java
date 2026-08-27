@@ -26,6 +26,7 @@ final class Absent implements LosimCtx {
     @Override public void sleep(double refMs)               { }
 
     @Override public String machine()                        { throw absent("machine()"); }
+    @Override public Spec here()                             { throw absent("here()"); }
     @Override public List<String> peers()                    { throw absent("peers()"); }
     @Override public List<String> peersServing(String s)     { throw absent("peersServing()"); }
     @Override public double clockMs()                        { throw absent("clockMs()"); }

@@ -21,7 +21,8 @@ import java.util.List;
  * {@link #reveal}, {@link #log}, {@link #records}
  *
  * <h2>State — throws outside a run</h2>
- * {@link #machine}, {@link #peers}, {@link #peersServing}, {@link #clockMs}
+ * {@link #machine}, {@link #here}, {@link #peers}, {@link #peersServing},
+ * {@link #clockMs}
  *
  * <p><b>Every method on this interface meters its own body.</b> These run inside
  * the handler, on the machine's own thread, between the two marks that measure
@@ -121,6 +122,21 @@ public interface LosimCtx {
 
     /** The name of the machine serving this call. */
     String machine();
+
+    /**
+     * What the machine serving this call is made of: its instance type, its zone,
+     * its cores and its caps.
+     *
+     * <p>Local knowledge only — this machine's, never a peer's. A real process can
+     * read its own limits and its own instance metadata without a network, and
+     * cannot read anyone else's at all. An orchestrator that wants to send small
+     * work to small machines therefore has to <b>ask</b> them, which is why a
+     * resource manager has a registration call and why that call is worth writing.
+     *
+     * <p>Free to call: every field is final on the machine and the record is built
+     * once, before it boots. Nothing here is measured.
+     */
+    Spec here();
 
     /** Every other machine in the fleet, by name. */
     List<String> peers();

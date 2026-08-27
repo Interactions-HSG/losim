@@ -104,6 +104,7 @@ final class Present implements LosimCtx {
     // Reads, not records: they allocate nothing worth charging and are cheap
     // enough that bracketing them would cost more than it recovered.
     @Override public String machine()                    { return bound().name(); }
+    @Override public Spec here()                         { return bound().here(); }
     @Override public List<String> peers()                { return bound().peers(); }
     @Override public List<String> peersServing(String s) { return bound().peersServing(s); }
     @Override public double clockMs()                    { return bound().clockMs(); }

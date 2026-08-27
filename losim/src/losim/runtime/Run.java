@@ -162,6 +162,27 @@ public final class Run {
             fleet.stopSampling();
             double ended = tel.now();
 
+            // `expectedRun` is a horizon, not a prediction, and this is the line that
+            // keeps it honest. Nobody can say in advance how long a run will take —
+            // that is what the run is for — but two things have to be sized before it
+            // starts: how often to sample, so the trace's size follows duration rather
+            // than busyness (D8), and how far ahead to draw the weather.
+            //
+            // Both are silent when the horizon is short. The sampler simply thins out,
+            // and — worse — chaos stops firing at the horizon, so a run that overran it
+            // had a quiet second half that looks like a fleet behaving well. Said out
+            // loud it is a scenario to fix; unsaid it is a finding.
+            double ran = ended - started;
+            if (ran > s.expectedRunRefMs() * 1.25) {
+                tel.event("-", "over_horizon",
+                          "expectedRefMs", Machine.round(s.expectedRunRefMs()),
+                          "actualRefMs", Machine.round(ran),
+                          "note", s.chaos().isEmpty()
+                                ? "sampling thinned out past the horizon"
+                                : "chaos was only drawn out to the horizon, so nothing "
+                                  + "happened to this fleet after it");
+            }
+
             // A run can end with work still in flight: a handler whose caller gave up
             // and stopped waiting, a machine killed mid-call. Those spans are real and
             // so is their end — the run ended. Left open they would be indistinguishable
