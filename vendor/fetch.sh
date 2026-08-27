@@ -69,7 +69,10 @@ exe() {                       # exe <group/path> <artifact> <version> <classifie
 }
 
 echo "binaries:"
-for p in osx-aarch_64 linux-x86_64; do
+# Three, not two: a Codespace is linux-x86_64 and a devcontainer on an Apple
+# laptop is linux-aarch_64. A student who opened the container on the second
+# would otherwise meet "cannot execute binary file" as this course's first words.
+for p in osx-aarch_64 linux-x86_64 linux-aarch_64; do
   exe com/google/protobuf protoc               "$PROTOBUF" "$p"
   exe io/grpc             protoc-gen-grpc-java "$GRPC"     "$p"
 done
