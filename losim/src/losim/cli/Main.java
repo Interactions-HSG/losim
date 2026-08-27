@@ -1,5 +1,6 @@
 package losim.cli;
 
+import java.io.Console;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
@@ -25,7 +26,12 @@ public final class Main {
             System.exit(2);
         }
         catch (Exception e) {
+            // Anything else is losim's, not the scenario's, and one line of it is
+            // not enough to find: the message names what went wrong and only the
+            // stack names where. Kept behind a switch so an ordinary run still
+            // reads like a tool rather than like a crash.
             System.err.println(e.getClass().getSimpleName() + ": " + e.getMessage());
+            if (System.getenv("LOSIM_DEBUG") != null) e.printStackTrace();
             System.exit(3);
         }
     }
@@ -33,7 +39,40 @@ public final class Main {
     private static int run(String[] args) throws Exception {
         if (args.length > 0 && args[0].equals("bill")) {
             if (args.length < 2) throw new IllegalArgumentException("bill needs a trace");
-            return Bills.run(Path.of(args[1]), option(args, "--prices", "prices/eu-central-1.yaml"));
+            return Bills.run(Path.of(args[1]), option(args, "--prices", "prices/eu-central-1.yaml"),
+                             java.util.Arrays.asList(args).contains("--json"));
+        }
+        if (args.length > 0 && args[0].equals("serve")) {
+            // Two things can be served and they are deliberately two processes.
+            //
+            //   losim serve        the lab: the viewer, your runs, and a button
+            //                      beside every system in the project.
+            //   losim serve docs   the manual, on its own port.
+            //
+            // Apart on purpose: the manual is what you read when something will
+            // not start, so it must not be served by the thing that will not
+            // start. A student whose lab is broken can still read how to fix it.
+            boolean docs = args.length > 1 && (args[1].equals("docs") || args[1].equals("manual"));
+            if (docs) {
+                return Manual.main(Path.of(option(args, "--docs", "docs")),
+                                   Integer.parseInt(option(args, "--port", "3000")),
+                                   option(args, "--host", contained() ? "0.0.0.0" : "127.0.0.1"));
+            }
+            return Serve.main(option(args, "--root", "."),
+                              option(args, "--site", null),
+                              option(args, "--runs", null),
+                              Integer.parseInt(option(args, "--port", "8000")),
+                              option(args, "--host", contained() ? "0.0.0.0" : "127.0.0.1"),
+                              !flag(args, "--no-open"), true);
+        }
+        // `losim manual` is the same thing as `losim serve docs`, kept because a
+        // devcontainer somewhere is invoking it and a lab whose manual silently
+        // did not start would fail in exactly the way the manual exists to
+        // prevent. It fell through to the usage text once; it must not again.
+        if (args.length > 0 && args[0].equals("manual")) {
+            return Manual.main(Path.of(option(args, "--docs", "docs")),
+                               Integer.parseInt(option(args, "--port", "3000")),
+                               option(args, "--host", contained() ? "0.0.0.0" : "127.0.0.1"));
         }
         if (args.length > 0 && args[0].equals("diff")) {
             if (args.length < 3) throw new IllegalArgumentException("diff needs two traces");
@@ -46,7 +85,29 @@ public final class Main {
                   --cp <paths>       where the job and the services are compiled to
                   --out <file>       where to write the trace (default: build/<scenario>.json)
                   --seed <n>         override the scenario's seed, for a sweep
+                  --workers <n|+n>   resize every pool that has more than one machine
+                  --overlay <file>   lay a second file's weather over this one. Faults,
+                                     chaos, retries, network, seed and clock only — the
+                                     fleet and the job stay theirs
                   --telemetry <lvl>  FULL (default), NO_PAYLOAD or OFF
+                  --no-view          write the trace and stop, without the viewer
+
+                  At a terminal this opens the viewer on what it just ran and keeps
+                  it open. Run several scenarios into one --out directory and they
+                  are all in the picker, side by side.
+
+                       losim serve [--port 8000] [--root .]
+
+                  The lab, and it keeps running: the viewer, the runs on disk, and a
+                  way to build and run each system in the project. This is what a
+                  devcontainer starts, so that nobody has to type any of the rest of
+                  this.
+
+                       losim serve docs [--port 3000] [--docs docs]
+
+                  The manual, as a process of its own. Separate from the lab on
+                  purpose: the manual is where you look when something will not
+                  start, so it must not be served by the thing that will not start.
 
                        losim diff <a.json> <b.json>
 
@@ -54,14 +115,14 @@ public final class Main {
                   have to agree; measurements are printed rather than judged, because
                   runs are not reproducible and hosts are not identical.
 
-                       losim bill <trace.json> [--prices <file>]
+                       losim bill <trace.json> [--prices <file>] [--json]
 
                   What the run cost, in five buckets. A scaled run is billed twice:
                   once for what happened, and once for the job it is a model of —
                   with the lines the engine could not project absent, and said so.""");
             return 2;
         }
-        Path file = Path.of(need(args, 1, "which scenario?"));
+        Path file = Path.of(positional(args, "which scenario?"));
         if (!Files.exists(file)) throw new IllegalArgumentException("no such scenario: " + file);
 
         String cp = option(args, "--cp", "");
@@ -70,7 +131,23 @@ public final class Main {
         var level = Telemetry.Level.valueOf(option(args, "--telemetry", "FULL"));
 
         Scenario scenario = Loader.load(file);
+        // A second file's weather over somebody else's fleet, for running their
+        // design in a world they did not write. It may not touch the fleet.
+        String over = option(args, "--overlay", null);
+        if (over != null) scenario = Loader.overlay(scenario, Path.of(over));
         if (seed != null) scenario = withSeed(scenario, Long.parseLong(seed));
+
+        // A wider or narrower fleet, without editing anybody's file. `+1` is
+        // relative because the interesting question is almost never "run it on
+        // four" — it is "run it on one more than it was written for", which is
+        // where a routing scheme that counts machines comes apart.
+        String workers = option(args, "--workers", null);
+        if (workers != null) {
+            int pool = biggestPool(scenario);
+            scenario = scenario.withWorkers(workers.startsWith("+") || workers.startsWith("-")
+                    ? Math.max(1, pool + Integer.parseInt(workers.substring(workers.charAt(0) == '+' ? 1 : 0)))
+                    : Integer.parseInt(workers));
+        }
 
         var loader = classLoader(cp);
         Path target = Path.of(out != null ? out
@@ -94,6 +171,14 @@ public final class Main {
                         e.vm(), e.detail().get("resource"),
                         e.detail().get("demandMb"), e.detail().get("capMb"));
         System.out.print(result.trust().describe());
+
+        // And then show it, because a trace nobody looks at taught nobody
+        // anything. `--no-view` for a script that only wants the file; a script
+        // that forgot to pass it is covered anyway, because a redirected stream
+        // is not a terminal and this does not fire.
+        if (!flag(args, "--no-view") && (flag(args, "--view") || watched())) {
+            view(target, Integer.parseInt(option(args, "--port", "8000")));
+        }
 
         // An invariant the scenario asserted and the run broke is a failure of the
         // run, not of losim — so it is worth an exit code a script can read.
@@ -189,6 +274,85 @@ public final class Main {
     private static String need(String[] args, int i, String what) {
         if (i >= args.length) throw new IllegalArgumentException(what);
         return args[i];
+    }
+
+    /** Flags that stand alone; everything else beginning with `--` takes a value. */
+    private static final List<String> BARE = List.of("--no-view", "--view", "--json");
+
+    /**
+     * The first argument that is not a flag or a flag's value.
+     *
+     * <p>Written as a scan rather than as `args[1]` because `losim run --no-view
+     * thing.yaml` should mean what it looks like it means. Taking the second
+     * argument on faith made that read as "no such scenario: --no-view", which is
+     * the sort of message that sends somebody looking in the wrong place.
+     */
+    private static String positional(String[] args, String what) {
+        for (int i = 1; i < args.length; i++) {
+            String a = args[i];
+            if (!a.startsWith("--")) return a;
+            if (!BARE.contains(a)) i++;
+        }
+        throw new IllegalArgumentException(what);
+    }
+
+    /**
+     * Serve the viewer on the run that was just made, and keep serving it.
+     *
+     * <p>The trace's own directory is what is served, so `--out` decides what is
+     * in the picker: run three scenarios into one directory and all three are
+     * there to compare. It does not return — a viewer that closed itself the
+     * moment it opened would be a screenshot.
+     */
+    private static void view(Path trace, int port) {
+        Path runs = trace.toAbsolutePath().getParent();
+        System.out.println();
+        try {
+            Serve.main(".", null, runs.toString(), port, contained() ? "0.0.0.0" : "127.0.0.1",
+                       true, false);
+        } catch (Exception e) {
+            System.out.println("the run is written; the viewer would not start (" + e.getMessage() + ")");
+        }
+    }
+
+    /** How many machines the largest pool has, which is what `+1` is one more than. */
+    private static int biggestPool(Scenario s) {
+        var byPool = new java.util.LinkedHashMap<String, Integer>();
+        for (var m : s.machines()) byPool.merge(m.pool(), 1, Integer::sum);
+        int most = 1;
+        for (int n : byPool.values()) most = Math.max(most, n);
+        return most;
+    }
+
+    private static boolean flag(String[] args, String name) {
+        return List.of(args).contains(name);
+    }
+
+    /** Inside a container, where there is no browser and the port is forwarded out. */
+    private static boolean contained() {
+        return System.getenv("CODESPACES") != null
+                || System.getenv("REMOTE_CONTAINERS") != null
+                || Files.exists(Path.of("/.dockerenv"));
+    }
+
+    /**
+     * Whether a person is watching, as opposed to a script collecting a trace.
+     *
+     * <p>This decides whether `losim run` opens the viewer afterwards. A person at
+     * a terminal wants to see what they just ran; the suite, the gallery and the
+     * lab server all want the file and nothing else — and a server that started
+     * itself in CI and never returned would hang the build. The distinction is
+     * not a guess: a redirected stream is not a terminal.
+     */
+    private static boolean watched() {
+        var console = System.console();
+        if (console == null) return false;
+        // `Console.isTerminal()` arrived in JDK 22 and this compiles to 21 (D10),
+        // so it is asked for rather than called. It matters: from JDK 22 a
+        // redirected stream still has a console, and without this every scripted
+        // run would try to open a viewer nobody is looking at.
+        try { return (Boolean) Console.class.getMethod("isTerminal").invoke(console); }
+        catch (ReflectiveOperationException e) { return true; }
     }
 
     private static String option(String[] args, String name, String fallback) {

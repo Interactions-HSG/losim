@@ -25,6 +25,46 @@ public final class Loader {
         return of(Yaml.parse(file));
     }
 
+    /**
+     * A scenario, with a second file's weather laid over it.
+     *
+     * <p>For running somebody else's scenario in a world they did not write —
+     * an examiner asking what a submission does when a machine dies, a sweep
+     * asking what it does under a heavier afternoon. The alternative is editing
+     * their YAML with a text tool, which is how a harness comes to depend on
+     * where they happened to put their whitespace.
+     *
+     * <p><b>The overlay may only change the weather.</b> Faults, chaos, retries,
+     * the network, the seed and the clock are replaceable; the fleet, the job and
+     * the workload are not. That is the line that keeps the result meaningful: a
+     * scenario whose machines had been swapped out underneath it is no longer a
+     * run of their design, and an examiner would be asking them about somebody
+     * else's system.
+     */
+    public static Scenario overlay(Scenario base, Path file) throws IOException {
+        Node over = Yaml.parse(file);
+        over.onlyAllows("seed", "kTime", "expectedRun", "network", "faults", "chaos",
+                        "retries", "tightMargin");
+        var names = new LinkedHashSet<String>();
+        for (MachineSpec m : base.machines()) names.add(m.name());
+
+        return new Scenario(
+                base.file(),
+                over.opt("seed").present() ? (long) over.at("seed").num(base.seed()) : base.seed(),
+                over.opt("kTime").present() ? over.at("kTime").num(base.kTime()) : base.kTime(),
+                base.job(),
+                over.opt("expectedRun").present()
+                        ? over.at("expectedRun").refMs(base.expectedRunRefMs()) : base.expectedRunRefMs(),
+                base.machines(),
+                over.opt("network").present() ? network(over.opt("network")) : base.net(),
+                over.opt("faults").present() ? faults(over.opt("faults"), names, over) : base.faults(),
+                over.opt("chaos").present() ? chaos(over.opt("chaos"), base.machines()) : base.chaos(),
+                over.opt("retries").present() ? retries(over.opt("retries")) : base.retries(),
+                over.opt("tightMargin").present() ? over.at("tightMargin").bool(false) : base.tightMargin(),
+                base.mode(),
+                base.workload());
+    }
+
     public static Scenario of(Node root) {
         root.onlyAllows("seed", "kTime", "job", "expectedRun", "machines",
                         "network", "faults", "chaos", "retries", "tightMargin",

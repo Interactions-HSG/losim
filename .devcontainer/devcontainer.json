@@ -2,8 +2,24 @@
   "name": "losim — decentralized systems lab",
   "image": "mcr.microsoft.com/devcontainers/java:25-bookworm",
 
+  // Node is here for one thing that is not the simulator: developing the viewer.
+  // Neither losim nor the manual needs it any more — both are served by the JDK
+  // that is already here — and the toolchain losim builds and runs with is
+  // vendored, so a number never depends on what a package manager resolved.
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "22" }
+  },
+
+
   // Build losim so a fresh Codespace is ready to run.
   "postCreateCommand": "bash .devcontainer/setup.sh",
+
+  "forwardPorts": [3000, 8000],
+  "portsAttributes": {
+    "3000": { "label": "the manual", "onAutoForward": "notify" },
+    "8000": { "label": "the lab", "onAutoForward": "openPreview" }
+
+  },
 
   "customizations": {
     "vscode": {

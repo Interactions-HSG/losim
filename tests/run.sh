@@ -45,7 +45,7 @@ fail=0
 # difference between two runs, and one of them is about a run that must not start.
 run_scenario() {                                  # name yaml [extra cli args]
   local name=$1 scenario=$2; shift 2
-  java -Xmx3g -cp "$LAB" losim.cli.Main run "tests/scenarios/$scenario" \
+  java -Xmx3g -cp "$LAB" losim.cli.Main run --no-view "tests/scenarios/$scenario" \
        --cp "$OUT/classes" --out "$OUT/traces/$name.json" "$@" \
        > "$OUT/traces/$name.out" 2>&1 || true      # a run that fails is a result
 }

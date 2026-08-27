@@ -29,6 +29,18 @@ jobs:
       - run: ./build.sh
       - run: ./check.sh
 
+  # The manual, checked for the one thing a manual can get catastrophically wrong
+  # here: containing an assignment the students are meant to write themselves. The
+  # rules live in docs-check/, and the check tests itself before it scans — every
+  # rule has a sample it must catch and a nearby sample it must not, so a regex
+  # with a typo fails the build instead of silently passing everything.
+  docs:
+    name: the manual gives nothing away
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docs-check/check.sh
+
   # The product surface: gRPC systems compiled against the jar alone, run through the
   # command line a student types, asserted against the trace on disk.
   #

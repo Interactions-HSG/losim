@@ -1,9 +1,55 @@
 {
   "version": "2.0.0",
   "tasks": [
-    { "label": "losim: build", "type": "shell", "command": "./build.sh",
-      "group": "build", "problemMatcher": ["$tsc"] },
-    { "label": "losim: check", "type": "shell", "command": "./check.sh",
-      "group": { "kind": "test", "isDefault": true }, "problemMatcher": [] }
+    {
+      "label": "losim: build",
+      "type": "shell",
+      "command": "./build.sh",
+      "group": "build",
+      "problemMatcher": [
+        "$tsc"
+      ]
+    },
+    {
+      "label": "losim: check",
+      "type": "shell",
+      "command": "./check.sh",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "losim: reference suite",
+      "type": "shell",
+      "command": "tests/run.sh",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "docs: the manual (localhost:3000)",
+      "type": "shell",
+      "command": "docs-check/dev.sh",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "reveal": "silent" }
+    },
+    {
+      "label": "losim: the lab (localhost:8000)",
+      "type": "shell",
+      "command": "java -cp \"$(ls vendor/jars/*.jar | tr '\\n' ':')build/losim.jar\" losim.cli.Main serve",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "reveal": "silent" }
+    },
+
+    {
+      "label": "docs: check for leaks",
+      "type": "shell",
+      "command": "docs-check/check.sh",
+      "group": "test",
+      "problemMatcher": []
+    }
   ]
 }

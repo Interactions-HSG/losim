@@ -355,4 +355,25 @@ That is what the twelve lines of adapter buy.
 
 ## Documentation
 
-- [docs/SPIKES.md](docs/SPIKES.md) — what Phase 0 measured, and where each result now lives
+The manual is a Mintlify site in [docs/](docs/) — 80 pages, from a quickstart to the
+scenario grammar, the trace format, the scale engine, the bill and the viewer.
+
+```bash
+docs-check/dev.sh      # preview at http://localhost:3000
+docs-check/check.sh    # the manual's own check
+```
+
+`docs-check/check.sh` is the one worth knowing about. This repository ships worked
+solutions to the coursework, and the manual must not contain them — so every page is
+scanned against a rule set in [docs-check/](docs-check/), and **the check tests itself
+before it scans**: every rule has a sample it must catch and a nearby sample it must
+not, and a rule that nothing proves works fails the build rather than silently passing
+everything. It also checks the site's own shape — every page reachable, every internal
+link resolving. It runs in CI on every push.
+
+It lives outside [docs/](docs/) deliberately. A non-page file under a Mintlify docs
+directory is served as a static asset, and this check's fixtures contain worked
+assignment prose on purpose — so "not in the navigation" would not have been the same
+as "not fetchable". `docs/` holds only what is meant to be published.
+
+- [notes/SPIKES.md](notes/SPIKES.md) — what Phase 0 measured, and where each result now lives
