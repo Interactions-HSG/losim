@@ -114,9 +114,7 @@ public final class Bill {
         if (Double.isNaN(wireGrowth) && crossZoneMb > 0)
             pnl.cannotPrice("consumption", "cross-zone egress", refusal(projections, "wireMb"));
         else if (crossZoneMb > 0)
-            pnl.add("consumption", "cross-zone egress", crossZoneMb * wireGrowth / 1024.0, "GB",
-                    prices.egressPerGb,
-                    "traffic between availability zones is billed; traffic inside one is free");
+            egress(pnl, machines, crossZoneMb, wireGrowth, prices);
 
         Double disk = quantity(projections, "diskMb", peak(machines, "diskMb"));
         if (disk == null)
@@ -160,11 +158,6 @@ public final class Bill {
         pnl.add("build", "services carried", distinct, "services",
                 prices.buildPerServiceMonth / 1000.0,
                 "engineering time to construct and carry this design, spread over its life");
-
-        // --- revenue: only when it works.
-        boolean finished = Boolean.TRUE.equals(meta.get("completed"));
-        pnl.add("revenue", finished ? "job completed" : "job did not complete", finished ? 1 : 0,
-                "jobs", prices.revenuePerJob, "the service earns only when it works");
     }
 
     // --------------------------------------------------------------- quantities
@@ -222,6 +215,67 @@ public final class Bill {
     private static long count(List<Map<String, Object>> events, String kind) {
         return events.stream().filter(e -> kind.equals(e.get("kind"))).count();
     }
+
+    /**
+     * What the talking cost, priced by how far it went.
+     *
+     * <p>Up to three lines, because there are three prices. A megabyte moved inside
+     * one region and a megabyte moved across an ocean are the same bytes and not
+     * remotely the same bill, and a single summed line hides exactly the decision —
+     * which region a replica goes in — that this is worth putting on a bill to inform.
+     *
+     * <p>Reads {@code egressMb} on each machine, which is the same bytes as
+     * {@code crossZoneMb} split by where they went. A trace written before that
+     * existed has no split, so it is billed whole at the same-region rate — the
+     * old behaviour exactly, rather than a guess at a distance nobody recorded.
+     */
+    private static void egress(PnL pnl, List<Map<String, Object>> machines,
+                               double crossZoneMb, double growth, PriceList prices) {
+        var mbByLink = new EnumMap<losim.res.Regions.Link, Double>(losim.res.Regions.Link.class);
+        double split = 0;
+        for (Map<String, Object> m : machines) {
+            String zone = String.valueOf(m.getOrDefault("zone", ""));
+            for (var e : sub(m, "egressMb").entrySet()) {
+                double mb = num(e.getValue());
+                if (mb <= 0) continue;
+                split += mb;
+                mbByLink.merge(losim.res.Regions.toRegion(zone, e.getKey()), mb, Double::sum);
+            }
+        }
+        if (split <= 0) {
+            pnl.add("consumption", "cross-zone egress", crossZoneMb * growth / 1024.0, "GB",
+                    prices.egressPerGb,
+                    "traffic between availability zones is billed; traffic inside one is free");
+            return;
+        }
+        for (var link : losim.res.Regions.Link.values()) {
+            double mb = mbByLink.getOrDefault(link, 0.0);
+            if (mb <= 0) continue;
+            pnl.add("consumption", LINE.get(link), mb * growth / 1024.0, "GB",
+                    prices.egressPerGb(link), WHY.get(link));
+        }
+    }
+
+    /**
+     * What each distance is called on a bill.
+     *
+     * <p>The same-region line keeps the name it has always had. The viewer matches
+     * these labels to decide what a line is, and a bill somebody has already read
+     * should not rename a row it has been printing for a year.
+     */
+    private static final Map<losim.res.Regions.Link, String> LINE = Map.of(
+            losim.res.Regions.Link.SAME_REGION, "cross-zone egress",
+            losim.res.Regions.Link.CROSS_REGION, "egress to another region",
+            losim.res.Regions.Link.INTERCONTINENTAL, "egress across an ocean");
+
+    private static final Map<losim.res.Regions.Link, String> WHY = Map.of(
+            losim.res.Regions.Link.SAME_REGION,
+            "between availability zones in one region; traffic inside one zone is free",
+            losim.res.Regions.Link.CROSS_REGION,
+            "to another region on the same continent, at roughly twice the in-region rate",
+            losim.res.Regions.Link.INTERCONTINENTAL,
+            "across an ocean, at many times the in-region rate — this is the line a "
+                    + "badly placed replica shows up on");
 
     private static double sum(List<Map<String, Object>> rows, String key) {
         return rows.stream().mapToDouble(m -> num(m.get(key))).sum();

@@ -162,6 +162,12 @@ export function MachinePanel({ trace, m, t, money, pinned, onPin, onClose }: Mac
               <Row k="bytes out" v={mb(num(totals.raw, 'wireMb'))} />
               <Row k="bytes in" v={mb(num(totals.raw, 'inMb'))} />
               <Row k="crossed a zone" v={mb(num(totals.raw, 'crossZoneMb'))} hint="billed, and slower" />
+              {/* And where it went, because that is what sets the rate: the zone
+                  next door, another region, or across an ocean are three prices
+                  for the same byte. A row here is a row on the bill. */}
+              {egress(totals.raw).map(([region, sent]) => (
+                <Row key={region} k={`↳ ${region}`} v={mb(sent)} />
+              ))}
               <Row
                 k="losim's own cost"
                 v={mb(num(totals.raw, 'losimMb'))}
@@ -437,4 +443,20 @@ function say(e: TraceEvent): string {
 
 function num(raw: Record<string, number | string | boolean>, key: string): number {
   return Number(raw[key] ?? 0);
+}
+
+/**
+ * Where this machine's cross-zone bytes went, largest first.
+ *
+ * Absent on a trace written before losim recorded the split, and then simply not
+ * shown — the total above is still right, and inventing a breakdown for it would
+ * be inventing where the traffic went.
+ */
+function egress(raw: Record<string, number | string | boolean>): [string, number][] {
+  const by = (raw as Record<string, unknown>)['egressMb'];
+  if (!by || typeof by !== 'object') return [];
+  return Object.entries(by as Record<string, number>)
+    .map(([region, sent]) => [region, Number(sent)] as [string, number])
+    .filter(([, sent]) => sent > 0)
+    .sort((a, b) => b[1] - a[1]);
 }

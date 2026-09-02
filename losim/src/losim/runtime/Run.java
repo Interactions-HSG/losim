@@ -239,6 +239,14 @@ public final class Run {
                 // Apart from the rest, because traffic between zones is the traffic
                 // anyone is billed for and traffic inside one is free.
                 m.put("crossZoneMb", mb(t.crossZoneBytes()));
+                // And the same bytes again by where they went, because that is
+                // what decides the rate. The zone next door, another region, and
+                // the other side of an ocean are three prices, and a total that
+                // has been added up cannot be charged at three.
+                var egress = new LinkedHashMap<String, Object>();
+                for (var e : machine.egressByRegion().entrySet())
+                    if (e.getValue() > 0) egress.put(e.getKey(), mb(e.getValue()));
+                if (!egress.isEmpty()) m.put("egressMb", egress);
                 m.put("calls", t.handledCalls());
                 // What losim itself cost this machine, and how often it stopped to
                 // meter. Published rather than kept private, because "allocMb is the

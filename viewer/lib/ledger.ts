@@ -2,8 +2,9 @@
  * What the run has cost *so far*, and whose fault it is.
  *
  * `losim bill` says what a run cost. That is the wrong tense for a film: the
- * whole point of watching `mr-cascade` is seeing profit go negative partway
- * through, while it is still happening, and a total at the end cannot show that.
+ * whole point of watching `mr-cascade` is seeing the incidents bucket fill up
+ * partway through, while it is still happening, and a total at the end cannot
+ * show that.
  *
  * So this accrues. It does **not** re-price anything — every amount here is a
  * line the CLI already computed, from the rates it already used, and all that is
@@ -26,9 +27,9 @@
  * - **its share** — a fleet total split by a quantity the trace already holds,
  *   so cross-zone egress is split by how many cross-zone bytes each machine
  *   actually sent
- * - **nobody's** — revenue and the late-finish penalty belong to the *job*.
- *   Spreading them over nine machines would invent a claim nothing supports, so
- *   they are left unattributed and say so
+ * - **nobody's** — the late-finish penalty belongs to the *job*. Spreading it
+ *   over nine machines would invent a claim nothing supports, so it is left
+ *   unattributed and says so
  *
  * The classification is matched against the exact line labels `losim.price.Bill`
  * writes. That coupling is on purpose and it is checked: an unrecognised line is
@@ -36,7 +37,16 @@
  */
 import type { Trace } from './trace.ts';
 
-export const BUCKETS = ['revenue', 'build', 'capacity', 'consumption', 'incidents'] as const;
+/**
+ * The four costs, and no revenue.
+ *
+ * There was a fifth bucket and a profit line once. What a run earns is not a
+ * property of the run — it depends on what the service is worth to somebody,
+ * which is a business question this course cannot answer and was answering with
+ * a number somebody picked. What a design costs is computed from what actually
+ * happened, and that is the number worth arguing about.
+ */
+export const BUCKETS = ['build', 'capacity', 'consumption', 'incidents'] as const;
 export type Bucket = (typeof BUCKETS)[number];
 
 export interface BillLine {
@@ -55,7 +65,6 @@ export interface BillJson {
     currency: string;
     buckets: Record<Bucket, number>;
     cost: number;
-    profit: number;
     lines: BillLine[];
   };
   projected?: BillJson['observed'];
@@ -77,10 +86,8 @@ export interface Ledger {
   /** Each bucket, as it stands at this instant. */
   buckets: Record<Bucket, number>;
   cost: number;
-  profit: number;
   /** What the whole run comes to, for the bar to be drawn against. */
   finalCost: number;
-  finalProfit: number;
   /** Which lines have started arriving, largest first. */
   lines: LedgerLine[];
   /** The machine being pointed at, and what it is answerable for. */
@@ -106,7 +113,6 @@ type Kind =
   | { k: 'filled' }
   | { k: 'late' }
   | { k: 'build' }
-  | { k: 'revenue' }
   | { k: 'unknown' };
 
 /**
@@ -135,8 +141,6 @@ function classify(line: BillLine): Kind {
       return { k: 'unknown' };
     case 'build':
       return { k: 'build' };
-    case 'revenue':
-      return { k: 'revenue' };
   }
 }
 
@@ -150,7 +154,6 @@ const COUNTS: Record<string, string[]> = {
 export class LedgerModel {
   readonly currency: string;
   readonly finalCost: number;
-  readonly finalProfit: number;
   private readonly lines: BillLine[];
   private readonly shapes: ((t: number) => number)[];
   /** Per line, how much of it each machine is answerable for. */
@@ -162,7 +165,6 @@ export class LedgerModel {
     const account = bill.observed;
     this.currency = account.currency;
     this.finalCost = account.cost;
-    this.finalProfit = account.profit;
     this.lines = account.lines;
 
     const duration = trace.duration;
@@ -186,11 +188,6 @@ export class LedgerModel {
 
     this.shapes = kinds.map((kind) => {
       switch (kind.k) {
-        case 'revenue':
-          // Earned on completion and not a moment before, which is the whole of
-          // what "and only when it works" means.
-          return (t: number) => (t >= done ? 1 : 0);
-
         case 'build':
           // Engineering time, spread over the design's life. It is carried, so it
           // arrives evenly rather than at any particular moment.
@@ -326,7 +323,6 @@ export class LedgerModel {
         }
         // The job's, not any machine's. Left empty on purpose.
         case 'late':
-        case 'revenue':
         case 'unknown':
           return new Map<string, number>();
       }
@@ -349,7 +345,6 @@ export class LedgerModel {
         case 'build':
           return 'its share of carrying the services it offers';
         case 'late':
-        case 'revenue':
         case 'unknown':
           return '';
       }
@@ -388,9 +383,7 @@ export class LedgerModel {
       currency: this.currency,
       buckets,
       cost,
-      profit: buckets.revenue - cost,
       finalCost: this.finalCost,
-      finalProfit: this.finalProfit,
       lines,
       focus: focus
         ? {
@@ -409,7 +402,7 @@ export class LedgerModel {
 }
 
 function zero(): Record<Bucket, number> {
-  return { revenue: 0, build: 0, capacity: 0, consumption: 0, incidents: 0 };
+  return { build: 0, capacity: 0, consumption: 0, incidents: 0 };
 }
 
 function clamp(v: number): number {

@@ -35,6 +35,17 @@ public final class Machine implements Bound, Telemetry.Sampled {
 
     private final Fleet fleet;
     final String name, zone;
+
+    /**
+     * The region this machine's zone is in, worked out once.
+     *
+     * <p>Once, and here, because a machine does not move and the alternative is
+     * parsing a zone name on every call — on the caller's own thread, where it
+     * would be charged to the student's program and land in the fixed term the
+     * scale engine fits laws on. losim's own work is metered and taken back off
+     * (D11); work that need not happen at all is better than either.
+     */
+    final String region;
     final InstanceSpec spec;
     final int vcpu;
     final double memoryCapMb, diskCapMb;
@@ -95,6 +106,19 @@ public final class Machine implements Bound, Telemetry.Sampled {
     /** Bytes that left this machine for another zone, which is the traffic anyone pays for. */
     final AtomicLong crossZoneBytes = new AtomicLong();
 
+    /**
+     * The same bytes again, split by the region they were sent to.
+     *
+     * <p>Because a byte to the zone next door and a byte to Sydney are not the
+     * same price, and a single total cannot be billed at two rates. The split is
+     * kept rather than derived at the end because only the call site knows both
+     * ends of a call; by the time the run is over, the destination is gone.
+     *
+     * <p>Its values sum to {@link #crossZoneBytes} exactly — same bytes, counted
+     * once each, under two headings.
+     */
+    final Map<String, AtomicLong> egressTo = new ConcurrentHashMap<>();
+
     // losim's own footprint on these threads, metered so it can be taken back off.
     final AtomicLong losimBytes   = new AtomicLong();
     final AtomicLong losimNanos   = new AtomicLong();
@@ -115,6 +139,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
         this.name = name;
         this.spec = spec;
         this.zone = zone;
+        this.region = losim.res.Regions.regionOf(zone);
         this.vcpu = (int) Math.max(1, Math.round(spec.vcpu()));
         this.memoryCapMb = memoryCapMb;
         this.diskCapMb = diskCapMb;
@@ -141,6 +166,9 @@ public final class Machine implements Bound, Telemetry.Sampled {
     public int vcpu()    { return vcpu; }
     public String instance() { return spec.name(); }
     public String zone()     { return zone; }
+
+    /** Which region its zone is in — what decides the price of talking to it. */
+    public String region()   { return region; }
     public boolean alive() { return alive; }
     public double memoryCapMb() { return memoryCapMb; }
 
@@ -392,6 +420,19 @@ public final class Machine implements Bound, Telemetry.Sampled {
     }
 
     public long crossZoneBytes() { return crossZoneBytes.get(); }
+
+    /** Bytes this machine sent out of its zone, by destination region. */
+    public Map<String, Long> egressByRegion() {
+        var out = new LinkedHashMap<String, Long>();
+        for (var e : new TreeMap<>(egressTo).entrySet()) out.put(e.getKey(), e.getValue().get());
+        return out;
+    }
+
+    /** Charges bytes that left this zone to the region they went to. */
+    void egress(String region, long bytes) {
+        crossZoneBytes.addAndGet(bytes);
+        egressTo.computeIfAbsent(region, r -> new AtomicLong()).addAndGet(bytes);
+    }
     public long losimBytes()   { return losimBytes.get(); }
     public long losimNanos()   { return losimNanos.get(); }
     public long losimRegions() { return losimRegions.get(); }

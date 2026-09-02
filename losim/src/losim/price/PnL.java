@@ -3,12 +3,20 @@ package losim.price;
 import java.util.*;
 
 /**
- * A profit-and-loss account for one run.
+ * What one run cost.
  *
- * <p>Five buckets, reported separately rather than summed, because they are five
+ * <p>Four buckets, reported separately rather than summed, because they are four
  * different kinds of decision. Replication triples capacity and adds to build in
  * order to empty incidents — and summing those into one number hides exactly the
  * trade a student is meant to see.
+ *
+ * <p><b>Cost only, and no revenue.</b> There was a fifth bucket and a profit line
+ * once, and they are gone: what a run earns is not a property of the run. It
+ * depends on what the service is worth to somebody, which is a business question
+ * this course cannot answer and had been answering with a number somebody picked.
+ * A design argument that turns on an invented revenue figure is an argument about
+ * the figure. What a design <i>costs</i> is computed from what actually happened,
+ * and that is the number worth defending.
  *
  * <p>A bucket can also be <b>unpriceable</b>, and that is not the same as zero. Where
  * the engine refused to project the quantity a line is made of, the line is absent
@@ -18,7 +26,7 @@ import java.util.*;
 public final class PnL {
 
     public static final List<String> BUCKETS =
-            List.of("revenue", "build", "capacity", "consumption", "incidents");
+            List.of("build", "capacity", "consumption", "incidents");
 
     public static final Map<String, String> EXPLANATIONS = Map.of(
             "build", "Engineering time to construct this design, spread over its life. "
@@ -30,8 +38,7 @@ public final class PnL {
                     + "This is the line a better algorithm moves.",
             "incidents", "What failure cost: reruns, lost work, being late. Zero until "
                     + "something breaks, then large — this is the bucket fault tolerance is "
-                    + "bought to empty.",
-            "revenue", "What the service earned, and only when it works.");
+                    + "bought to empty.");
 
     private final List<LineItem> items = new ArrayList<>();
     private final List<String[]> unpriceable = new ArrayList<>();
@@ -80,13 +87,6 @@ public final class PnL {
         return out;
     }
 
-    /** Revenue minus everything it cost to earn. */
-    public double profit() {
-        var b = byBucket();
-        return round(b.get("revenue") - b.get("build") - b.get("capacity")
-                - b.get("consumption") - b.get("incidents"));
-    }
-
     public double cost() {
         var b = byBucket();
         return round(b.get("build") + b.get("capacity") + b.get("consumption")
@@ -99,7 +99,6 @@ public final class PnL {
         m.put("currency", currency);
         m.put("buckets", byBucket());
         m.put("cost", cost());
-        m.put("profit", profit());
         var lines = new ArrayList<Object>();
         for (LineItem i : items) lines.add(i.asMap());
         m.put("lines", lines);
@@ -127,8 +126,7 @@ public final class PnL {
         var b = byBucket();
         for (String bucket : BUCKETS)
             sb.append(String.format("  %-12s %s %12.4f%n", bucket, currency, b.get(bucket)));
-        sb.append(String.format("  %-12s %s %12.4f%n", "TOTAL COST", currency, cost()));
-        sb.append(String.format("  %-12s %s %12.4f%s%n", "PROFIT", currency, profit(),
+        sb.append(String.format("  %-12s %s %12.4f%s%n", "TOTAL COST", currency, cost(),
                 complete() ? "" : "   (of what could be priced)"));
         return sb.toString();
     }

@@ -9,7 +9,8 @@ icon: "server"
   { "name": "w0", "instance": "c5.large", "zone": "eu-central-1a", "vcpu": 2,
     "serves": ["Thumbnailer"],
     "memoryMb": 41.2, "allocMb": 388.4, "diskMb": 0.0,
-    "wireMb": 6.31, "inMb": 24.9, "crossZoneMb": 0.0,
+    "wireMb": 6.31, "inMb": 24.9, "crossZoneMb": 3.4,
+    "egressMb": { "eu-central-1": 1.1, "ap-northeast-1": 2.3 },
     "calls": 41,
     "losimMb": 0.44, "losimRegions": 1284,
     "memCapMb": 4096.0, "alive": true }
@@ -51,7 +52,7 @@ tick is not reported at whatever it held eight ticks ago.
 | `wireMb` | bytes out |
 | `inMb` | bytes in |
 | `crossZoneMb` | bytes this machine's calls sent across a zone boundary **in both directions** — request out and answer back — which is the traffic anyone pays for |
-
+| `egressMb` | the same bytes again, split by the **region** they went to. Absent when nothing left the zone |
 | `calls` | handlers it completed |
 
 <Warning>

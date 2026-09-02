@@ -1,6 +1,6 @@
 ---
 title: "9. What it cost"
-description: "Five buckets, printed apart, because they are five different kinds of decision."
+description: "Four buckets, printed apart, because they are four different kinds of decision."
 icon: "receipt"
 ---
 
@@ -22,7 +22,6 @@ buckets are large, and which rows appear at all.
 build/thumbs.json
 
 what happened
-  revenue     job completed                         1.000 jobs           CHF    5.0000
   build       services carried                      1.000 services       CHF    0.2500
   capacity    coordinator (m5.large)              0.01670 machine-hours  CHF    0.0019
   capacity    w0 (c5.large)                       0.01670 machine-hours  CHF    0.0017
@@ -33,13 +32,11 @@ what happened
   incidents   calls that did not answer in time     40.00 reruns         CHF    0.8000
   incidents   machines lost                         1.000 failures       CHF    0.2000
   ------------------------------------------------------------------------------------
-  revenue      CHF       5.0000
   build        CHF       0.2500
   capacity     CHF       0.0074
   consumption  CHF       0.0002
   incidents    CHF       1.0000
   TOTAL COST   CHF       1.2576
-  PROFIT       CHF       3.7424
 ```
 
 Three things to notice before the buckets themselves.
@@ -67,15 +64,15 @@ or read the `consumption` line instead, which responds immediately.
 
 <Tip>
 **Comment the `faults:` block out and bill it again.** Same fleet, same work, no
-weather: profit goes from `3.7424` to `4.7421`. That difference is what one kill and
-one slow machine cost you, and it is the number a fault-tolerance mechanism has to
-beat to be worth building.
+weather: the total goes from `1.2576` to `0.2579`. That difference is what one kill
+and one slow machine cost you, and it is the number a fault-tolerance mechanism has
+to beat to be worth building.
 </Tip>
 
 
 
 
-## Why five, and why they are not added up
+## Why four, and why they are not added up
 
 <Columns cols={2}>
   <Card title="capacity" icon="server">
@@ -99,7 +96,14 @@ beat to be worth building.
   </Card>
 </Columns>
 
-The fifth is **revenue**: the service earns only when the job completes.
+<Note>
+**There is no revenue bucket, and no profit line.** There was one once. What a run
+*earns* is not a property of the run — it depends on what the service is worth to
+somebody, which is a business question this course cannot answer and had been
+answering with a number somebody picked. An argument that turns on an invented
+revenue figure is an argument about the figure. What a design **costs** is computed
+from what actually happened, and that is the number worth defending.
+</Note>
 
 <Note>
 There is no storage line above because nothing in this system writes to disk. A

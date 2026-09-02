@@ -15,7 +15,7 @@
  * Shares that sum past 1 charge the fleet more than it was billed; shares that
  * silently sum to less lose money down a crack. Neither is visible by looking at
  * a picture — both are one line of arithmetic here. A line attributed to nobody
- * is fine and expected (revenue, the late-finish penalty), so what is checked is
+ * is fine and expected (the late-finish penalty), so what is checked is
  * that every line is *either* fully attributed or attributed not at all.
  */
 import { readFileSync, readdirSync } from 'node:fs';
@@ -59,9 +59,6 @@ for (const name of names) {
 
   if (Math.abs(close.cost - bill.observed.cost) > RAPPEN) {
     problems.push(`cost ${close.cost.toFixed(4)} vs bill ${bill.observed.cost.toFixed(4)}`);
-  }
-  if (Math.abs(close.profit - bill.observed.profit) > RAPPEN) {
-    problems.push(`profit ${close.profit.toFixed(4)} vs bill ${bill.observed.profit.toFixed(4)}`);
   }
   for (const b of Object.keys(bill.observed.buckets) as (keyof typeof bill.observed.buckets)[]) {
     const mine = close.buckets[b];

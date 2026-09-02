@@ -179,11 +179,10 @@ Five buckets, accruing **while the film plays**:
 | `build` | creeps |
 | `consumption` | follows the work. **This is the line a better algorithm moves.** |
 | `incidents` | steps, at the instants things broke |
-| `revenue` | lands at the end, or does not |
 
 `losim bill` says what a run cost, which is the wrong tense for a film: the point of
-watching a cascade is seeing profit go negative *partway through*, while it is still
-happening.
+watching a cascade is seeing the incidents bucket fill up *partway through*, while it
+is still happening.
 
 ### Hovering a machine shows its money
 
@@ -197,7 +196,7 @@ re-price** — the amount never changes, only the claim about who is answerable:
 | **its share** | a fleet total split by a quantity the trace already holds — cross-zone egress by how many cross-zone bytes that machine actually sent |
 | **the worst machine's** | storage belongs wholly to it, because that is what the bill charges for |
 | **the event's machine** | incidents go to the machine the event names |
-| **nobody's** | revenue and the late-finish penalty belong to the *job*. Spreading them over nine machines would invent a claim nothing supports, so they show as a dash |
+| **nobody's** | the late-finish penalty belongs to the *job*. Spreading it over nine machines would invent a claim nothing supports, so it shows as a dash |
 
 <Warning>
 **The viewer never prices anything itself.** Every amount is a line the CLI already
@@ -320,7 +319,7 @@ there having ended, captioned `finished at …`. That is the argument.
 
 Each film gets half the stage and is **re-arranged for the room it has**, so neither
 is laid out for space it was not given. Underneath, when both traces have a bill beside
-them, a verdict line: each run's profit, and which is ahead by how much.
+them, a verdict line: each run's cost, and which is cheaper by how much.
 
 <Warning>
 **It is the Film view only.** Spans, Topology and the machine panel show the run you

@@ -118,7 +118,7 @@ public final class Main {
 
                        losim bill <trace.json> [--prices <file>] [--json]
 
-                  What the run cost, in five buckets. A scaled run is billed twice:
+                  What the run cost, in four buckets. A scaled run is billed twice:
                   once for what happened, and once for the job it is a model of —
                   with the lines the engine could not project absent, and said so.""");
             return 2;

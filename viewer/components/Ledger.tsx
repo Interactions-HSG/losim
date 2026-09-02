@@ -24,7 +24,6 @@ import { BUCKETS, money, type Bucket, type Ledger as L } from '../lib/ledger.ts'
 import * as D from '../lib/design.ts';
 
 const COLOUR: Record<Bucket, string> = {
-  revenue: '#4F8A5B',
   build: '#8E6BA8',
   capacity: '#3C6E9F',
   consumption: '#3E8E8A',
@@ -32,7 +31,6 @@ const COLOUR: Record<Bucket, string> = {
 };
 
 const WHY: Record<Bucket, string> = {
-  revenue: 'What the service earned, and only when it works.',
   build: 'Engineering time to construct this design, carried whether or not the thing it protects against happens.',
   capacity: 'The fleet you reserved, priced for the whole period. An idle machine costs exactly as much as a busy one.',
   consumption: 'What the work actually burned: storage and egress. This is the line a better algorithm moves.',
@@ -51,21 +49,21 @@ export function LedgerStrip({
   /** Pointing at a line points at its machine, so the link runs both ways. */
   onHover?: (machine: string | null) => void;
 }) {
-  const scale = Math.max(l.finalCost, l.buckets.revenue, 0.0001);
-  const negative = l.profit < 0;
+  const scale = Math.max(l.finalCost, 0.0001);
   const focus = l.focus;
-  const spend = BUCKETS.filter((b) => b !== 'revenue');
 
   return (
     <div className={`ledger${open ? ' open' : ''}${focus ? ' focused' : ''}`}>
       <button className="ledger-head" onClick={onToggle} aria-expanded={open}>
         <span className="ledger-pl">
-          <span className="lbl">profit</span>
-          <strong className={negative ? 'bad' : 'good'}>{money(l.profit, l.currency)}</strong>
-        </span>
-        <span className="ledger-pl">
           <span className="lbl">cost</span>
           <strong>{money(l.cost, l.currency)}</strong>
+        </span>
+        {/* What it will come to, beside what it has come to. A cost with nothing
+            to be large against is a number nobody can read. */}
+        <span className="ledger-pl">
+          <span className="lbl">of</span>
+          <strong className="muted">{money(l.finalCost, l.currency)}</strong>
         </span>
 
         {/* When a machine is being pointed at, its own figure stands beside the
@@ -83,7 +81,7 @@ export function LedgerStrip({
             to. The pale remainder is what is still coming, and the bright notch
             inside each segment is the pointed-at machine's part of it. */}
         <span className="ledger-bar" title="cost so far, against the whole run">
-          {spend.map((b) => (
+          {BUCKETS.map((b) => (
             <span
               key={b}
               className="seg"
@@ -96,9 +94,6 @@ export function LedgerStrip({
             </span>
           ))}
           <span className="rest" style={{ width: `${Math.max(0, ((l.finalCost - l.cost) / scale) * 100)}%` }} />
-          {l.buckets.revenue > 0 && (
-            <span className="rev" style={{ width: `${(l.buckets.revenue / scale) * 100}%` }} />
-          )}
         </span>
 
         <span className="ledger-caret">{open ? '▾' : '▸'}</span>
@@ -174,8 +169,8 @@ export function LedgerStrip({
             {focus && (
               <>
                 {' '}
-                A dash means the line is nobody&rsquo;s in particular — revenue and the
-                late-finish penalty belong to the job, not to a machine.
+                A dash means the line is nobody&rsquo;s in particular — the late-finish
+                penalty belongs to the job, not to a machine.
               </>
             )}
           </p>
@@ -201,9 +196,7 @@ export function LedgerStrip({
           text-transform: uppercase; color: var(--text-3);
         }
         .ledger-pl strong { font-size: 15px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
-        .ledger-pl .good { color: #2f7d47; }
-        .ledger-pl .bad { color: var(--danger); }
-        @media (prefers-color-scheme: dark) { .ledger-pl .good { color: #63c184; } }
+        .ledger-pl strong.muted { font-size: 13px; color: var(--text-3); font-weight: 500; }
 
         .ledger-pl.mine {
           padding: 2px 9px 3px; border-radius: 999px;
@@ -227,11 +220,6 @@ export function LedgerStrip({
           box-shadow: 1px 0 0 rgba(0,0,0,.25);
         }
         .ledger-bar .rest { background: var(--border); }
-        .ledger-bar .rev {
-          background: repeating-linear-gradient(
-            -45deg, #4F8A5B, #4F8A5B 3px, transparent 3px, transparent 6px);
-          opacity: .55;
-        }
         .ledger-caret { color: var(--text-3); font-size: 11px; }
 
         .ledger-body {

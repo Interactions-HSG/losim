@@ -1,9 +1,9 @@
-# Frankfurt — AWS eu-central-1
+# Johannesburg — Azure southafricanorth
 #
 # Prices are course data, not library data — edit here, never in the simulator.
 #
 # **These are estimates, not a vendor's list prices.** Every figure is the
-# Frankfurt baseline times this region's index of 1.00; the index is a rough
+# Frankfurt baseline times this region's index of 1.35; the index is a rough
 # ordering of what infrastructure costs where, not a quotation from anybody. They
 # are here to make one question answerable — *what does it cost to put this
 # machine over there?* — and they are wrong in the third decimal on purpose,
@@ -13,7 +13,7 @@
 # What a machine costs to rent is deliberately absent: that belongs to the
 # instance catalogue, beside its vCPUs and its memory, because it is a property
 # of the machine rather than a choice this course makes.
-region: eu-central-1
+region: southafricanorth
 currency: CHF
 
 # A reclaimable machine is cheaper and can be taken away mid-job. Both halves of that
@@ -24,11 +24,11 @@ spot_discount: 0.70
 # The gap between the first and the last is the whole point: a fleet that talks
 # across an ocean because nobody looked at the zones pays 9 times what the
 # same traffic costs at home.
-egress_per_gb: 0.0100                   # between zones, inside this region
-egress_cross_region_per_gb: 0.0200      # to another region on this continent
-egress_intercontinental_per_gb: 0.0900  # across an ocean
+egress_per_gb: 0.0135                   # between zones, inside this region
+egress_cross_region_per_gb: 0.0270      # to another region on this continent
+egress_intercontinental_per_gb: 0.1215  # across an ocean
 
-storage_per_gb_month: 0.1000
+storage_per_gb_month: 0.1350
 
 # You pay for a machine from the moment you ask for it, with a floor. A design that
 # starts forty machines to do four seconds of work pays for a minute of forty.
@@ -38,7 +38,7 @@ billing_minimum_seconds: 60
 # somebody's work, carried whether or not the thing it protects against happens.
 # This one tracks what an engineer costs here rather than what a machine does,
 # which is why it does not follow the index above.
-build_per_service_month: 250
+build_per_service_month: 130
 
 # What being late costs, and what failure costs. Zero until something breaks.
 # Course policy rather than regional price, so these are the same everywhere.

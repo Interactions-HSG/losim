@@ -527,18 +527,21 @@ export function Film({ run, against }: { run: Run; against?: Run | null }) {
         )}
       </div>
 
+      {/* Two designs, one number each. Cheaper wins, and the gap is the whole
+          argument: `mr-locality` against `mr-locality-blind` is a claim about
+          what the second one's egress costs, and this is where it is settled. */}
       {against && vsMoney && money && (
         <div className="verdict card">
           <span>
-            <strong>{run.name}</strong> {money2(money.profit, money.currency)}
+            <strong>{run.name}</strong> {money2(money.cost, money.currency)}
           </span>
           <span className="muted">against</span>
           <span>
-            <strong>{against.name}</strong> {money2(vsMoney.profit, vsMoney.currency)}
+            <strong>{against.name}</strong> {money2(vsMoney.cost, vsMoney.currency)}
           </span>
           <span className="gap">
-            {money.profit >= vsMoney.profit ? run.name : against.name} is ahead by{' '}
-            {money2(Math.abs(money.profit - vsMoney.profit), money.currency)}
+            {money.cost <= vsMoney.cost ? run.name : against.name} is cheaper by{' '}
+            {money2(Math.abs(money.cost - vsMoney.cost), money.currency)}
           </span>
         </div>
       )}

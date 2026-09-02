@@ -1,6 +1,6 @@
 ---
 title: "losim bill"
-description: "What a run cost, in five buckets — and at both scales when there are two."
+description: "What a run cost, in four buckets — and at both scales when there are two."
 icon: "receipt"
 ---
 
@@ -14,7 +14,7 @@ java -cp build/losim.jar losim.cli.Main bill <trace.json> [--prices <file>] [--j
 </ParamField>
 
 <ParamField path="--json" type="flag">
-  The same five buckets as data, plus the **rates** they were computed from.
+  The same four buckets as data, plus the **rates** they were computed from.
 
   ```json
   {
@@ -22,7 +22,7 @@ java -cp build/losim.jar losim.cli.Main bill <trace.json> [--prices <file>] [--j
     "rates": {
       "currency": "CHF", "spotDiscount": 0.7, "egressPerGb": 0.01,
       "storagePerGbMonth": 0.1, "billingMinimumSeconds": 60,
-      "buildPerServiceMonth": 250.0, "revenuePerJob": 5.0, "slaSeconds": 10.0,
+      "buildPerServiceMonth": 250.0, "slaSeconds": 10.0,
       "latePenaltyPerSecond": 0.5, "incidentPerRerun": 0.02,
       "incidentPerLostMachine": 0.2
     },
@@ -53,23 +53,32 @@ than invented. [Opening a trace →](/viewer/opening-a-trace)
 Billing is a **pure function of the trace**, so re-billing the same run under a
 different price list costs nothing and needs no re-run.
 
-## The five buckets
+## The four buckets
 
 | bucket | what it is a model of |
 |---|---|
-| `revenue` | the service earns only when the job completes |
 | `capacity` | the fleet, for the period. An idle machine costs exactly as much as a busy one. |
-| `consumption` | what the work burned: cross-zone egress, and storage |
+| `consumption` | what the work burned: egress at the distance it went, and storage |
 | `incidents` | zero until something breaks, then large |
 | `build` | engineering time to construct and carry this design, per distinct service |
 
 <Note>
-They are printed **apart rather than summed**, because they are five different kinds
+They are printed **apart rather than summed**, because they are four different kinds
 of decision and adding them hides the trade every design makes. Replication triples
 capacity and adds to build in order to empty incidents; one number cannot say that.
 
 A line appears only when there is a quantity to put in it. A bucket nobody could
 fill in is not a bucket that cost nothing.
+</Note>
+
+<Note>
+**Cost only, and no revenue.** There was a fifth bucket and a `PROFIT` line once,
+and they are gone. What a run *earns* is not a property of the run: it depends on
+what the service is worth to somebody, which is a business question this course
+cannot answer and had been answering with a number somebody picked. A design
+argument that turns on an invented revenue figure is an argument about the figure.
+What a design **costs** is computed from what actually happened, and that is the
+number worth defending.
 </Note>
 
 ## Every line losim can print
@@ -78,11 +87,12 @@ So you can map a row of output back to the thing that caused it.
 
 | bucket | line | unit |
 |---|---|---|
-| `revenue` | `job completed` / `job did not complete` | jobs |
 | `build` | `services carried` | services |
 | `capacity` | `<machine> (<instance>)`, or `(<instance>, spot)` | machine-hours |
 | `capacity` | `the fleet, for the period` — **projected side only** | machine-hours |
 | `consumption` | `cross-zone egress` | GB |
+| `consumption` | `egress to another region` | GB |
+| `consumption` | `egress across an ocean` | GB |
 | `consumption` | `spilled data on disk` | GB-month |
 | `incidents` | `calls that did not answer in time` | reruns |
 | `incidents` | `machines lost` | failures |
@@ -111,9 +121,21 @@ something the engine had to project.
     afternoon, but the job it is a model of takes what the simulated clock says.
   </Accordion>
   <Accordion title="consumption">
-    **Cross-zone egress** — the sum of `crossZoneMb` across machines, in GB. Traffic
-    between availability zones is billed; traffic inside one is free, which is why
-    it is counted apart rather than derived.
+    **Egress, at three distances.** Traffic inside one zone is free; everything that
+    left a zone is billed at a rate that depends on how far it went, so there are up
+    to three lines rather than one:
+
+    | line | rate | when |
+    |---|---|---|
+    | `cross-zone egress` | `egress_per_gb` | another zone in the same region |
+    | `egress to another region` | `egress_cross_region_per_gb` | another region on the same continent |
+    | `egress across an ocean` | `egress_intercontinental_per_gb` | anything further |
+
+    Read off each machine's `egressMb`, which the run recorded by destination region
+    as the calls happened — only the caller ever knows both ends of a call. A trace
+    written before that existed has no split and is billed whole at the in-region
+    rate, which is the old behaviour rather than a guess at a distance nobody
+    recorded.
 
     **Storage** — the worst machine's `diskMb`, in GB-months, held for the period.
   </Accordion>
@@ -136,38 +158,37 @@ something the engine had to project.
     service. Carried whether or not it is ever needed — which is what makes adding a
     service a real decision.
   </Accordion>
-  <Accordion title="revenue">
-    One job's worth if `meta.completed` is true, zero otherwise.
-  </Accordion>
 </AccordionGroup>
 
 ## Two bills for a scaled run
 
 ```
 what happened
-  revenue     job completed                         1.000 jobs           CHF    5.0000
   build       services carried                      1.000 services       CHF    0.2500
   capacity    master (m5.2xlarge)                 0.01670 machine-hours  CHF    0.0077
   capacity    w0 (r5.large)                       0.01670 machine-hours  CHF    0.0025
   …
   consumption spilled data on disk              0.0001000 GB-month       CHF    0.0000
-  incidents   calls that did not answer in time     1.000 reruns         CHF    0.0200
-  incidents   machines lost                         3.000 failures       CHF    0.6000
+  ------------------------------------------------------------------------------------
+  build        CHF       0.2500
+  capacity     CHF       0.0177
+  consumption  CHF       0.0000
+  incidents    CHF       0.0000
+  TOTAL COST   CHF       0.2677
 
 what it is a model of
-  revenue     job completed                         1.000 jobs           CHF    5.0000
   build       services carried                      1.000 services       CHF    0.2500
   capacity    the fleet, for the period                 -                CHF   refused
-      its exponent moves by 0.671 between independent seed sets of the same
-      workload, which over a factor of 6 is an error bar of x3.3 — wider than
-      anything it would be asked to distinguish
+      the ladder bends: over the lower half it grows as records^-0.20 and over the
+      upper half as records^0.40, a difference of 0.60. Something behaves differently
+      small than large, and no extrapolation across that means anything
   consumption spilled data on disk              0.0004000 GB-month       CHF    0.0000
-  incidents   calls that did not answer in time     1.000 reruns         CHF    0.0200
-  incidents   machines lost                         3.000 failures       CHF    0.6000
-  ----------------------------------------------------------------------------------
+  ------------------------------------------------------------------------------------
+  build        CHF       0.2500
   capacity     CHF       0.0000
-  TOTAL COST   CHF       0.8700
-  PROFIT       CHF       4.1300   (of what could be priced)
+  consumption  CHF       0.0000
+  incidents    CHF       0.0000
+  TOTAL COST   CHF       0.2500   (of what could be priced)
 ```
 
 Read the two halves against each other:
@@ -179,7 +200,7 @@ Read the two halves against each other:
   fitted to it.
 - **`incidents` did not move.** Those are the observed failures, carried across.
 - **`capacity` contributed `0.0000` to the total** because it was refused, which is
-  why the profit line says *of what could be priced* rather than standing as a number.
+  why the total says *of what could be priced* rather than standing as a number.
 
 A line the engine refused is a line nobody can fill in. Capacity is usually the
 largest of them and the one that depends on the timeline, which is the noisiest thing

@@ -23,14 +23,14 @@ public final class Bills {
     }
 
     /**
-     * With {@code --json}, the same five buckets as data, plus the rates they were
+     * With {@code --json}, the same four buckets as data, plus the rates they were
      * computed from.
      *
      * <p>The rates are the part that matters. The viewer accrues cost as the film
      * plays, which the totals here cannot give it — a bill is what a run cost, and
-     * watching profit go negative halfway through a cascade needs to know what it
-     * cost *so far*. So the viewer has to do the arithmetic itself, and the only
-     * thing that stops it and this becoming two accountants who will eventually
+     * watching the incidents bucket fill up halfway through a cascade needs to know
+     * what it cost *so far*. So the viewer has to do the arithmetic itself, and the
+     * only thing that stops it and this becoming two accountants who will eventually
      * disagree is that both work from these numbers and the total is checked against
      * that one.
      */

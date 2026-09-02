@@ -73,6 +73,13 @@ final class ClientSide implements ClientInterceptor {
         // not, so it has to be counted apart from the rest rather than derived
         // afterwards: only here are both ends of the call known at once.
         final boolean crossZone = target != null && !from.zone.equals(target.zone);
+        // And *which* region, because the price depends on how far it went: the
+        // rack next door, another region, or the other side of an ocean. The
+        // destination is only knowable here — by the time the run is billed, the
+        // call is a span and the peer is a name. Read off the machine rather than
+        // parsed from its zone: this is the caller's own thread, and a regex per
+        // call would be charged to the student's program.
+        final String toRegion = target == null ? null : target.region;
 
         return new ForwardingClientCall.SimpleForwardingClientCall<>(ch.newCall(md, call)) {
             private Telemetry.Span span;
@@ -98,7 +105,7 @@ final class ClientSide implements ClientInterceptor {
                         // region in forty bytes and is sent a megabyte back, so
                         // the direction that is not counted is the direction all
                         // the data is travelling in.
-                        if (crossZone) from.crossZoneBytes.addAndGet(in);
+                        if (crossZone) from.egress(toRegion, in);
                         if (tel.payloads()) span.detail.put("result", Values.render(message));
                         from.chargeTo(span, Meter.allocNow() - c0, System.nanoTime() - m0);
                         super.onMessage(message);
@@ -144,7 +151,7 @@ final class ClientSide implements ClientInterceptor {
                 long b0 = Meter.allocNow(), n0 = System.nanoTime();
                 long bytes = Wire.sizeOf(message);
                 from.bytesOut.addAndGet(bytes);
-                if (crossZone) from.crossZoneBytes.addAndGet(bytes);
+                if (crossZone) from.egress(toRegion, bytes);
                 if (span != null) {
                     span.detail.put("bytes", bytes);
                     if (tel.payloads()) span.detail.put("arg", Values.render(message));

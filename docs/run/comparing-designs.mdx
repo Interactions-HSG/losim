@@ -39,8 +39,8 @@ java -cp "$CP" losim.cli.Main run design-b.yaml --cp build/classes --out build/r
 
 Open `a`, then pick `b` from **`compare with…`**. Both run on
 [one clock](/viewer/views#two-runs-on-one-clock), in absolute refMs, so the moment one
-finishes and the other has not is the moment you can see. Underneath, each run's profit
-and which is ahead by how much.
+finishes and the other has not is the moment you can see. Underneath, each run's cost
+and which is cheaper by how much.
 
 This answers *when* and *where* they diverge. The bill answers *what it cost*, which
 is the next section — and the two are worth doing in that order, because the bill
@@ -56,7 +56,7 @@ java -cp "$CP" losim.cli.Main bill build/design-b.json > build/b.bill
 diff -y --width=160 build/a.bill build/b.bill
 ```
 
-The five buckets are printed apart rather than summed, and this is where that pays
+The four buckets are printed apart rather than summed, and this is where that pays
 off. A design that replicates triples **capacity** and adds to **build** in order to
 empty **incidents** — and a single total would hide exactly that trade.
 

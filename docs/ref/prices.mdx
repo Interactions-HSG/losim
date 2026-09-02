@@ -1,17 +1,19 @@
 ---
 title: "The price list"
-description: "Course data, deliberately outside the simulator."
+description: "Course data, deliberately outside the simulator — ten regions of it."
 icon: "tag"
 ---
 
 ```yaml prices/eu-central-1.yaml
+region: eu-central-1
 currency: CHF
 spot_discount: 0.70
-egress_per_gb: 0.01
-storage_per_gb_month: 0.10
+egress_per_gb: 0.0100                   # between zones, inside this region
+egress_cross_region_per_gb: 0.0200      # to another region on this continent
+egress_intercontinental_per_gb: 0.0900  # across an ocean
+storage_per_gb_month: 0.1000
 billing_minimum_seconds: 60
-build_per_service_month: 250.0
-revenue_per_job: 5.0
+build_per_service_month: 250
 sla_seconds: 10
 late_penalty_per_second: 0.50
 incident_per_rerun: 0.02
@@ -25,6 +27,80 @@ java -cp "$CP" losim.cli.Main bill build/thumbs.json --prices prices/eu-central-
 If the file does not exist, the built-in defaults above are used and the command says
 so. Any key not in this list is refused.
 
+## Ten regions
+
+There is one file per region. Billing is a **pure function of the trace**, so the
+same run can be priced in all ten without being run again — which is the point:
+*would this design still be sensible in Tokyo?* is a question you answer by
+re-billing.
+
+| file | provider | where | index | build / service / month |
+|---|---|---|---|---|
+| `us-east-1` | AWS | N. Virginia | 0.85 | 280 |
+| `us-west-2` | AWS | Oregon | 0.88 | 300 |
+| `eu-west-1` | AWS | Ireland | 0.95 | 240 |
+| `eu-central-1` | AWS | Frankfurt | 1.00 | 250 |
+| `ap-south-1` | AWS | Mumbai | 1.10 | 90 |
+| `switzerlandnorth` | Azure | Zurich | 1.15 | 330 |
+| `ap-northeast-1` | AWS | Tokyo | 1.25 | 260 |
+| `australiaeast` | Azure | Sydney | 1.30 | 290 |
+| `southafricanorth` | Azure | Johannesburg | 1.35 | 130 |
+| `sa-east-1` | AWS | São Paulo | 1.45 | 120 |
+
+Ten rather than every region either cloud sells. A list of seventy-six is a list
+nobody reads; what a course needs is enough places, far enough apart, that "the
+next rack", "somewhere else in Europe" and "the other side of the world" are
+visibly three different prices.
+
+<Warning>
+**These are estimates, and none of them is a vendor's list price.** Egress and
+storage are the Frankfurt baseline times the region's index — a rough ordering of
+what infrastructure costs where, not a quotation from anybody.
+`build_per_service_month` follows what an engineer costs locally instead, which is
+why Mumbai is cheap to build in and expensive to leave, and Zurich is the other way
+round.
+
+They are wrong in the third decimal on purpose. A number that looked authoritative
+would be argued with instead of reasoned from, and the thing worth reasoning about
+is the **ratio** — that an intercontinental gigabyte costs nine times an in-region
+one, everywhere, and that no amount of tuning changes which side of that a design's
+traffic lands on. If you want the real ones, put them in these files. That is what the files
+are for, and nothing in `losim/` has to change.
+</Warning>
+
+## Talking costs what the distance costs
+
+Three rates, because there are three distances a byte can travel — and one that is
+free:
+
+| link | rate | when |
+|---|---|---|
+| same zone | **free** | both machines in `eu-central-1a` |
+| same region | `egress_per_gb` | `eu-central-1a` → `eu-central-1b` |
+| same continent | `egress_cross_region_per_gb` | `eu-central-1a` → `eu-west-1a` |
+| across an ocean | `egress_intercontinental_per_gb` | `eu-central-1a` → `ap-northeast-1a` |
+
+A machine's `zone` decides which, and the **region is read off the zone name** —
+`eu-central-1a` is in `eu-central-1`, `switzerlandnorth-1` is in `switzerlandnorth`.
+There is nothing to declare and so nothing to keep in step.
+
+The run records the split as the calls happen — `egressMb` on each machine, by
+destination region ([machines channel](/ref/machines-channel)) — because only the
+caller ever knows both ends of a call. The bill then prints up to three egress lines
+rather than one, so traffic that crossed an ocean is a row you can point at rather
+than a number folded into a total.
+
+<Note>
+A zone losim does not recognise — `rack-3`, `left` — is its own region on an unknown
+continent, and traffic to it is billed at the **cross-region** rate. The cheaper of
+the two, deliberately: guessing "across an ocean" for a name nobody recognised would
+put the largest egress line on the bill on the strength of a guess.
+
+Nothing validates zone names. A scenario may use any it likes, because refusing one
+would break every scenario written against an earlier losim for the sake of a table
+this release happens to carry.
+</Note>
+
 ## Every field
 
 <ParamField path="currency" type="string" default="CHF">
@@ -36,8 +112,24 @@ so. Any key not in this list is refused.
   received a `spot_notice` is billed at `onDemand × (1 - spot_discount)`.
 </ParamField>
 
+<ParamField path="region" type="string" default="">
+  Which region these rates are for. Bookkeeping only — it names the file on the bill,
+  so one from Tokyo cannot be mistaken for one from Frankfurt. **Where a machine
+  actually is comes from the scenario, never from here**: a price list that could
+  move a fleet would be a second scenario.
+</ParamField>
+
 <ParamField path="egress_per_gb" type="double" default="0.01">
-  Per GB of **cross-zone** traffic. Traffic inside a zone is free.
+  Per GB to another zone **in the same region**. Traffic inside one zone is free.
+</ParamField>
+
+<ParamField path="egress_cross_region_per_gb" type="double" default="0.02">
+  Per GB to another region **on the same continent**.
+</ParamField>
+
+<ParamField path="egress_intercontinental_per_gb" type="double" default="0.09">
+  Per GB **across an ocean**. Nine times the in-region rate by default, which is the
+  ratio worth remembering.
 </ParamField>
 
 <ParamField path="storage_per_gb_month" type="double" default="0.10">
@@ -52,10 +144,6 @@ so. Any key not in this list is refused.
 <ParamField path="build_per_service_month" type="double" default="250.0">
   Engineering time to construct and carry one service, monthly. Carried whether or
   not it is ever needed — which is what makes adding a service a real decision.
-</ParamField>
-
-<ParamField path="revenue_per_job" type="double" default="5.0">
-  Earned only when `meta.completed` is true.
 </ParamField>
 
 <ParamField path="sla_seconds" type="double" default="10">
