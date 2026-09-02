@@ -4,3 +4,10 @@ build/
 __pycache__/
 
 demo/*
+
+# Next's own build cache. The export beside it is committed on purpose —
+# viewer/out, like the generated protobuf sources, so that a student never needs
+# npm — but this is 109 MB that `npx next build` rewrites every time, and it was
+# being carried by everybody who clones this.
+viewer/.next/
+viewer/tsconfig.tsbuildinfo

@@ -1,7 +1,0 @@
-{
-  "/_global-error/page": "app/_global-error/page.js",
-  "/_not-found/page": "app/_not-found/page.js",
-  "/page": "app/page.js",
-  "/spikes/s1/page": "app/spikes/s1/page.js",
-  "/spikes/s4/page": "app/spikes/s4/page.js"
-}
