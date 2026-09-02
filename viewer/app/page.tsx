@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { Film } from '../components/Film.tsx';
+import { Lab } from '../components/Lab.tsx';
 import { manifest, openFile, openUrl, type Run, type RunRef } from '../lib/runs.ts';
 import { refTime } from '../lib/playback.ts';
 
@@ -36,6 +37,15 @@ export default function Home() {
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [over, setOver] = useState(false);
+  /**
+   * Whether `losim serve` is behind this page, and whether its systems are shown.
+   *
+   * Two things, not one. The panel is absent when there is no lab — the gallery,
+   * a trace somebody was sent — and folded away when there is one and a film is
+   * already on screen, because the run you are watching is what you came for.
+   */
+  const [hasLab, setHasLab] = useState(false);
+  const [showLab, setShowLab] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -101,6 +111,22 @@ export default function Home() {
     },
     [runs],
   );
+
+  /** A run just finished, or somebody asked for the last one: open it. */
+  const opened = useCallback(async (name: string, href: string) => {
+    setError(null);
+    setBusy(true);
+    try {
+      setRun(await openUrl(name, href));
+      // The picker is asked again rather than patched: the run that was just
+      // written is on disk, and what is on disk is the list.
+      setRuns(await manifest());
+    } catch (e) {
+      setError(String((e as Error).message));
+    } finally {
+      setBusy(false);
+    }
+  }, []);
 
   const drop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
@@ -184,10 +210,26 @@ export default function Home() {
         )}
 
         <nav>
+          {hasLab && (
+            <button
+              className="systems"
+              onClick={() => setShowLab((v) => !v)}
+              aria-expanded={showLab || !run}
+            >
+              systems
+            </button>
+          )}
           <a href="./spikes/s1/">glyphs</a>
           <a href="./spikes/s4/">recorder</a>
         </nav>
       </header>
+
+      {/* Mounted always, so it can find out whether there is a lab at all — and
+          hidden rather than unmounted while a film is up, so a run started here
+          goes on being followed while you watch the last one. */}
+      <div hidden={!(showLab || !run)}>
+        <Lab onLab={setHasLab} onRan={opened} />
+      </div>
 
       {error && <div className="err">{error}</div>}
       {busy && !run && <div className="loading">opening…</div>}
@@ -195,8 +237,17 @@ export default function Home() {
       {!busy && !run && !error && (
         <div className="loading">
           <p>
-            <strong>Nothing has been run yet.</strong> Press the ▶ beside a system, or open{' '}
-            <code>RunExperiments.java</code> and press the ▶ above <code>main</code>.
+            <strong>Nothing has been run yet.</strong>{' '}
+            {hasLab ? (
+              <>
+                Press the ▶ beside a system above, or open <code>RunExperiments.java</code> and
+                press the ▶ above <code>main</code>.
+              </>
+            ) : (
+              <>
+                Open <code>RunExperiments.java</code> and press the ▶ above <code>main</code>.
+              </>
+            )}
           </p>
           <pre className="mono">{`Experiments.here()
         .run("0-tour/1-two-machines")
@@ -222,9 +273,17 @@ export default function Home() {
         }
         .facts { display: flex; gap: 5px; flex-wrap: wrap; }
         .chip.bad { color: #fff; background: var(--danger); border-color: transparent; }
-        .top nav { margin-left: auto; display: flex; gap: 14px; font-size: 12.5px; }
+        .top nav { margin-left: auto; display: flex; align-items: center; gap: 14px; font-size: 12.5px; }
         .top nav a { color: var(--text-3); }
         .top nav a:hover { color: var(--text); }
+        .top nav .systems {
+          padding: 3px 9px; border-radius: var(--r-sm);
+          border: 1px solid var(--border-strong); background: var(--surface);
+          color: var(--text-2); font: inherit; cursor: pointer;
+        }
+        .top nav .systems[aria-expanded='true'] {
+          background: var(--accent-soft); color: var(--accent); border-color: transparent;
+        }
 
         .err {
           padding: 9px 12px; border-radius: var(--r);

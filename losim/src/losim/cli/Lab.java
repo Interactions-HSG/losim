@@ -42,13 +42,30 @@ public final class Lab {
 
     private final Path root;
     private final Path lib;
+    private final Path runs;
 
     public Lab(Path root, Path lib) {
+        this(root, lib, root.resolve(RUNS));
+    }
+
+    /**
+     * A lab whose runs are written somewhere other than {@code build/runs}.
+     *
+     * <p>The server takes {@code --runs}, and a server that listed one directory
+     * while its run button wrote into another would show a student a picker their
+     * own run never appeared in. So the directory is the lab's, not the server's,
+     * and there is one of it.
+     */
+    public Lab(Path root, Path lib, Path runs) {
         this.root = root.toAbsolutePath().normalize();
         this.lib = lib.toAbsolutePath().normalize();
+        this.runs = runs.toAbsolutePath().normalize();
     }
 
     public Path root() { return root; }
+
+    /** Where this lab's runs land — what the picker lists, and what the button writes. */
+    public Path runs() { return runs; }
 
     /**
      * Whether this directory is a lab at all.
@@ -206,8 +223,16 @@ public final class Lab {
                 // Its own scenario or schema makes it somebody else's system —
                 // which is what keeps `0-tour` a group of five rather than one
                 // enormous system containing all five rungs' code at once.
-                boolean own = !here.equals(from) || !isSystemOfItsOwn(p);
-                if (own) collect(from, p, ext, out);
+                //
+                // Except when the folder is one NOT_A_SYSTEM already names. Those
+                // are a system's own parts: `proto/` and `scenarios/` are exactly
+                // where a student is told to keep this system's schema and its
+                // worlds, and reading them as a neighbour's system left the walk
+                // with no schema to generate from and no world to run in.
+                boolean elsewhere = here.equals(from)
+                        && !NOT_A_SYSTEM.contains(p.getFileName().toString())
+                        && isSystemOfItsOwn(p);
+                if (!elsewhere) collect(from, p, ext, out);
             } else if (p.getFileName().toString().endsWith(ext)) {
                 out.add(p);
             }
@@ -269,6 +294,25 @@ public final class Lab {
         return compile(t, gen, classes, log) == 0 ? classes : null;
     }
 
+    /**
+     * Where this system's run in this world is written, or null if it has no world.
+     *
+     * <p>Here rather than at each caller. The name was being derived in three
+     * places — the run, the task list and the log — from two different things, so
+     * a system whose only scenario was `slow.yaml` wrote `id-slow.json` while both
+     * endpoints looked for `id.json` and the finished run never appeared.
+     */
+    public Path trace(Task t, String world) {
+        Path chosen = world == null || world.isBlank() ? t.scenario() : t.world(world);
+        if (chosen == null) return null;
+        // Named after the system and the world, so two variants of one system are
+        // two runs in the picker rather than one overwriting the other.
+        String stem = t.id().replace('/', '-');
+        String name = chosen.getFileName().toString().replaceAll("\\.ya?ml$", "");
+        if (!name.equals("main")) stem = stem + "-" + name;
+        return runs.resolve(stem + ".json");
+    }
+
     public int run(Task t, String world, Consumer<String> log) throws IOException, InterruptedException {
         if (!t.started()) {
             log.accept("There is no code in " + t.id() + " yet — that is the exercise.\n");
@@ -291,9 +335,6 @@ public final class Lab {
         if (!t.protos().isEmpty() && generate(t, gen, log) != 0) return 1;
         if (compile(t, gen, classes, log) != 0) return 1;
 
-        Path runs = root.resolve(RUNS);
-        Files.createDirectories(runs);
-
         Path chosen = world == null || world.isBlank() ? t.scenario() : t.world(world);
         if (chosen == null && world != null && !world.isBlank()) {
             log.accept("There is no scenario called " + world + " in " + t.id() + ".\n");
@@ -303,16 +344,18 @@ public final class Lab {
         if (chosen == null) {
             // Ordinary Java on one machine: there is no fleet to simulate and
             // nothing to draw, so the code speaks for itself.
+            String main = mainClassOf(t);
+            if (main == null) {
+                log.accept("Nothing in " + t.id() + " has a `public static void main`, and there\n"
+                        + "is no scenario beside it either — so there is nothing here to start.\n");
+                return 2;
+            }
             log.accept("\n");
-            return exec(List.of(java(), "-cp", cp(classes), mainClassOf(t, classes)), log);
+            return exec(List.of(java(), "-cp", cp(classes), main), log);
         }
 
-        // Named after the system and the world, so two variants of one system are
-        // two runs in the picker rather than one overwriting the other.
-        String stem = t.id().replace('/', '-');
-        String name = chosen.getFileName().toString().replaceAll("\\.ya?ml$", "");
-        if (!name.equals("main")) stem = stem + "-" + name;
-        Path trace = runs.resolve(stem + ".json");
+        Files.createDirectories(runs);
+        Path trace = trace(t, world);
         log.accept("\n");
         // `--no-view`: this run already has a viewer — the one that started it.
         int code = exec(List.of(java(), "-cp", cp(), "losim.cli.Main", "run", "--no-view",
@@ -377,16 +420,35 @@ public final class Lab {
      * requiring a name, this takes the one class that has a {@code main} — and
      * says so plainly when there is none, because "could not find or load main
      * class" is not a sentence a first-year should have to decode.
+     *
+     * <p>The name is the <b>qualified</b> one, read off the source's own
+     * {@code package} line. Returning the file's simple name is what produced
+     * exactly the message above: the manual teaches {@code src/lab/Main.java}
+     * with {@code package lab;} at the top of it, and a JVM asked for
+     * {@code Main} cannot find {@code lab.Main}.
+     *
+     * @return the class to start, or null if nothing here has a {@code main}
      */
-    private String mainClassOf(Task t, Path classes) {
+    private String mainClassOf(Task t) {
         for (Path p : t.sources()) {
             try {
-                if (Files.readString(p).contains("static void main(")) {
-                    return p.getFileName().toString().replaceAll("\\.java$", "");
-                }
+                String source = Files.readString(p);
+                if (!source.contains("static void main(")) continue;
+                String simple = p.getFileName().toString().replaceAll("\\.java$", "");
+                String pkg = packageOf(source);
+                return pkg.isEmpty() ? simple : pkg + "." + simple;
             } catch (IOException ignored) { /* unreadable source is javac's to report */ }
         }
-        return "Main";
+        return null;
+    }
+
+    /** What a source says it is in, or "" for the default package. */
+    private static final java.util.regex.Pattern PACKAGE = java.util.regex.Pattern.compile(
+            "(?m)^\\s*package\\s+([A-Za-z_$][\\w$]*(?:\\s*\\.\\s*[A-Za-z_$][\\w$]*)*)\\s*;");
+
+    private static String packageOf(String source) {
+        var m = PACKAGE.matcher(source);
+        return m.find() ? m.group(1).replaceAll("\\s+", "") : "";
     }
 
     // ------------------------------------------------------------- the toolchain

@@ -48,10 +48,17 @@ public final class Loader {
         var names = new LinkedHashSet<String>();
         for (MachineSpec m : base.machines()) names.add(m.name());
 
+        // The same check the scenario itself gets. An overlay is a scenario file
+        // by another name, and a `kTime: 0` that `of` rejects with a line number
+        // must not get in through here — it reaches the clock as an infinite debt
+        // on the first cost, and the run stops in a sleep that never returns.
+        double kTime = over.opt("kTime").present() ? over.at("kTime").num(base.kTime()) : base.kTime();
+        if (kTime <= 0) throw over.at("kTime").fail("k_time must be positive");
+
         return new Scenario(
                 base.file(),
                 over.opt("seed").present() ? (long) over.at("seed").num(base.seed()) : base.seed(),
-                over.opt("kTime").present() ? over.at("kTime").num(base.kTime()) : base.kTime(),
+                kTime,
                 base.job(),
                 over.opt("expectedRun").present()
                         ? over.at("expectedRun").refMs(base.expectedRunRefMs()) : base.expectedRunRefMs(),

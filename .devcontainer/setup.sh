@@ -18,7 +18,10 @@ echo "building losim..."
 
 cat <<'TXT'
 
-ready. Try:
+ready. The lab is on :8000 and the manual on :3000 — .devcontainer/start.sh puts
+them there on every attach, so neither is something you have to start.
+
+Try:
   ./build.sh     the simulator, into build/losim.jar
   ./check.sh     losim's own checks — every phase's acceptance criteria
   tests/run.sh   the reference suite — gRPC systems, run the way a student runs them

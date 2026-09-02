@@ -38,9 +38,9 @@ public final class Main {
 
     private static int run(String[] args) throws Exception {
         if (args.length > 0 && args[0].equals("bill")) {
-            if (args.length < 2) throw new IllegalArgumentException("bill needs a trace");
-            return Bills.run(Path.of(args[1]), option(args, "--prices", "prices/eu-central-1.yaml"),
-                             java.util.Arrays.asList(args).contains("--json"));
+            return Bills.run(Path.of(positional(args, "bill needs a trace")),
+                             option(args, "--prices", "prices/eu-central-1.yaml"),
+                             flag(args, "--json"));
         }
         if (args.length > 0 && args[0].equals("serve")) {
             // Two things can be served and they are deliberately two processes.
@@ -56,13 +56,13 @@ public final class Main {
             if (docs) {
                 return Manual.main(Path.of(option(args, "--docs", "docs")),
                                    Integer.parseInt(option(args, "--port", "3000")),
-                                   option(args, "--host", contained() ? "0.0.0.0" : "127.0.0.1"));
+                                   option(args, "--host", host()));
             }
             return Serve.main(option(args, "--root", "."),
                               option(args, "--site", null),
                               option(args, "--runs", null),
                               Integer.parseInt(option(args, "--port", "8000")),
-                              option(args, "--host", contained() ? "0.0.0.0" : "127.0.0.1"),
+                              option(args, "--host", host()),
                               !flag(args, "--no-open"), true);
         }
         // `losim manual` is the same thing as `losim serve docs`, kept because a
@@ -72,11 +72,12 @@ public final class Main {
         if (args.length > 0 && args[0].equals("manual")) {
             return Manual.main(Path.of(option(args, "--docs", "docs")),
                                Integer.parseInt(option(args, "--port", "3000")),
-                               option(args, "--host", contained() ? "0.0.0.0" : "127.0.0.1"));
+                               option(args, "--host", host()));
         }
         if (args.length > 0 && args[0].equals("diff")) {
-            if (args.length < 3) throw new IllegalArgumentException("diff needs two traces");
-            return Diff.run(Path.of(args[1]), Path.of(args[2]));
+            List<String> two = positionals(args);
+            if (two.size() < 2) throw new IllegalArgumentException("diff needs two traces");
+            return Diff.run(Path.of(two.get(0)), Path.of(two.get(1)));
         }
         if (args.length == 0 || !args[0].equals("run")) {
             System.err.println("""
@@ -153,8 +154,11 @@ public final class Main {
         Path target = Path.of(out != null ? out
                 : "build/" + file.getFileName().toString().replaceAll("\\.ya?ml$", "") + ".json");
 
-        if (scenario.mode() == Scenario.Mode.SCALED)
-            return scaled(scenario, loader, level, cp, target);
+        if (scenario.mode() == Scenario.Mode.SCALED) {
+            int code = scaled(scenario, loader, level, cp, target);
+            show(args, target);
+            return code;
+        }
 
         var result = Run.of(scenario, loader, level, Trust.of(scenario, paths(cp)));
         result.trace().writeTo(target);
@@ -172,17 +176,34 @@ public final class Main {
                         e.detail().get("demandMb"), e.detail().get("capMb"));
         System.out.print(result.trust().describe());
 
-        // And then show it, because a trace nobody looks at taught nobody
-        // anything. `--no-view` for a script that only wants the file; a script
-        // that forgot to pass it is covered anyway, because a redirected stream
-        // is not a terminal and this does not fire.
-        if (!flag(args, "--no-view") && (flag(args, "--view") || watched())) {
-            view(target, Integer.parseInt(option(args, "--port", "8000")));
-        }
+        show(args, target);
 
         // An invariant the scenario asserted and the run broke is a failure of the
         // run, not of losim — so it is worth an exit code a script can read.
         return result.completed() ? 0 : 1;
+    }
+
+    /**
+     * Show what was just run, because a trace nobody looks at taught nobody
+     * anything.
+     *
+     * <p>`--no-view` for a script that only wants the file; a script that forgot
+     * to pass it is covered anyway, because a redirected stream is not a terminal
+     * and this does not fire.
+     *
+     * <p>Both modes come through here. Written inline in the direct path, it was
+     * unreachable for a scaled scenario — which returned before it — so a student
+     * at a terminal got a viewer for one kind of run and silence for the other,
+     * and an explicit `--view` was ignored.
+     */
+    private static void show(String[] args, Path target) {
+        if (flag(args, "--no-view")) return;
+        if (!flag(args, "--view") && !watched()) return;
+        // Scaled mode that could not fit a size writes nothing, and a viewer
+        // opened on a file that is not there says less than the reason it just
+        // printed.
+        if (!Files.exists(target)) return;
+        view(args, target);
     }
 
     /**
@@ -271,29 +292,33 @@ public final class Main {
         return new URLClassLoader(urls.toArray(new URL[0]), Main.class.getClassLoader());
     }
 
-    private static String need(String[] args, int i, String what) {
-        if (i >= args.length) throw new IllegalArgumentException(what);
-        return args[i];
-    }
-
     /** Flags that stand alone; everything else beginning with `--` takes a value. */
     private static final List<String> BARE = List.of("--no-view", "--view", "--json");
 
     /**
-     * The first argument that is not a flag or a flag's value.
+     * Every argument that is not a flag or a flag's value, in order.
      *
      * <p>Written as a scan rather than as `args[1]` because `losim run --no-view
      * thing.yaml` should mean what it looks like it means. Taking the second
      * argument on faith made that read as "no such scenario: --no-view", which is
-     * the sort of message that sends somebody looking in the wrong place.
+     * the sort of message that sends somebody looking in the wrong place — and
+     * `losim bill --prices expensive.yaml trace.json` was reading the same way,
+     * so every subcommand's arguments are found here now rather than at two.
      */
-    private static String positional(String[] args, String what) {
+    private static List<String> positionals(String[] args) {
+        List<String> out = new ArrayList<>();
         for (int i = 1; i < args.length; i++) {
             String a = args[i];
-            if (!a.startsWith("--")) return a;
+            if (!a.startsWith("--")) { out.add(a); continue; }
             if (!BARE.contains(a)) i++;
         }
-        throw new IllegalArgumentException(what);
+        return out;
+    }
+
+    private static String positional(String[] args, String what) {
+        List<String> found = positionals(args);
+        if (found.isEmpty()) throw new IllegalArgumentException(what);
+        return found.get(0);
     }
 
     /**
@@ -304,12 +329,12 @@ public final class Main {
      * there to compare. It does not return — a viewer that closed itself the
      * moment it opened would be a screenshot.
      */
-    private static void view(Path trace, int port) {
+    private static void view(String[] args, Path trace) {
+        int port = Integer.parseInt(option(args, "--port", "8000"));
         Path runs = trace.toAbsolutePath().getParent();
         System.out.println();
         try {
-            Serve.main(".", null, runs.toString(), port, contained() ? "0.0.0.0" : "127.0.0.1",
-                       true, false);
+            Serve.main(".", null, runs.toString(), port, host(), true, false);
         } catch (Exception e) {
             System.out.println("the run is written; the viewer would not start (" + e.getMessage() + ")");
         }
@@ -328,8 +353,17 @@ public final class Main {
         return List.of(args).contains(name);
     }
 
+    /**
+     * What a server here should bind to.
+     *
+     * <p>Inside a container the port is forwarded from outside, so a server on the
+     * loopback interface has nothing listening on the one the browser reaches.
+     * Every server this CLI starts asks this rather than writing an address down.
+     */
+    static String host() { return contained() ? "0.0.0.0" : "127.0.0.1"; }
+
     /** Inside a container, where there is no browser and the port is forwarded out. */
-    private static boolean contained() {
+    static boolean contained() {
         return System.getenv("CODESPACES") != null
                 || System.getenv("REMOTE_CONTAINERS") != null
                 || Files.exists(Path.of("/.dockerenv"));

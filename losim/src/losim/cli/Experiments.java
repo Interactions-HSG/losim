@@ -101,10 +101,16 @@ public final class Experiments {
         System.out.println(ran.size() + " run" + (ran.size() == 1 ? "" : "s")
                 + (failed > 0 ? ", " + failed + " of which did not finish" : ""));
         try {
-            // `false`: show what was just run, and do not go and run everything
+            // `false`: show what was just run, and do not go and build everything
             // else in the project on the way — the list above is the experiment.
+            //
+            // `Main.host()` rather than a written-down loopback: this is what the
+            // editor's run button presses, and the editor is a devcontainer or a
+            // Codespace as often as it is a laptop. A viewer bound to 127.0.0.1
+            // in a container is a forwarded port with nothing behind it, so the
+            // run succeeded and the browser said connection refused.
             Serve.main(lab.root().toString(), null, lab.root().resolve(Lab.RUNS).toString(),
-                       port, "127.0.0.1", true, false);
+                       port, Main.host(), true, false);
         } catch (IOException e) {
             System.out.println("the runs are written; the viewer would not start: " + e.getMessage());
         }

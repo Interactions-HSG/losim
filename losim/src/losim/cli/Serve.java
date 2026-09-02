@@ -10,7 +10,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -96,6 +95,16 @@ public final class Serve {
         final String task;
         final String world;
         final StringBuilder log = new StringBuilder();
+        /**
+         * How much has been dropped off the front, ever.
+         *
+         * <p>The cursor a browser holds counts from the beginning of the run, not
+         * from the beginning of what is still in memory. Without this the two
+         * disagree the moment the log is trimmed: the page asks for a position
+         * past the end of a now-shorter buffer, is told there is nothing, and
+         * stops showing the rest of the run.
+         */
+        long dropped;
         volatile boolean done;
         volatile int code = -1;
 
@@ -105,30 +114,48 @@ public final class Serve {
             log.append(s);
             // A runaway program must not become a runaway process. Keeping the
             // tail is right: the end of a log is where the failure is.
-            if (log.length() > 400_000) log.delete(0, log.length() - 300_000);
+            if (log.length() > 400_000) {
+                int cut = log.length() - 300_000;
+                log.delete(0, cut);
+                dropped += cut;
+            }
         }
 
-        synchronized String from(int at) {
-            return at >= log.length() ? "" : log.substring(Math.max(0, Math.min(at, log.length())));
+        /** What was said after {@code at}, and where to ask from next. */
+        synchronized Tail from(long at) {
+            long end = dropped + log.length();
+            long start = Math.max(at - dropped, 0);
+            return start >= log.length()
+                    ? new Tail("", end)
+                    : new Tail(log.substring((int) start), end);
         }
-
-        synchronized int mark() { return log.length(); }
     }
+
+    /**
+     * A slice of a run's output, with the cursor that follows it.
+     *
+     * <p>The two travel together because they have to be read under one lock: a
+     * length taken after the text was copied would skip whatever was said in
+     * between.
+     */
+    private record Tail(String text, long next) {}
 
     // --------------------------------------------------------------------- boot
 
     /**
-     * @param warm whether to build and run every system before anybody asks.
-     *             True for the lab, where a student is about to press something;
-     *             false when the viewer is being opened on runs that have just
-     *             been made, because re-running them is not what "show me that"
-     *             means.
+     * @param warm whether to compile every system that has code in it before
+     *             anybody asks. True for the lab, where a student is about to
+     *             press something; false when the viewer is being opened on runs
+     *             that have just been made, because there is nothing to get ready.
      */
     public static int main(String root, String site, String runs, int port, String host,
                            boolean open, boolean warm) throws IOException {
         Path base = Path.of(root).toAbsolutePath().normalize();
-        Serve s = new Serve(new Lab(base, base.resolve("lib")), siteIn(base, site),
-                            runs == null ? base.resolve(Lab.RUNS) : Path.of(runs).toAbsolutePath().normalize());
+        // One runs directory, given to both: the picker lists it and the run
+        // button writes into it, and `--runs` has to move both or neither.
+        Path where = runs == null ? base.resolve(Lab.RUNS)
+                                  : Path.of(runs).toAbsolutePath().normalize();
+        Serve s = new Serve(new Lab(base, base.resolve("lib"), where), siteIn(base, site), where);
 
         HttpServer http;
         try {
@@ -187,12 +214,19 @@ public final class Serve {
      *
      * <p>It runs on the same single worker as a real run, so a student who is
      * quicker than the warm-up queues behind it rather than racing it.
+     *
+     * <p><b>Compiling, and nothing further.</b> Running each system here instead
+     * would overwrite every trace on disk with a fresh one every time the server
+     * starts — so a student who reopens their Codespace the next morning would
+     * find yesterday's run silently replaced — and one chaos scenario would hold
+     * the single worker for minutes while the page they press reports nothing
+     * running.
      */
     private void warm() {
         worker.submit(() -> {
             for (Lab.Task t : lab.tasks()) {
-                if (!t.started() || !t.distributed()) continue;
-                try { lab.run(t, null, x -> { }); }
+                if (!t.started()) continue;
+                try { lab.compile(t, x -> { }); }
                 catch (InterruptedException e) { Thread.currentThread().interrupt(); return; }
                 catch (Exception ignored) {
                     // A system that does not build yet is the starting position,
@@ -202,22 +236,12 @@ public final class Serve {
         });
     }
 
-    private static Path which(String tool) {
-        String path = java.lang.System.getenv("PATH");
-        if (path == null) return null;
-        for (String dir : path.split(java.io.File.pathSeparator)) {
-            Path p = Path.of(dir, tool);
-            if (Files.isExecutable(p)) return p;
-        }
-        return null;
-    }
-
     // ------------------------------------------------------------------ the api
 
     private void tasks(HttpExchange x) throws IOException {
         List<Object> out = new ArrayList<>();
         for (Lab.Task t : lab.tasks()) {
-            Path trace = runs.resolve(t.id().replace('/', '-') + ".json");
+            Path trace = lab.trace(t, null);
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("id", t.id());
             row.put("started", t.started());
@@ -227,7 +251,7 @@ public final class Serve {
             // Every world this system can be put in, so a variant is a second
             // button beside the first rather than a file nobody notices.
             row.put("scenarios", t.worldNames());
-            if (Files.exists(trace)) row.put("trace", "traces/" + trace.getFileName());
+            if (trace != null && Files.exists(trace)) row.put("trace", "traces/" + trace.getFileName());
             out.add(row);
         }
         Job j = current;
@@ -288,20 +312,18 @@ public final class Serve {
             body.put("next", 0);
             body.put("done", true);
         } else {
-            int from = (int) number(query(x).getOrDefault("from", "0"));
-            String text = j.from(from);
+            Tail tail = j.from((long) number(query(x).getOrDefault("from", "0")));
             body.put("job", j.id);
             body.put("task", j.task);
-            body.put("text", text);
-            body.put("next", from + text.length());
+            body.put("text", tail.text());
+            body.put("next", tail.next());
             body.put("done", j.done);
             body.put("ok", j.done && j.code == 0);
             if (j.done) {
-                String stem = j.task.replace('/', '-');
-                if (j.world != null && !j.world.isBlank() && !j.world.startsWith("main."))
-                    stem = stem + "-" + j.world.replaceAll("\\.ya?ml$", "");
-                Path trace = runs.resolve(stem + ".json");
-                if (Files.exists(trace)) body.put("trace", "traces/" + trace.getFileName());
+                Lab.Task t = lab.task(j.task);
+                Path trace = t == null ? null : lab.trace(t, j.world);
+                if (trace != null && Files.exists(trace))
+                    body.put("trace", "traces/" + trace.getFileName());
             }
         }
         send(x, 200, "application/json", Json.write(body).getBytes(StandardCharsets.UTF_8));
@@ -331,8 +353,15 @@ public final class Serve {
         send(x, 200, "application/json", Files.readAllBytes(p));
     }
 
-    /** Cached by (size, mtime): re-reading every trace on every poll is not free. */
-    private final Map<String, Map<String, Object>> summaries = new HashMap<>();
+    /**
+     * Cached by (size, mtime): re-reading every trace on every poll is not free.
+     *
+     * <p>Concurrent because the picker polls it and eight HTTP threads answer.
+     * Two polls landing together on a trace a run had just rewritten both missed
+     * the cache and both rebuilt it, and a plain HashMap structurally modified
+     * from two threads at once loses entries or throws out of {@code removeIf}.
+     */
+    private final Map<String, Map<String, Object>> summaries = new java.util.concurrent.ConcurrentHashMap<>();
 
     private byte[] index() {
         List<Object> out = new ArrayList<>();
@@ -400,7 +429,11 @@ public final class Serve {
             Map.entry("map", "application/json"));
 
     private void asset(HttpExchange x) throws IOException {
-        String path = URLDecoder.decode(x.getRequestURI().getPath(), StandardCharsets.UTF_8);
+        // Already decoded: `URI.getPath()` has done the percent-escapes, and
+        // running URLDecoder over the result decodes them a second time — under
+        // form rules, which turn a `+` in a file name into a space. `/a%2Bb`
+        // came back as "there is no page at a b".
+        String path = x.getRequestURI().getPath();
         Path p = site.resolve(path.substring(1)).normalize();
         // The one rule that matters here: nothing outside the exported site.
         if (!p.startsWith(site)) { fail(x, 403, "not yours to read"); return; }
@@ -467,9 +500,7 @@ public final class Serve {
      * rather than failing there.
      */
     static void browse(String url) {
-        if (java.lang.System.getenv("CODESPACES") != null
-                || java.lang.System.getenv("REMOTE_CONTAINERS") != null
-                || Files.exists(Path.of("/.dockerenv"))) return;
+        if (Main.contained()) return;
         String os = java.lang.System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT);
         List<String> argv = os.contains("mac") ? List.of("open", url)
                 : os.contains("win") ? List.of("rundll32", "url.dll,FileProtocolHandler", url)

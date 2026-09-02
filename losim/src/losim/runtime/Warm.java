@@ -3,6 +3,7 @@ package losim.runtime;
 import com.google.protobuf.Empty;
 import io.grpc.BindableService;
 import io.grpc.CallOptions;
+import io.grpc.ManagedChannel;
 import io.grpc.MethodDescriptor;
 import io.grpc.ServerServiceDefinition;
 import io.grpc.protobuf.ProtoUtils;
@@ -112,9 +113,27 @@ final class Warm {
             fleet.machine("losim-warm-b", "m5.large", "eu-central-1a").serving(touch);
             caller.serving();
             fleet.begin();
-            for (int i = 0; i < ROUNDS; i++)
-                ClientCalls.blockingUnaryCall(caller.channelTo("losim-warm-b"), TOUCH,
-                        CallOptions.DEFAULT, Empty.getDefaultInstance());
+            for (int i = 0; i < ROUNDS; i++) {
+                // A fresh channel per round, and each one shut down before the
+                // next. Fresh because building a channel is a large part of what
+                // is expensive about a first call, and five calls down one
+                // channel warm that path once — the ROUNDS figure above was
+                // measured with five of them, and reusing one quietly made the
+                // warm-up weaker than the number it is documented with.
+                //
+                // Shut down because `channelTo` is uncached: the machine never
+                // learns about these, so `Machine.shutdown()` never closes them,
+                // and five in-process transports were being left alive for the
+                // life of the JVM by the one method here whose whole job is to
+                // cost nothing.
+                ManagedChannel warm = caller.channelTo("losim-warm-b");
+                try {
+                    ClientCalls.blockingUnaryCall(warm, TOUCH,
+                            CallOptions.DEFAULT, Empty.getDefaultInstance());
+                } finally {
+                    warm.shutdownNow();
+                }
+            }
         }
     }
 }

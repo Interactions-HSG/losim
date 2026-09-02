@@ -5,7 +5,6 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
-import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -487,6 +486,41 @@ public final class Manual {
         }
 
         /**
+         * Raw HTML a page wrote on a line of its own, kept as it was written.
+         *
+         * <p>These pages use {@code <div id="level-3" />} to put an anchor where a
+         * heading would be wrong, and four links elsewhere in the manual point at
+         * those anchors. Escaped as text, the anchor is never created and every
+         * one of those links lands at the top of the page — with the tag itself
+         * printed in the prose.
+         *
+         * <p>An allowlist, not "anything lowercase": the tag has to be markup a
+         * page would plausibly write, so a line beginning {@code <Pong>} still
+         * reads as text rather than as an element nobody meant.
+         */
+        private static final List<String> HTML = List.of(
+                "div", "span", "p", "br", "hr", "img", "a", "section", "aside", "figure",
+                "figcaption", "details", "summary", "small", "sup", "sub", "kbd", "video");
+
+        /** Elements that have no closing tag, so nothing is owed after them. */
+        private static final List<String> VOID = List.of("br", "hr", "img");
+
+        private boolean raw(String tag, String n) {
+            if (!HTML.contains(n)) return false;
+            flush();
+            if (tag.endsWith("/>") && !VOID.contains(n)) {
+                // `<div … />` is not self-closing in HTML — a browser reads it as
+                // an open tag and swallows the rest of the page into it. What the
+                // page meant is an empty element, so that is what is written.
+                out.append(tag, 0, tag.length() - 2).append("></").append(n).append('>');
+            } else {
+                out.append(tag);
+                if (!tag.endsWith("/>") && !VOID.contains(n)) push("</" + n + ">");
+            }
+            return true;
+        }
+
+        /**
          * An opening component, if this line is one.
          *
          * <p>Only line-leading tags count, which is what keeps {@code List<String>}
@@ -494,8 +528,8 @@ public final class Manual {
          */
         private boolean component(String tag) {
             String n = name(tag);
-            if (n.isEmpty() || !Character.isUpperCase(n.charAt(0))) return false;
-            if (!tag.endsWith(">")) return false;
+            if (n.isEmpty() || !tag.endsWith(">")) return false;
+            if (!Character.isUpperCase(n.charAt(0))) return raw(tag, n);
             flush();
             var a = attrs(tag);
             boolean selfClosing = tag.endsWith("/>");
@@ -559,8 +593,23 @@ public final class Manual {
 
         private String push(String closing) { open.push(closing); return ""; }
 
+        /**
+         * A closing tag, matched against what it can actually close.
+         *
+         * <p>A lowercase closer belongs to whatever raw HTML opened it and only
+         * ever closes that. Popping the stack for any {@code </…>} at all meant a
+         * {@code </div>} inside a {@code <Note>} closed the note instead, and
+         * everything after it fell out of the callout.
+         */
         private void close(String tag) {
             flush();
+            String n = name(tag);
+            if (!n.isEmpty() && !Character.isUpperCase(n.charAt(0))) {
+                String owed = "</" + n + ">";
+                if (!open.isEmpty() && open.peek().equals(owed)) out.append(open.pop());
+                else if (HTML.contains(n)) out.append(owed);
+                return;
+            }
             if (!open.isEmpty()) out.append(open.pop());
         }
 
@@ -757,8 +806,11 @@ public final class Manual {
             return 0;
         }
         http.createContext("/", x -> {
-            String path = URLDecoder.decode(x.getRequestURI().getPath(), StandardCharsets.UTF_8)
-                    .replaceAll("^/+", "");
+            // Already decoded: `URI.getPath()` has done the percent-escapes, and
+            // decoding a second time applies form rules on top — which turn a `+`
+            // in a page or image name into a space, and answer "there is no page
+            // at a b" for a name nobody typed.
+            String path = x.getRequestURI().getPath().replaceAll("^/+", "");
             int dot = path.lastIndexOf('.');
             if (dot > path.lastIndexOf('/')) {
                 Path asset = manual.asset(path);

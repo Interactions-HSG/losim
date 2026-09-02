@@ -14,6 +14,14 @@
   // Build losim so a fresh Codespace is ready to run.
   "postCreateCommand": "bash .devcontainer/setup.sh",
 
+  // ...and start it, every time somebody attaches. The ports below are
+  // forwarded and one of them opens a preview, so something has to be listening
+  // on them — otherwise the first thing a student sees is a failed page. It is
+  // on attach rather than on start because reconnecting to a container that has
+  // been running for a week must also leave the lab up; start.sh checks the
+  // ports first, so a second attach starts nothing.
+  "postAttachCommand": "bash .devcontainer/start.sh",
+
   "forwardPorts": [3000, 8000],
   "portsAttributes": {
     "3000": { "label": "the manual", "onAutoForward": "notify" },
