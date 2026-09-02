@@ -50,7 +50,7 @@ public final class Run {
          */
         public record Totals(String name, long peakRetainedBytes, long allocatedBytes,
                              long diskBytes, long bytesOut, long bytesIn, long crossZoneBytes,
-                             long handledCalls, long losimBytes, long losimRegions,
+                             long handledCalls, long losimBytes, long losimStops,
                              double memoryCapMb, boolean alive) {}
 
         public double peakOf(java.util.function.ToDoubleFunction<Totals> of) {
@@ -111,9 +111,9 @@ public final class Run {
                 var machine = fleet.machine(m.name(), m.instance(), m.zone(),
                         m.memoryCapMb() != null ? m.memoryCapMb() : spec.memoryMb(),
                         m.diskCapMb() != null ? m.diskCapMb() : spec.storageGb() * 1024.0);
-                for (String service : m.serves())
+                for (String service : m.runs())
                     machine.serves(factory(service, loader, m.where()));
-                if (m.serves().isEmpty()) machine.serving();     // listening, offering nothing
+                if (m.runs().isEmpty()) machine.serving();     // listening, offering nothing
                 byName.put(m.name(), machine);
             }
 
@@ -203,7 +203,7 @@ public final class Run {
                 if (m.alive()) m.measureRetained();
                 totals.put(m.name(), new Result.Totals(m.name(), m.peakRetainedBytes(),
                         m.allocatedBytes(), m.diskBytes(), m.bytesOut(), m.bytesIn(),
-                        m.crossZoneBytes(), m.handledCalls(), m.losimBytes(), m.losimRegions(),
+                        m.crossZoneBytes(), m.handledCalls(), m.losimBytes(), m.losimStops(),
                         m.memoryCapMb(), m.alive()));
             }
 
@@ -253,7 +253,7 @@ public final class Run {
                 // program's own" is a claim, and a reader is entitled to see the size
                 // of what was taken off it before believing it.
                 m.put("losimMb", mb(t.losimBytes()));
-                m.put("losimRegions", t.losimRegions());
+                m.put("losimStops", t.losimStops());
                 m.put("memCapMb", Machine.round(t.memoryCapMb()));
                 m.put("alive", t.alive());
                 trace.machine(m);
@@ -283,7 +283,7 @@ public final class Run {
         try { type = Class.forName(className, true, loader); }
         catch (ClassNotFoundException e) {
             throw new IllegalArgumentException(where + ": no class called '" + className
-                    + "' is on the classpath. 'serves:' names a class implementing a generated"
+                    + "' is on the classpath. 'runs:' names a class implementing a generated"
                     + " gRPC service; write it fully qualified if it is in a package.");
         }
         if (!BindableService.class.isAssignableFrom(type))

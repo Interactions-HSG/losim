@@ -41,7 +41,7 @@ public record Grid(List<List<Probe>> dataLadder,
     public static Grid run(Scenario s, ClassLoader loader, Telemetry.Level level, int seedCount)
             throws Exception {
         var sizes = s.workload().probeSizes();
-        var fleets = s.workload().fleetSizes();
+        var counts = s.workload().workerCounts();
         long[] seeds = seedsFrom(s.seed(), seedCount);
         var notes = new ArrayList<String>();
 
@@ -70,7 +70,7 @@ public record Grid(List<List<Probe>> dataLadder,
         // exponent has to be shown to be reproducible.
         long[] few = Arrays.copyOf(seeds, Math.min(2, seeds.length));
         var fleetLadder = new ArrayList<List<Probe>>();
-        for (int workers : fleets) {
+        for (int workers : counts) {
             var rung = new ArrayList<Probe>();
             for (long seed : few)
                 rung.add(Probe.run(s.withoutWeather().withWorkers(workers)
@@ -95,7 +95,7 @@ public record Grid(List<List<Probe>> dataLadder,
 
     /** The fleet the scenario declares: every machine that serves something. */
     static int workersIn(Scenario s) {
-        long serving = s.machines().stream().filter(m -> !m.serves().isEmpty()).count();
+        long serving = s.machines().stream().filter(m -> !m.runs().isEmpty()).count();
         return (int) Math.max(1, serving);
     }
 

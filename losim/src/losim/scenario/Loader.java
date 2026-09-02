@@ -118,7 +118,7 @@ public final class Loader {
 
     private static Scenario.Workload workload(Node node, List<MachineSpec> machines) {
         if (!node.present()) return null;
-        node.onlyAllows("records", "probe", "fleets");
+        node.onlyAllows("records", "probe", "workers");
         long records = (long) node.at("records").num();
         if (records < 1) throw node.at("records").fail("a workload has at least one record");
         var probe = new ArrayList<Integer>();
@@ -128,13 +128,13 @@ public final class Loader {
             throw node.at("probe").fail("a ladder needs at least four rungs: three cannot show"
                     + " whether the law bends, and a law that bends must be refused rather"
                     + " than extrapolated across");
-        var fleets = new ArrayList<Integer>();
-        for (Node n : node.opt("fleets").list()) fleets.add(n.integer());
-        if (fleets.isEmpty()) {
-            int declared = (int) machines.stream().filter(m -> !m.serves().isEmpty()).count();
-            fleets.addAll(List.of(Math.max(2, declared / 2), Math.max(3, declared)));
+        var workers = new ArrayList<Integer>();
+        for (Node n : node.opt("workers").list()) workers.add(n.integer());
+        if (workers.isEmpty()) {
+            int declared = (int) machines.stream().filter(m -> !m.runs().isEmpty()).count();
+            workers.addAll(List.of(Math.max(2, declared / 2), Math.max(3, declared)));
         }
-        return new Scenario.Workload(records, List.copyOf(probe), List.copyOf(fleets),
+        return new Scenario.Workload(records, List.copyOf(probe), List.copyOf(workers),
                                      node.where());
     }
 
@@ -145,18 +145,18 @@ public final class Loader {
         for (var entry : node.map().entrySet()) {
             String poolName = entry.getKey();
             Node spec = entry.getValue();
-            spec.onlyAllows("instance", "zone", "serves", "count", "prefix",
+            spec.onlyAllows("instance", "zone", "runs", "count", "prefix",
                             "memoryMb", "diskMb", "overrides");
 
             String instance = spec.at("instance").str();
             checkInstance(spec.at("instance"), instance);
             var zones = spec.opt("zone").present() ? spec.at("zone").strings() : List.of("default");
-            var serves = spec.opt("serves").present() ? spec.at("serves").strings()
-                                                      : List.<String>of();
+            var runs = spec.opt("runs").present() ? spec.at("runs").strings()
+                                                  : List.<String>of();
             int count = spec.opt("count").integer(0);
 
             if (count == 0) {                              // a single, named machine
-                out.add(new MachineSpec(poolName, poolName, instance, zones.get(0), serves,
+                out.add(new MachineSpec(poolName, poolName, instance, zones.get(0), runs,
                         capOf(spec, "memoryMb"), capOf(spec, "diskMb"), spec.where()));
                 continue;
             }
@@ -174,7 +174,7 @@ public final class Loader {
                 }
                 String zone = over.present() && over.opt("zone").present()
                         ? over.at("zone").str() : zones.get(i % zones.size());
-                out.add(new MachineSpec(name, poolName, inst, zone, serves,
+                out.add(new MachineSpec(name, poolName, inst, zone, runs,
                         over.present() && over.opt("memoryMb").present()
                                 ? capOf(over, "memoryMb") : capOf(spec, "memoryMb"),
                         over.present() && over.opt("diskMb").present()

@@ -7,4 +7,4 @@ tightMargin: true          # this case is about a margin, and says so
 
 machines:
   client: { instance: m5.large, zone: eu-central-1a }
-  srv:    { instance: m5.large, zone: eu-central-1a, serves: [Slow] }
+  srv:    { instance: m5.large, zone: eu-central-1a, runs: [Slow] }

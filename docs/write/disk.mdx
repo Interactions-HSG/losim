@@ -82,7 +82,7 @@ machines:
     count: 4
     prefix: w
     instance: i3.large           # 475 GB of local storage
-    serves: [lab.Spiller]
+    runs: [lab.Spiller]
     overrides:
       w3: { diskMb: 32 }         # deliberately too small
 ```
@@ -126,7 +126,7 @@ machines:
     prefix: w
     instance: i3.large            # the storage-shaped instance
     zone: eu-central-1a
-    serves: [lab.Spiller]
+    runs: [lab.Spiller]
     overrides:
       w1: { diskMb: 32 }          # deliberately too small
 ```

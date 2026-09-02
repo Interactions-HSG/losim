@@ -8,5 +8,5 @@ expectedRun: 10 refSeconds
 
 machines:
   master: { instance: m5.large, zone: eu-central-1a }
-  mappers: { count: 2, prefix: m, instance: c5.large, zone: eu-central-1a, serves: [Mapper] }
-  r0:     { instance: r5.large, zone: eu-central-1a, serves: [Reducer], memoryMb: 4 }
+  mappers: { count: 2, prefix: m, instance: c5.large, zone: eu-central-1a, runs: [Mapper] }
+  r0:     { instance: r5.large, zone: eu-central-1a, runs: [Reducer], memoryMb: 4 }

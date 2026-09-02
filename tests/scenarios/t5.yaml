@@ -7,4 +7,4 @@ expectedRun: 6 refSeconds
 
 machines:
   client: { instance: m5.large, zone: eu-central-1a }
-  srv:    { instance: m5.large, zone: eu-central-1a, serves: [Grinder] }   # 2 vCPU
+  srv:    { instance: m5.large, zone: eu-central-1a, runs: [Grinder] }   # 2 vCPU

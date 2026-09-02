@@ -93,7 +93,7 @@ export function Lab({
       if (said.trace) {
         onRan(said.trace.replace(/^traces\//, '').replace(/\.json$/, ''), said.trace);
       } else if (said.ok === false) {
-        setError(`${said.task ?? 'that run'} did not finish — the output says why.`);
+        setError(`${said.system ?? 'that run'} did not finish — the output says why.`);
       }
       // A run with no scenario has no trace and no film; its output is the
       // whole result, so it is left on screen.

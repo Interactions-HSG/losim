@@ -17,7 +17,7 @@ machines:
     prefix: w
     instance: m5.large
     zone: [eu-central-1a, eu-central-1b]
-    serves: [Counter]
+    runs: [Counter]
     overrides:
       w2: { memoryMb: 4 }      # cannot hold its bucket, and will say so
 

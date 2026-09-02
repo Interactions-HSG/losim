@@ -39,7 +39,7 @@ Grouped by when it happens. Scenario errors read like compiler errors on purpose
 
 | message | fix |
 |---|---|
-| `no class called 'lab.Shrinkr' is on the classpath` | check `--cp` and the spelling. `serves:` names a **class**, fully qualified |
+| `no class called 'lab.Shrinkr' is on the classpath` | check `--cp` and the spelling. `runs:` names a **class**, fully qualified |
 | `'lab.Shrinker' is not a gRPC service` | it must extend the `ImplBase` protoc generated |
 | `'lab.Shrinker' needs a no-argument constructor` | losim builds a fresh one when a machine restarts |
 | `'lab.MyJob' is named as the job, so it has to implement losim.api.Job` | |

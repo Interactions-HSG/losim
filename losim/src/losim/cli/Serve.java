@@ -59,8 +59,8 @@ public final class Serve {
         return t;
     });
 
-    private final AtomicInteger jobs = new AtomicInteger();
-    private volatile Job current;
+    private final AtomicInteger runs_ = new AtomicInteger();
+    private volatile Run current;
 
     private Serve(Lab lab, Path site, Path runs) {
         this.lab = lab;
@@ -90,10 +90,10 @@ public final class Serve {
      * a Codespace reconnects, a browser is refreshed, and the output of the run
      * that is still going has to still be there.
      */
-    private static final class Job {
+    private static final class Run {
         final int id;
-        final String task;
-        final String world;
+        final String system;
+        final String scenario;
         final StringBuilder log = new StringBuilder();
         /**
          * How much has been dropped off the front, ever.
@@ -108,7 +108,9 @@ public final class Serve {
         volatile boolean done;
         volatile int code = -1;
 
-        Job(int id, String task, String world) { this.id = id; this.task = task; this.world = world; }
+        Run(int id, String system, String scenario) {
+            this.id = id; this.system = system; this.scenario = scenario;
+        }
 
         synchronized void say(String s) {
             log.append(s);
@@ -169,7 +171,7 @@ public final class Serve {
             catch (InterruptedException i) { Thread.currentThread().interrupt(); }
             return 0;
         }
-        http.createContext("/api/tasks", s::tasks);
+        http.createContext("/api/systems", s::systems);
         http.createContext("/api/run", s::start);
         http.createContext("/api/log", s::log);
         http.createContext("/traces/", s::trace);
@@ -190,7 +192,7 @@ public final class Serve {
             java.lang.System.out.println("  systems  none — " + base + " has no lib/losim.jar,");
             java.lang.System.out.println("           so it is not a lab. Point --root at one.");
         } else {
-            java.lang.System.out.printf("  systems  %d in %s%n", s.lab.tasks().size(), base);
+            java.lang.System.out.printf("  systems  %d in %s%n", s.lab.systems().size(), base);
         }
         java.lang.System.out.printf("  runs     %s%n", s.runs);
         java.lang.System.out.println("  leave this running; press the arrow beside a system to run it.");
@@ -224,7 +226,7 @@ public final class Serve {
      */
     private void warm() {
         worker.submit(() -> {
-            for (Lab.Task t : lab.tasks()) {
+            for (Lab.System t : lab.systems()) {
                 if (!t.started()) continue;
                 try { lab.compile(t, x -> { }); }
                 catch (InterruptedException e) { Thread.currentThread().interrupt(); return; }
@@ -238,9 +240,9 @@ public final class Serve {
 
     // ------------------------------------------------------------------ the api
 
-    private void tasks(HttpExchange x) throws IOException {
+    private void systems(HttpExchange x) throws IOException {
         List<Object> out = new ArrayList<>();
-        for (Lab.Task t : lab.tasks()) {
+        for (Lab.System t : lab.systems()) {
             Path trace = lab.trace(t, null);
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("id", t.id());
@@ -250,14 +252,14 @@ public final class Serve {
             row.put("schema", !t.protos().isEmpty());
             // Every world this system can be put in, so a variant is a second
             // button beside the first rather than a file nobody notices.
-            row.put("scenarios", t.worldNames());
+            row.put("scenarios", t.scenarioNames());
             if (trace != null && Files.exists(trace)) row.put("trace", "traces/" + trace.getFileName());
             out.add(row);
         }
-        Job j = current;
+        Run r = current;
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("tasks", out);
-        body.put("busy", j != null && !j.done ? j.task : null);
+        body.put("systems", out);
+        body.put("busy", r != null && !r.done ? r.system : null);
         send(x, 200, "application/json", Json.write(body).getBytes(StandardCharsets.UTF_8));
     }
 
@@ -271,57 +273,57 @@ public final class Serve {
     private void start(HttpExchange x) throws IOException {
         if (!"POST".equals(x.getRequestMethod())) { send(x, 405, "text/plain", "POST".getBytes()); return; }
         Map<String, Object> body = readJson(x);
-        String id = String.valueOf(body.getOrDefault("task", ""));
+        String id = String.valueOf(body.getOrDefault("system", ""));
         Object named = body.get("scenario");
-        String world = named == null ? null : String.valueOf(named);
-        Lab.Task t = lab.task(id);
+        String scenario = named == null ? null : String.valueOf(named);
+        Lab.System t = lab.system(id);
         if (t == null) { fail(x, 404, "There is no system called " + id + " in this project."); return; }
 
-        Job running = current;
+        Run running = current;
         if (running != null && !running.done) {
-            fail(x, 409, running.task + " is still running. It will finish, or you can wait it out.");
+            fail(x, 409, running.system + " is still running. It will finish, or you can wait it out.");
             return;
         }
-        Job job = new Job(jobs.incrementAndGet(), id, world);
-        current = job;
+        Run run = new Run(runs_.incrementAndGet(), id, scenario);
+        current = run;
         worker.submit(() -> {
-            job.say("── " + id + (world == null || world.isBlank() ? "" : "  " + world) + " ──\n");
+            run.say("── " + id + (scenario == null || scenario.isBlank() ? "" : "  " + scenario) + " ──\n");
             try {
-                job.code = lab.run(t, world, job::say);
+                run.code = lab.run(t, scenario, run::say);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                job.say("\nstopped.\n");
+                run.say("\nstopped.\n");
             } catch (Exception e) {
                 // losim's own failure, not the student's, and it must say which.
-                job.say("\nlosim could not run this: " + e + "\n");
-                job.code = 3;
+                run.say("\nlosim could not run this: " + e + "\n");
+                run.code = 3;
             } finally {
-                job.done = true;
+                run.done = true;
             }
         });
         send(x, 200, "application/json",
-                Json.write(Map.of("job", job.id, "task", id)).getBytes(StandardCharsets.UTF_8));
+                Json.write(Map.of("run", run.id, "system", id)).getBytes(StandardCharsets.UTF_8));
     }
 
     /** What the current run has said since byte {@code from}. */
     private void log(HttpExchange x) throws IOException {
-        Job j = current;
+        Run r = current;
         Map<String, Object> body = new LinkedHashMap<>();
-        if (j == null) {
+        if (r == null) {
             body.put("text", "");
             body.put("next", 0);
             body.put("done", true);
         } else {
-            Tail tail = j.from((long) number(query(x).getOrDefault("from", "0")));
-            body.put("job", j.id);
-            body.put("task", j.task);
+            Tail tail = r.from((long) number(query(x).getOrDefault("from", "0")));
+            body.put("run", r.id);
+            body.put("system", r.system);
             body.put("text", tail.text());
             body.put("next", tail.next());
-            body.put("done", j.done);
-            body.put("ok", j.done && j.code == 0);
-            if (j.done) {
-                Lab.Task t = lab.task(j.task);
-                Path trace = t == null ? null : lab.trace(t, j.world);
+            body.put("done", r.done);
+            body.put("ok", r.done && r.code == 0);
+            if (r.done) {
+                Lab.System t = lab.system(r.system);
+                Path trace = t == null ? null : lab.trace(t, r.scenario);
                 if (trace != null && Files.exists(trace))
                     body.put("trace", "traces/" + trace.getFileName());
             }

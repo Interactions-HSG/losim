@@ -57,8 +57,8 @@ public final class T13 {
         double ledgerOff = runs.get("off").sum("losimMb");
         double ledgerFull = runs.get("full").sum("losimMb");
         double ledgerChatty = runs.get("full, 1000 reveals").sum("losimMb");
-        long regionsFull = (long) runs.get("full").sum("losimRegions");
-        long regionsChatty = (long) runs.get("full, 1000 reveals").sum("losimRegions");
+        long regionsFull = (long) runs.get("full").sum("losimStops");
+        long regionsChatty = (long) runs.get("full, 1000 reveals").sum("losimStops");
         e.note(String.format("losim charged itself %.2f MB off, %.2f MB watched, %.2f MB chatty; "
                 + "%,d metered regions against %,d", ledgerOff, ledgerFull, ledgerChatty,
                 regionsFull, regionsChatty));

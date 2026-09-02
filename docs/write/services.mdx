@@ -74,7 +74,7 @@ That has one consequence worth planning for:
 
 | how the scenario declares it | what a restart does |
 |---|---|
-| `serves: [lab.Shrinker]` | losim builds a **fresh instance**. Whatever it was holding is gone — which is what a restart is. |
+| `runs: [lab.Shrinker]` | losim builds a **fresh instance**. Whatever it was holding is gone — which is what a restart is. |
 
 The trace says which happened:
 
@@ -92,7 +92,7 @@ That is what makes "who redoes the work" a real question rather than a formality
 machines:
   w0:
     instance: m5.large
-    serves: [lab.Shrinker, lab.Archive]
+    runs: [lab.Shrinker, lab.Archive]
 ```
 
 Both are registered on the same server, share the same thread pool, and are found

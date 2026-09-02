@@ -48,7 +48,7 @@ public class Phase2 {
         job: NoopJob
         machines:
           master: { instance: m5.large, zone: z }
-          workers: { count: 2, prefix: w, instance: m5.large, zone: z, serves: [Pinger] }
+          workers: { count: 2, prefix: w, instance: m5.large, zone: z, runs: [Pinger] }
         """;
 
     /**
@@ -71,8 +71,8 @@ public class Phase2 {
             network: { sameZone: 20 refMs }
             machines:
               master: { instance: m5.large, zone: z }
-              front:  { instance: m5.large, zone: z, serves: [Forwarder] }
-              back:   { instance: m5.large, zone: z, serves: [Counter] }
+              front:  { instance: m5.large, zone: z, runs: [Forwarder] }
+              back:   { instance: m5.large, zone: z, runs: [Counter] }
             """)));
         var tel = result.telemetry();
         check(result.completed(), "the job finished: master called front, and front called back");
@@ -202,7 +202,7 @@ public class Phase2 {
                     prefix: w
                     instance: m5.large
                     zone: [eu-a, eu-b]
-                    serves: [Pinger]
+                    runs: [Pinger]
                     overrides:
                       w3: { instance: t3.micro }
                       w4: { memoryMb: 16 }
@@ -269,7 +269,7 @@ public class Phase2 {
                 expectedRun: 2 refSeconds
                 machines:
                   master: { instance: m5.large, zone: z }
-                  workers: { count: 1, prefix: w, instance: m5.large, zone: z, serves: [Pinger] }
+                  workers: { count: 1, prefix: w, instance: m5.large, zone: z, runs: [Pinger] }
                 retries:
                   - { method: Volley.Poll, attempts: 4, backoff: 20 refMs, multiplier: 2 }
                 """)));
@@ -311,7 +311,7 @@ public class Phase2 {
                 expectedRun: 2 refSeconds
                 machines:
                   master: { instance: m5.large, zone: z }
-                  workers: { count: 4, prefix: w, instance: m5.large, zone: z, serves: [Pinger] }
+                  workers: { count: 4, prefix: w, instance: m5.large, zone: z, runs: [Pinger] }
                 faults:
                   - { at: 200 refMs, freeze: w0, for: 300 refMs }
                   - { at: 250 refMs, degrade: w1, factor: 8 }
@@ -360,7 +360,7 @@ public class Phase2 {
                 expectedRun: 20 refSeconds
                 machines:
                   master: { instance: m5.large, zone: z }
-                  workers: { count: 6, prefix: w, instance: m5.large, zone: z, serves: [Pinger] }
+                  workers: { count: 6, prefix: w, instance: m5.large, zone: z, runs: [Pinger] }
                 chaos:
                   - { kill: { every: 3 refSeconds, among: workers } }
                 """;
@@ -399,7 +399,7 @@ public class Phase2 {
                     prefix: w
                     instance: m5.large
                     zone: z
-                    serves: [Counter]
+                    runs: [Counter]
                     overrides:
                       w1: { diskMb: 1 }
                 """)));

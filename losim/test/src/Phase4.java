@@ -180,8 +180,8 @@ public class Phase4 {
             expectedRun: 4 refSeconds
             machines:
               master: { instance: m5.large, zone: z }
-              w0: { instance: m5.large, zone: z, serves: [%s] }
-              w1: { instance: m5.large, zone: z, serves: [%s] }
+              w0: { instance: m5.large, zone: z, runs: [%s] }
+              w1: { instance: m5.large, zone: z, runs: [%s] }
             """.formatted(w0, w1);
     }
 
@@ -249,7 +249,7 @@ public class Phase4 {
             expectedRun: 2 refSeconds
             machines:
               master: { instance: m5.large, zone: z }
-              w0: { instance: m5.large, zone: z, serves: [Counter] }
+              w0: { instance: m5.large, zone: z, runs: [Counter] }
             """));
         var jobTrust = Trust.of(byJob, List.of(CODE));
         check(jobTrust.machines().equals(Set.of("master")),

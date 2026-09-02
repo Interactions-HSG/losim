@@ -49,7 +49,7 @@ public record Probe(
 
         variables.put("records", (double) s.records());
         variables.put("workers", (double) s.machines().stream()
-                .filter(m -> !m.serves().isEmpty()).count());
+                .filter(m -> !m.runs().isEmpty()).count());
 
         long calls = tel.spans().stream().filter(sp -> sp.kind.equals("handler")).count();
         variables.put("calls", (double) calls);

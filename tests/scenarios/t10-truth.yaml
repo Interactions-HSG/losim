@@ -19,4 +19,4 @@ machines:
     prefix: w
     instance: r5.large
     zone: eu-central-1a
-    serves: [Combiner]
+    runs: [Combiner]

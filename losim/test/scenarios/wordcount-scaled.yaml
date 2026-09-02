@@ -14,7 +14,7 @@ expectedRun: 30 refSeconds
 workload:
   records: 40000000            # forty million lines, which is the design's problem
   probe: [1000, 2000, 4000, 8000]
-  fleets: [2, 4]
+  workers: [2, 4]
 
 machines:
   master:
@@ -26,4 +26,4 @@ machines:
     prefix: w
     instance: r5.large         # memory-shaped, because the buckets are what fill up
     zone: [eu-central-1a, eu-central-1b]
-    serves: [Accumulator]
+    runs: [Accumulator]

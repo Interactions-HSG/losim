@@ -50,40 +50,40 @@ public final class Experiments {
         return new Experiments(Path.of(root).toAbsolutePath().normalize());
     }
 
-    /** Build and run a system, in its ordinary world. */
-    public Experiments run(String task) { return run(task, null); }
+    /** Build and run a system, in its ordinary scenario. */
+    public Experiments run(String system) { return run(system, null); }
 
     /**
-     * Build and run a system, in the world you name.
+     * Build and run a system, in the scenario you name.
      *
      * <p>A failure is reported and does not stop the rest: when three scenarios
      * are being compared, the one that fell over is a result about the design and
      * the other two are still worth looking at.
      */
-    public Experiments run(String task, String scenario) {
-        Lab.Task t = lab.task(task);
-        if (t == null) {
-            System.out.println("there is no system called " + task + " in this project");
-            System.out.println("  there is: " + lab.tasks().stream().map(Lab.Task::id).toList());
+    public Experiments run(String system, String scenario) {
+        Lab.System s = lab.system(system);
+        if (s == null) {
+            System.out.println("there is no system called " + system + " in this project");
+            System.out.println("  there is: " + lab.systems().stream().map(Lab.System::id).toList());
             failed++;
             return this;
         }
         try {
-            int code = lab.run(t, scenario, System.out::print);
+            int code = lab.run(s, scenario, System.out::print);
             if (code != 0) failed++;
-            ran.add(task + (scenario == null ? "" : " " + scenario));
+            ran.add(system + (scenario == null ? "" : " " + scenario));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (IOException e) {
-            System.out.println("could not run " + task + ": " + e.getMessage());
+            System.out.println("could not run " + system + ": " + e.getMessage());
             failed++;
         }
         return this;
     }
 
-    /** Every system in the project, each in its ordinary world. */
+    /** Every system in the project, each in its ordinary scenario. */
     public Experiments runAll() {
-        for (Lab.Task t : lab.tasks()) if (t.started() && t.distributed()) run(t.id());
+        for (Lab.System s : lab.systems()) if (s.started() && s.distributed()) run(s.id());
         return this;
     }
 

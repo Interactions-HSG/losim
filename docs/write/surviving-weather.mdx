@@ -191,7 +191,7 @@ machines:
     prefix: w
     instance: c5.large
     zone: [eu-central-1a, eu-central-1b]
-    serves: [lab.Shrinker]
+    runs: [lab.Shrinker]
 
 faults:
   - { at: 900 refMs,  kill: w1 }

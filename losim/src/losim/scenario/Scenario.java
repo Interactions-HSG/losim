@@ -49,11 +49,14 @@ public record Scenario(
      *                    is simply what runs; in scaled mode it is what gets projected to.
      * @param probeSizes  the ladder the engine climbs to fit its laws. Four points is
      *                    the fewest that can show a bend.
-     * @param fleetSizes  fleet shapes to vary independently of the data, so that a
-     *                    resource can be attributed to the right variable rather than
-     *                    to whichever one happened to move with it.
+     * @param workerCounts  how many machines to put in each multi-machine pool, varied
+     *                      independently of the data so that a resource can be attributed
+     *                      to the right variable rather than to whichever one happened to
+     *                      move with it. Not a count of machines in the fleet: a scenario
+     *                      with a coordinator and a pool of four, probed at 2, runs three
+     *                      machines.
      */
-    public record Workload(long records, List<Integer> probeSizes, List<Integer> fleetSizes,
+    public record Workload(long records, List<Integer> probeSizes, List<Integer> workerCounts,
                            String where) {}
 
     /** The declared full-scale size, or one if the scenario never said. */
@@ -78,7 +81,7 @@ public record Scenario(
     public Scenario withRecords(long n) {
         var w = workload == null
                 ? new Workload(n, List.of(1000, 2000, 4000, 8000), List.of(2, 4), file)
-                : new Workload(n, workload.probeSizes(), workload.fleetSizes(), workload.where());
+                : new Workload(n, workload.probeSizes(), workload.workerCounts(), workload.where());
         return new Scenario(file, seed, kTime, job, expectedRunRefMs, machines, net,
                 faults, chaos, retries, tightMargin, mode, w);
     }
@@ -119,7 +122,7 @@ public record Scenario(
             var zones = pool.stream().map(MachineSpec::zone).distinct().toList();
             for (int i = 0; i < n; i++)
                 out.add(new MachineSpec(prefix + i, m.pool(), m.instance(),
-                        zones.get(i % zones.size()), m.serves(),
+                        zones.get(i % zones.size()), m.runs(),
                         m.memoryCapMb(), m.diskCapMb(), m.where()));
         }
         // Weather aimed at a machine the resize removed would be aimed at nothing.
@@ -137,7 +140,7 @@ public record Scenario(
         for (MachineSpec m : machines) {
             double[] caps = byMachine.get(m.name());
             out.add(caps == null ? m : new MachineSpec(m.name(), m.pool(), m.instance(),
-                    m.zone(), m.serves(), caps[0], caps[1], m.where()));
+                    m.zone(), m.runs(), caps[0], caps[1], m.where()));
         }
         return new Scenario(file, seed, kTime, job, expectedRunRefMs, out, net,
                 faults, chaos, retries, tightMargin, mode, workload);
@@ -149,8 +152,18 @@ public record Scenario(
      * <p>A null cap means "whatever the instance type says". Scaled mode fills them
      * in instead, per resource, from what the engine solved for.
      */
+    /**
+     * One machine, as the scenario declared it.
+     *
+     * @param runs the <b>Java classes</b> this machine runs, fully qualified. Called
+     *             {@code runs} and not {@code serves} because the trace's own
+     *             {@code serves} is a different list — the <b>gRPC services</b> those
+     *             classes turned out to offer. One word for both meant a scenario
+     *             saying {@code [lab.Combiner]} produced a trace saying
+     *             {@code ["Worker"]} under the same heading.
+     */
     public record MachineSpec(String name, String pool, String instance, String zone,
-                              List<String> serves, Double memoryCapMb, Double diskCapMb,
+                              List<String> runs, Double memoryCapMb, Double diskCapMb,
                               String where) {}
 
     public record NetSpec(double sameZoneRefMs, double crossZoneRefMs,

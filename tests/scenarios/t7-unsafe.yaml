@@ -7,9 +7,9 @@ expectedRun: 4 refSeconds
 
 machines:
   master:  { instance: m5.large, zone: eu-central-1a }
-  m0:      { instance: c5.large, zone: eu-central-1a, serves: [Mapper] }
-  r0:      { instance: r5.large, zone: eu-central-1a, serves: [Reducer] }
-  umpire:  { instance: m5.large, zone: eu-central-1a, serves: [Volleyer] }
+  m0:      { instance: c5.large, zone: eu-central-1a, runs: [Mapper] }
+  r0:      { instance: r5.large, zone: eu-central-1a, runs: [Reducer] }
+  umpire:  { instance: m5.large, zone: eu-central-1a, runs: [Volleyer] }
 
 retries:
   - { method: lab.Volley.Hit, attempts: 3, backoff: 40 refMs }

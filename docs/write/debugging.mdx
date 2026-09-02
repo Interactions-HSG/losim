@@ -175,7 +175,7 @@ debugger — that is what the three channels are for. Reach for these in order:
     kTime: 1                 # no compression: refMs are real ms, and easier to reason about
     machines:
       coordinator: { instance: m5.large, zone: eu-central-1a }
-      w0:          { instance: m5.large, zone: eu-central-1a, serves: [lab.Shrinker] }
+      w0:          { instance: m5.large, zone: eu-central-1a, runs: [lab.Shrinker] }
     faults: []               # nothing goes wrong yet
     ```
     One coordinator, one worker, no weather. If it is broken here, none of the

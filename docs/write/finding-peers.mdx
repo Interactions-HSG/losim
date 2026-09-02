@@ -42,8 +42,9 @@ here.peersServing("Shrinker");           // finds nothing: that is your Java cla
 ```
 
 Both forms are registered. The Java class name is what the **scenario** names in
-`serves:`, and it is a different string. Two namespaces, both correct, and
-confusing them is the single most common first mistake.
+`runs:`, and it is a different string — which is why the scenario key is called
+`runs:` and not `serves:`. A machine **runs** your class; it **serves** the
+service that class implements. Two words, because they are two things.
 
 ## Dead machines are not listed, and that is not a liveness check
 

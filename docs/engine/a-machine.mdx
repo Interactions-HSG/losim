@@ -103,7 +103,7 @@ cap, so the handler fails the way it would have failed for real.
 | kill | `alive = false`. Callers get `Dropped` calls that wait out their deadlines. |
 | freeze | calls are **held at the door** on the machine's own threads, rechecked every couple of milliseconds so a machine thawed early is not still asleep |
 | degrade | a multiplier on every declared cost |
-| restart | a machine declared with `serves:` gets **fresh service instances**, so whatever it was holding is gone |
+| restart | a machine declared with `runs:` gets **fresh service instances**, so whatever it was holding is gone |
 
 ## Shutting one down
 

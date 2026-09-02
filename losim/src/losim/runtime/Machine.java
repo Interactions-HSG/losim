@@ -122,7 +122,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
     // losim's own footprint on these threads, metered so it can be taken back off.
     final AtomicLong losimBytes   = new AtomicLong();
     final AtomicLong losimNanos   = new AtomicLong();
-    final AtomicLong losimRegions = new AtomicLong();
+    final AtomicLong losimStops = new AtomicLong();
 
     private final List<Object> roots = new CopyOnWriteArrayList<>();
     private final Map<String, Takes> declared = new ConcurrentHashMap<>();
@@ -435,12 +435,12 @@ public final class Machine implements Bound, Telemetry.Sampled {
     }
     public long losimBytes()   { return losimBytes.get(); }
     public long losimNanos()   { return losimNanos.get(); }
-    public long losimRegions() { return losimRegions.get(); }
+    public long losimStops() { return losimStops.get(); }
     public long handledCalls() { return handled.get(); }
     public long bytesOut()     { return bytesOut.get(); }
     public long bytesIn()      { return bytesIn.get(); }
 
-    /** Charges a metered region of losim's own work to this machine, and to the span it sat in. */
+    /** Charges one metered stop of losim's own work to this machine, and to the span it sat in. */
     @Override public void charge(long bytes, long nanos) {
         chargeTo(Telemetry.SPAN.get(), bytes, nanos);
     }
@@ -453,7 +453,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
         // them would credit the machine for work it never did.
         if (onOwnThread()) {
             losimBytes.addAndGet(bytes);
-            losimRegions.incrementAndGet();
+            losimStops.incrementAndGet();
         }
         losimNanos.addAndGet(owed);
         if (span != null) span.losimNanos.addAndGet(owed);

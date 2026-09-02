@@ -15,7 +15,7 @@ machines:
     prefix: w
     instance: c5.large
     zone: [eu-central-1a, eu-central-1b]
-    serves: [lab.Shrinker]
+    runs: [lab.Shrinker]
     memoryMb: 2048
     diskMb: 8192
     overrides:
@@ -36,12 +36,12 @@ At least one machine is required.
   robin**, so `[a, b]` over four machines gives `a b a b`.
 </ParamField>
 
-<ParamField path="serves" type="list of class names">
+<ParamField path="runs" type="list of class names">
   **Java class names**, fully qualified, each extending the `ImplBase` protoc
   generated and each having a no-argument constructor. losim builds one instance
   per machine.
 
-  A machine with no `serves` still exists and still listens — it offers nothing.
+  A machine with no `runs` still exists and still listens — it offers nothing.
   That is what a coordinator usually is.
 </ParamField>
 
@@ -66,20 +66,25 @@ At least one machine is required.
 
 <ParamField path="overrides" type="map by machine name">
   Per-machine changes within a pool. Accepts `instance`, `zone`, `memoryMb` and
-  `diskMb` — not `serves`; every machine in a pool serves the same things.
+  `diskMb` — not `runs`; every machine in a pool runs the same code.
 </ParamField>
 
-## Two namespaces
+## Runs, and serves
 
-<Warning>
+<Note>
 | | names | example |
 |---|---|---|
-| `serves:` | your **Java class** | `lab.Shrinker` |
+| `runs:` | your **Java class** | `lab.Shrinker` |
 | `peersServing(…)`, `cluster.serving(…)` | the **service in your `.proto`** | `Thumbnailer` |
 
-Both correct, both different strings. The scenario names a class because losim
-constructs it; your job names a service because that is what peers are found by.
-</Warning>
+Two different strings, and now two different words for them. A machine **runs**
+a class, because that is what losim constructs; it **serves** the service that
+class implements, because that is what peers find it by. The trace says both —
+`runs` is what you wrote, `serves` is what it turned out to offer.
+
+This key was called `serves:` once, which meant a scenario saying
+`[lab.Shrinker]` produced a trace saying `["Thumbnailer"]` under the same heading.
+</Note>
 
 ## Making one machine the problem
 

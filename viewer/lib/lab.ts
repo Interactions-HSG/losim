@@ -9,7 +9,7 @@
  *
  * **It is allowed not to be there.** The same exported application is served
  * from a plain directory — the gallery, a trace somebody was sent, a static host
- * — and in all of those `/api/tasks` is a 404. So every call here answers `null`
+ * — and in all of those `/api/systems` is a 404. So every call here answers `null`
  * rather than throwing, and the panel that uses it simply does not appear. A
  * viewer that showed a broken button whenever it was opened without a lab behind
  * it would be worse than one that shows nothing.
@@ -43,7 +43,7 @@ export interface Output {
   next: number;
   done: boolean;
   ok?: boolean;
-  task?: string;
+  system?: string;
   /** Where the trace landed, once there is one. */
   trace?: string;
 }
@@ -61,9 +61,9 @@ async function json<T>(url: string, init?: RequestInit): Promise<T | null> {
 
 /** Every system in the project, or null if this page is not being served by a lab. */
 export async function project(): Promise<Project | null> {
-  const body = await json<{ tasks?: System[]; busy?: string | null }>('./api/tasks');
-  if (!body || !Array.isArray(body.tasks)) return null;
-  return { systems: body.tasks, busy: body.busy ?? null };
+  const body = await json<{ systems?: System[]; busy?: string | null }>('./api/systems');
+  if (!body || !Array.isArray(body.systems)) return null;
+  return { systems: body.systems, busy: body.busy ?? null };
 }
 
 /**
@@ -78,17 +78,17 @@ export async function project(): Promise<Project | null> {
  * server writes one, and it is the thing worth putting on the screen.
  */
 export async function run(
-  task: string,
+  system: string,
   scenario?: string,
-): Promise<{ job?: number; error?: string }> {
+): Promise<{ run?: number; error?: string }> {
   try {
     const res = await fetch('./api/run', {
       cache: 'no-store',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(scenario ? { task, scenario } : { task }),
+      body: JSON.stringify(scenario ? { system, scenario } : { system }),
     });
-    const body = (await res.json()) as { job?: number; error?: string };
+    const body = (await res.json()) as { run?: number; error?: string };
     return res.ok ? body : { error: body.error ?? `the lab said ${res.status}` };
   } catch {
     return { error: 'the lab is not answering — is `losim serve` still running?' };

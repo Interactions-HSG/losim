@@ -25,7 +25,7 @@ public final class Load {
     static final int WORKERS = 4;
     static final double K_TIME = 200.0;
 
-    public record Result(long programBytes, long rawBytes, long losimBytes, long losimRegions,
+    public record Result(long programBytes, long rawBytes, long losimBytes, long losimStops,
                          long wireBytes, long handled, int distinctKeys, long retainedBytes,
                          Telemetry tel) {}
 
@@ -105,7 +105,7 @@ public final class Load {
                 program += w.allocatedBytes();
                 raw     += w.rawAllocatedBytes();
                 lb      += w.losimBytes();
-                lr      += w.losimRegions();
+                lr      += w.losimStops();
                 wire    += w.bytesOut();
                 handled += w.handledCalls();
                 retained += w.measureRetained().bytes();

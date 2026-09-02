@@ -15,7 +15,7 @@ Exit code **2**, with the file and line. These read like compiler errors on purp
     afternoon, and the two differ by `k_time`, which whoever writes the scenario
     never sees. [Durations →](/ref/durations)
   </Accordion>
-  <Accordion title="unknown key 'zones'; expected one of instance, zone, serves, …">
+  <Accordion title="unknown key 'zones'; expected one of instance, zone, runs, …">
     A typo in a key. Every block declares exactly what it accepts, so this is caught
     at load rather than discovered as a setting that silently did nothing.
   </Accordion>
@@ -28,7 +28,7 @@ Exit code **2**, with the file and line. These read like compiler errors on purp
     `w0 w1 w2 w3` — not `workers0`.
   </Accordion>
   <Accordion title="no class called 'lab.Shrinkr' is on the classpath">
-    `serves:` names a **class**, fully qualified. Check `--cp` points at the
+    `runs:` names a **class**, fully qualified. Check `--cp` points at the
     directory you compiled into, and that the name is spelt as the class is.
   </Accordion>
   <Accordion title="'lab.Shrinker' is not a gRPC service">

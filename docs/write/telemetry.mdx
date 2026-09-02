@@ -108,7 +108,7 @@ are going to *read*, `NO_PAYLOAD` for a run you are going to *measure*.
 Recording runs on the machines' own threads, so what it costs lands on the counters
 being read. losim therefore meters **its own work** in every one of these calls and
 subtracts it, and publishes the size of the subtraction as `losimMb` and
-`losimRegions` in the `machines` channel — because "this is the program's own
+`losimStops` in the `machines` channel — because "this is the program's own
 allocation" is a claim, and a reader is entitled to see how big the correction was
 before believing it.
 

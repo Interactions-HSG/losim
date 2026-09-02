@@ -49,7 +49,7 @@ public final class Trust {
         if (code.isEmpty()) return unchecked();
         var verifier = Verifier.over(code);
         var services = new HashSet<String>();
-        for (var m : s.machines()) services.addAll(m.serves());
+        for (var m : s.machines()) services.addAll(m.runs());
 
         var byMachine = new LinkedHashMap<String, List<Finding>>();
         var walked = new TreeSet<String>();
@@ -58,7 +58,7 @@ public final class Trust {
         boolean first = true;
 
         for (var m : s.machines()) {
-            var roots = new ArrayList<>(m.serves());
+            var roots = new ArrayList<>(m.runs());
             if (first) { roots.add(s.job()); first = false; }
             var report = verifier.from(roots, services);
             walked.addAll(report.walked());

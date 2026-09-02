@@ -14,10 +14,10 @@ machines:
     prefix: m
     instance: c5.large
     zone: [eu-central-1a, eu-central-1b]
-    serves: [Mapper]
+    runs: [Mapper]
   reducers:
     count: 2
     prefix: r
     instance: r5.large
     zone: eu-central-1b
-    serves: [Reducer]
+    runs: [Reducer]

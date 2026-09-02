@@ -7,4 +7,4 @@ expectedRun: 2 refSeconds
 
 machines:
   client: { instance: m5.large, zone: eu-central-1a }
-  srv:    { instance: m5.large, zone: eu-central-1a, serves: [Mapper] }
+  srv:    { instance: m5.large, zone: eu-central-1a, runs: [Mapper] }

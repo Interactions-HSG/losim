@@ -80,7 +80,7 @@ machines:
     count: 4
     prefix: w
     instance: c5.large              # 4096 MB
-    serves: [lab.Shrinker]
+    runs: [lab.Shrinker]
     overrides:
       w2: { memoryMb: 4 }           # cannot hold its share, and will say so
 ```
@@ -151,7 +151,7 @@ machines:
     prefix: w
     instance: c5.large
     zone: eu-central-1a
-    serves: [lab.Accumulator]
+    runs: [lab.Accumulator]
     overrides:
       w2: { memoryMb: 8 }        # cannot hold its share, and will say so
 ```

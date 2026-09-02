@@ -38,7 +38,7 @@ public class Phase3 {
             workload:
               records: %d
               probe: %s
-              fleets: [2, 4]
+              workers: [2, 4]
             machines:
               master: { instance: m5.2xlarge, zone: z }
               workers:
@@ -46,7 +46,7 @@ public class Phase3 {
                 prefix: w
                 instance: r5.large
                 zone: z
-                serves: [%s]
+                runs: [%s]
             """.formatted(records, probe, service);
     }
 
@@ -205,7 +205,7 @@ public class Phase3 {
             kTime: 20
             job: BatchJob
             expectedRun: 6 refSeconds
-            workload: { records: %d, probe: [4, 8, 12, 16], fleets: [4] }
+            workload: { records: %d, probe: [4, 8, 12, 16], workers: [4] }
             machines:
               master: { instance: m5.2xlarge, zone: z }
               workers:
@@ -213,7 +213,7 @@ public class Phase3 {
                 prefix: w
                 instance: m5.large
                 zone: z
-                serves: [Slow]
+                runs: [Slow]
             """;
         // Four 2-vCPU machines: eight cores. Observed under-saturated, projected saturated.
         var small = Loader.of(Yaml.parse("sched.yaml", yaml.formatted(4)));

@@ -91,7 +91,7 @@ workers:
   count: 4
   prefix: w
   instance: c5.large
-  serves: [lab.Shrinker]
+  runs: [lab.Shrinker]
   overrides:
     w3: { instance: t3.small }
 ```

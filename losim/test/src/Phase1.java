@@ -589,7 +589,7 @@ public class Phase1 {
 
     static void exclusion() throws Exception {
         System.out.println("=== what losim gives back, and what it cannot ===");
-        System.out.printf("    a bracket cannot fully see itself: %d ns per metered region, "
+        System.out.printf("    a bracket cannot fully see itself: %d ns per metered stop, "
                         + "measured once and charged back%n", losim.res.Meter.UNSEEN_NANOS_PER_REGION);
 
         final int N = 200_000;
@@ -639,7 +639,7 @@ public class Phase1 {
             raw[i]  = median(runs.stream().map(r -> r.rawBytes() / 1048576.0).toList());
             rep[i]  = median(runs.stream().map(r -> r.programBytes() / 1048576.0).toList());
             keys[i] = median(runs.stream().map(r -> (double) r.distinctKeys()).toList());
-            regions = median(runs.stream().map(r -> (double) r.losimRegions()).toList());
+            regions = median(runs.stream().map(r -> (double) r.losimStops()).toList());
         }
         double[] fRep = Fit.power(n, rep);
         return new Ladder(Fit.power(n, raw)[0], fRep[0], Fit.power(n, keys)[0], fRep[1], regions);

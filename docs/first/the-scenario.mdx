@@ -25,7 +25,7 @@ machines:
     prefix: w
     instance: c5.large
     zone: [eu-central-1a, eu-central-1b]
-    serves: [lab.Shrinker]
+    runs: [lab.Shrinker]
     overrides:
       w3: { instance: t3.small }     # half the machine, and it will show
 
@@ -79,12 +79,12 @@ page does exactly that, and the page after adds the weather.
   robin from the list.
 </ParamField>
 
-<ParamField path="machines.*.serves" type="list of class names">
+<ParamField path="machines.*.runs" type="list of class names">
   **Class names, not service names.** losim builds one instance per machine by
   reflection, so each class needs a public no-argument constructor and must extend
   the `ImplBase` protoc generated.
 
-  A machine with no `serves` still exists and still listens — it just offers
+  A machine with no `runs` still exists and still listens — it just offers
   nothing. That is what the coordinator is.
 </ParamField>
 
@@ -98,7 +98,7 @@ page does exactly that, and the page after adds the weather.
 <Warning>
 | where | what it names | example |
 |---|---|---|
-| `serves:` in the scenario | your **Java class** | `lab.Shrinker` |
+| `runs:` in the scenario | your **Java class** | `lab.Shrinker` |
 | `peersServing(…)` / `cluster.serving(…)` | the **service in your `.proto`** | `Thumbnailer` |
 
 They are different strings and both are correct. The scenario has to name a class
@@ -130,7 +130,7 @@ At load, with the line it was written on, before anything runs:
 
 <CodeGroup>
 ```text an unknown key
-thumbs.yaml:12: unknown key 'zones'; expected one of instance, zone, serves,
+thumbs.yaml:12: unknown key 'zones'; expected one of instance, zone, runs,
 count, prefix, memoryMb, diskMb, overrides
 ```
 
@@ -145,7 +145,7 @@ it has coordinator, w0, w1, w2, w3
 ```
 
 ```text a class that is not there
-thumbs.yaml:14: no class called 'lab.Shrinkr' is on the classpath. 'serves:'
+thumbs.yaml:14: no class called 'lab.Shrinkr' is on the classpath. 'runs:'
 names a class implementing a generated gRPC service; write it fully qualified
 if it is in a package.
 ```

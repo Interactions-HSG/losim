@@ -116,7 +116,7 @@ watch what comes out. It is the cheapest lesson in the course.
 machines:
   small:
     instance: c5.large       # 2 vCPU
-    serves: [lab.Shrinker]
+    runs: [lab.Shrinker]
 ```
 
 Dispatch eight 100 refMs calls at it and you get roughly four waves, not one and not
@@ -136,7 +136,7 @@ workload: { records: 8 }
 
 machines:
   coordinator: { instance: m5.large, zone: eu-central-1a }
-  small:       { instance: c5.large, zone: eu-central-1a, serves: [lab.Slow] }
+  small:       { instance: c5.large, zone: eu-central-1a, runs: [lab.Slow] }
 ```
 
 ```java RunExperiments.java

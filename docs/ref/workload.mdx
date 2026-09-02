@@ -8,7 +8,7 @@ icon: "chart-line"
 workload:
   records: 40000000
   probe: [1000, 2000, 4000, 8000]
-  fleets: [2, 4]
+  workers: [2, 4]
 ```
 
 Required in `mode: scaled`; optional and useful in direct mode, where `records`
@@ -29,12 +29,23 @@ is simply what `cluster.records()` returns.
   extrapolated across."*
 </ParamField>
 
-<ParamField path="fleets" type="list of int" default="[max(2, declared/2), max(3, declared)]">
-  Fleet shapes to vary **independently of the data**, so a resource can be
-  attributed to the right variable rather than to whichever one happened to move
-  with it.
+<ParamField path="workers" type="list of int" default="[max(2, declared/2), max(3, declared)]">
+  How many machines to put in each **multi-machine pool**, varied independently of
+  the data so a resource can be attributed to the right variable rather than to
+  whichever one happened to move with it.
 
-  The default is derived from how many machines in the scenario serve something.
+  The default is derived from how many machines in the scenario run something.
+
+  <Warning>
+  **Not a count of machines in the fleet.** A scenario with a coordinator and a
+  pool of four, probed at `workers: [2, 4]`, runs fleets of **three and five** —
+  the coordinator is a pool of one and does not resize. This key was called
+  `fleets:` once, which read as though the numbers were fleet sizes.
+
+  It is the same operation as [`--workers`](/ref/cli-run) on the command line, and
+  now the same word. Two multi-machine pools both resize to the same number; they
+  cannot be probed independently.
+  </Warning>
 </ParamField>
 
 ## Why two ladders

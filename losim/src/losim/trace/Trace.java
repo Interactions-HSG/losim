@@ -17,8 +17,14 @@ import java.util.*;
  */
 public final class Trace {
 
-    /** Bumped only when a shape changes incompatibly, which is meant never to happen. */
-    public static final int SCHEMA_VERSION = 2;
+    /**
+     * Bumped only when a shape changes incompatibly, which is meant never to happen.
+     *
+     * <p>3: {@code losimRegions} became {@code losimStops}. "Region" had come to mean
+     * a place — {@code egressMb} is keyed by one — and the same machine object was
+     * carrying both senses of the word.
+     */
+    public static final int SCHEMA_VERSION = 3;
 
     private final Map<String, Object> meta = new LinkedHashMap<>();
     private final List<Telemetry.Event> events = new ArrayList<>();

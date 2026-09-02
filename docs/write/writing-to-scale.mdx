@@ -94,7 +94,7 @@ expectedRun: 30 refSeconds
 workload:
   records: 40000000            # forty million frames, which is the design's problem
   probe: [1000, 2000, 4000, 8000]
-  fleets: [2, 4]
+  workers: [2, 4]
 
 machines:
   coordinator:
@@ -105,7 +105,7 @@ machines:
     prefix: w
     instance: r5.large         # memory-shaped, because holding is what fills up
     zone: [eu-central-1a, eu-central-1b]
-    serves: [lab.Shrinker]
+    runs: [lab.Shrinker]
 ```
 
 Note what is **not** there: no caps, and no shrink factor. The engine solves for the

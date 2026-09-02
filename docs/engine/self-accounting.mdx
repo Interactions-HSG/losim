@@ -55,7 +55,7 @@ public long allocatedBytes() {
     of each pair is taken before there is anything to charge it to.**
 
     Measured once per JVM — around **70 ns** on a reference laptop — and charged back
-    per metered region. Without it, losim bills a machine *more* the more heavily its
+    per metered stop. Without it, losim bills a machine *more* the more heavily its
     program is instrumented, which is exactly backwards.
   </Accordion>
 
@@ -100,13 +100,13 @@ it runs on its own thread — `losim-sampler` — and is not part of any machine
 ## It is published, not hidden
 
 ```json
-{ "name": "w0", "allocMb": 388.4, "losimMb": 0.44, "losimRegions": 1284 }
+{ "name": "w0", "allocMb": 388.4, "losimMb": 0.44, "losimStops": 1284 }
 ```
 
 <Note>
 *"`allocMb` is the program's own"* is a **claim**, and a reader is entitled to see
 the size of what was taken off it before believing it. So both the bytes and the
-number of metered regions travel in the trace.
+number of metered stops travel in the trace.
 </Note>
 
 ## Does it actually work?

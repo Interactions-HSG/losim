@@ -7,5 +7,5 @@ expectedRun: 3 refSeconds
 
 machines:
   umpire: { instance: m5.large, zone: eu-central-1a }
-  left:   { instance: m5.large, zone: eu-central-1a, serves: [Volleyer] }
-  right:  { instance: m5.large, zone: eu-central-1a, serves: [Volleyer] }
+  left:   { instance: m5.large, zone: eu-central-1a, runs: [Volleyer] }
+  right:  { instance: m5.large, zone: eu-central-1a, runs: [Volleyer] }

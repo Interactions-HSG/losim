@@ -45,12 +45,12 @@ public final class Plans {
           .append('|').append(s.kTime()).append('|').append(s.expectedRunRefMs());
         for (var m : s.machines())
             sb.append('|').append(m.name()).append(':').append(m.instance())
-              .append(':').append(m.zone()).append(':').append(m.serves());
+              .append(':').append(m.zone()).append(':').append(m.runs());
         sb.append('|').append(s.net()).append('|').append(s.faults()).append('|').append(s.chaos())
           .append('|').append(s.retries());
         if (s.workload() != null)
             sb.append('|').append(s.workload().probeSizes())
-              .append('|').append(s.workload().fleetSizes());
+              .append('|').append(s.workload().workerCounts());
         for (Path p : code) sb.append('|').append(fingerprint(p));
         return sha(sb.toString());
     }

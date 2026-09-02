@@ -28,7 +28,7 @@ import java.util.stream.Stream;
  * beside it — and a student who adds a service and forgets to register it would
  * get a run that silently omits their new code. A directory <i>is</i> a system if
  * it has Java in it; its schema is whatever {@code .proto} files it holds and its
- * world is whatever scenario it holds. Add a file, and it is in the next run.
+ * scenarios are whatever it holds. Add a file, and it is in the next run.
  *
  * <p><b>Each run forks its own JVM.</b> A system that exhausts its heap is a
  * result this course is about, and it must not take the server down with it —
@@ -83,34 +83,34 @@ public final class Lab {
      * One system: a folder with code in it.
      *
      * @param id       its path from the project root — {@code 0-tour/1-two-machines}
-     * @param worlds   every scenario in it, {@code main} first. A system with more
+     * @param scenarios every scenario in it, {@code main} first. A system with more
      *                 than one is a system with variants — the same code against a
      *                 crueller afternoon — and each is run and drawn separately,
      *                 because the whole point of having two is comparing them
      * @param protos   its schema, which may be empty and may be more than one file
      * @param sources  every {@code .java} in it, wherever the student put them
      */
-    public record Task(String id, Path dir, List<Path> worlds, List<Path> protos, List<Path> sources) {
+    public record System(String id, Path dir, List<Path> scenarios, List<Path> protos, List<Path> sources) {
 
         /** The one that runs when nobody named another. */
-        public Path scenario() { return worlds.isEmpty() ? null : worlds.get(0); }
+        public Path first() { return scenarios.isEmpty() ? null : scenarios.get(0); }
 
         /** A scenario by its file name, or null. */
-        public Path world(String name) {
-            for (Path p : worlds) if (p.getFileName().toString().equals(name)) return p;
+        public Path scenario(String name) {
+            for (Path p : scenarios) if (p.getFileName().toString().equals(name)) return p;
             return null;
         }
 
         /** What the picker offers beside this system. */
-        public List<String> worldNames() {
-            return worlds.stream().map(p -> p.getFileName().toString()).toList();
+        public List<String> scenarioNames() {
+            return scenarios.stream().map(p -> p.getFileName().toString()).toList();
         }
 
         /** Whether there is anything here yet. Task 2 starts as an empty folder. */
         public boolean started() { return !sources.isEmpty(); }
 
         /** A fleet, or one machine? The second needs no scenario and gets no film. */
-        public boolean distributed() { return !worlds.isEmpty(); }
+        public boolean distributed() { return !scenarios.isEmpty(); }
     }
 
     // ------------------------------------------------------------------ finding
@@ -144,29 +144,29 @@ public final class Lab {
      * it ({@code 0-tour/3-bigger-messages}) and a single task does not
      * ({@code 1-wordcount}). Three levels would start finding {@code src/main}.
      */
-    public List<Task> tasks() {
+    public List<System> systems() {
         if (!isLab()) return List.of();
-        List<Task> found = new ArrayList<>();
+        List<System> found = new ArrayList<>();
         for (Path top : children(root)) {
             if (skip(top)) continue;
             List<Path> nested = children(top).stream().filter(p -> !skip(p)).toList();
             boolean any = false;
             for (Path in : nested) {
-                Task t = read(in);
+                System t = read(in);
                 if (t != null) { found.add(t); any = true; }
             }
             // A folder that only groups other systems is not itself one — but a
             // folder with its own code is, even when it also has subfolders.
-            Task self = read(top);
+            System self = read(top);
             if (self != null && (!any || self.started())) found.add(self);
         }
-        found.sort(Comparator.comparing(Task::id));
+        found.sort(Comparator.comparing(System::id));
         return found;
     }
 
     /** The one with this id, or null. */
-    public Task task(String id) {
-        for (Task t : tasks()) if (t.id().equals(id)) return t;
+    public System system(String id) {
+        for (System t : systems()) if (t.id().equals(id)) return t;
         return null;
     }
 
@@ -183,12 +183,12 @@ public final class Lab {
     }
 
     /** A directory is a system if it holds Java, a schema or a scenario of its own. */
-    private Task read(Path dir) {
+    private System read(Path dir) {
         List<Path> sources = under(dir, ".java");
         List<Path> protos = under(dir, ".proto");
-        List<Path> worlds = new ArrayList<>(under(dir, ".yaml"));
-        worlds.addAll(under(dir, ".yml"));
-        if (sources.isEmpty() && protos.isEmpty() && worlds.isEmpty()) {
+        List<Path> scenarios = new ArrayList<>(under(dir, ".yaml"));
+        scenarios.addAll(under(dir, ".yml"));
+        if (sources.isEmpty() && protos.isEmpty() && scenarios.isEmpty()) {
             // A task can be declared and empty — Task 2 starts as a folder with a
             // brief in it and nothing else, and it has to be in the list from the
             // first day or the student cannot see what they are aiming at.
@@ -197,9 +197,9 @@ public final class Lab {
 
         // `main` first, so a system can carry variants beside it without one of
         // them being chosen by alphabet.
-        worlds.sort(Comparator.comparing((Path p) -> p.getFileName().toString().startsWith("main.") ? 0 : 1)
-                              .thenComparing(p -> p.getFileName().toString()));
-        return new Task(rel(dir), dir, worlds, protos, sources);
+        scenarios.sort(Comparator.comparing((Path p) -> p.getFileName().toString().startsWith("main.") ? 0 : 1)
+                                 .thenComparing(p -> p.getFileName().toString()));
+        return new System(rel(dir), dir, scenarios, protos, sources);
     }
 
     /**
@@ -278,7 +278,7 @@ public final class Lab {
      * doing with a compiled submission: running it in its own world is one, and
      * running it in a world it has never seen is another.
      */
-    public Path compile(Task t, Consumer<String> log) throws IOException, InterruptedException {
+    public Path compile(System t, Consumer<String> log) throws IOException, InterruptedException {
         if (!t.started()) {
             log.accept("There is no code in " + t.id() + " yet.\n");
             return null;
@@ -302,8 +302,8 @@ public final class Lab {
      * a system whose only scenario was `slow.yaml` wrote `id-slow.json` while both
      * endpoints looked for `id.json` and the finished run never appeared.
      */
-    public Path trace(Task t, String world) {
-        Path chosen = world == null || world.isBlank() ? t.scenario() : t.world(world);
+    public Path trace(System t, String scenario) {
+        Path chosen = scenario == null || scenario.isBlank() ? t.first() : t.scenario(scenario);
         if (chosen == null) return null;
         // Named after the system and the world, so two variants of one system are
         // two runs in the picker rather than one overwriting the other.
@@ -313,7 +313,7 @@ public final class Lab {
         return runs.resolve(stem + ".json");
     }
 
-    public int run(Task t, String world, Consumer<String> log) throws IOException, InterruptedException {
+    public int run(System t, String scenario, Consumer<String> log) throws IOException, InterruptedException {
         if (!t.started()) {
             log.accept("There is no code in " + t.id() + " yet — that is the exercise.\n");
             return 2;
@@ -335,9 +335,9 @@ public final class Lab {
         if (!t.protos().isEmpty() && generate(t, gen, log) != 0) return 1;
         if (compile(t, gen, classes, log) != 0) return 1;
 
-        Path chosen = world == null || world.isBlank() ? t.scenario() : t.world(world);
-        if (chosen == null && world != null && !world.isBlank()) {
-            log.accept("There is no scenario called " + world + " in " + t.id() + ".\n");
+        Path chosen = scenario == null || scenario.isBlank() ? t.first() : t.scenario(scenario);
+        if (chosen == null && scenario != null && !scenario.isBlank()) {
+            log.accept("There is no scenario called " + scenario + " in " + t.id() + ".\n");
             return 2;
         }
 
@@ -355,7 +355,7 @@ public final class Lab {
         }
 
         Files.createDirectories(runs);
-        Path trace = trace(t, world);
+        Path trace = trace(t, scenario);
         log.accept("\n");
         // `--no-view`: this run already has a viewer — the one that started it.
         int code = exec(List.of(java(), "-cp", cp(), "losim.cli.Main", "run", "--no-view",
@@ -368,7 +368,7 @@ public final class Lab {
         return code;
     }
 
-    private int generate(Task t, Path gen, Consumer<String> log) throws IOException, InterruptedException {
+    private int generate(System t, Path gen, Consumer<String> log) throws IOException, InterruptedException {
         Path protoc = lib.resolve("bin").resolve("protoc-" + platform());
         Path plugin = lib.resolve("bin").resolve("protoc-gen-grpc-java-" + platform());
         if (!Files.isExecutable(protoc) || !Files.isExecutable(plugin)) {
@@ -386,7 +386,7 @@ public final class Lab {
         return exec(argv, log);
     }
 
-    private int compile(Task t, Path gen, Path classes, Consumer<String> log)
+    private int compile(System t, Path gen, Path classes, Consumer<String> log)
             throws IOException, InterruptedException {
         List<Path> sources = new ArrayList<>(under(gen, ".java"));
         sources.addAll(t.sources());
@@ -429,7 +429,7 @@ public final class Lab {
      *
      * @return the class to start, or null if nothing here has a {@code main}
      */
-    private String mainClassOf(Task t) {
+    private String mainClassOf(System t) {
         for (Path p : t.sources()) {
             try {
                 String source = Files.readString(p);
