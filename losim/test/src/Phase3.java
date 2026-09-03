@@ -263,9 +263,25 @@ public class Phase3 {
 
     // ------------------------------------------------------- does the plan travel
 
+    /** Erase the fitted-plan cache, so that "was it cached?" has a knowable answer. */
+    static void clearPlanCache() throws Exception {
+        var dir = Path.of("build", ".losim-plans");
+        if (!java.nio.file.Files.isDirectory(dir)) return;
+        try (var walk = java.nio.file.Files.walk(dir)) {
+            for (var f : walk.sorted(Comparator.reverseOrder()).toList()) java.nio.file.Files.delete(f);
+        }
+    }
+
     static void planTravels() throws Exception {
         System.out.println("=== the plan travels, and does not have to be paid for twice ===");
         var s = Loader.of(Yaml.parse("plan.yaml", fleet("Accumulator", 4000000, "[1000, 2000, 4000, 8000]")));
+
+        // This is the one test whose subject is the cache, so it is the one test that
+        // cannot inherit an empty one from whoever ran it. check.sh clears build/ on
+        // the way in; running this class on its own — which is what you do while you
+        // are working on it — does not, and then the *first* fit is a cache hit and
+        // the assertion below reads as a broken simulator instead of a warm disk.
+        clearPlanCache();
 
         long began = System.nanoTime();
         var first = Scaled.of(s, loader(), Telemetry.Level.FULL, List.of(Path.of("build/test-classes")));
@@ -279,8 +295,13 @@ public class Phase3 {
                 first.plan().gridRuns(), fitted, cached);
         check(!first.planWasCached() && second.planWasCached(),
               "the plan is fitted once and cached against the scenario and the code it profiles");
-        check(cached < fitted,
-              "so a scaled run does not pay for the grid twice");
+        // Not `cached < fitted`: with both warm they are the same number and the
+        // comparison is a coin toss. A fit is 28 probe runs against a lookup, which
+        // is an order of magnitude, so ask for a margin that could not come up by
+        // chance on a loaded machine.
+        check(cached < fitted / 2,
+              String.format("so a scaled run does not pay for the grid twice (%.1fs against %.1fs)",
+                            cached, fitted));
 
         var json = second.run().trace().toJson();
         check(json.contains("\"scale\"") && json.contains("\"laws\"")
