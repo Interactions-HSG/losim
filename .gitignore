@@ -11,3 +11,11 @@ demo/*
 # being carried by everybody who clones this.
 viewer/.next/
 viewer/tsconfig.tsbuildinfo
+# Where s10-console.ts emits the views so it can render them without a browser.
+viewer/.check/
+# Same story as .next, one directory over: 380 MB and 10,964 files, which is
+# 96% of everything this repo tracked. It arrived with the viewer in 35ad1b0
+# and nobody meant it to. package-lock.json is committed, so `npm ci` in
+# viewer/ puts it back byte for byte — and only a developer rebuilding the
+# export ever needs it, because viewer/out is what a student actually loads.
+viewer/node_modules/
