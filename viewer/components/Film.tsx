@@ -183,7 +183,9 @@ export function Film({
     const m = q.get('m');
     if (m && trace.byName.has(m)) setPinned(m);
     if (q.get('pnl') === '1') setShowLedger(true);
-    const v = q.get('view');
+    // `fv`, not `view`: the console owns `view` and would be overwritten here.
+    // Same shape as `sv` for the Spans sub-view, one level down.
+    const v = q.get('fv');
     if (v === 'spans' || v === 'topology' || v === 'film') setView(v);
   }, [clock, trace]);
 
@@ -196,8 +198,8 @@ export function Film({
     else url.searchParams.delete('m');
     if (showLedger) url.searchParams.set('pnl', '1');
     else url.searchParams.delete('pnl');
-    if (view !== 'film') url.searchParams.set('view', view);
-    else url.searchParams.delete('view');
+    if (view !== 'film') url.searchParams.set('fv', view);
+    else url.searchParams.delete('fv');
     if (against) url.searchParams.set('vs', against.name);
     else url.searchParams.delete('vs');
     window.history.replaceState(null, '', url);

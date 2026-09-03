@@ -199,6 +199,29 @@ const say = (m: string) => {
   bad++;
 };
 
+/*
+ * Who owns the address bar?
+ *
+ * The console keeps the run and the view in `?run=&view=`, and the film keeps
+ * its own moment and framing beside them. They are separate components writing
+ * one string, so the only thing stopping them is that they picked different
+ * keys — and for one commit they had not: `Film` read and wrote `view` too, so
+ * sitting on the film page deleted `?view=film` and a shared link opened the
+ * gallery instead. Nothing rendered wrong, which is why every render check
+ * above passed through it.
+ *
+ * This reads the sources rather than a browser, because the invariant is about
+ * which literal strings appear in them: no component below the console may
+ * write a key the console owns.
+ */
+const OWNED = new Set(['view']);
+for (const f of ['components/Film.tsx', 'components/console/FilmView.tsx']) {
+  const src = readFileSync(join(ROOT, f), 'utf8');
+  for (const m of src.matchAll(/searchParams\.(?:set|delete)\(\s*'([^']+)'/g)) {
+    if (OWNED.has(m[1]!)) say(`${f} writes ?${m[1]}=, which the console owns`);
+  }
+}
+
 for (const file of files) {
   let run: Run;
   try {

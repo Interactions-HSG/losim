@@ -171,7 +171,7 @@ picture, which is the figure anyone would draw on a whiteboard.
 
 <div id="the-ledger" />
 
-Five buckets, accruing **while the film plays**:
+Four buckets, accruing **while the film plays**:
 
 | | |
 |---|---|
@@ -271,7 +271,8 @@ the current instant marked, so a reading has a shape around it.
 | `vs=<name>` | a second run, on the same clock |
 | `t=<refMs>` | the instant |
 
-| `view=film \| spans \| topology` | which view |
+| `view=<page>` | which page of the console — `runs`, `design`, `overview`, `film`, `usage`, `cost`, `systems` |
+| `fv=spans \| topology` | which sub-view of Film, when it is not the film itself |
 | `sv=waterfall \| swimlanes \| rollup` | which sub-view of Spans |
 | `m=<machine>` | pins the panel on it |
 | `pnl=1` | opens the ledger |
@@ -279,7 +280,7 @@ the current instant marked, so a reading has a shape around it.
 | `method=<text>` | filter by method |
 
 ```
-http://localhost:8000/?run=mine&t=2400&view=spans&sv=waterfall&fail=1
+http://localhost:8000/?run=mine&t=2400&view=film&fv=spans&sv=waterfall&fail=1
 ```
 
 *"Look at the failures in `mine` at 2,400"* is a link, not an instruction to go and
