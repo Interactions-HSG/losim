@@ -55,6 +55,12 @@ export interface Draft {
   name: string;
   job: string;
   seed: number;
+  /**
+   * How much real time this run costs you, independent of what its durations
+   * mean — every declared `refMs` is divided by this before it is slept. 1 is
+   * no compression, real milliseconds; a normal teaching scenario is 2–10.
+   */
+  kTime: number;
   expectedRunRefSeconds: number;
   pools: Pool[];
   kills: Kill[];
@@ -172,6 +178,11 @@ export function toYaml(draft: Draft): string {
   const L: string[] = [];
   L.push(`# ${draft.name}.yaml — written by the lab console`);
   L.push(`seed: ${Math.round(draft.seed)}`);
+  // Omitted at 1: the loader defaults to the same value, so an explicit
+  // `kTime: 1` and no key at all mean the same thing, and writing the
+  // default on every save would be noise on every scenario that never
+  // touched it.
+  if (draft.kTime !== 1) L.push(`kTime: ${draft.kTime}`);
   L.push(`job: ${q(draft.job)}`);
   L.push(`expectedRun: ${draft.expectedRunRefSeconds} refSeconds`);
   L.push('');
@@ -238,6 +249,7 @@ export function firstDraft(palette: Palette): Draft {
     name: 'authored',
     job: palette.jobs[0] ?? '',
     seed: 1,
+    kTime: 1,
     expectedRunRefSeconds: 20,
     pools: [
       {

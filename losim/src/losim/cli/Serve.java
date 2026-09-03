@@ -497,6 +497,7 @@ public final class Serve {
         draft.put("name", d.name());
         draft.put("job", d.job());
         draft.put("seed", d.seed());
+        draft.put("kTime", d.kTime());
         draft.put("expectedRunRefSeconds", d.expectedRunRefSeconds());
         draft.put("pools", pools);
         draft.put("kills", kills);

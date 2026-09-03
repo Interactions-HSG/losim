@@ -758,6 +758,23 @@ function Placing({
           <span className="hint">Same seed, same weather.</span>
         </div>
         <div className="field">
+          <label htmlFor="ktime">k_time</label>
+          <input
+            id="ktime"
+            type="number"
+            min={1}
+            step="any"
+            value={draft.kTime}
+            onChange={(e) => edit((d) => {
+              d.kTime = Math.max(0.001, Number(e.target.value) || 1);
+            })}
+          />
+          <span className="hint">
+            Higher runs faster, coarser — 1 is real time, good for watching; 2–10 is a normal
+            scenario; 20+ is a sweep.
+          </span>
+        </div>
+        <div className="field">
           <label htmlFor="exp">Expected run</label>
           <input
             id="exp"

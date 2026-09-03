@@ -143,7 +143,7 @@ class DraftTest {
     }
 
     @Test
-    @DisplayName("network:, kTime:, tightMargin:, mode: and workload: are all refused by name")
+    @DisplayName("network:, tightMargin:, mode: and workload: are all refused by name")
     void topLevelKeysTheFormHasNoControlFor() {
         assertTrue(refusal("""
                 job: J
@@ -154,10 +154,10 @@ class DraftTest {
 
         assertTrue(refusal("""
                 job: J
-                kTime: 2
+                tightMargin: true
                 machines:
                   a: { instance: m5.large, zone: eu-central-1a }
-                """).contains("kTime:"));
+                """).contains("tightMargin:"));
 
         assertTrue(refusal("""
                 job: J
@@ -166,6 +166,25 @@ class DraftTest {
                 machines:
                   a: { instance: m5.large, zone: eu-central-1a }
                 """).contains("mode:"));
+    }
+
+    @Test
+    @DisplayName("kTime is a plain field, read back exactly, and defaults to 1 when the file omits it")
+    void kTimeRoundTrips() {
+        var d = Draft.of("main.yaml", """
+                job: J
+                kTime: 20
+                machines:
+                  a: { instance: m5.large, zone: eu-central-1a }
+                """);
+        assertEquals(20.0, d.kTime(), 1e-9);
+
+        var e = Draft.of("main.yaml", """
+                job: J
+                machines:
+                  a: { instance: m5.large, zone: eu-central-1a }
+                """);
+        assertEquals(1.0, e.kTime(), 1e-9);
     }
 
     @Test

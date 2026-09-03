@@ -35,7 +35,7 @@ public final class Draft {
     public record Chaos(String kind, double everyRefMs, String among, double forRefMs, double factor) {}
     public record Retry(String method, int attempts, double backoffRefMs, boolean unsafe) {}
 
-    public record Of(String name, String job, long seed, double expectedRunRefSeconds,
+    public record Of(String name, String job, long seed, double kTime, double expectedRunRefSeconds,
                       List<Pool> pools, List<Kill> kills, List<Chaos> chaos, List<Retry> retries) {}
 
     /**
@@ -52,7 +52,7 @@ public final class Draft {
         Node root = Yaml.parse(name, text);
         var sc = Loader.of(root);   // the real check, first — baseline correctness is never re-done below
 
-        for (String key : List.of("kTime", "network", "tightMargin", "mode", "workload")) {
+        for (String key : List.of("network", "tightMargin", "mode", "workload")) {
             if (root.opt(key).present()) throw root.at(key).fail(
                     "uses " + key + ":, which the form doesn't have a control for yet. Edit the"
                     + " file directly, then open it here again once it's out.");
@@ -118,7 +118,7 @@ public final class Draft {
                     r.opt("backoff").refMs(0), r.opt("unsafe").bool(false)));
         }
 
-        return new Of(name.replaceAll("\\.ya?ml$", ""), sc.job(), sc.seed(),
+        return new Of(name.replaceAll("\\.ya?ml$", ""), sc.job(), sc.seed(), sc.kTime(),
                 sc.expectedRunRefMs() / 1000, List.copyOf(pools), List.copyOf(kills),
                 List.copyOf(chaos), List.copyOf(retries));
     }
