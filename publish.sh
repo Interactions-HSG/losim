@@ -72,7 +72,28 @@ It is committed rather than fetched so that your copy of this assignment works
 on its own — the same code, the same versions, the same numbers, whether you
 open it in a Codespace, in a container on your laptop, or in six months.
 
-Refreshed by the course with `./publish.sh` in the losim repository.
+Refreshed by the course with `./publish.sh` in the losim repository, which
+**deletes this whole directory and writes it again**. So a file you add here
+survives until the next refresh and then is gone, without a warning and without
+a conflict — which is the one way this folder can cost you an afternoon.
+
+Your own dependencies therefore go somewhere you own. A folder of your own beside
+this one, listed in `.vscode/settings.json`:
+
+    "java.project.referencedLibraries": [
+      "lib/jars/*.jar", "lib/losim.jar",
+      "deps/*.jar"
+    ]
+
+Java tooling reads that, so a jar in `deps/` is on the classpath for anything you
+compile, run or debug from the editor.
+
+Note what it is *not* on: the classpath losim builds for a simulated run, which
+is `lib/` and nothing else. That is deliberate. Inside a run the network is
+simulated — the latency, the zone crossings, the partitions and what the egress
+costs — and a handler that opened a real socket would go around all of it and be
+billed for none of it. Ordinary Java on your own classpath is one thing; a
+machine in a fleet is another.
 MSG
 
 printf 'published:\n'
