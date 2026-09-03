@@ -1,7 +1,7 @@
 /**
- * S1 — do the glyph paths survive the port?
+ * do the glyph paths survive the port?
  *
- *   node viewer/spikes/s1-glyphs.ts
+ *   node viewer/checks/glyphs.ts
  *
  * Builds a grid of every glyph at every size and fill level, and diffs it
  * against a **frozen oracle** — string for string. Nothing is rendered and
@@ -24,7 +24,7 @@
  *
  * String equality settles whether the port is *faithful*. Whether the geometry it
  * is faithful to is right is a thing to look at, and that is the page at
- * /spikes/s1 in the viewer itself.
+ * the glyph sheet the viewer used to ship.
  */
 import { gunzipSync } from 'node:zlib';
 import { readFileSync } from 'node:fs';

@@ -1,7 +1,7 @@
 /**
- * S11 — does what the designer writes load?
+ * does what the designer writes load?
  *
- *   node viewer/spikes/s11-author.ts
+ *   node viewer/checks/author.ts
  *
  * The console composes a scenario in TypeScript and the lab loads it in Java.
  * That is two programs agreeing about a file format, which is exactly the kind
@@ -51,7 +51,6 @@ function lab(): string {
 
 /** The catalogues the lab would have sent, as this check does not compile anything. */
 const PALETTE: Palette = {
-  system: 'sys',
   compiled: true,
   jobs: ['lab.Elastic', 'lab.WordCount'],
   services: [

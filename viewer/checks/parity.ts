@@ -1,7 +1,7 @@
 /**
- * S2 — is the layout port faithful?
+ * is the layout port faithful?
  *
- *   node viewer/spikes/s2-parity.ts [glob-ish substring]
+ *   node viewer/checks/parity.ts [glob-ish substring]
  *
  * Runs the TypeScript `Layout` over every gallery trace and diffs every
  * position, every zone rectangle, every column label, every payload digest and

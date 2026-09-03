@@ -1,6 +1,6 @@
 ---
 title: "What is on the screen"
-description: "Four views, one clock and one selection — and the question each one answers."
+description: "Seven pages, four of them on one clock — and the question each drawing answers."
 icon: "table-columns"
 ---
 
@@ -8,12 +8,22 @@ Everything below reads the same `(trace, t)` and shares one selection, so they a
 **incapable of disagreeing** with each other. Switching view is a change of question,
 not of map.
 
-| view | the question |
-|---|---|
-| **Film** | what is true *right now*? |
-| **Spans** | why did it take that long, and who was waiting on whom? |
-| **Topology** | what is the *shape* of this system? |
-| **Ledger** | what did it cost, while it was being spent? |
+Four of those questions are drawings, and this page is about the drawings. Where you
+find each one is a separate matter, because a drawing and a page are not the same
+thing: **Spans** and **Topology** live inside the Film page, behind its own switcher,
+and Spans appears a second time on Overview as the *Execution graph* panel.
+
+| the question | the drawing | where it is |
+|---|---|---|
+| what is true *right now*? | **Film** | the Film page |
+| why did it take that long, and who was waiting on whom? | **Spans** | inside Film, and on Overview |
+| what is the *shape* of this system? | **Topology** | inside Film |
+| what did it cost, while it was being spent? | **Ledger** | the Cost page, and inside Film with `pnl=1` |
+
+The rail across the top has the pages themselves: **Runs** is the gallery you land on,
+**Design** writes a scenario and **Systems** builds and runs one — those three have no
+clock, because there is no time in them. **Overview**, **Film**, **Usage** and **Cost**
+read one trace and share one clock, so the bar moves all four to the same instant.
 
 ---
 
@@ -62,6 +72,9 @@ dark theme, but only the **ground** does; the meanings above do not change.
 ---
 
 ## Spans
+
+*Inside the Film page — the second position on its switcher, or `fv=spans` — and again
+on Overview, as the* Execution graph *panel.*
 
 The distributed call stack. Three views of one tree, on one axis, sharing one
 selection — hovering a row lights the same call in the film, the same machine in the
@@ -143,6 +156,8 @@ how a straggler is *found* rather than noticed.
 
 ## Topology
 
+*Inside the Film page — the third position on its switcher, or `fv=topology`.*
+
 Who called whom, over the whole run. The film answers *what is true right now* and
 forgets the moment it passes; this answers what the film structurally cannot — **what
 is the shape of this system** — by keeping nothing but the shape.
@@ -170,6 +185,9 @@ picture, which is the figure anyone would draw on a whiteboard.
 ## Ledger
 
 <div id="the-ledger" />
+
+*The Cost page is this, given room: every line, the buckets at the clock, and another
+run beside it. The same accrual is available as a panel over the film with `pnl=1`.*
 
 Four buckets, accruing **while the film plays**:
 
@@ -271,7 +289,7 @@ the current instant marked, so a reading has a shape around it.
 | `vs=<name>` | a second run, on the same clock |
 | `t=<refMs>` | the instant |
 
-| `view=<page>` | which page of the console — `runs`, `design`, `overview`, `film`, `usage`, `cost`, `systems` |
+| `view=<page>` | which page of the console — `runs`, `scenarios`, `overview`, `film`, `usage`, `cost` |
 | `fv=spans \| topology` | which sub-view of Film, when it is not the film itself |
 | `sv=waterfall \| swimlanes \| rollup` | which sub-view of Spans |
 | `m=<machine>` | pins the panel on it |

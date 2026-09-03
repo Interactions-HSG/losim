@@ -40,7 +40,7 @@ import { LedgerModel } from './ledger.ts';
 import { Clock } from './playback.ts';
 import { manifest, openFile, openUrl, type Run, type RunRef } from './runs.ts';
 
-export const VIEWS = ['runs', 'design', 'overview', 'film', 'usage', 'cost', 'systems'] as const;
+export const VIEWS = ['runs', 'scenarios', 'overview', 'film', 'usage', 'cost'] as const;
 export type View = (typeof VIEWS)[number];
 
 /** The views the clock governs. On the others it is not shown, because there is no time in them. */

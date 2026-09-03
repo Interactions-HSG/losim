@@ -50,40 +50,36 @@ public final class Experiments {
         return new Experiments(Path.of(root).toAbsolutePath().normalize());
     }
 
-    /** Build and run a system, in its ordinary scenario. */
-    public Experiments run(String system) { return run(system, null); }
-
     /**
-     * Build and run a system, in the scenario you name.
+     * Build the lab and run it in the scenario you name.
      *
      * <p>A failure is reported and does not stop the rest: when three scenarios
      * are being compared, the one that fell over is a result about the design and
      * the other two are still worth looking at.
      */
-    public Experiments run(String system, String scenario) {
-        Lab.System s = lab.system(system);
-        if (s == null) {
-            System.out.println("there is no system called " + system + " in this project");
-            System.out.println("  there is: " + lab.systems().stream().map(Lab.System::id).toList());
+    public Experiments run(String scenario) {
+        if (lab.scenario(scenario) == null) {
+            System.out.println("there is no scenario called " + scenario + " in this lab");
+            System.out.println("  there is: " + lab.scenarioNames());
             failed++;
             return this;
         }
         try {
-            int code = lab.run(s, scenario, System.out::print);
+            int code = lab.run(scenario, System.out::print);
             if (code != 0) failed++;
-            ran.add(system + (scenario == null ? "" : " " + scenario));
+            ran.add(scenario);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (IOException e) {
-            System.out.println("could not run " + system + ": " + e.getMessage());
+            System.out.println("could not run " + scenario + ": " + e.getMessage());
             failed++;
         }
         return this;
     }
 
-    /** Every system in the project, each in its ordinary scenario. */
+    /** Every scenario in the lab, one after another. */
     public Experiments runAll() {
-        for (Lab.System s : lab.systems()) if (s.started() && s.distributed()) run(s.id());
+        for (String name : lab.scenarioNames()) run(name);
         return this;
     }
 

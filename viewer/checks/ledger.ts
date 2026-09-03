@@ -1,7 +1,7 @@
 /**
- * S7 — does the live ledger agree with the CLI, and is the attribution honest?
+ * does the live ledger agree with the CLI, and is the attribution honest?
  *
- *   node viewer/spikes/s7-ledger.ts [substring]
+ *   node viewer/checks/ledger.ts [substring]
  *
  * Two questions, and the second one only exists because of the first.
  *

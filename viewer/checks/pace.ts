@@ -1,7 +1,7 @@
 /**
- * S9 — does the paced clock actually keep its promise, and at what cost?
+ * does the paced clock actually keep its promise, and at what cost?
  *
- *   node viewer/spikes/s9-pace.ts
+ *   node viewer/checks/pace.ts
  *
  * The promise is one sentence: **nothing the film draws is on screen for less
  * than a second.** It is worth checking by arithmetic rather than by watching,

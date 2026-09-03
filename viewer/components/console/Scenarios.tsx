@@ -25,6 +25,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Head, Panel } from './Shell.tsx';
 import { useConsole } from '../../lib/console.tsx';
+import { Lab } from '../Lab.tsx';
 import {
   distances, expand, firstDraft, linkOf, perHour, toYaml, unplaced,
   type Chaos, type Draft, type Pool,
@@ -33,8 +34,8 @@ import {
   palette as fetchPalette, project, run as startRun, saveScenario, type Palette,
 } from '../../lib/lab.ts';
 
-export function Design() {
-  const { go, reload, nudge } = useConsole();
+export function Scenarios() {
+  const { reload, nudge, setHasLab, openAt, watching } = useConsole();
   const [systems, setSystems] = useState<string[] | null>(null);
   const [system, setSystem] = useState<string>('');
   const [palette, setPalette] = useState<Palette | null>(null);
@@ -43,27 +44,12 @@ export function Design() {
   const [saying, setSaying] = useState<string | null>(null);
   const [refused, setRefused] = useState<string | null>(null);
 
-  // Which systems there are. The designer is for one of them at a time, and a
-  // lab with one system should not ask.
+  // What the lab's code offers. Compiling it is the lab's business; this waits.
   useEffect(() => {
-    let live = true;
-    project().then((p) => {
-      if (!live || !p) return;
-      const ids = p.systems.filter((s) => s.started).map((s) => s.id);
-      setSystems(ids);
-      setSystem((was) => was || ids[0] || '');
-      if (!ids.length) setBusy(false);
-    });
-    return () => { live = false; };
-  }, []);
-
-  // What that system offers. Compiling it is the lab's business; this waits.
-  useEffect(() => {
-    if (!system) return;
     let live = true;
     setBusy(true);
     setPalette(null);
-    fetchPalette(system)
+    fetchPalette()
       .then((p) => {
         if (!live) return;
         setPalette(p);
@@ -95,35 +81,33 @@ export function Design() {
     if (!draft || !palette) return;
     setSaying('writing…');
     setRefused(null);
-    const wrote = await saveScenario(system, draft.name, yaml);
+    const wrote = await saveScenario(draft.name, yaml);
     if (wrote.error) {
       setRefused(wrote.error);
       setSaying(null);
       return;
     }
     setSaying('running…');
-    const started = await startRun(system, wrote.scenario);
+    const started = await startRun(wrote.scenario!);
     if (started.error) {
       setRefused(started.error);
       setSaying(null);
       return;
     }
-    // The Systems view follows whatever is running and is the page that shows
-    // the output, so that is where this goes — watching a build happen is the
-    // point. It has to be told to look, though: it noticed the last run when it
-    // mounted, and this one started two pages away.
+    // This page follows whatever is running, so the output appears where the
+    // button was — watching a build happen is the point. It has to be told to
+    // look, though: it noticed the last run when it mounted.
     nudge();
-    go('systems');
     setSaying(null);
     // The run about to be written will be in the index; ask for it again rather
     // than patching a list that is a directory listing anyway.
     void reload();
-  }, [draft, palette, system, yaml, go, reload, nudge]);
+  }, [draft, palette, yaml, reload, nudge]);
 
-  if (systems && !systems.length) {
+  if (palette && !palette.compiled && !busy) {
     return (
       <>
-        <Head title="Design" sub="author a scenario for a system in this project" />
+        <Head title="Scenarios" sub="what a run is: where the code runs, and what goes wrong" />
         <Panel>
           <p className="muted">
             There is no lab behind this page, or nothing in it has code yet. The designer needs{' '}
@@ -138,34 +122,20 @@ export function Design() {
   return (
     <>
       <Head
-        title="Design"
+        title="Scenarios"
         sub={
           <>
             Your Java says what <em>can</em> run. A scenario says where it runs and what goes
-            wrong. The classes below are read off what this system compiles to, so nothing here
+            wrong. The classes below are read off what this lab compiles to, so nothing here
             can name a service that is not there.
           </>
         }
-        actions={
-          systems && systems.length > 1 ? (
-            <select
-              className="picker"
-              value={system}
-              onChange={(e) => setSystem(e.target.value)}
-              aria-label="which system"
-            >
-              {systems.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          ) : undefined
-        }
       />
 
-      {busy && <Panel><p className="muted">reading {system}…</p></Panel>}
+      {busy && <Panel><p className="muted">reading the lab…</p></Panel>}
 
       {!busy && palette && !palette.compiled && (
-        <Panel title={`${system} does not compile`}>
+        <Panel title="the lab does not compile">
           <p className="muted">
             Nothing can be placed until it does — the list of services is read off the classes,
             and there are none. This is javac, unedited:
@@ -174,7 +144,23 @@ export function Design() {
         </Panel>
       )}
 
-      {!busy && palette && palette.compiled && draft && (
+      {/* Compiling is not the same question as having something to place. A lab of
+          plain Java compiles perfectly and offers no job and no service, and the
+          skeleton draft would then propose a fleet of workers that run nothing
+          around a `job: ""` — a scenario that cannot exist, offered as a default.
+          The palette is the predicate: it is empty for exactly the labs where
+          there is nothing to author. */}
+      {!busy && palette && palette.compiled && !palette.jobs.length && !palette.services.length && (
+        <Panel title="Nothing to place yet">
+          <p className="muted">
+            This lab compiles — {palette.other} class{palette.other === 1 ? '' : 'es'} — but none
+            of them is a job losim can start or a gRPC service a machine can serve. A scenario
+            says <em>where the code runs</em>, so there has to be code that runs somewhere first.
+          </p>
+        </Panel>
+      )}
+
+      {!busy && palette && palette.compiled && (palette.jobs.length > 0 || palette.services.length > 0) && draft && (
         <div className="two">
           <div className="col">
             <Machines draft={draft} palette={palette} edit={edit} />
@@ -183,10 +169,6 @@ export function Design() {
           </div>
 
           <div className="col sticky">
-            <Panel title={`${draft.name}.yaml`} note="what will be written" flush>
-              <pre className="yaml">{yaml}</pre>
-            </Panel>
-
             <Panel title="Knowable now">
               <dl className="kv">
                 <div>
@@ -297,6 +279,24 @@ export function Design() {
         .field label { font-size: 12.5px; color: var(--text-2); }
         .field .hint { font-size: 11.5px; color: var(--text-3); }
       `}</style>
+
+      {/* Every scenario in the lab, and what a run is saying. The page that
+          writes one is the page that runs it: a scenario nobody ran is a file,
+          not a result. */}
+      <Panel title="Scenarios in this lab" note="press ▶ to build and run">
+        <Lab
+          watch={watching}
+          onLab={setHasLab}
+          onRan={async (name, href) => {
+            // Opened by where it is rather than by name: the index is asked
+            // again too, but a run that finished a second ago is on disk before
+            // it is in the list, and it is the run you were waiting for.
+            await openAt(name, href, 'overview');
+            await reload();
+          }}
+        />
+      </Panel>
+
     </>
   );
 }
@@ -560,7 +560,7 @@ function Placing({
   return (
     <Panel
       title="Services"
-      note={`${palette.services.length} in ${palette.system}`}
+      note={`${palette.services.length}`}
     >
       <p className="lead">
         What your code offers a machine, read off the classes it compiles to. Tick a pool to put

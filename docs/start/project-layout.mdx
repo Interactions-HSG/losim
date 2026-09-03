@@ -10,11 +10,10 @@ icon: "folder-tree"
 RunExperiments.java      press the ▶ — builds, runs, opens the viewer
 DisplayDocs.java         press the ▶ — the manual, on port 3000
 
-<system>/                a folder with code in it is a system
-<system>/*.proto         its schema
-<system>/main.yaml       the world it runs in; variants beside it
-<system>/src/            your Java
-<system>/gen/            generated from the schema. Gitignored, never edited.
+proto/                   your schema
+src/                     your Java
+gen/                     generated from the schema. Gitignored, never edited.
+scenarios/*.yaml         the worlds it runs in — as many as you like
 
 lib/                     losim.jar, the gRPC jars, protoc, the price list
 docs/                    this manual
@@ -23,9 +22,14 @@ build/runs/              your traces, and a bill beside each
 ```
 
 <Note>
-**Nothing is declared.** There is no manifest listing what to build: a directory *is* a
-system if it has code in it, its schema is whatever `.proto` files it holds, and its
-world is whatever scenarios sit beside it. Add a file and it is in the next run.
+**Nothing is declared.** There is no manifest listing what to build. Your code is
+whatever `.java` and `.proto` the project holds, and it compiles as one thing — so any
+class can be placed on any machine. Add a file and it is in the next run.
+
+**One code folder, many scenarios.** What changes between two runs of the same system
+is almost never the code; it is the fleet, the distances and what goes wrong. So those
+are what there are many of. Write a scenario in the console's **Scenarios** page and it
+lands in `scenarios/` beside the others.
 
 `build/` and `gen/` are gitignored. Your traces are yours and are not handed in — the
 examiner re-runs your code rather than reading a picture you exported.
@@ -74,8 +78,8 @@ only run inside the simulator, which is the opposite of the point.
 In a lab this is what the ▶ compiles with, and you never type it:
 
 ```bash
-javac --release 21 -cp "lib/losim.jar:lib/jars/*" -d build/<system>/classes \
-      $(find <system>/gen <system>/src -name '*.java')
+javac --release 21 -cp "lib/losim.jar:lib/jars/*" -d build/classes \
+      $(find gen src -name '*.java')
 ```
 
 

@@ -49,15 +49,15 @@ change nobody else can see.
 
 ```
 viewer/
-  app/            page.tsx — pick a run, watch it. Plus two spike pages.
+  app/            page.tsx — the console, and every view it shows
   components/     Film, Dataflow, Scrubber, MachinePanel, Ledger,
                   Spans (+ spans/Waterfall, Swimlanes, Rollup), Topology
   lib/            trace, frame, layout, spans, design, glyphs, theme,
                   playback, record, ledger, runs
-  spikes/         the checks, and the Python they are checked against
+  checks/         the checks, and the Python they are checked against
   export.sh       build -> ../build/viewer          (developers)
   serve.sh        serve the export, or --dev        (everyone)
-  check.sh        the four arithmetic spikes        (developers)
+  check.sh        every check below                 (developers)
   traces.sh       traces + bills + index.json       (called by the others)
 build/viewer/     the committed static export
 build/runs/       where a lab's runs land, and what the lab server serves
@@ -73,23 +73,26 @@ happened rather than against fixtures that agree with them by construction.
 
 | | |
 |---|---|
-| `s1-glyphs` | do the glyph paths match the Python, **character for character** |
-| `s2-parity` | does the layout port compute the same layout, on every trace |
-| `s7-ledger` | does the accruing ledger close on `losim bill`, to the rappen |
-| `s3-s8-cost` | is a frame cheap enough to be a frame, at the largest fleet |
+| `glyphs` | do the glyph paths match the Python, **character for character** |
+| `parity` | does the layout port compute the same layout, on every trace |
+| `ledger` | does the accruing ledger close on `losim bill`, to the rappen |
+| `cost` | is a frame cheap enough to be a frame, at the largest fleet |
+| `pace` | is nothing on screen for less than a second, on every trace |
+| `console` | do the console's views render, and does any ruler move under the clock |
+| `author` | does what the designer writes load, and is what it must refuse refused |
 
 <Note>
 **Exactly four Python modules are load-bearing**, and it is worth being precise about
 which, because the rest of `view/` is the abandoned renderer:
 
 ```
-view/losim_view/design.py     216 lines   imported by viewer/spikes/glyph_ref.py
-view/losim_view/glyphs.py     155         imported by viewer/spikes/glyph_ref.py
-view/losim_view/layout.py     383         imported by viewer/spikes/layout_ref.py
-view/losim_view/trace.py      335         imported by viewer/spikes/layout_ref.py
+view/losim_view/design.py     216 lines   imported by viewer/checks/glyph_ref.py
+view/losim_view/glyphs.py     155         imported by viewer/checks/glyph_ref.py
+view/losim_view/layout.py     383         imported by viewer/checks/layout_ref.py
+view/losim_view/trace.py      335         imported by viewer/checks/layout_ref.py
 ```
 
-Those two spike scripts put `view/` on `sys.path` and import them directly, so
+Those two reference scripts put `view/` on `sys.path` and import them directly, so
 deleting any of the four breaks `./viewer/check.sh`.
 
 `view/losim_view/film.py`, `view/dataflow.py` and `view/sheet.py` are the manim
@@ -100,10 +103,9 @@ This is why the glyph paths were authored in SVG's own convention and compared b
 **string equality** rather than by looking at two pictures and arguing about them.
 </Note>
 
-The other four spikes are about what a *browser* does — do the glyphs look right, does
-the MP4 play in a slide deck, is a 25-machine fleet legible, does the export serve
-with no npm — and a browser is where those are answered: `./viewer/serve.sh`, then the
-pages.
+What is left over is what a *browser* has to answer — does the MP4 play in a slide
+deck, is a 25-machine fleet legible, does the export serve with no npm. A browser is
+where those are answered: `./viewer/serve.sh`, then look.
 
 ## Four decisions in the code worth knowing before you change it
 
@@ -173,7 +175,7 @@ pages.
 | | |
 |---|---|
 | `output: 'export'` | a static site. There is no server, because a student runs `python3 -m http.server`. |
-| `trailingSlash: true` | `/spikes/s4/index.html`, not `/spikes/s4.html` — `http.server` has never heard of Next and will not try `.html` for a path without it. Without this every link in the exported app 404s on exactly the setup it exists to support. |
+| `trailingSlash: true` | `/index.html`, not a path without one — `http.server` has never heard of Next and will not try `.html` for a bare path. Without this the exported app 404s on exactly the setup it exists to support. |
 | `turbopack.root` | pinned, because a `package.json` somewhere up the tree would otherwise decide where the project root is — a stray directory on a laptop, somewhere else entirely in a Codespace. |
 
 ## Two numbers in `lib/trace.ts` that are not the same
@@ -226,15 +228,6 @@ The bill is best-effort on purpose. Missing, the film still plays and the money 
 simply absent — which is the right failure, because a viewer that invented its own
 prices would be a second accountant.
 </Note>
-
-## The spike pages
-
-| | |
-|---|---|
-| `/spikes/s1/` | the glyphs, drawn on their own — the visual language without a run behind it |
-| `/spikes/s4/` | the recorder, in isolation |
-
-They are exported with the app, and linked from its header.
 
 ## The design language
 

@@ -99,7 +99,6 @@ public final class Serve {
      */
     private static final class Run {
         final int id;
-        final String system;
         final String scenario;
         final StringBuilder log = new StringBuilder();
         /**
@@ -115,8 +114,8 @@ public final class Serve {
         volatile boolean done;
         volatile int code = -1;
 
-        Run(int id, String system, String scenario) {
-            this.id = id; this.system = system; this.scenario = scenario;
+        Run(int id, String scenario) {
+            this.id = id; this.scenario = scenario;
         }
 
         synchronized void say(String s) {
@@ -178,7 +177,7 @@ public final class Serve {
             catch (InterruptedException i) { Thread.currentThread().interrupt(); }
             return 0;
         }
-        http.createContext("/api/systems", safe(s::systems));
+        http.createContext("/api/scenarios", safe(s::scenarios));
         http.createContext("/api/classes", safe(s::classes));
         http.createContext("/api/scenario", safe(s::scenario));
         http.createContext("/api/run", safe(s::start));
@@ -201,10 +200,10 @@ public final class Serve {
             java.lang.System.out.println("  systems  none — " + base + " has no lib/losim.jar,");
             java.lang.System.out.println("           so it is not a lab. Point --root at one.");
         } else {
-            java.lang.System.out.printf("  systems  %d in %s%n", s.lab.systems().size(), base);
+            java.lang.System.out.printf("  scenarios  %d in %s%n", s.lab.scenarios().size(), base);
         }
         java.lang.System.out.printf("  runs     %s%n", s.runs);
-        java.lang.System.out.println("  leave this running; press the arrow beside a system to run it.");
+        java.lang.System.out.println("  leave this running; press the arrow beside a scenario to run it.");
         if (open) browse("http://localhost:" + port + "/");
 
         // The point of this process is to still be here later.
@@ -235,45 +234,42 @@ public final class Serve {
      */
     private void warm() {
         worker.submit(() -> {
-            for (Lab.System t : lab.systems()) {
-                if (!t.started()) continue;
-                try { lab.compile(t, x -> { }); }
-                catch (InterruptedException e) { Thread.currentThread().interrupt(); return; }
-                catch (Exception ignored) {
-                    // A system that does not build yet is the starting position,
-                    // not a problem with the container.
-                }
+            if (!lab.code().started()) return;
+            try { lab.compile(x -> { }); }
+            catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+            catch (Exception ignored) {
+                // A lab that does not build yet is the starting position, not a
+                // problem with the container.
             }
         });
     }
 
     // ------------------------------------------------------------------ the api
 
-    private void systems(HttpExchange x) throws IOException {
+    private void scenarios(HttpExchange x) throws IOException {
         List<Object> out = new ArrayList<>();
-        for (Lab.System t : lab.systems()) {
-            Path trace = lab.trace(t, null);
+        for (Path sc : lab.scenarios()) {
+            String name = sc.getFileName().toString();
+            Path trace = lab.trace(name);
             Map<String, Object> row = new LinkedHashMap<>();
-            row.put("id", t.id());
-            row.put("started", t.started());
-            row.put("distributed", t.distributed());
-            row.put("files", t.sources().size());
-            row.put("schema", !t.protos().isEmpty());
-            // Every world this system can be put in, so a variant is a second
-            // button beside the first rather than a file nobody notices.
-            row.put("scenarios", t.scenarioNames());
+            row.put("name", name);
+            row.put("path", lab.root().relativize(sc).toString().replace('\\', '/'));
             if (trace != null && Files.exists(trace)) row.put("trace", "traces/" + trace.getFileName());
             out.add(row);
         }
+        Lab.Code code = lab.code();
         Run r = current;
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("systems", out);
-        body.put("busy", r != null && !r.done ? r.system : null);
+        body.put("scenarios", out);
+        body.put("started", code.started());
+        body.put("files", code.sources().size());
+        body.put("schema", !code.protos().isEmpty());
+        body.put("busy", r != null && !r.done ? r.scenario : null);
         send(x, 200, "application/json", Json.write(body).getBytes(StandardCharsets.UTF_8));
     }
 
     /**
-     * What a system's code offers a machine, and what a machine can be.
+     * What the lab's code offers a machine, and what a machine can be.
      *
      * <p>The two halves of authoring a scenario. A student places <b>classes</b>
      * on <b>machines</b>: the classes are read off their own compiled bytecode by
@@ -286,24 +282,19 @@ public final class Serve {
      * the answer would be the same one.
      */
     private void classes(HttpExchange x) throws IOException {
-        String id = query(x).getOrDefault("system", "");
-        Lab.System t = lab.system(id);
-        if (t == null) { fail(x, 404, "There is no system called " + id + " in this project."); return; }
-
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("system", t.id());
-        body.put("scenarios", t.scenarioNames());
+        body.put("scenarios", lab.scenarioNames());
         body.put("instances", instances());
         body.put("regions", regions());
 
-        Path classes = lab.classes(t);
-        if (!lab.compiled(t)) {
+        Path classes = lab.classes();
+        if (!lab.compiled()) {
             StringBuilder log = new StringBuilder();
             try {
                 // On the same single worker as a real run: a compile racing a run
                 // over one `classes` directory is a build that reports classes
                 // that were deleted underneath it.
-                classes = worker.submit(() -> lab.compile(t, log::append)).get();
+                classes = worker.submit(() -> lab.compile(log::append)).get();
             } catch (java.util.concurrent.ExecutionException e) {
                 classes = null;
                 log.append(e.getCause() == null ? String.valueOf(e) : String.valueOf(e.getCause()));
@@ -319,7 +310,7 @@ public final class Serve {
             }
         }
 
-        Palette.Offer offer = Palette.of(classes, lab, t);
+        Palette.Offer offer = Palette.of(classes, lab, lab.code().sources());
         List<Object> services = new ArrayList<>();
         for (Palette.Service sv : offer.services()) {
             Map<String, Object> row = new LinkedHashMap<>();
@@ -397,20 +388,17 @@ public final class Serve {
      * wrong from a stack trace two clicks later — and by then the file with the
      * mistake in it is already theirs to fix.
      *
-     * <p><b>It only ever writes inside the system it names.</b> The name is a file
-     * name and nothing else: no separators, no dots that walk anywhere, and the
-     * resolved path is checked against the system's own directory before a byte
-     * is written. This is a web page writing into somebody's project.
+     * <p><b>It only ever writes inside the lab's scenarios folder.</b> The name is
+     * a file name and nothing else: no separators, no dots that walk anywhere, and
+     * the resolved path is checked against that folder before a byte is written.
+     * This is a web page writing into somebody's project.
      */
     private void scenario(HttpExchange x) throws IOException {
         if (!"POST".equals(x.getRequestMethod())) { send(x, 405, "text/plain", "POST".getBytes()); return; }
         Map<String, Object> body = readJson(x);
-        String id = String.valueOf(body.getOrDefault("system", ""));
         String name = String.valueOf(body.getOrDefault("name", "")).trim();
         String text = String.valueOf(body.getOrDefault("yaml", ""));
 
-        Lab.System t = lab.system(id);
-        if (t == null) { fail(x, 404, "There is no system called " + id + " in this project."); return; }
         if (!name.endsWith(".yaml")) name = name + ".yaml";
         if (!name.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,63}\\.yaml")) {
             fail(x, 400, "'" + name + "' is not a scenario name. Letters, digits, dot, dash and"
@@ -427,12 +415,10 @@ public final class Serve {
             return;
         }
 
-        // Beside the ones already there, or in `scenarios/` when there are none —
-        // which is where the manual tells a student to keep them.
-        Path into = t.first() != null ? t.first().getParent() : t.dir().resolve("scenarios");
+        Path into = lab.root().resolve(Lab.SCENARIOS);
         Path file = into.resolve(name).normalize();
-        if (!file.startsWith(t.dir().toAbsolutePath().normalize())) {
-            fail(x, 400, "a scenario belongs inside its own system");
+        if (!file.startsWith(into.toAbsolutePath().normalize())) {
+            fail(x, 400, "a scenario belongs in the lab's scenarios folder");
             return;
         }
         Files.createDirectories(file.getParent());
@@ -440,7 +426,6 @@ public final class Serve {
         Files.writeString(file, text);
 
         Map<String, Object> out = new LinkedHashMap<>();
-        out.put("system", t.id());
         out.put("scenario", name);
         out.put("path", lab.root().relativize(file).toString().replace('\\', '/'));
         out.put("replaced", existed);
@@ -457,23 +442,24 @@ public final class Serve {
     private void start(HttpExchange x) throws IOException {
         if (!"POST".equals(x.getRequestMethod())) { send(x, 405, "text/plain", "POST".getBytes()); return; }
         Map<String, Object> body = readJson(x);
-        String id = String.valueOf(body.getOrDefault("system", ""));
         Object named = body.get("scenario");
         String scenario = named == null ? null : String.valueOf(named);
-        Lab.System t = lab.system(id);
-        if (t == null) { fail(x, 404, "There is no system called " + id + " in this project."); return; }
+        if (lab.scenario(scenario) == null) {
+            fail(x, 404, "There is no scenario called " + scenario + " in this lab.");
+            return;
+        }
 
         Run running = current;
         if (running != null && !running.done) {
-            fail(x, 409, running.system + " is still running. It will finish, or you can wait it out.");
+            fail(x, 409, running.scenario + " is still running. It will finish, or you can wait it out.");
             return;
         }
-        Run run = new Run(runs_.incrementAndGet(), id, scenario);
+        Run run = new Run(runs_.incrementAndGet(), scenario);
         current = run;
         worker.submit(() -> {
-            run.say("── " + id + (scenario == null || scenario.isBlank() ? "" : "  " + scenario) + " ──\n");
+            run.say("── " + scenario + " ──\n");
             try {
-                run.code = lab.run(t, scenario, run::say);
+                run.code = lab.run(scenario, run::say);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 run.say("\nstopped.\n");
@@ -486,7 +472,7 @@ public final class Serve {
             }
         });
         send(x, 200, "application/json",
-                Json.write(Map.of("run", run.id, "system", id)).getBytes(StandardCharsets.UTF_8));
+                Json.write(Map.of("run", run.id, "scenario", scenario)).getBytes(StandardCharsets.UTF_8));
     }
 
     /** What the current run has said since byte {@code from}. */
@@ -500,14 +486,13 @@ public final class Serve {
         } else {
             Tail tail = r.from((long) number(query(x).getOrDefault("from", "0")));
             body.put("run", r.id);
-            body.put("system", r.system);
+            body.put("scenario", r.scenario);
             body.put("text", tail.text());
             body.put("next", tail.next());
             body.put("done", r.done);
             body.put("ok", r.done && r.code == 0);
             if (r.done) {
-                Lab.System t = lab.system(r.system);
-                Path trace = t == null ? null : lab.trace(t, r.scenario);
+                Path trace = lab.trace(r.scenario);
                 if (trace != null && Files.exists(trace))
                     body.put("trace", "traces/" + trace.getFileName());
             }

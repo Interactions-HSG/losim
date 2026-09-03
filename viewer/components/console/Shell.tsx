@@ -34,8 +34,7 @@ export function Shell({ children }: { children: ReactNode }) {
     // Only with a lab behind the page: the designer reads its classes off what
     // the project compiles to, and there is nothing to read without one.
     ...(hasLab
-      ? [{ id: 'design' as View, label: 'Design', icon: '✎' },
-         { id: 'systems' as View, label: 'Systems', icon: '⌗' }]
+      ? [{ id: 'scenarios' as View, label: 'Scenarios', icon: '✎' }]
       : []),
   ];
   const open: Item[] = [
@@ -59,8 +58,12 @@ export function Shell({ children }: { children: ReactNode }) {
         <span className="brand">losim</span>
         <span className="svc">Decentralized Systems Lab</span>
         <span className="grow" />
-        {run && <span className="chip dark">{String(run.trace.meta['scenario'] ?? run.name)}</span>}
-        <span className="chip dark">{String(run?.bill?.rates?.['region'] ?? 'eu-central-1')}</span>
+        {/* No chips here. The scenario belongs to the open run and is named on
+            every page that shows one; the region was `bill.rates.region ??
+            'eu-central-1'`, and since PriceList.asMap omits `region` whenever the
+            price list has none, that literal was on screen for most runs
+            regardless of where their machines were. A global bar is for things
+            that are true globally. */}
       </header>
 
       <div className="body">
@@ -96,10 +99,6 @@ export function Shell({ children }: { children: ReactNode }) {
           <p className="fine">
             Drop a trace anywhere on this window to open it — a run from anybody, on any
             machine, reads the same way.
-          </p>
-          <p className="fine links">
-            <a href="./spikes/s1/">glyphs</a>
-            <a href="./spikes/s4/">recorder</a>
           </p>
         </nav>
 

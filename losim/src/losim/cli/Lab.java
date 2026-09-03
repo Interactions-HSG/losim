@@ -80,171 +80,108 @@ public final class Lab {
     public boolean isLab() { return Files.isRegularFile(lib.resolve("losim.jar")); }
 
     /**
-     * One system: a folder with code in it.
+     * The code in this lab: one folder of gRPC jobs.
      *
-     * @param id       its path from the project root — {@code 0-tour/1-two-machines}
-     * @param scenarios every scenario in it, {@code main} first. A system with more
-     *                 than one is a system with variants — the same code against a
-     *                 crueller afternoon — and each is run and drawn separately,
-     *                 because the whole point of having two is comparing them
-     * @param protos   its schema, which may be empty and may be more than one file
-     * @param sources  every {@code .java} in it, wherever the student put them
+     * <p>There is no list of systems here any more, because there never really
+     * were several. {@code 0-tour} was five directories holding one
+     * {@code ping.proto} between them and five scenarios — the same code against
+     * five different afternoons, written out five times so that each could have a
+     * folder to sit in. What varies between those runs is the scenario, so the
+     * scenario is what there are many of.
+     *
+     * @param protos  the schema, which may be empty and may be more than one file
+     * @param sources every {@code .java} in the lab, wherever the student put it
      */
-    public record System(String id, Path dir, List<Path> scenarios, List<Path> protos, List<Path> sources) {
+    public record Code(Path dir, List<Path> protos, List<Path> sources) {
 
-        /** The one that runs when nobody named another. */
-        public Path first() { return scenarios.isEmpty() ? null : scenarios.get(0); }
-
-        /** A scenario by its file name, or null. */
-        public Path scenario(String name) {
-            for (Path p : scenarios) if (p.getFileName().toString().equals(name)) return p;
-            return null;
-        }
-
-        /** What the picker offers beside this system. */
-        public List<String> scenarioNames() {
-            return scenarios.stream().map(p -> p.getFileName().toString()).toList();
-        }
-
-        /** Whether there is anything here yet. Task 2 starts as an empty folder. */
+        /** Whether there is anything here yet. A lab starts as an empty folder. */
         public boolean started() { return !sources.isEmpty(); }
-
-        /** A fleet, or one machine? The second needs no scenario and gets no film. */
-        public boolean distributed() { return !scenarios.isEmpty(); }
     }
 
     // ------------------------------------------------------------------ finding
 
     /**
-     * Two different questions, which is why there are two lists.
+     * Directories that are never the student's code.
      *
-     * <p><b>Not a system</b> — a directory that is never a thing to run in its own
-     * right. Some of these are the project's furniture; the rest are a system's
-     * own parts. `1-mapreduce/src` came back as a second entry beside
-     * `1-mapreduce`, with the same four files and a button that did the same
-     * thing, which is how this list came to be.
-     *
-     * <p><b>Not scanned</b> — a directory whose contents are not a system's
-     * sources even when it sits inside one. Generated code and compiled classes
-     * are the whole of it: handing `gen/` to javac twice is how a build starts
-     * reporting duplicate classes.
+     * <p>The project's own furniture, plus the two that are output rather than
+     * input: handing {@code gen/} to javac twice is how a build starts reporting
+     * duplicate classes.
      */
-    private static final List<String> NOT_A_SYSTEM =
+    private static final List<String> NOT_CODE =
             List.of("build", "lib", "docs", "viewer", "node_modules", "presentation",
-                    "gen", "out", "classes", "input", "corpus",
-                    "src", "checks", "test", "tests", "proto", "scenarios");
+                    "gen", "out", "classes", "input", "corpus", "scenarios");
 
-    private static final List<String> NOT_SCANNED =
-            List.of("build", "lib", "docs", "viewer", "node_modules", "gen", "out", "classes");
+    /** Where scenarios live, and where the console writes a new one. */
+    public static final String SCENARIOS = "scenarios";
 
     /**
-     * Every system in the project, in the order a student meets them.
+     * Everything in this lab that compiles, as one unit.
      *
-     * <p>Two levels deep, because a ladder of small systems wants a folder around
-     * it ({@code 0-tour/3-bigger-messages}) and a single task does not
-     * ({@code 1-wordcount}). Three levels would start finding {@code src/main}.
+     * <p>One compile, one classpath, one set of classes — so a scenario can place
+     * any class the lab defines on any machine, which is the whole point of
+     * separating what the code <i>can</i> do from where it runs.
      */
-    public List<System> systems() {
-        if (!isLab()) return List.of();
-        List<System> found = new ArrayList<>();
-        for (Path top : children(root)) {
-            if (skip(top)) continue;
-            List<Path> nested = children(top).stream().filter(p -> !skip(p)).toList();
-            boolean any = false;
-            for (Path in : nested) {
-                System t = read(in);
-                if (t != null) { found.add(t); any = true; }
-            }
-            // A folder that only groups other systems is not itself one — but a
-            // folder with its own code is, even when it also has subfolders.
-            System self = read(top);
-            if (self != null && (!any || self.started())) found.add(self);
-        }
-        found.sort(Comparator.comparing(System::id));
-        return found;
+    public Code code() {
+        if (!isLab()) return new Code(root, List.of(), List.of());
+        return new Code(root, walk(root, ".proto"), walk(root, ".java"));
     }
 
-    /** The one with this id, or null. */
-    public System system(String id) {
-        for (System t : systems()) if (t.id().equals(id)) return t;
+    /**
+     * Every scenario in the lab, by name.
+     *
+     * <p>{@code scenarios/} is the home and the place the console writes to. A
+     * {@code .yaml} sitting loose in the lab root counts too, so that a lab which
+     * has one does not show an empty list and leave a student wondering where it
+     * went.
+     */
+    public List<Path> scenarios() {
+        List<Path> out = new ArrayList<>();
+        Path dir = root.resolve(SCENARIOS);
+        for (Path p : children(dir)) if (yaml(p)) out.add(p);
+        for (Path p : children(root)) if (yaml(p)) out.add(p);
+        out.sort(Comparator.comparing(p -> p.getFileName().toString()));
+        return out;
+    }
+
+    /** What the picker offers. */
+    public List<String> scenarioNames() {
+        return scenarios().stream().map(p -> p.getFileName().toString()).toList();
+    }
+
+    /** A scenario by its file name, or null. */
+    public Path scenario(String name) {
+        if (name == null || name.isBlank()) return scenarios().isEmpty() ? null : scenarios().get(0);
+        for (Path p : scenarios()) if (p.getFileName().toString().equals(name)) return p;
         return null;
     }
 
-    /** Could this directory itself be a system? */
-    private boolean skip(Path dir) {
-        String name = dir.getFileName().toString();
-        return name.startsWith(".") || NOT_A_SYSTEM.contains(name) || !Files.isDirectory(dir);
+    private static boolean yaml(Path p) {
+        String n = p.getFileName().toString();
+        return Files.isRegularFile(p) && (n.endsWith(".yaml") || n.endsWith(".yml"));
     }
 
-    /** Should a system's file walk go into this directory? */
+    /** Should the walk go into this directory? */
     private static boolean opaque(Path dir) {
         String name = dir.getFileName().toString();
-        return name.startsWith(".") || NOT_SCANNED.contains(name);
+        return name.startsWith(".") || NOT_CODE.contains(name);
     }
 
-    /** A directory is a system if it holds Java, a schema or a scenario of its own. */
-    private System read(Path dir) {
-        List<Path> sources = under(dir, ".java");
-        List<Path> protos = under(dir, ".proto");
-        List<Path> scenarios = new ArrayList<>(under(dir, ".yaml"));
-        scenarios.addAll(under(dir, ".yml"));
-        if (sources.isEmpty() && protos.isEmpty() && scenarios.isEmpty()) {
-            // A task can be declared and empty — Task 2 starts as a folder with a
-            // brief in it and nothing else, and it has to be in the list from the
-            // first day or the student cannot see what they are aiming at.
-            if (!Files.isRegularFile(dir.resolve("README.md"))) return null;
-        }
-
-        // `main` first, so a system can carry variants beside it without one of
-        // them being chosen by alphabet.
-        scenarios.sort(Comparator.comparing((Path p) -> p.getFileName().toString().startsWith("main.") ? 0 : 1)
-                                 .thenComparing(p -> p.getFileName().toString()));
-        return new System(rel(dir), dir, scenarios, protos, sources);
-    }
-
-    /**
-     * Files of one extension inside a system, not descending into another one.
-     *
-     * <p>The stop is what makes {@code 0-tour} a group rather than a giant system
-     * containing all five rungs: a directory that is a system in its own right
-     * belongs to itself.
-     */
-    private List<Path> under(Path dir, String ext) {
+    /** Every file of one extension in the lab, skipping what is not the student's. */
+    private List<Path> walk(Path dir, String ext) {
         List<Path> out = new ArrayList<>();
-        collect(dir, dir, ext, out);
+        collect(dir, ext, out);
         out.sort(Comparator.comparing(Path::toString));
         return out;
     }
 
-    private void collect(Path from, Path here, String ext, List<Path> out) {
+    private void collect(Path here, String ext, List<Path> out) {
         for (Path p : children(here)) {
             if (Files.isDirectory(p)) {
-                if (opaque(p)) continue;
-                // Its own scenario or schema makes it somebody else's system —
-                // which is what keeps `0-tour` a group of five rather than one
-                // enormous system containing all five rungs' code at once.
-                //
-                // Except when the folder is one NOT_A_SYSTEM already names. Those
-                // are a system's own parts: `proto/` and `scenarios/` are exactly
-                // where a student is told to keep this system's schema and its
-                // worlds, and reading them as a neighbour's system left the walk
-                // with no schema to generate from and no world to run in.
-                boolean elsewhere = here.equals(from)
-                        && !NOT_A_SYSTEM.contains(p.getFileName().toString())
-                        && isSystemOfItsOwn(p);
-                if (!elsewhere) collect(from, p, ext, out);
+                if (!opaque(p)) collect(p, ext, out);
             } else if (p.getFileName().toString().endsWith(ext)) {
                 out.add(p);
             }
         }
-    }
-
-    private boolean isSystemOfItsOwn(Path dir) {
-        for (Path p : children(dir)) {
-            String n = p.getFileName().toString();
-            if (n.endsWith(".yaml") || n.endsWith(".yml") || n.endsWith(".proto")) return true;
-        }
-        return false;
     }
 
     private static List<Path> children(Path dir) {
@@ -278,19 +215,20 @@ public final class Lab {
      * doing with a compiled submission: running it in its own world is one, and
      * running it in a world it has never seen is another.
      */
-    public Path compile(System t, Consumer<String> log) throws IOException, InterruptedException {
-        if (!t.started()) {
-            log.accept("There is no code in " + t.id() + " yet.\n");
+    public Path compile(Consumer<String> log) throws IOException, InterruptedException {
+        Code c = code();
+        if (!c.started()) {
+            log.accept("There is no code in this lab yet.\n");
             return null;
         }
-        Path gen = t.dir().resolve("gen");
-        Path classes = classes(t);
+        Path gen = root.resolve("gen");
+        Path classes = classes();
         wipe(gen);
         wipe(classes);
         Files.createDirectories(gen);
         Files.createDirectories(classes);
-        if (!t.protos().isEmpty() && generate(t, gen, log) != 0) return null;
-        return compile(t, gen, classes, log) == 0 ? classes : null;
+        if (!c.protos().isEmpty() && generate(c.protos(), gen, log) != 0) return null;
+        return compile(c.sources(), gen, classes, log) == 0 ? classes : null;
     }
 
     /**
@@ -301,9 +239,9 @@ public final class Lab {
      * a system whose only scenario was `slow.yaml` wrote `id-slow.json` while both
      * endpoints looked for `id.json` and the finished run never appeared.
      */
-    /** Where this system's compiled classes go, whether or not they are there yet. */
-    public Path classes(System t) {
-        return root.resolve("build").resolve(t.id().replace('/', '-')).resolve("classes");
+    /** Where the lab's compiled classes go, whether or not they are there yet. */
+    public Path classes() {
+        return root.resolve("build").resolve("classes");
     }
 
     /**
@@ -314,13 +252,13 @@ public final class Lab {
      * anything is run — and the alternative is a page that takes five seconds to
      * open because it regenerates protobuf every time somebody looks at it.
      */
-    public boolean compiled(System t) {
-        Path classes = classes(t);
+    public boolean compiled() {
+        Path classes = classes();
         if (!Files.isDirectory(classes)) return false;
         try {
             long built = newest(classes, ".class");
             if (built == 0) return false;
-            long wrote = Math.max(newest(t.dir(), ".java"), newest(t.dir(), ".proto"));
+            long wrote = Math.max(newest(root, ".java"), newest(root, ".proto"));
             return built >= wrote;
         } catch (IOException e) {
             return false;
@@ -338,20 +276,24 @@ public final class Lab {
         }
     }
 
-    public Path trace(System t, String scenario) {
-        Path chosen = scenario == null || scenario.isBlank() ? t.first() : t.scenario(scenario);
+    /**
+     * Where this scenario's run is written.
+     *
+     * <p>Named after the scenario, because the scenario is now the thing there are
+     * many of. `two-machines.yaml` runs into `two-machines.json`, so the picker
+     * reads the way the folder does.
+     */
+    public Path trace(String scenario) {
+        Path chosen = scenario(scenario);
         if (chosen == null) return null;
-        // Named after the system and the world, so two variants of one system are
-        // two runs in the picker rather than one overwriting the other.
-        String stem = t.id().replace('/', '-');
-        String name = chosen.getFileName().toString().replaceAll("\\.ya?ml$", "");
-        if (!name.equals("main")) stem = stem + "-" + name;
+        String stem = chosen.getFileName().toString().replaceAll("\\.ya?ml$", "");
         return runs.resolve(stem + ".json");
     }
 
-    public int run(System t, String scenario, Consumer<String> log) throws IOException, InterruptedException {
-        if (!t.started()) {
-            log.accept("There is no code in " + t.id() + " yet — that is the exercise.\n");
+    public int run(String scenario, Consumer<String> log) throws IOException, InterruptedException {
+        Code c = code();
+        if (!c.started()) {
+            log.accept("There is no code in this lab yet — that is the exercise.\n");
             return 2;
         }
 
@@ -360,28 +302,28 @@ public final class Lab {
         // editor finds it there, so `tour.ping.Ping` resolves and completion
         // works on generated types without anything being configured — and a
         // student who wants to see what `protoc` actually made can open it.
-        Path gen = t.dir().resolve("gen");
-        Path classes = classes(t);
+        Path gen = root.resolve("gen");
+        Path classes = classes();
         wipe(gen);
         wipe(classes);
         Files.createDirectories(gen);
         Files.createDirectories(classes);
 
-        if (!t.protos().isEmpty() && generate(t, gen, log) != 0) return 1;
-        if (compile(t, gen, classes, log) != 0) return 1;
+        if (!c.protos().isEmpty() && generate(c.protos(), gen, log) != 0) return 1;
+        if (compile(c.sources(), gen, classes, log) != 0) return 1;
 
-        Path chosen = scenario == null || scenario.isBlank() ? t.first() : t.scenario(scenario);
+        Path chosen = scenario(scenario);
         if (chosen == null && scenario != null && !scenario.isBlank()) {
-            log.accept("There is no scenario called " + scenario + " in " + t.id() + ".\n");
+            log.accept("There is no scenario called " + scenario + " in this lab.\n");
             return 2;
         }
 
         if (chosen == null) {
             // Ordinary Java on one machine: there is no fleet to simulate and
             // nothing to draw, so the code speaks for itself.
-            String main = mainClassOf(t);
+            String main = mainClassOf(c.sources());
             if (main == null) {
-                log.accept("Nothing in " + t.id() + " has a `public static void main`, and there\n"
+                log.accept("Nothing in this lab has a `public static void main`, and there\n"
                         + "is no scenario beside it either — so there is nothing here to start.\n");
                 return 2;
             }
@@ -390,7 +332,7 @@ public final class Lab {
         }
 
         Files.createDirectories(runs);
-        Path trace = trace(t, scenario);
+        Path trace = trace(scenario);
         log.accept("\n");
         // `--no-view`: this run already has a viewer — the one that started it.
         int code = exec(List.of(java(), "-cp", cp(), "losim.cli.Main", "run", "--no-view",
@@ -403,7 +345,7 @@ public final class Lab {
         return code;
     }
 
-    private int generate(System t, Path gen, Consumer<String> log) throws IOException, InterruptedException {
+    private int generate(List<Path> protos, Path gen, Consumer<String> log) throws IOException, InterruptedException {
         Path protoc = lib.resolve("bin").resolve("protoc-" + platform());
         Path plugin = lib.resolve("bin").resolve("protoc-gen-grpc-java-" + platform());
         if (!Files.isExecutable(protoc) || !Files.isExecutable(plugin)) {
@@ -415,16 +357,16 @@ public final class Lab {
                 "--java_out=" + gen, "--grpc-java_out=" + gen));
         // An include path per schema directory, because an `import` is resolved
         // against the include path and nobody said where these files must live.
-        for (Path p : t.protos()) { argv.add("-I"); argv.add(p.getParent().toString()); }
-        for (Path p : t.protos()) argv.add(p.toString());
+        for (Path p : protos) { argv.add("-I"); argv.add(p.getParent().toString()); }
+        for (Path p : protos) argv.add(p.toString());
         log.accept("Reading the schema…\n");
         return exec(argv, log);
     }
 
-    private int compile(System t, Path gen, Path classes, Consumer<String> log)
+    private int compile(List<Path> own, Path gen, Path classes, Consumer<String> log)
             throws IOException, InterruptedException {
-        List<Path> sources = new ArrayList<>(under(gen, ".java"));
-        sources.addAll(t.sources());
+        List<Path> sources = new ArrayList<>(walk(gen, ".java"));
+        sources.addAll(own);
         List<String> argv = new ArrayList<>(List.of(javac(), "-nowarn", "--release", "21",
                 "-cp", cp(), "-d", classes.toString()));
         for (Path p : sources) argv.add(p.toString());
@@ -470,8 +412,8 @@ public final class Lab {
      *
      * @return the class to start, or null if nothing here has a {@code main}
      */
-    private String mainClassOf(System t) {
-        for (Path p : t.sources()) {
+    private String mainClassOf(List<Path> sources) {
+        for (Path p : sources) {
             try {
                 String source = Files.readString(p);
                 if (!source.contains("static void main(")) continue;

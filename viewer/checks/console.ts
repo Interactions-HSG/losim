@@ -1,7 +1,7 @@
 /**
- * S10 — do the console's views survive every trace, at every point on the clock?
+ * do the console's views survive every trace, at every point on the clock?
  *
- *   node viewer/spikes/s10-console.ts [substring]
+ *   node viewer/checks/console.ts [substring]
  *
  * Three questions a browser would answer slowly and this answers in a second.
  *
@@ -84,7 +84,7 @@ try {
 }
 const load = async (p: string) => import(pathToFileURL(join(BUILT, p)).href);
 const { Cost } = await load('components/console/Cost.js');
-const { Design } = await load('components/console/Design.js');
+const { Scenarios } = await load('components/console/Scenarios.js');
 const { FilmView } = await load('components/console/FilmView.js');
 const { Gallery } = await load('components/console/Gallery.js');
 const { Overview } = await load('components/console/Overview.js');
@@ -97,7 +97,7 @@ const { ConsoleContext } = await load('lib/console.js');
 const WHEN = [0, 0.07, 0.31, 0.5, 0.83, 1];
 const VIEWS: [View, () => ReactNode][] = [
   ['runs', Gallery],
-  ['design', Design],
+  ['scenarios', Scenarios],
   ['overview', Overview],
   ['film', FilmView],
   ['usage', Usage],

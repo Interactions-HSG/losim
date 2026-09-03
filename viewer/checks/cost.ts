@@ -1,7 +1,7 @@
 /**
  * S3 and S8 — is the frame cheap enough, on the two traces that decide it?
  *
- *   node viewer/spikes/s3-s8-cost.ts
+ *   node viewer/checks/cost.ts
  *
  * **S3** asks one architectural question and nothing else: *can React drive 30
  * fps at 25 machines, or does the packet layer have to go imperative?* React's

@@ -20,7 +20,7 @@ the ones you just made:
 
 ```java RunExperiments.java
 Experiments.here()
-        .run("my-system")
+        .run("main.yaml")
         .show();
 ```
 
@@ -41,6 +41,10 @@ laptop and in a Codespace, with no setup step and no first-run download.
 
 ## What is on the screen
 
+The cards below are the *drawings*. Two of them — Spans and Topology — are positions on
+the Film page's own switcher rather than pages in the rail, and the ledger is both a
+panel over the film and the whole Cost page. [Which is where →](/viewer/views)
+
 <Columns cols={2}>
   <Card title="The film" icon="film">
     The fleet at an instant. Zones are bands, roles are columns, and a machine is
@@ -56,11 +60,11 @@ laptop and in a Codespace, with no setup step and no first-run download.
     out-of-memory, disk-full, timeout and retry, at the instant it happened.
   </Card>
   <Card title="Spans" icon="bars-staggered">
-    The distributed call stack — waterfall, swimlanes and a rollup. Where the wall
+    *Inside Film, and on Overview.* The distributed call stack — waterfall, swimlanes and a rollup. Where the wall
     clock actually went, and **most of the time at the top is the bottom waiting**.
   </Card>
   <Card title="Topology" icon="circle-nodes">
-    The shape of the system, edges weighted by **bytes** rather than call count,
+    *Inside Film.* The shape of the system, edges weighted by **bytes** rather than call count,
     thickening as the clock runs.
   </Card>
   <Card title="The machine panel" icon="rectangle-list">
@@ -68,7 +72,7 @@ laptop and in a Codespace, with no setup step and no first-run download.
     than discover that it did.
   </Card>
   <Card title="The ledger" icon="receipt">
-    Four buckets, accruing **while the film plays** — and hovering a machine shows
+    *The Cost page, and a panel over the film.* Four buckets, accruing **while the film plays** — and hovering a machine shows
     its share of every one of them.
   </Card>
 </Columns>

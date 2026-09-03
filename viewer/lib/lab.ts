@@ -1,39 +1,36 @@
 /**
  * The lab behind the page, when there is one.
  *
- * `losim serve` puts three things on the same port as this app: the systems in
- * the project, a way to run one, and the output of the run that is going. This
- * is the client for those three, and it exists because the alternative is a
- * student learning a command line before they learn anything this course is
- * about.
+ * `losim serve` puts three things on the same port as this app: the scenarios in
+ * the lab, a way to run one, and the output of the run that is going. This is the
+ * client for those three, and it exists because the alternative is a student
+ * learning a command line before they learn anything this course is about.
  *
  * **It is allowed not to be there.** The same exported application is served
  * from a plain directory — the gallery, a trace somebody was sent, a static host
- * — and in all of those `/api/systems` is a 404. So every call here answers `null`
+ * — and in all of those `/api/scenarios` is a 404. So every call here answers `null`
  * rather than throwing, and the panel that uses it simply does not appear. A
  * viewer that showed a broken button whenever it was opened without a lab behind
  * it would be worse than one that shows nothing.
  */
 
-/** One system in the project, as the server sees it. */
-export interface System {
-  /** Its path from the project root — `0-tour/1-two-machines`. */
-  id: string;
-  /** Whether there is any code in it yet. A task can be declared and empty. */
-  started: boolean;
-  /** Whether it has a world to be run in. A single machine has none, and gets no film. */
-  distributed: boolean;
-  files: number;
-  schema: boolean;
-  /** Every scenario beside it, `main` first. More than one is a system with variants. */
-  scenarios: string[];
+/** One scenario in the lab, as the server sees it. */
+export interface Scenario {
+  /** Its file name — `two-machines.yaml`. */
+  name: string;
+  /** Where it sits, from the lab root. */
+  path: string;
   /** Its last run, if it has one. */
   trace?: string;
 }
 
 export interface Project {
-  systems: System[];
-  /** The system that is running, or null. */
+  scenarios: Scenario[];
+  /** Whether there is any code in the lab yet. A lab can start empty. */
+  started: boolean;
+  files: number;
+  schema: boolean;
+  /** The scenario that is running, or null. */
   busy: string | null;
 }
 
@@ -43,7 +40,7 @@ export interface Output {
   next: number;
   done: boolean;
   ok?: boolean;
-  system?: string;
+  scenario?: string;
   /** Where the trace landed, once there is one. */
   trace?: string;
 }
@@ -59,11 +56,17 @@ async function json<T>(url: string, init?: RequestInit): Promise<T | null> {
   }
 }
 
-/** Every system in the project, or null if this page is not being served by a lab. */
+/** Every scenario in the lab, or null if this page is not being served by a lab. */
 export async function project(): Promise<Project | null> {
-  const body = await json<{ systems?: System[]; busy?: string | null }>('./api/systems');
-  if (!body || !Array.isArray(body.systems)) return null;
-  return { systems: body.systems, busy: body.busy ?? null };
+  const body = await json<Partial<Project>>('./api/scenarios');
+  if (!body || !Array.isArray(body.scenarios)) return null;
+  return {
+    scenarios: body.scenarios,
+    started: body.started ?? false,
+    files: body.files ?? 0,
+    schema: body.schema ?? false,
+    busy: body.busy ?? null,
+  };
 }
 
 /**
@@ -77,16 +80,13 @@ export async function project(): Promise<Project | null> {
  * A refusal comes back as its own sentence rather than as a status code — the
  * server writes one, and it is the thing worth putting on the screen.
  */
-export async function run(
-  system: string,
-  scenario?: string,
-): Promise<{ run?: number; error?: string }> {
+export async function run(scenario: string): Promise<{ run?: number; error?: string }> {
   try {
     const res = await fetch('./api/run', {
       cache: 'no-store',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(scenario ? { system, scenario } : { system }),
+      body: JSON.stringify({ scenario }),
     });
     const body = (await res.json()) as { run?: number; error?: string };
     return res.ok ? body : { error: body.error ?? `the lab said ${res.status}` };
@@ -146,14 +146,13 @@ export interface Region {
 }
 
 /**
- * Everything needed to author a scenario for one system.
+ * Everything needed to author a scenario for this lab.
  *
  * The classes are read off the compiled bytecode; the instances and the regions
  * are losim's own catalogues. All three used to be discoverable only by reading
  * losim's source, which is why scenarios have been written by copying one.
  */
 export interface Palette {
-  system: string;
   /** Whether it builds. When it does not, `log` is javac's own words. */
   compiled: boolean;
   log?: string;
@@ -166,13 +165,12 @@ export interface Palette {
   scenarios: string[];
 }
 
-export async function palette(system: string): Promise<Palette | null> {
-  const body = await json<Partial<Palette>>(`./api/classes?system=${encodeURIComponent(system)}`);
+export async function palette(): Promise<Palette | null> {
+  const body = await json<Partial<Palette>>('./api/classes');
   if (!body) return null;
-  // A system that does not compile answers with `compiled: false` and a log, and
+  // A lab that does not compile answers with `compiled: false` and a log, and
   // nothing else — so every list has to be filled in rather than assumed.
   return {
-    system: body.system ?? system,
     compiled: body.compiled ?? false,
     log: body.log,
     jobs: body.jobs ?? [],
@@ -192,7 +190,6 @@ export async function palette(system: string): Promise<Palette | null> {
  * was written on — which is worth far more than anything this app could say.
  */
 export async function saveScenario(
-  system: string,
   name: string,
   yaml: string,
 ): Promise<{ scenario?: string; path?: string; replaced?: boolean; error?: string }> {
@@ -201,7 +198,7 @@ export async function saveScenario(
       cache: 'no-store',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ system, name, yaml }),
+      body: JSON.stringify({ name, yaml }),
     });
     const body = (await res.json()) as { scenario?: string; path?: string; error?: string };
     return res.ok ? body : { error: body.error ?? `the lab said ${res.status}` };

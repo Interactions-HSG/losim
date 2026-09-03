@@ -34,8 +34,6 @@ fi
 ./traces.sh "$@" || true
 echo
 echo "viewer on http://localhost:$PORT/"
-echo "  spikes:  http://localhost:$PORT/spikes/s1/   the glyphs"
-echo "           http://localhost:$PORT/spikes/s4/   the recorder"
 # Served by losim itself. It used to be `python3 -m http.server`, which was a
 # fine static server and one more language in a repository that no longer needs
 # one — and losim already has to be able to serve this, because that is what a

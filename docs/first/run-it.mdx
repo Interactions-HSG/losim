@@ -17,7 +17,7 @@ public final class RunExperiments {
 
     public static void main(String[] args) throws Exception {
         Experiments.here()
-                .run("thumbs")
+                .run("main.yaml")
                 .show();
     }
 }
@@ -34,8 +34,8 @@ which is the only way to compare a design against itself:
 
 ```java
 Experiments.here()
-        .run("thumbs")
-        .run("thumbs", "slow.yaml")     // the same system, a worse afternoon
+        .run("main.yaml")
+        .run("slow.yaml")               // the same code, a worse afternoon
         .show();
 ```
 
@@ -48,8 +48,7 @@ scenarios, the one that fell over is a result about the design, not a reason to 
 screenshot. Stop it with the stop button in your editor.
 
 `done()` instead of `show()` writes the traces and opens nothing, for when you only
-want the files. `runAll()` runs every system in the project that has code and a
-scenario.
+want the files. `runAll()` runs every scenario in the project, one after another.
 </Tip>
 
 ## What it is doing on your behalf

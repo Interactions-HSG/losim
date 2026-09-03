@@ -10,12 +10,11 @@
  * tab.
  */
 import { Cost } from '../components/console/Cost.tsx';
-import { Design } from '../components/console/Design.tsx';
+import { Scenarios } from '../components/console/Scenarios.tsx';
 import { FilmView } from '../components/console/FilmView.tsx';
 import { Gallery } from '../components/console/Gallery.tsx';
 import { Overview } from '../components/console/Overview.tsx';
 import { Shell } from '../components/console/Shell.tsx';
-import { Systems } from '../components/console/Systems.tsx';
 import { Usage } from '../components/console/Usage.tsx';
 import { ConsoleProvider, useConsole } from '../lib/console.tsx';
 
@@ -37,12 +36,15 @@ function View() {
           there is a lab behind this page at all — and hidden rather than
           unmounted, so a run started here goes on being followed while you look
           at something else. */}
-      <div className="host" hidden={view !== 'systems'}>
-        <Systems />
+      {/* Mounted whatever else is on screen, so the console finds out whether
+          there is a lab behind this page at all — and hidden rather than
+          unmounted, so a run started here goes on being followed while you look
+          at something else. */}
+      <div className="host" hidden={view !== 'scenarios'}>
+        <Scenarios />
       </div>
 
       {view === 'runs' && <Gallery />}
-      {view === 'design' && <Design />}
       {run && view === 'overview' && <Overview />}
       {run && view === 'film' && <FilmView />}
       {run && view === 'usage' && <Usage />}

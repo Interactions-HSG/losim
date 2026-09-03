@@ -21,7 +21,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { output, project, run, type Output, type System } from '../lib/lab.ts';
+import { output, project, run, type Output, type Project, type Scenario } from '../lib/lab.ts';
 
 /** How often to ask what the run has said. Slow enough to be free, fast enough to read. */
 const POLL_MS = 400;
@@ -46,8 +46,7 @@ export function Lab({
    */
   watch?: number;
 }) {
-  const [systems, setSystems] = useState<System[] | null>(null);
-  const [world, setWorld] = useState<Record<string, string>>({});
+  const [lab, setLab] = useState<Project | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [log, setLog] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +56,7 @@ export function Lab({
     const found = await project();
     onLab(found != null);
     if (!found) return null;
-    setSystems(found.systems);
+    setLab(found);
     setBusy(found.busy);
     return found;
   }, [onLab]);
@@ -104,7 +103,7 @@ export function Lab({
       if (said.trace) {
         onRan(said.trace.replace(/^traces\//, '').replace(/\.json$/, ''), said.trace);
       } else if (said.ok === false) {
-        setError(`${said.system ?? 'that run'} did not finish — the output says why.`);
+        setError(`${said.scenario ?? 'that run'} did not finish — the output says why.`);
       }
       // A run with no scenario has no trace and no film; its output is the
       // whole result, so it is left on screen.
@@ -123,83 +122,58 @@ export function Lab({
     if (el) el.scrollTop = el.scrollHeight;
   }, [log]);
 
-  const press = useCallback(
-    async (s: System) => {
-      setError(null);
-      setLog('');
-      const chosen = s.scenarios.length > 1 ? (world[s.id] ?? s.scenarios[0]) : undefined;
-      const said = await run(s.id, chosen);
-      if (said.error) {
-        setError(said.error);
-        return;
-      }
-      setBusy(s.id);
-    },
-    [world],
-  );
+  const press = useCallback(async (name: string) => {
+    setError(null);
+    setLog('');
+    const said = await run(name);
+    if (said.error) {
+      setError(said.error);
+      return;
+    }
+    setBusy(name);
+  }, []);
 
-  if (!systems) return null;
+  if (!lab) return null;
 
   return (
     <section className="lab">
       <div className="rows">
-        {systems.map((s) => {
-          const running = busy === s.id;
+        {lab.scenarios.length === 0 && (
+          <div className="row">
+            <span className="empty">
+              No scenarios yet. Write one above and it appears here.
+            </span>
+          </div>
+        )}
+        {lab.scenarios.map((sc: Scenario) => {
+          const running = busy === sc.name;
           return (
-            <div key={s.id} className={`row${running ? ' running' : ''}`}>
+            <div key={sc.name} className={`row${running ? ' running' : ''}`}>
               <button
                 className="go"
-                disabled={!s.started || busy != null}
-                onClick={() => press(s)}
+                disabled={!lab.started || busy != null}
+                onClick={() => press(sc.name)}
                 title={
-                  !s.started
-                    ? 'there is no code in this one yet — that is the exercise'
+                  !lab.started
+                    ? 'there is no code in this lab yet — that is the exercise'
                     : busy != null
                       ? `${busy} is running`
-                      : `build and run ${s.id}`
+                      : `run ${sc.name}`
                 }
-                aria-label={`run ${s.id}`}
+                aria-label={`run ${sc.name}`}
               >
                 {running ? '…' : '▶'}
               </button>
 
-              <span className="id">{s.id}</span>
+              <span className="id">{sc.name}</span>
+              <span className="facts">{sc.path}</span>
 
-              {s.scenarios.length > 1 ? (
-                <select
-                  className="world"
-                  value={world[s.id] ?? s.scenarios[0]}
-                  disabled={busy != null}
-                  onChange={(e) => setWorld((w) => ({ ...w, [s.id]: e.target.value }))}
-                  aria-label={`which world for ${s.id}`}
-                >
-                  {s.scenarios.map((w) => (
-                    <option key={w} value={w}>
-                      {w}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <span className="world one">{s.scenarios[0] ?? 'one machine'}</span>
-              )}
-
-              <span className="facts">
-                {!s.started ? (
-                  <em>nothing written yet</em>
-                ) : (
-                  <>
-                    {s.files} file{s.files === 1 ? '' : 's'}
-                    {s.schema ? ' · schema' : ''}
-                  </>
-                )}
-              </span>
-
-              {s.trace && (
+              {sc.trace && (
                 <button
                   className="seen"
                   disabled={busy != null}
                   onClick={() =>
-                    onRan(s.trace!.replace(/^traces\//, '').replace(/\.json$/, ''), s.trace!)
+                    onRan(sc.trace!.replace(/^traces\//, '').replace(/\.json$/, ''), sc.trace!)
                   }
                 >
                   last run
@@ -242,7 +216,8 @@ export function Lab({
         .id { font-family: var(--mono); font-weight: 600; }
         .world { font-size: 12px; color: var(--text-2); }
         .world.one { font-family: var(--mono); font-size: 11.5px; color: var(--text-3); }
-        .facts { margin-left: auto; color: var(--text-3); font-size: 11.5px; }
+        .facts { margin-left: auto; color: var(--text-3); font-size: 11.5px; font-family: var(--mono); }
+        .empty { color: var(--text-3); font-size: 12.5px; }
         .facts em { font-style: normal; }
 
         .seen {

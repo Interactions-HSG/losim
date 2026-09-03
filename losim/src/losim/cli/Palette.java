@@ -14,7 +14,7 @@ import java.util.stream.Stream;
 import losim.api.Job;
 
 /**
- * What a system's code offers a machine.
+ * What the lab's code offers a machine.
  *
  * <p>A scenario places <b>classes</b> on machines. Until now the only way to know
  * which classes could be placed was to read the source, get the fully qualified
@@ -69,7 +69,7 @@ public final class Palette {
     public record Method(String name, boolean idempotent) {}
 
     /**
-     * Everything in one system that a scenario could point at.
+     * Everything in the lab that a scenario could point at.
      *
      * @param jobs     classes implementing {@link Job}. A scenario names exactly one
      * @param services classes a machine can be given
@@ -82,13 +82,13 @@ public final class Palette {
     private Palette() {}
 
     /**
-     * Read a compiled system.
+     * Read the lab's compiled classes.
      *
      * @param classes where {@link Lab#compile} put them
      * @param lab     the lab, for the classpath the classes were compiled against
-     * @param system  the system, only so a service can be pointed back at its source
+     * @param sources the lab's sources, only so a service can be pointed back at one
      */
-    public static Offer of(Path classes, Lab lab, Lab.System system) throws IOException {
+    public static Offer of(Path classes, Lab lab, List<Path> sources) throws IOException {
         List<String> jobs = new ArrayList<>();
         List<Service> services = new ArrayList<>();
         int other = 0;
@@ -101,7 +101,7 @@ public final class Palette {
         // The parent is losim's own loader, so `losim.api.Job` and `io.grpc` are
         // the same classes here as they are in the run — an `isAssignableFrom`
         // against a second copy of an interface is always false, and the symptom
-        // would be a system whose services all vanished from the list.
+        // would be a lab whose services all vanished from the list.
         try (var loader = new URLClassLoader(urls.toArray(URL[]::new), Palette.class.getClassLoader())) {
             Class<?> bindable;
             try {
@@ -139,7 +139,7 @@ public final class Palette {
                                            Boolean.TRUE.equals(flag(m, "isIdempotent"))));
                 }
                 methods.sort(Comparator.comparing(Method::name));
-                services.add(new Service(name, bare, full, methods, sourceOf(lab, system, name)));
+                services.add(new Service(name, bare, full, methods, sourceOf(lab, sources, name)));
             }
         }
         jobs.sort(Comparator.naturalOrder());
@@ -233,11 +233,11 @@ public final class Palette {
      * at that project in an editor — an absolute path from inside a container is
      * not a place they can go.
      */
-    private static String sourceOf(Lab lab, Lab.System system, String cls) {
+    private static String sourceOf(Lab lab, List<Path> sources, String cls) {
         String simple = cls.substring(cls.lastIndexOf('.') + 1);
         int nested = simple.indexOf('$');
         if (nested > 0) simple = simple.substring(0, nested);
-        for (Path p : system.sources()) {
+        for (Path p : sources) {
             if (!p.getFileName().toString().equals(simple + ".java")) continue;
             try {
                 return lab.root().relativize(p.toAbsolutePath().normalize())
