@@ -434,13 +434,14 @@ public final class Serve {
     }
 
     /**
-     * The raw text of a scenario already on disk, for the console's edit form.
+     * An existing scenario, in the shape the authoring form composes one in —
+     * for the console's edit form.
      *
-     * <p>Read rather than reconstructed. The form that authors a <em>new</em>
-     * scenario builds one from a palette, but a scenario that already exists may
-     * carry things the palette never offered — a comment, a hand-tuned fault, a
-     * distribution nobody has a control for yet — and the only version of it
-     * that cannot lose any of that is the file itself.
+     * <p>{@link Draft#of} is the one that reads it: the loader's own
+     * validation first, then a second walk of the same parsed tree for
+     * exactly what the form has a control for. Anything else in the file
+     * comes back as a refusal naming the key, the same as a broken scenario
+     * would — never a Draft with something silently missing from it.
      */
     private void readScenario(HttpExchange x) throws IOException {
         String name = query(x).getOrDefault("name", "").trim();
@@ -449,9 +450,61 @@ public final class Serve {
             fail(x, 404, "There is no scenario called " + name + " in this lab.");
             return;
         }
+        Draft.Of d;
+        try {
+            d = Draft.of(file.getFileName().toString(), Files.readString(file));
+        } catch (RuntimeException e) {
+            fail(x, 400, e.getMessage() == null ? String.valueOf(e) : e.getMessage());
+            return;
+        }
+
+        List<Object> pools = new ArrayList<>();
+        for (Draft.Pool p : d.pools()) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("name", p.name());
+            row.put("count", p.count());
+            row.put("instance", p.instance());
+            row.put("zones", p.zones());
+            row.put("runs", p.runs());
+            pools.add(row);
+        }
+        List<Object> kills = new ArrayList<>();
+        for (Draft.Kill k : d.kills()) {
+            kills.add(new LinkedHashMap<>(Map.of("atRefMs", k.atRefMs(), "target", k.target(),
+                    "restartAfterRefMs", k.restartAfterRefMs())));
+        }
+        List<Object> chaos = new ArrayList<>();
+        for (Draft.Chaos c : d.chaos()) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("kind", c.kind());
+            row.put("everyRefMs", c.everyRefMs());
+            row.put("among", c.among());
+            row.put("forRefMs", c.forRefMs());
+            row.put("factor", c.factor());
+            chaos.add(row);
+        }
+        List<Object> retries = new ArrayList<>();
+        for (Draft.Retry r : d.retries()) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("method", r.method());
+            row.put("attempts", r.attempts());
+            row.put("backoffRefMs", r.backoffRefMs());
+            row.put("unsafe", r.unsafe());
+            retries.add(row);
+        }
+
+        Map<String, Object> draft = new LinkedHashMap<>();
+        draft.put("name", d.name());
+        draft.put("job", d.job());
+        draft.put("seed", d.seed());
+        draft.put("expectedRunRefSeconds", d.expectedRunRefSeconds());
+        draft.put("pools", pools);
+        draft.put("kills", kills);
+        draft.put("chaos", chaos);
+        draft.put("retries", retries);
+
         Map<String, Object> out = new LinkedHashMap<>();
-        out.put("name", file.getFileName().toString());
-        out.put("yaml", Files.readString(file));
+        out.put("draft", draft);
         send(x, 200, "application/json", Json.write(out).getBytes(StandardCharsets.UTF_8));
     }
 

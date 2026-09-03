@@ -13,6 +13,7 @@
  * viewer that showed a broken button whenever it was opened without a lab behind
  * it would be worse than one that shows nothing.
  */
+import type { Draft } from './author.ts';
 
 /** One scenario in the lab, as the server sees it. */
 export interface Scenario {
@@ -208,17 +209,20 @@ export async function saveScenario(
 }
 
 /**
- * The raw text of a scenario already on disk.
+ * An existing scenario, in the same shape the authoring form composes one in.
  *
- * Editing goes through this rather than through the palette form: a scenario
- * that already exists may carry a hand-tuned fault or a comment the form never
- * offered, and the only version of it that cannot lose that is the file itself.
+ * The server does the reading: the loader checks the file is even valid, then
+ * a second walk of the same parse tree fills in exactly what the form has a
+ * control for. Anything the file has that the form does not comes back as a
+ * refusal naming the key — the same as a broken scenario would — never a
+ * `Draft` with something silently missing from it.
  */
-export async function readScenario(name: string): Promise<{ yaml?: string; error?: string }> {
-  const body = await json<{ name?: string; yaml?: string }>(
-    `./api/scenario?name=${encodeURIComponent(name)}`,
-  );
-  return body?.yaml === undefined
-    ? { error: 'could not read that scenario — is `losim serve` still running?' }
-    : { yaml: body.yaml };
+export async function openScenario(name: string): Promise<{ draft?: Draft; error?: string }> {
+  try {
+    const res = await fetch(`./api/scenario?name=${encodeURIComponent(name)}`, { cache: 'no-store' });
+    const body = (await res.json()) as { draft?: Draft; error?: string };
+    return res.ok ? body : { error: body.error ?? `the lab said ${res.status}` };
+  } catch {
+    return { error: 'the lab is not answering — is `losim serve` still running?' };
+  }
 }

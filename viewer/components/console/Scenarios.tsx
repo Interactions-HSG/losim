@@ -31,7 +31,7 @@ import {
   type Chaos, type Draft, type Pool,
 } from '../../lib/author.ts';
 import {
-  palette as fetchPalette, readScenario, saveScenario, type Palette,
+  openScenario, palette as fetchPalette, saveScenario, type Palette,
 } from '../../lib/lab.ts';
 
 export function Scenarios() {
@@ -46,8 +46,8 @@ export function Scenarios() {
   const [mode, setMode] = useState<'list' | 'new' | 'edit'>('list');
   const [palette, setPalette] = useState<Palette | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
-  /** The scenario being hand-edited, its own file's text rather than a Draft. */
-  const [editing, setEditing] = useState<{ name: string; yaml: string } | null>(null);
+  /** The file an edit writes back to — absent while composing a new one. */
+  const [editing, setEditing] = useState<{ name: string } | null>(null);
   const [busy, setBusy] = useState(true);
   const [saying, setSaying] = useState<string | null>(null);
   const [refused, setRefused] = useState<string | null>(null);
@@ -116,24 +116,32 @@ export function Scenarios() {
     go('runs');
   }, [draft, palette, yaml, startBuild, go]);
 
-  /** Load an existing scenario's own file back in, for hand-editing. */
+  /**
+   * Load an existing scenario back into this same form.
+   *
+   * The server does the reading — the loader checks it, then a second walk of
+   * the same parse tree fills in exactly what this form has a control for.
+   * Anything it does not comes back as a refusal naming the key, not a Draft
+   * missing something silently: there is nowhere in this form to notice that.
+   */
   const openForEdit = useCallback(async (name: string) => {
     setRefused(null);
-    const said = await readScenario(name);
-    if (said.error || said.yaml === undefined) {
+    const said = await openScenario(name);
+    if (said.error || !said.draft) {
       setRefused(said.error ?? 'could not read that scenario');
       return;
     }
-    setEditing({ name, yaml: said.yaml });
+    setDraft(said.draft);
+    setEditing({ name });
     setMode('edit');
   }, []);
 
-  /** Write the hand-edited file back, through the same loader a run uses. */
+  /** Write the file back, through the same loader a run uses — and no run this time. */
   const saveEdit = useCallback(async () => {
-    if (!editing) return;
+    if (!draft || !editing) return;
     setSaying('saving…');
     setRefused(null);
-    const wrote = await saveScenario(editing.name, editing.yaml);
+    const wrote = await saveScenario(editing.name, yaml);
     if (wrote.error) {
       setRefused(wrote.error);
       setSaying(null);
@@ -145,7 +153,7 @@ export function Scenarios() {
     // The list shows names and paths, not content, so nothing there is stale —
     // but a scenario just replaced is worth the same nudge a new one gets.
     nudge();
-  }, [editing, nudge]);
+  }, [draft, editing, yaml, nudge]);
 
   return (
     <>
@@ -165,9 +173,10 @@ export function Scenarios() {
             </>
           ) : (
             <>
-              This is the file itself — not the form, because a scenario that already exists may
-              carry something the form never offered. Saved through the same loader a run uses,
-              so a mistake is refused here rather than two clicks later.
+              The same form, filled in from what is already written. Nothing is written back
+              until you press save — and a scenario the form has no control for something in
+              (a hand-tuned rate, an advanced key) is refused before it opens here at all,
+              rather than opened with that something quietly missing.
             </>
           )
         }
@@ -202,6 +211,17 @@ export function Scenarios() {
 
       {busy && <Panel><p className="muted">reading the lab…</p></Panel>}
 
+      {mode === 'list' && refused && (
+        <Panel title="This one can't open here">
+          <pre className="log bad">{refused}</pre>
+          <p className="note">
+            The loader's own sentence, with the line it was written on. Edit the file directly,
+            then open it here again once that's out — this form only ever refuses to open one;
+            it never opens one with something quietly missing.
+          </p>
+        </Panel>
+      )}
+
       {mode === 'list' && !busy && palette && !palette.compiled && (
         <Panel title="This lab does not compile">
           <p className="muted">
@@ -228,7 +248,10 @@ export function Scenarios() {
         </Panel>
       )}
 
-      {mode === 'new' && !busy && palette && canAuthor && draft && (
+      {/* New needs the palette to have anything to place; Edit needs only the
+          draft it already opened with — the server refused before this ever
+          rendered if that draft could not fully represent the file. */}
+      {((mode === 'new' && canAuthor) || mode === 'edit') && !busy && palette && draft && (
         <div className="two">
           <div className="col">
             <Machines draft={draft} palette={palette} edit={edit} />
@@ -287,24 +310,34 @@ export function Scenarios() {
             <Panel>
               <div className="field">
                 <label htmlFor="scname">Save as</label>
-                <input
-                  id="scname"
-                  value={draft.name}
-                  onChange={(e) => edit((d) => { d.name = e.target.value; })}
-                />
+                {editing ? (
+                  <input id="scname" value={editing.name} disabled />
+                ) : (
+                  <input
+                    id="scname"
+                    value={draft.name}
+                    onChange={(e) => edit((d) => { d.name = e.target.value; })}
+                  />
+                )}
                 <span className="hint">
-                  Written to <code>scenarios/{draft.name}.yaml</code>
-                  {palette.scenarios.includes(`${draft.name}.yaml`) && (
-                    <> — <strong>which already exists and will be replaced</strong></>
+                  {editing ? (
+                    <>Written to <code>scenarios/{editing.name}</code></>
+                  ) : (
+                    <>
+                      Written to <code>scenarios/{draft.name}.yaml</code>
+                      {palette.scenarios.includes(`${draft.name}.yaml`) && (
+                        <> — <strong>which already exists and will be replaced</strong></>
+                      )}
+                    </>
                   )}
                 </span>
               </div>
               <button
                 className="btn primary wide"
-                onClick={() => void create()}
+                onClick={() => void (editing ? saveEdit() : create())}
                 disabled={!!saying || !draft.job || !draft.name.trim()}
               >
-                {saying ?? 'Create and run'}
+                {saying ?? (editing ? 'Save' : 'Create and run')}
               </button>
               {!draft.job && (
                 <p className="note">
@@ -317,59 +350,12 @@ export function Scenarios() {
         </div>
       )}
 
-      {mode === 'edit' && editing && (
-        <Panel title={editing.name} note="what is written, hand-editable" flush>
-          <textarea
-            className="edit"
-            spellCheck={false}
-            value={editing.yaml}
-            onChange={(e) => setEditing({ ...editing, yaml: e.target.value })}
-          />
-          <div className="editbar">
-            {refused ? (
-              <pre className="log bad inline">{refused}</pre>
-            ) : (
-              <span className="note inline">
-                Saved through the same loader a run uses — a mistake comes back with the line it
-                is on.
-              </span>
-            )}
-            <button
-              className="btn primary"
-              onClick={() => void saveEdit()}
-              disabled={!!saying || !editing.yaml.trim()}
-            >
-              {saying ?? 'Save'}
-            </button>
-          </div>
-        </Panel>
-      )}
-
       <style>{`
-        .edit {
-          width: 100%; min-height: 420px; margin: 0; padding: 14px 20px 18px;
-          border: 0; resize: vertical; box-sizing: border-box;
-          font-family: var(--mono); font-size: 12.5px; line-height: 1.6;
-          color: var(--text); background: var(--surface);
-        }
-        .edit:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
-        .editbar {
-          display: flex; align-items: center; gap: 14px;
-          padding: 10px 20px; border-top: 1px solid var(--border);
-        }
-        .editbar .note.inline { margin: 0; flex: 1; }
-        .editbar .log.inline { flex: 1; margin: 0; max-height: 4.6em; overflow: auto; }
-
         .two { display: grid; gap: 20px; grid-template-columns: minmax(0, 1.5fr) minmax(0, 380px); align-items: start; }
         .col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
         .col.sticky { position: sticky; top: 84px; }
         @media (max-width: 1180px) { .two { grid-template-columns: 1fr; } .col.sticky { position: static; } }
 
-        .yaml {
-          margin: 0; padding: 14px 20px 18px; overflow-x: auto;
-          font-family: var(--mono); font-size: 12px; line-height: 1.6;
-          color: var(--text-2); white-space: pre;
-        }
         .log {
           margin: 0; padding: 12px 14px; border-radius: var(--r-sm);
           background: var(--surface-2); font-family: var(--mono); font-size: 12px;
