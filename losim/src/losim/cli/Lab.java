@@ -193,10 +193,6 @@ public final class Lab {
         }
     }
 
-    private String rel(Path p) {
-        return root.relativize(p.toAbsolutePath().normalize()).toString().replace('\\', '/');
-    }
-
     // ------------------------------------------------------------------ running
 
     /**

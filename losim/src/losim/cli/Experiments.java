@@ -15,8 +15,8 @@ import java.util.List;
  * public final class RunExperiments {
  *     public static void main(String[] args) throws Exception {
  *         Experiments.here()
- *             .run("0-tour/1-two-machines")
- *             .run("1-tour-grpc", "slow.yaml")
+ *             .run("main.yaml")
+ *             .run("slow.yaml")
  *             .show();
  *     }
  * }
