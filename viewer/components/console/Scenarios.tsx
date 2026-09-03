@@ -36,8 +36,14 @@ import {
 
 export function Scenarios() {
   const { reload, nudge, setHasLab, openAt, watching } = useConsole();
-  const [systems, setSystems] = useState<string[] | null>(null);
-  const [system, setSystem] = useState<string>('');
+  /**
+   * Listing what exists, or writing a new one.
+   *
+   * The list is the page, because a lab accumulates scenarios and the thing you
+   * do most often is run one of them again. Writing is the occasional act, so it
+   * is behind a button rather than in front of the list.
+   */
+  const [mode, setMode] = useState<'list' | 'new'>('list');
   const [palette, setPalette] = useState<Palette | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [busy, setBusy] = useState(true);
@@ -57,7 +63,7 @@ export function Scenarios() {
       })
       .finally(() => live && setBusy(false));
     return () => { live = false; };
-  }, [system]);
+  }, []);
 
   const edit = useCallback((f: (d: Draft) => void) => {
     setDraft((was) => {
@@ -75,6 +81,16 @@ export function Scenarios() {
     () => (draft && palette ? distances(draft, palette.regions) : null),
     [draft, palette],
   );
+
+  /**
+   * Whether there is anything to place.
+   *
+   * Compiling is a different question. A lab of plain Java compiles perfectly and
+   * offers no job and no service, and a draft over that is a fleet of workers
+   * that run nothing wrapped around an empty job.
+   */
+  const canAuthor = !!palette && palette.compiled
+    && (palette.jobs.length > 0 || palette.services.length > 0);
 
   /** Write it, then run it. A scenario nobody ran is a file, not a result. */
   const create = useCallback(async () => {
@@ -99,43 +115,63 @@ export function Scenarios() {
     // look, though: it noticed the last run when it mounted.
     nudge();
     setSaying(null);
+    // Back to the list, which is where the run it just started is now showing
+    // its output. Staying on a form whose Create button has already fired would
+    // invite pressing it twice.
+    setMode('list');
     // The run about to be written will be in the index; ask for it again rather
     // than patching a list that is a directory listing anyway.
     void reload();
   }, [draft, palette, yaml, reload, nudge]);
-
-  if (palette && !palette.compiled && !busy) {
-    return (
-      <>
-        <Head title="Scenarios" sub="what a run is: where the code runs, and what goes wrong" />
-        <Panel>
-          <p className="muted">
-            There is no lab behind this page, or nothing in it has code yet. The designer needs{' '}
-            <code>losim serve</code> running against a project — it reads the classes off what
-            that project compiles to.
-          </p>
-        </Panel>
-      </>
-    );
-  }
 
   return (
     <>
       <Head
         title="Scenarios"
         sub={
-          <>
-            Your Java says what <em>can</em> run. A scenario says where it runs and what goes
-            wrong. The classes below are read off what this lab compiles to, so nothing here
-            can name a service that is not there.
-          </>
+          mode === 'list' ? (
+            <>
+              Your Java says what <em>can</em> run. A scenario says where it runs and what goes
+              wrong — the fleet, the distances, and the weather. Write as many as you like: what
+              changes between two runs is almost never the code.
+            </>
+          ) : (
+            <>
+              What this lab compiles to is read off the classes, so nothing here can name a
+              service that is not there. Nothing is written until you press create.
+            </>
+          )
+        }
+        actions={
+          mode === 'list' ? (
+            <button
+              className="btn"
+              disabled={!canAuthor}
+              title={
+                canAuthor
+                  ? 'write a new scenario'
+                  : 'there is nothing to place yet — this lab offers no job and no service'
+              }
+              onClick={() => {
+                setRefused(null);
+                if (palette) setDraft(firstDraft(palette));
+                setMode('new');
+              }}
+            >
+              + New scenario
+            </button>
+          ) : (
+            <button className="btn" onClick={() => { setMode('list'); setRefused(null); }}>
+              Cancel
+            </button>
+          )
         }
       />
 
       {busy && <Panel><p className="muted">reading the lab…</p></Panel>}
 
-      {!busy && palette && !palette.compiled && (
-        <Panel title="the lab does not compile">
+      {mode === 'list' && !busy && palette && !palette.compiled && (
+        <Panel title="This lab does not compile">
           <p className="muted">
             Nothing can be placed until it does — the list of services is read off the classes,
             and there are none. This is javac, unedited:
@@ -150,7 +186,7 @@ export function Scenarios() {
           around a `job: ""` — a scenario that cannot exist, offered as a default.
           The palette is the predicate: it is empty for exactly the labs where
           there is nothing to author. */}
-      {!busy && palette && palette.compiled && !palette.jobs.length && !palette.services.length && (
+      {mode === 'list' && !busy && palette && palette.compiled && !canAuthor && (
         <Panel title="Nothing to place yet">
           <p className="muted">
             This lab compiles — {palette.other} class{palette.other === 1 ? '' : 'es'} — but none
@@ -160,7 +196,7 @@ export function Scenarios() {
         </Panel>
       )}
 
-      {!busy && palette && palette.compiled && (palette.jobs.length > 0 || palette.services.length > 0) && draft && (
+      {mode === 'new' && !busy && palette && canAuthor && draft && (
         <div className="two">
           <div className="col">
             <Machines draft={draft} palette={palette} edit={edit} />
@@ -225,7 +261,7 @@ export function Scenarios() {
                   onChange={(e) => edit((d) => { d.name = e.target.value; })}
                 />
                 <span className="hint">
-                  Written to <code>{system}/scenarios/{draft.name}.yaml</code>
+                  Written to <code>scenarios/{draft.name}.yaml</code>
                   {palette.scenarios.includes(`${draft.name}.yaml`) && (
                     <> — <strong>which already exists and will be replaced</strong></>
                   )}
@@ -280,10 +316,11 @@ export function Scenarios() {
         .field .hint { font-size: 11.5px; color: var(--text-3); }
       `}</style>
 
-      {/* Every scenario in the lab, and what a run is saying. The page that
-          writes one is the page that runs it: a scenario nobody ran is a file,
-          not a result. */}
-      <Panel title="Scenarios in this lab" note="press ▶ to build and run">
+      {/* Always mounted, whichever mode the page is in: this is what tells the
+          console there is a lab behind the page at all, and it is what follows a
+          run that is going. Hidden while writing, so the form has the screen. */}
+      <div hidden={mode !== 'list'}>
+      <Panel title="Every scenario here" note="press ▶ to build and run">
         <Lab
           watch={watching}
           onLab={setHasLab}
@@ -296,6 +333,7 @@ export function Scenarios() {
           }}
         />
       </Panel>
+      </div>
 
     </>
   );
