@@ -5,17 +5,27 @@ __pycache__/
 
 demo/*
 
-# Next's own build cache. The export beside it is committed on purpose —
-# viewer/out, like the generated protobuf sources, so that a student never needs
-# npm — but this is 109 MB that `npx next build` rewrites every time, and it was
-# being carried by everybody who clones this.
-viewer/.next/
-viewer/tsconfig.tsbuildinfo
+# Everything npm and Next put on disk. None of it is anchored to viewer/,
+# because a second one of these turns up the moment anybody runs npm anywhere
+# else in the tree — viewer/.check already has its own .next.
+#
+# node_modules was 380 MB and 10,964 files, 96% of everything this repository
+# tracked. It arrived whole with the viewer in 35ad1b0, at a point when this
+# .gitignore knew only about build/, *.class and .DS_Store — a Java project's
+# ignore file, which had no reason to expect a JavaScript directory. Nobody
+# chose it. Its largest single file was 85 MB of Apple Silicon machine code:
+# @next/swc-darwin-arm64, Next's Rust compiler, which npm installs to match
+# the machine it is on and which is therefore useless to anyone on Linux.
+#
+# .next is the build cache, 109 MB that `next build` rewrites every time.
+#
+# package-lock.json is committed, so `npm ci` in viewer/ restores node_modules
+# byte for byte. Nothing a student does needs either directory: viewer/out is
+# the export they load, and it stays committed on purpose — like the generated
+# protobuf sources — so that a student never runs npm at all.
+node_modules/
+.next/
+tsconfig.tsbuildinfo
+
 # Where s10-console.ts emits the views so it can render them without a browser.
 viewer/.check/
-# Same story as .next, one directory over: 380 MB and 10,964 files, which is
-# 96% of everything this repo tracked. It arrived with the viewer in 35ad1b0
-# and nobody meant it to. package-lock.json is committed, so `npm ci` in
-# viewer/ puts it back byte for byte — and only a developer rebuilding the
-# export ever needs it, because viewer/out is what a student actually loads.
-viewer/node_modules/
