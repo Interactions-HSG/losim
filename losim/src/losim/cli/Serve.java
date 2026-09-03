@@ -394,7 +394,8 @@ public final class Serve {
      * This is a web page writing into somebody's project.
      */
     private void scenario(HttpExchange x) throws IOException {
-        if (!"POST".equals(x.getRequestMethod())) { send(x, 405, "text/plain", "POST".getBytes()); return; }
+        if ("GET".equals(x.getRequestMethod())) { readScenario(x); return; }
+        if (!"POST".equals(x.getRequestMethod())) { send(x, 405, "text/plain", "GET, POST".getBytes()); return; }
         Map<String, Object> body = readJson(x);
         String name = String.valueOf(body.getOrDefault("name", "")).trim();
         String text = String.valueOf(body.getOrDefault("yaml", ""));
@@ -429,6 +430,28 @@ public final class Serve {
         out.put("scenario", name);
         out.put("path", lab.root().relativize(file).toString().replace('\\', '/'));
         out.put("replaced", existed);
+        send(x, 200, "application/json", Json.write(out).getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * The raw text of a scenario already on disk, for the console's edit form.
+     *
+     * <p>Read rather than reconstructed. The form that authors a <em>new</em>
+     * scenario builds one from a palette, but a scenario that already exists may
+     * carry things the palette never offered — a comment, a hand-tuned fault, a
+     * distribution nobody has a control for yet — and the only version of it
+     * that cannot lose any of that is the file itself.
+     */
+    private void readScenario(HttpExchange x) throws IOException {
+        String name = query(x).getOrDefault("name", "").trim();
+        Path file = lab.scenario(name);
+        if (file == null) {
+            fail(x, 404, "There is no scenario called " + name + " in this lab.");
+            return;
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("name", file.getFileName().toString());
+        out.put("yaml", Files.readString(file));
         send(x, 200, "application/json", Json.write(out).getBytes(StandardCharsets.UTF_8));
     }
 

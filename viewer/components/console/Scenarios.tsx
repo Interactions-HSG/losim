@@ -31,21 +31,23 @@ import {
   type Chaos, type Draft, type Pool,
 } from '../../lib/author.ts';
 import {
-  palette as fetchPalette, project, run as startRun, saveScenario, type Palette,
+  palette as fetchPalette, readScenario, saveScenario, type Palette,
 } from '../../lib/lab.ts';
 
 export function Scenarios() {
-  const { reload, nudge, setHasLab, openAt, watching } = useConsole();
+  const { nudge, startBuild, go } = useConsole();
   /**
-   * Listing what exists, or writing a new one.
+   * Listing what exists, writing a new one, or editing one that already is.
    *
    * The list is the page, because a lab accumulates scenarios and the thing you
-   * do most often is run one of them again. Writing is the occasional act, so it
-   * is behind a button rather than in front of the list.
+   * do most often is run one of them again. Writing and editing are the
+   * occasional acts, so they are behind buttons rather than in front of the list.
    */
-  const [mode, setMode] = useState<'list' | 'new'>('list');
+  const [mode, setMode] = useState<'list' | 'new' | 'edit'>('list');
   const [palette, setPalette] = useState<Palette | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
+  /** The scenario being hand-edited, its own file's text rather than a Draft. */
+  const [editing, setEditing] = useState<{ name: string; yaml: string } | null>(null);
   const [busy, setBusy] = useState(true);
   const [saying, setSaying] = useState<string | null>(null);
   const [refused, setRefused] = useState<string | null>(null);
@@ -104,25 +106,46 @@ export function Scenarios() {
       return;
     }
     setSaying('running…');
-    const started = await startRun(wrote.scenario!);
-    if (started.error) {
-      setRefused(started.error);
+    // The console follows the build from here — it outlives this page, because
+    // pressing Create moves you to Runs immediately rather than watching text
+    // scroll under the button. `startBuild` refuses the way the server does,
+    // through the global banner, if something else is already running.
+    await startBuild(wrote.scenario!);
+    setSaying(null);
+    setMode('list');
+    go('runs');
+  }, [draft, palette, yaml, startBuild, go]);
+
+  /** Load an existing scenario's own file back in, for hand-editing. */
+  const openForEdit = useCallback(async (name: string) => {
+    setRefused(null);
+    const said = await readScenario(name);
+    if (said.error || said.yaml === undefined) {
+      setRefused(said.error ?? 'could not read that scenario');
+      return;
+    }
+    setEditing({ name, yaml: said.yaml });
+    setMode('edit');
+  }, []);
+
+  /** Write the hand-edited file back, through the same loader a run uses. */
+  const saveEdit = useCallback(async () => {
+    if (!editing) return;
+    setSaying('saving…');
+    setRefused(null);
+    const wrote = await saveScenario(editing.name, editing.yaml);
+    if (wrote.error) {
+      setRefused(wrote.error);
       setSaying(null);
       return;
     }
-    // This page follows whatever is running, so the output appears where the
-    // button was — watching a build happen is the point. It has to be told to
-    // look, though: it noticed the last run when it mounted.
-    nudge();
     setSaying(null);
-    // Back to the list, which is where the run it just started is now showing
-    // its output. Staying on a form whose Create button has already fired would
-    // invite pressing it twice.
+    setEditing(null);
     setMode('list');
-    // The run about to be written will be in the index; ask for it again rather
-    // than patching a list that is a directory listing anyway.
-    void reload();
-  }, [draft, palette, yaml, reload, nudge]);
+    // The list shows names and paths, not content, so nothing there is stale —
+    // but a scenario just replaced is worth the same nudge a new one gets.
+    nudge();
+  }, [editing, nudge]);
 
   return (
     <>
@@ -135,10 +158,16 @@ export function Scenarios() {
               wrong — the fleet, the distances, and the weather. Write as many as you like: what
               changes between two runs is almost never the code.
             </>
-          ) : (
+          ) : mode === 'new' ? (
             <>
               What this lab compiles to is read off the classes, so nothing here can name a
               service that is not there. Nothing is written until you press create.
+            </>
+          ) : (
+            <>
+              This is the file itself — not the form, because a scenario that already exists may
+              carry something the form never offered. Saved through the same loader a run uses,
+              so a mistake is refused here rather than two clicks later.
             </>
           )
         }
@@ -161,7 +190,10 @@ export function Scenarios() {
               + New scenario
             </button>
           ) : (
-            <button className="btn" onClick={() => { setMode('list'); setRefused(null); }}>
+            <button
+              className="btn"
+              onClick={() => { setMode('list'); setRefused(null); setEditing(null); }}
+            >
               Cancel
             </button>
           )
@@ -285,7 +317,49 @@ export function Scenarios() {
         </div>
       )}
 
+      {mode === 'edit' && editing && (
+        <Panel title={editing.name} note="what is written, hand-editable" flush>
+          <textarea
+            className="edit"
+            spellCheck={false}
+            value={editing.yaml}
+            onChange={(e) => setEditing({ ...editing, yaml: e.target.value })}
+          />
+          <div className="editbar">
+            {refused ? (
+              <pre className="log bad inline">{refused}</pre>
+            ) : (
+              <span className="note inline">
+                Saved through the same loader a run uses — a mistake comes back with the line it
+                is on.
+              </span>
+            )}
+            <button
+              className="btn primary"
+              onClick={() => void saveEdit()}
+              disabled={!!saying || !editing.yaml.trim()}
+            >
+              {saying ?? 'Save'}
+            </button>
+          </div>
+        </Panel>
+      )}
+
       <style>{`
+        .edit {
+          width: 100%; min-height: 420px; margin: 0; padding: 14px 20px 18px;
+          border: 0; resize: vertical; box-sizing: border-box;
+          font-family: var(--mono); font-size: 12.5px; line-height: 1.6;
+          color: var(--text); background: var(--surface);
+        }
+        .edit:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+        .editbar {
+          display: flex; align-items: center; gap: 14px;
+          padding: 10px 20px; border-top: 1px solid var(--border);
+        }
+        .editbar .note.inline { margin: 0; flex: 1; }
+        .editbar .log.inline { flex: 1; margin: 0; max-height: 4.6em; overflow: auto; }
+
         .two { display: grid; gap: 20px; grid-template-columns: minmax(0, 1.5fr) minmax(0, 380px); align-items: start; }
         .col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
         .col.sticky { position: sticky; top: 84px; }
@@ -317,21 +391,13 @@ export function Scenarios() {
       `}</style>
 
       {/* Always mounted, whichever mode the page is in: this is what tells the
-          console there is a lab behind the page at all, and it is what follows a
-          run that is going. Hidden while writing, so the form has the screen. */}
+          console there is a lab behind the page at all. Hidden while writing or
+          editing, so the form has the screen. Pressing ▶ leaves this page — the
+          console follows the build, not this panel — so there is no log here to
+          watch. */}
       <div hidden={mode !== 'list'}>
       <Panel title="Every scenario here" note="press ▶ to build and run">
-        <Lab
-          watch={watching}
-          onLab={setHasLab}
-          onRan={async (name, href) => {
-            // Opened by where it is rather than by name: the index is asked
-            // again too, but a run that finished a second ago is on disk before
-            // it is in the list, and it is the run you were waiting for.
-            await openAt(name, href, 'overview');
-            await reload();
-          }}
-        />
+        <Lab onEdit={(name) => void openForEdit(name)} />
       </Panel>
       </div>
 

@@ -206,3 +206,19 @@ export async function saveScenario(
     return { error: 'the lab is not answering — is `losim serve` still running?' };
   }
 }
+
+/**
+ * The raw text of a scenario already on disk.
+ *
+ * Editing goes through this rather than through the palette form: a scenario
+ * that already exists may carry a hand-tuned fault or a comment the form never
+ * offered, and the only version of it that cannot lose that is the file itself.
+ */
+export async function readScenario(name: string): Promise<{ yaml?: string; error?: string }> {
+  const body = await json<{ name?: string; yaml?: string }>(
+    `./api/scenario?name=${encodeURIComponent(name)}`,
+  );
+  return body?.yaml === undefined
+    ? { error: 'could not read that scenario — is `losim serve` still running?' }
+    : { yaml: body.yaml };
+}

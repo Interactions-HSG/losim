@@ -27,7 +27,9 @@ interface Item {
 }
 
 export function Shell({ children }: { children: ReactNode }) {
-  const { runs, run, clock, view, go, hasLab, error, busy, openDropped, setError } = useConsole();
+  const {
+    runs, run, clock, view, go, hasLab, error, busy, openDropped, setError, building,
+  } = useConsole();
 
   const lab: Item[] = [
     { id: 'runs', label: 'Runs', icon: '▤', tag: String(runs.length || '') },
@@ -58,12 +60,14 @@ export function Shell({ children }: { children: ReactNode }) {
         <span className="brand">losim</span>
         <span className="svc">Decentralized Systems Lab</span>
         <span className="grow" />
-        {/* No chips here. The scenario belongs to the open run and is named on
-            every page that shows one; the region was `bill.rates.region ??
-            'eu-central-1'`, and since PriceList.asMap omits `region` whenever the
-            price list has none, that literal was on screen for most runs
-            regardless of where their machines were. A global bar is for things
-            that are true globally. */}
+        {/* The one chip that belongs here: a build is true globally, not of one
+            page — pressing ▶ on Scenarios moves you to Runs before it finishes,
+            so this is the only place left that says it is still going. */}
+        {building && (
+          <span className="chip dark building">
+            <i className="dot" aria-hidden /> building {building.scenario}
+          </span>
+        )}
       </header>
 
       <div className="body">
@@ -133,6 +137,17 @@ export function Shell({ children }: { children: ReactNode }) {
         .chip.dark {
           background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.14);
           color: var(--bar-dim); height: 26px;
+        }
+        .chip.building { display: flex; align-items: center; gap: 7px; font-family: var(--mono); }
+        .chip.building .dot {
+          width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+          flex: none;
+        }
+        @media (prefers-reduced-motion: no-preference) {
+          .chip.building .dot { animation: pulse 1.2s ease-in-out infinite; }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; } 50% { opacity: 0.25; }
         }
 
         .body { display: grid; grid-template-columns: 244px minmax(0, 1fr); flex: 1; min-height: 0; }

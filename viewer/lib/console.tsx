@@ -37,6 +37,7 @@ import {
 } from 'react';
 
 import { LedgerModel } from './ledger.ts';
+import { output, project, run as startRun } from './lab.ts';
 import { Clock } from './playback.ts';
 import { manifest, openFile, openUrl, type Run, type RunRef } from './runs.ts';
 
@@ -63,6 +64,17 @@ export interface ConsoleState {
   /** Bumped when something starts a run, so the panel that follows one asks again. */
   watching: number;
   nudge: () => void;
+
+  /**
+   * A build in progress, wherever it was started and wherever you are now.
+   *
+   * Not page state: the console follows it, not Scenarios, because pressing ▶
+   * moves you to Runs immediately and the build outlives that. `null` once it
+   * has finished — the failure, if there was one, arrives through `error`.
+   */
+  building: { scenario: string } | null;
+  /** Start a scenario building. Refuses the way the server does, through `error`. */
+  startBuild: (scenario: string) => Promise<void>;
 
   go: (view: View) => void;
   open: (name: string, view?: View) => Promise<void>;
@@ -133,6 +145,7 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [hasLab, setHasLab] = useState(false);
   const [watching, setWatching] = useState(0);
+  const [building, setBuilding] = useState<{ scenario: string } | null>(null);
   /** What is being opened, so a slow fetch that has been superseded is dropped. */
   const wanted = useRef<string | null>(null);
 
@@ -211,6 +224,63 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
 
   const nudge = useCallback(() => setWatching((n) => n + 1), []);
 
+  // Notice a build already going, from wherever it was started — a reconnect, a
+  // second tab, the run button on Scenarios two pages away. `watching` is bumped
+  // by whoever starts one from outside this effect, and this is what turns that
+  // bump into the console actually knowing.
+  useEffect(() => {
+    let live = true;
+    project().then((p) => {
+      if (live && p?.busy) setBuilding((b) => b ?? { scenario: p.busy! });
+    });
+    return () => {
+      live = false;
+    };
+  }, [watching]);
+
+  // Follow whatever is building, independent of which page is open — pressing ▶
+  // moves you to Runs immediately, and the build outlives that move.
+  useEffect(() => {
+    if (!building) return;
+    const scenario = building.scenario;
+    let live = true;
+    let at = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    const pull = async () => {
+      const said = await output(at);
+      if (!live) return;
+      if (!said) {
+        setBuilding(null);
+        setError('the lab stopped answering — is `losim serve` still running?');
+        return;
+      }
+      at = said.next;
+      if (!said.done) {
+        timer = setTimeout(pull, 400);
+        return;
+      }
+      setBuilding(null);
+      void reload();
+      if (said.ok === false) {
+        setError(`${said.scenario ?? scenario} did not finish — Runs has the trace, and it says why.`);
+      }
+    };
+    void pull();
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [building, reload]);
+
+  const startBuild = useCallback(async (scenario: string) => {
+    const said = await startRun(scenario);
+    if (said.error) {
+      setError(said.error);
+      return;
+    }
+    setBuilding({ scenario });
+  }, []);
+
   const go = useCallback(
     (next: View) => {
       setView(next);
@@ -265,11 +335,11 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<ConsoleState>(
     () => ({
-      runs, run, ledger, clock, view, busy, error, hasLab, watching,
-      go, open, openAt, openDropped, reload, setHasLab, setError, nudge,
+      runs, run, ledger, clock, view, busy, error, hasLab, watching, building,
+      go, open, openAt, openDropped, reload, setHasLab, setError, nudge, startBuild,
     }),
-    [runs, run, ledger, clock, view, busy, error, hasLab, watching,
-     go, open, openAt, openDropped, reload, nudge],
+    [runs, run, ledger, clock, view, busy, error, hasLab, watching, building,
+     go, open, openAt, openDropped, reload, nudge, startBuild],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

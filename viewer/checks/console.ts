@@ -156,6 +156,8 @@ function state(run: Run, clock: Clock, view: View): ConsoleState {
     hasLab: false,
     watching: 0,
     nudge: () => {},
+    building: null,
+    startBuild: noop,
     go: () => {},
     open: noop,
     openAt: noop,
