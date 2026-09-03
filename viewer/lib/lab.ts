@@ -99,3 +99,113 @@ export async function run(
 export async function output(from: number): Promise<Output | null> {
   return json<Output>(`./api/log?from=${from}`);
 }
+
+/* ------------------------------------------------------- what the code offers */
+
+/** One rpc a service answers. */
+export interface Rpc {
+  name: string;
+  /**
+   * Whether the `.proto` declared it safe to run twice.
+   *
+   * Carried because a retry policy on a method that did not is *refused* when the
+   * run starts — so a designer that offers retries without knowing this offers a
+   * scenario that will not start.
+   */
+  idempotent: boolean;
+}
+
+/** One class a machine could run. */
+export interface Offered {
+  /** The Java class, fully qualified — what `runs:` takes. */
+  cls: string;
+  /** The bare gRPC service name — what the trace's `serves` reports. */
+  service: string;
+  /** The same service with its proto package, as `retries:` names it. */
+  qualified: string;
+  methods: Rpc[];
+  source?: string;
+}
+
+export interface Instance {
+  name: string;
+  family: string;
+  vcpu: number;
+  memoryMb: number;
+  storageGb: number;
+  burstable: boolean;
+  onDemandPerHour: number;
+}
+
+export interface Region {
+  name: string;
+  provider: string;
+  continent: string;
+  where: string;
+  zones: string[];
+}
+
+/**
+ * Everything needed to author a scenario for one system.
+ *
+ * The classes are read off the compiled bytecode; the instances and the regions
+ * are losim's own catalogues. All three used to be discoverable only by reading
+ * losim's source, which is why scenarios have been written by copying one.
+ */
+export interface Palette {
+  system: string;
+  /** Whether it builds. When it does not, `log` is javac's own words. */
+  compiled: boolean;
+  log?: string;
+  jobs: string[];
+  services: Offered[];
+  /** How many other classes there are — so "nothing is a service" reads differently from "nothing compiled". */
+  other: number;
+  instances: Instance[];
+  regions: Region[];
+  scenarios: string[];
+}
+
+export async function palette(system: string): Promise<Palette | null> {
+  const body = await json<Partial<Palette>>(`./api/classes?system=${encodeURIComponent(system)}`);
+  if (!body) return null;
+  // A system that does not compile answers with `compiled: false` and a log, and
+  // nothing else — so every list has to be filled in rather than assumed.
+  return {
+    system: body.system ?? system,
+    compiled: body.compiled ?? false,
+    log: body.log,
+    jobs: body.jobs ?? [],
+    services: body.services ?? [],
+    other: body.other ?? 0,
+    instances: body.instances ?? [],
+    regions: body.regions ?? [],
+    scenarios: body.scenarios ?? [],
+  };
+}
+
+/**
+ * Write a scenario, having first had the lab refuse to write a broken one.
+ *
+ * The server loads it with the same loader a run uses before a byte reaches
+ * disk, so a refusal comes back as the loader's own sentence with the line it
+ * was written on — which is worth far more than anything this app could say.
+ */
+export async function saveScenario(
+  system: string,
+  name: string,
+  yaml: string,
+): Promise<{ scenario?: string; path?: string; replaced?: boolean; error?: string }> {
+  try {
+    const res = await fetch('./api/scenario', {
+      cache: 'no-store',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ system, name, yaml }),
+    });
+    const body = (await res.json()) as { scenario?: string; path?: string; error?: string };
+    return res.ok ? body : { error: body.error ?? `the lab said ${res.status}` };
+  } catch {
+    return { error: 'the lab is not answering — is `losim serve` still running?' };
+  }
+}

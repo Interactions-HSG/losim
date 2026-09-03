@@ -23,7 +23,8 @@
 import { BUCKETS, money, type Bucket, type Ledger as L } from '../lib/ledger.ts';
 import * as D from '../lib/design.ts';
 
-const COLOUR: Record<Bucket, string> = {
+/** One palette for the four buckets, wherever they are drawn. */
+export const COLOUR: Record<Bucket, string> = {
   build: '#8E6BA8',
   capacity: '#3C6E9F',
   consumption: '#3E8E8A',

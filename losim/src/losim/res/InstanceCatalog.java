@@ -47,5 +47,15 @@ public final class InstanceCatalog {
     }
 
     public static boolean has(String name) { return TYPES.containsKey(name); }
-    public static Map<String, InstanceSpec> all() { return Map.copyOf(TYPES); }
+    /**
+     * Every type, in the order they are declared above.
+     *
+     * <p>Order-preserving on purpose: the declaration groups them by family —
+     * burstable, balanced, compute, memory, storage — and that grouping is the
+     * only thing about this list that helps somebody choose. Alphabetical puts
+     * {@code c5.4xlarge} first, which teaches nothing.
+     */
+    public static Map<String, InstanceSpec> all() {
+        return java.util.Collections.unmodifiableMap(new LinkedHashMap<>(TYPES));
+    }
 }

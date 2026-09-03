@@ -135,10 +135,27 @@ for (const file of readdirSync(into).sort()) {
   const row = { name, href: `traces/${file}`, from: origins.get(name) ?? "gallery" };
   try {
     const t = JSON.parse(readFileSync(join(into, file), "utf8"));
-    if (Array.isArray(t.machines)) row.machines = t.machines.length;
+    if (Array.isArray(t.machines)) {
+      row.machines = t.machines.length;
+      // Enough for the gallery to draw a run before opening it: how many
+      // machines, and how far apart they are. A card that cannot say whether a
+      // design crosses an ocean is a card nobody can choose from.
+      row.zones = [...new Set(t.machines.map((m) => String(m.zone ?? "")))].filter(Boolean).sort();
+    }
     const meta = t.meta ?? {};
     if (typeof meta.durationRefMs === "number") row.durationRefMs = meta.durationRefMs;
     if (meta.job) row.job = String(meta.job);
+    if (meta.scenario) row.scenario = String(meta.scenario);
+    if (meta.completed === false) row.completed = false;
+    // What it cost, from the bill beside it — never computed here. The viewer
+    // must not become a second accountant, and neither must this script.
+    const billed = join(into, `${name}.bill.json`);
+    if (existsSync(billed)) {
+      const b = JSON.parse(readFileSync(billed, "utf8"));
+      if (typeof b?.observed?.cost === "number") row.cost = b.observed.cost;
+      if (b?.observed?.currency) row.currency = String(b.observed.currency);
+      if (b?.observed?.buckets) row.buckets = b.observed.buckets;
+    }
   } catch {
     // A half-written trace is what a run in progress looks like. It stays in the
     // list under its name and gains its numbers next time.

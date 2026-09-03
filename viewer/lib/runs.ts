@@ -28,6 +28,22 @@ export interface RunRef {
   durationRefMs?: number;
   job?: string;
   note?: string;
+  /** Every distinct zone the machines sat in, so a card can say how far apart they were. */
+  zones?: string[];
+  /** The scenario file it was run from — `mr-classic.yaml`. */
+  scenario?: string;
+  /** Absent unless the run did not finish. */
+  completed?: boolean;
+  /**
+   * What `losim bill` said, copied into the index by `traces.sh`.
+   *
+   * Here so the gallery and the cost report can put a hundred runs beside each
+   * other without fetching a hundred bills — and never computed in this app,
+   * because a viewer with its own prices would be a second accountant.
+   */
+  cost?: number;
+  currency?: string;
+  buckets?: Record<string, number>;
 }
 
 export interface Run {

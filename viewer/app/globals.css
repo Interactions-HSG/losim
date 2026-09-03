@@ -35,6 +35,12 @@
   --danger: #c4342a;
   --warn: #e8a33d;
 
+  /* The console's own bar. Dark, so the chrome ends somewhere visible and the
+     page below it can be quiet all the way down. */
+  --bar: #1c2029;
+  --bar-ink: #f2f4f7;
+  --bar-dim: #a7b0bd;
+
   --shadow-1: 0 1px 2px rgba(16, 20, 28, 0.05), 0 1px 1px rgba(16, 20, 28, 0.03);
   --shadow-2: 0 4px 16px rgba(16, 20, 28, 0.08), 0 1px 3px rgba(16, 20, 28, 0.05);
   --shadow-3: 0 12px 40px rgba(16, 20, 28, 0.16), 0 2px 8px rgba(16, 20, 28, 0.06);
@@ -71,6 +77,9 @@
     --text-3: #6b7380;
     --accent: #6b95ea;
     --accent-soft: #1b2740;
+    --bar: #090b0e;
+    --bar-ink: #e8eaee;
+    --bar-dim: #838c99;
 
     --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-2: 0 4px 16px rgba(0, 0, 0, 0.45);
@@ -90,8 +99,8 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--sans);
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 14.5px;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   font-feature-settings: 'cv05', 'ss01';
@@ -143,15 +152,15 @@ kbd {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 30px;
-  padding: 0 11px;
+  height: 34px;
+  padding: 0 16px;
   font: inherit;
   font-size: 13px;
   font-weight: 500;
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--r-sm);
+  border-radius: 999px;
   box-shadow: var(--shadow-1);
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s, transform 0.06s;
@@ -182,6 +191,12 @@ kbd {
   width: 34px;
   padding: 0;
   justify-content: center;
+}
+.btn:focus-visible,
+.seg button:focus-visible,
+select.picker:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* A segmented control, for the speeds. */
@@ -269,14 +284,17 @@ select.picker {
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12.5px;
+  font-size: 13px;
 }
 th,
 td {
   text-align: left;
-  padding: 5px 12px 5px 0;
+  padding: 10px 16px 10px 0;
   border-bottom: 1px solid var(--border);
   vertical-align: baseline;
+}
+tbody tr:last-child td {
+  border-bottom: 0;
 }
 th {
   color: var(--text-3);
@@ -306,4 +324,233 @@ td.n {
 }
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* -------------------------------------------------------- the console's charts
+ *
+ * Drawn in the chrome's language, not the figure's: these are a cost report and
+ * a monitoring page, and they are allowed to look like software. What they take
+ * from the figure is the discipline about rulers — the axis is fixed to the
+ * whole run, and the part of it that has not happened yet is shaded rather than
+ * cropped, so dragging the clock moves the drawing and never the scale under it.
+ */
+
+.chart {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.chart .grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.chart .tick {
+  fill: var(--text-3);
+  font: 400 10.5px var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.chart .bl {
+  fill: var(--text-2);
+  font: 400 11px var(--sans);
+}
+.chart .total {
+  fill: var(--text);
+  font: 500 11.5px var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+.chart .ln {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.chart .area {
+  opacity: 0.14;
+}
+.chart .dot {
+  stroke: var(--surface);
+  stroke-width: 1.5;
+}
+.chart .future {
+  fill: var(--text);
+  opacity: 0.05;
+}
+.chart .cursor {
+  stroke: var(--danger);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.75;
+}
+.chart .here {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+.chart .mid {
+  fill: var(--text);
+  font: 500 15px var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.spark {
+  display: block;
+  width: 100%;
+  height: 24px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.legend span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex: none;
+}
+
+/* ---------------------------------------------------------- the console's own
+ *
+ * Prefixed, and that is not fussiness: `MachinePanel` has owned a bare `.panel`
+ * for as long as it has existed, these are all global stylesheets, and the
+ * machine panel is drawn *inside* a console panel on the film page. Two rules
+ * called `.panel` in one document is a bug that only shows up on one page.
+ *
+ * Here rather than beside each component because `Panel` and `Tile` are rendered
+ * dozens of times on a page, and a component that carries its own <style> writes
+ * that stylesheet out once per instance.
+ */
+
+.c-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.c-head .c-crumbs {
+  margin: 0 0 2px;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.c-head .c-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.c-head h1 {
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: -0.012em;
+  margin: 0;
+}
+.c-head .c-sub {
+  margin: 4px 0 0;
+  font-size: 13.5px;
+  color: var(--text-2);
+  max-width: 80ch;
+}
+.c-head .c-acts {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.c-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.c-panel > header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 18px 20px 0;
+}
+.c-panel > header h2 {
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.008em;
+  text-transform: none;
+  color: var(--text);
+  margin: 0;
+}
+.c-panel > header .c-note {
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.c-panel > header .c-acts {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+.c-panel .c-in {
+  padding: 16px 20px 20px;
+  min-width: 0;
+}
+.c-panel .c-in.flush {
+  padding: 12px 0 0;
+}
+
+.c-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 16px 18px 18px;
+}
+.c-tile .k {
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.c-tile .v {
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  margin-top: 3px;
+}
+.c-tile .n {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+/* The categorical palette for the console's charts: ten hues that stay apart
+ * from each other and off the four bucket colours, in both schemes. Reached
+ * through `style`, never a `fill=` attribute — see components/console/Chart.tsx.
+ */
+:root {
+  --s1: #3c6e9f;
+  --s2: #8e6ba8;
+  --s3: #3e8e8a;
+  --s4: #b07d3a;
+  --s5: #4f7a46;
+  --s6: #a8556b;
+  --s7: #5e7ba8;
+  --s8: #7a6ea8;
+  --s9: #3f8360;
+  --s10: #9b6b4a;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --s1: #7fb0e0;
+    --s2: #c3a3dc;
+    --s3: #6fc6c0;
+    --s4: #e2b06a;
+    --s5: #8cbf7e;
+    --s6: #e0899f;
+    --s7: #9db6dd;
+    --s8: #a99ddd;
+    --s9: #74bb96;
+    --s10: #d1a17c;
+  }
 }

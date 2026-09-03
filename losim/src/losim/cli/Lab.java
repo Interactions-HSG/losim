@@ -283,9 +283,8 @@ public final class Lab {
             log.accept("There is no code in " + t.id() + " yet.\n");
             return null;
         }
-        Path work = root.resolve("build").resolve(t.id().replace('/', '-'));
         Path gen = t.dir().resolve("gen");
-        Path classes = work.resolve("classes");
+        Path classes = classes(t);
         wipe(gen);
         wipe(classes);
         Files.createDirectories(gen);
@@ -302,6 +301,43 @@ public final class Lab {
      * a system whose only scenario was `slow.yaml` wrote `id-slow.json` while both
      * endpoints looked for `id.json` and the finished run never appeared.
      */
+    /** Where this system's compiled classes go, whether or not they are there yet. */
+    public Path classes(System t) {
+        return root.resolve("build").resolve(t.id().replace('/', '-')).resolve("classes");
+    }
+
+    /**
+     * Whether what is compiled is newer than everything it was compiled from.
+     *
+     * <p>So that reading a system's palette does not mean rebuilding it. A wrong
+     * answer here is only ever a stale list — the classes are still rebuilt before
+     * anything is run — and the alternative is a page that takes five seconds to
+     * open because it regenerates protobuf every time somebody looks at it.
+     */
+    public boolean compiled(System t) {
+        Path classes = classes(t);
+        if (!Files.isDirectory(classes)) return false;
+        try {
+            long built = newest(classes, ".class");
+            if (built == 0) return false;
+            long wrote = Math.max(newest(t.dir(), ".java"), newest(t.dir(), ".proto"));
+            return built >= wrote;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    private static long newest(Path dir, String ext) throws IOException {
+        if (!Files.isDirectory(dir)) return 0;
+        try (Stream<Path> s = Files.walk(dir)) {
+            long best = 0;
+            for (Path p : s.filter(p -> p.getFileName().toString().endsWith(ext)).toList()) {
+                best = Math.max(best, Files.getLastModifiedTime(p).toMillis());
+            }
+            return best;
+        }
+    }
+
     public Path trace(System t, String scenario) {
         Path chosen = scenario == null || scenario.isBlank() ? t.first() : t.scenario(scenario);
         if (chosen == null) return null;
@@ -319,14 +355,13 @@ public final class Lab {
             return 2;
         }
 
-        Path work = root.resolve("build").resolve(t.id().replace('/', '-'));
         // Generated code lands **beside the schema it came from**, not off in a
         // build directory. Two reasons, and the second is the real one: the
         // editor finds it there, so `tour.ping.Ping` resolves and completion
         // works on generated types without anything being configured — and a
         // student who wants to see what `protoc` actually made can open it.
         Path gen = t.dir().resolve("gen");
-        Path classes = work.resolve("classes");
+        Path classes = classes(t);
         wipe(gen);
         wipe(classes);
         Files.createDirectories(gen);
@@ -406,9 +441,15 @@ public final class Lab {
         Path prices = lib.resolve("prices/eu-central-1.yaml");
         if (!Files.exists(prices)) prices = root.resolve("prices/eu-central-1.yaml");
         if (Files.exists(prices)) { argv.add("--prices"); argv.add(prices.toString()); }
-        // Quietly: the viewer shows the money, and a wall of numbers after every
-        // run is how a student learns to stop reading the output.
-        int code = exec(argv, json::append);
+        // The two streams kept apart, which every other call here merges on
+        // purpose. `--json` writes JSON on stdout and says everything else on
+        // stderr; merged, a single line of "no price list, using the defaults"
+        // lands at the top of the file and the bill stops being JSON at all.
+        // Nothing then reads it, and the run silently has no money on it.
+        //
+        // Quietly otherwise: the viewer shows the money, and a wall of numbers
+        // after every run is how a student learns to stop reading the output.
+        int code = exec(argv, json::append, log);
         if (code == 0 && !json.isEmpty()) Files.writeString(out, json.toString());
         else log.accept("(no bill for this run)\n");
     }
@@ -497,6 +538,13 @@ public final class Lab {
      * <p>Merged streams on purpose: javac writes errors to one and notes to the
      * other, and a student reading them interleaved is reading what happened.
      */
+    /**
+     * Run something and put everything it says in one place.
+     *
+     * <p>Merged on purpose: javac's errors and its progress belong in the order
+     * they happened, and a student reading two interleaved streams as one is
+     * reading what actually occurred.
+     */
     private int exec(List<String> argv, Consumer<String> log) throws IOException, InterruptedException {
         Process p = new ProcessBuilder(argv).directory(root.toFile()).redirectErrorStream(true).start();
         try (BufferedReader in = new BufferedReader(
@@ -505,6 +553,37 @@ public final class Lab {
             while ((line = in.readLine()) != null) log.accept(line + "\n");
         }
         return p.waitFor();
+    }
+
+    /**
+     * The same, with the two streams kept apart.
+     *
+     * <p>For the one caller whose stdout is a file rather than something to read:
+     * a command that writes JSON writes it on stdout and says everything else on
+     * stderr, and merging them puts a sentence inside the JSON.
+     */
+    private int exec(List<String> argv, Consumer<String> out, Consumer<String> err)
+            throws IOException, InterruptedException {
+        Process p = new ProcessBuilder(argv).directory(root.toFile()).start();
+        Thread aside = new Thread(() -> {
+            try (BufferedReader in = new BufferedReader(
+                    new InputStreamReader(p.getErrorStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = in.readLine()) != null) err.accept(line + "\n");
+            } catch (IOException ignored) { /* the process is gone; so is its stderr */ }
+        }, "losim-stderr");
+        aside.setDaemon(true);
+        aside.start();
+        try (BufferedReader in = new BufferedReader(
+                new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = in.readLine()) != null) out.accept(line + "\n");
+        }
+        int code = p.waitFor();
+        // Joined, so a warning cannot arrive after the caller has decided the
+        // run is over and stopped showing anything.
+        aside.join(2000);
+        return code;
     }
 
     private static void wipe(Path dir) throws IOException {

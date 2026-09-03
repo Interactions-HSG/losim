@@ -63,7 +63,29 @@ function fmtFilm(seconds: number): string {
  */
 const HOLDS = [HOLD_SECONDS, 0.5, 0.25, 0] as const;
 
-export function Film({ run, against }: { run: Run; against?: Run | null }) {
+export function Film({
+  run,
+  against,
+  clock: outer,
+  transport = true,
+}: {
+  run: Run;
+  against?: Run | null;
+  /**
+   * The console's clock, when there is one.
+   *
+   * The film used to own the clock, which is what made it the film's clock —
+   * the ledger could only accrue underneath the film, and no other page had a
+   * cursor on it. Given one from outside, this becomes one drawing of a shared
+   * instant rather than the only place that instant exists.
+   */
+  clock?: Clock;
+  /**
+   * Whether to draw the transport. False when the console's own bar is carrying
+   * it, so there are not two identical rows of buttons on one screen.
+   */
+  transport?: boolean;
+}) {
   const { trace, index } = run;
   const theme = useTheme();
 
@@ -76,18 +98,22 @@ export function Film({ run, against }: { run: Run; against?: Run | null }) {
    * finished and the other has not. So the shorter run simply ends, and sits
    * there having ended, which is the argument.
    */
-  const clock = useMemo(
+  const own = useMemo(
     () =>
-      new Clock(Math.max(trace.duration, against?.trace.duration ?? 0), [
-        ...index.moments(),
-        // Both runs' moments when two are being compared, so the clock is slow
-        // enough for whichever of them is doing something quick. Paced against
-        // only its own, one film would race through the other's fast calls.
-        ...(against ? against.index.moments() : []),
-      ]),
-    [trace, against, index],
+      outer
+        ? null
+        : new Clock(Math.max(trace.duration, against?.trace.duration ?? 0), [
+            ...index.moments(),
+            // Both runs' moments when two are being compared, so the clock is slow
+            // enough for whichever of them is doing something quick. Paced against
+            // only its own, one film would race through the other's fast calls.
+            ...(against ? against.index.moments() : []),
+          ]),
+    [outer, trace, against, index],
   );
-  useEffect(() => () => clock.dispose(), [clock]);
+  const clock = outer ?? (own as Clock);
+  // Only what this component made is this component's to dispose.
+  useEffect(() => () => own?.dispose(), [own]);
 
   const t = useSyncExternalStore(clock.subscribe, clock.now, clock.now);
   const playing = useSyncExternalStore(clock.subscribe, clock.isPlaying, () => false);
@@ -111,7 +137,9 @@ export function Film({ run, against }: { run: Run; against?: Run | null }) {
   const stretch = useSyncExternalStore(clock.subscribe, clock.stretch, () => 1);
   // The pace belongs to the clock, so the toggle sets it there rather than being
   // read by the frame. Re-applied when the clock changes: a new run starts held.
-  useEffect(() => { clock.setHold(hold); }, [clock, hold]);
+  // Whoever owns the clock owns its pacing: with a console bar above, the hold
+  // button up there is the one that means anything.
+  useEffect(() => { if (!outer) clock.setHold(hold); }, [clock, hold, outer]);
   const [showLedger, setShowLedger] = useState(false);
   const [view, setView] = useState<'film' | 'spans' | 'topology'>('film');
   const [zone, setZone] = useState('');
@@ -259,6 +287,16 @@ export function Film({ run, against }: { run: Run; against?: Run | null }) {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && /^(INPUT|SELECT|TEXTAREA)$/.test(target.tagName)) return;
+      // Escape is this component's either way; the transport keys belong to
+      // whichever component is showing the transport, or they fire twice.
+      if (e.key === 'Escape') {
+        setHeldMessage((held) => {
+          if (!held) setPinned(null);
+          return null;
+        });
+        return;
+      }
+      if (!transport) return;
       if (e.key === ' ') {
         e.preventDefault();
         clock.toggle();
@@ -280,18 +318,11 @@ export function Film({ run, against }: { run: Run; against?: Run | null }) {
           clock.pause();
           clock.seek(next);
         }
-      } else if (e.key === 'Escape') {
-        // The message first, then the machine: Escape closes the innermost thing
-        // that is open, which is what it does in every other window.
-        setHeldMessage((held) => {
-          if (!held) setPinned(null);
-          return null;
-        });
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [clock, events]);
+  }, [clock, events, transport]);
 
   // ------------------------------------------------------------ recording
 
@@ -555,6 +586,7 @@ export function Film({ run, against }: { run: Run; against?: Run | null }) {
         />
       )}
 
+      {transport ? (
       <div className="playbar card">
         <button
           className="btn icon primary"
@@ -653,9 +685,29 @@ export function Film({ run, against }: { run: Run; against?: Run | null }) {
           {recording ?? (made ? 'download again' : 'download film')}
         </button>
       </div>
+      ) : (
+        // The console's bar has the clock. What is left is what only exists
+        // where the picture is: this instant as a file, and the film as one.
+        <div className="savebar">
+          {view === 'film' && (
+            <span className="seg" role="group" aria-label="save this instant">
+              <button onClick={() => snap('png')} disabled={!!recording} title="this frame as a PNG, 1920x1080">
+                png
+              </button>
+              <button onClick={() => snap('svg')} disabled={!!recording} title="this frame as vector SVG — type stays type on a projector">
+                svg
+              </button>
+            </span>
+          )}
+          <button className="btn" onClick={download} disabled={!!recording}>
+            {recording ?? (made ? 'download again' : 'download film')}
+          </button>
+        </div>
+      )}
 
       <style>{`
         .film { display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; }
+        .savebar { display: flex; align-items: center; gap: 8px; flex: none; }
         .views { display: flex; align-items: center; gap: 10px; flex: none; }
         .vhint { font-size: 11.5px; }
         .filters { display: flex; gap: 6px; margin-left: auto; align-items: center; }

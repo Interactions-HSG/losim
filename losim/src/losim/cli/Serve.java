@@ -10,6 +10,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +19,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import losim.res.InstanceCatalog;
+import losim.res.InstanceSpec;
+import losim.res.Regions;
+import losim.scenario.Loader;
+import losim.scenario.Yaml;
 import losim.trace.Json;
 import losim.trace.JsonReader;
 
@@ -171,9 +178,11 @@ public final class Serve {
             catch (InterruptedException i) { Thread.currentThread().interrupt(); }
             return 0;
         }
-        http.createContext("/api/systems", s::systems);
-        http.createContext("/api/run", s::start);
-        http.createContext("/api/log", s::log);
+        http.createContext("/api/systems", safe(s::systems));
+        http.createContext("/api/classes", safe(s::classes));
+        http.createContext("/api/scenario", safe(s::scenario));
+        http.createContext("/api/run", safe(s::start));
+        http.createContext("/api/log", safe(s::log));
         http.createContext("/traces/", s::trace);
         http.createContext("/", s::asset);
         // Requests are cheap and a run is not: the run happens on `worker`, and
@@ -261,6 +270,181 @@ public final class Serve {
         body.put("systems", out);
         body.put("busy", r != null && !r.done ? r.system : null);
         send(x, 200, "application/json", Json.write(body).getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * What a system's code offers a machine, and what a machine can be.
+     *
+     * <p>The two halves of authoring a scenario. A student places <b>classes</b>
+     * on <b>machines</b>: the classes are read off their own compiled bytecode by
+     * {@link Palette}, and the machines are the instance catalogue and the regions
+     * losim already prices. Neither has ever been discoverable without reading
+     * losim's source, which is why scenarios have been written by copying one.
+     *
+     * <p>It compiles when it has to and not otherwise. A page that regenerated
+     * protobuf every time somebody opened it would take five seconds to open, and
+     * the answer would be the same one.
+     */
+    private void classes(HttpExchange x) throws IOException {
+        String id = query(x).getOrDefault("system", "");
+        Lab.System t = lab.system(id);
+        if (t == null) { fail(x, 404, "There is no system called " + id + " in this project."); return; }
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("system", t.id());
+        body.put("scenarios", t.scenarioNames());
+        body.put("instances", instances());
+        body.put("regions", regions());
+
+        Path classes = lab.classes(t);
+        if (!lab.compiled(t)) {
+            StringBuilder log = new StringBuilder();
+            try {
+                // On the same single worker as a real run: a compile racing a run
+                // over one `classes` directory is a build that reports classes
+                // that were deleted underneath it.
+                classes = worker.submit(() -> lab.compile(t, log::append)).get();
+            } catch (java.util.concurrent.ExecutionException e) {
+                classes = null;
+                log.append(e.getCause() == null ? String.valueOf(e) : String.valueOf(e.getCause()));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                classes = null;
+            }
+            if (classes == null) {
+                body.put("compiled", false);
+                body.put("log", log.toString());
+                send(x, 200, "application/json", Json.write(body).getBytes(StandardCharsets.UTF_8));
+                return;
+            }
+        }
+
+        Palette.Offer offer = Palette.of(classes, lab, t);
+        List<Object> services = new ArrayList<>();
+        for (Palette.Service sv : offer.services()) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("cls", sv.cls());
+            row.put("service", sv.service());
+            row.put("qualified", sv.qualified());
+            List<Object> methods = new ArrayList<>();
+            for (Palette.Method m : sv.methods()) {
+                methods.add(new LinkedHashMap<>(Map.of("name", m.name(),
+                                                       "idempotent", m.idempotent())));
+            }
+            row.put("methods", methods);
+            if (sv.source() != null) row.put("source", sv.source());
+            services.add(row);
+        }
+        body.put("compiled", true);
+        body.put("jobs", offer.jobs());
+        body.put("services", services);
+        body.put("other", offer.other());
+        send(x, 200, "application/json", Json.write(body).getBytes(StandardCharsets.UTF_8));
+    }
+
+    private List<Object> instances() {
+        List<Object> out = new ArrayList<>();
+        for (var e : InstanceCatalog.all().entrySet()) {
+            InstanceSpec i = e.getValue();
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("name", i.name());
+            row.put("family", i.family());
+            row.put("vcpu", i.vcpu());
+            row.put("memoryMb", i.memoryMb());
+            row.put("storageGb", i.storageGb());
+            row.put("burstable", i.burstable());
+            row.put("onDemandPerHour", i.onDemandPerHour());
+            out.add(row);
+        }
+        return out;
+    }
+
+    /**
+     * Every place a machine could be, and what the zones there are called.
+     *
+     * <p>Spelled the way {@link Regions} parses them, which is not the same in
+     * both clouds — {@code eu-central-1a} but {@code switzerlandnorth-1}. A
+     * console that composed those itself would compose one of them wrongly, and
+     * the scenario would load with a zone that is silently its own region.
+     */
+    private List<Object> regions() {
+        List<Object> out = new ArrayList<>();
+        for (var e : Regions.all().entrySet()) {
+            Regions.Region r = e.getValue();
+            List<String> zones = new ArrayList<>();
+            for (int i = 0; i < 3; i++) {
+                zones.add("azure".equals(r.provider())
+                        ? e.getKey() + "-" + (i + 1)
+                        : e.getKey() + (char) ('a' + i));
+            }
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("name", e.getKey());
+            row.put("provider", r.provider());
+            row.put("continent", r.continent());
+            row.put("where", r.where());
+            row.put("zones", zones);
+            out.add(row);
+        }
+        return out;
+    }
+
+    /**
+     * Write a scenario, having first refused to write a broken one.
+     *
+     * <p>It is loaded before it is saved, by the same {@link Loader} a run uses,
+     * so what lands on disk is a file that will start. The alternative is a
+     * console that writes whatever it composed and a student who finds out it was
+     * wrong from a stack trace two clicks later — and by then the file with the
+     * mistake in it is already theirs to fix.
+     *
+     * <p><b>It only ever writes inside the system it names.</b> The name is a file
+     * name and nothing else: no separators, no dots that walk anywhere, and the
+     * resolved path is checked against the system's own directory before a byte
+     * is written. This is a web page writing into somebody's project.
+     */
+    private void scenario(HttpExchange x) throws IOException {
+        if (!"POST".equals(x.getRequestMethod())) { send(x, 405, "text/plain", "POST".getBytes()); return; }
+        Map<String, Object> body = readJson(x);
+        String id = String.valueOf(body.getOrDefault("system", ""));
+        String name = String.valueOf(body.getOrDefault("name", "")).trim();
+        String text = String.valueOf(body.getOrDefault("yaml", ""));
+
+        Lab.System t = lab.system(id);
+        if (t == null) { fail(x, 404, "There is no system called " + id + " in this project."); return; }
+        if (!name.endsWith(".yaml")) name = name + ".yaml";
+        if (!name.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,63}\\.yaml")) {
+            fail(x, 400, "'" + name + "' is not a scenario name. Letters, digits, dot, dash and"
+                    + " underscore, and it is a file name rather than a path.");
+            return;
+        }
+
+        try {
+            Loader.of(Yaml.parse(name, text));
+        } catch (RuntimeException e) {
+            // The loader's own words, with the line it was written on. Nothing
+            // here can say it better, and re-wording it would lose the line.
+            fail(x, 400, e.getMessage() == null ? String.valueOf(e) : e.getMessage());
+            return;
+        }
+
+        // Beside the ones already there, or in `scenarios/` when there are none —
+        // which is where the manual tells a student to keep them.
+        Path into = t.first() != null ? t.first().getParent() : t.dir().resolve("scenarios");
+        Path file = into.resolve(name).normalize();
+        if (!file.startsWith(t.dir().toAbsolutePath().normalize())) {
+            fail(x, 400, "a scenario belongs inside its own system");
+            return;
+        }
+        Files.createDirectories(file.getParent());
+        boolean existed = Files.exists(file);
+        Files.writeString(file, text);
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("system", t.id());
+        out.put("scenario", name);
+        out.put("path", lab.root().relativize(file).toString().replace('\\', '/'));
+        out.put("replaced", existed);
+        send(x, 200, "application/json", Json.write(out).getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -371,18 +555,54 @@ public final class Serve {
             try (var s = Files.list(runs)) {
                 List<Path> files = s.filter(p -> p.getFileName().toString().endsWith(".json"))
                         .filter(p -> !p.getFileName().toString().endsWith(".bill.json"))
+                        // The index is in the directory it indexes, and it is not a run.
+                        .filter(p -> !p.getFileName().toString().equals("index.json"))
                         .sorted().toList();
-                for (Path p : files) out.add(summary(p));
+                Map<String, String> origins = origins(runs);
+                for (Path p : files) out.add(summary(p, origins));
             } catch (IOException ignored) { /* an unreadable runs dir is an empty picker */ }
         }
         return Json.write(Map.of("runs", out)).getBytes(StandardCharsets.UTF_8);
     }
 
-    private Map<String, Object> summary(Path p) {
+    /**
+     * Whose run each trace is, when somebody has written it down.
+     *
+     * `viewer/traces.sh` leaves a `.origins` file beside the traces it sweeps,
+     * because a student's own first run must not appear as one line among a
+     * hundred worked examples. Absent — the ordinary case, a lab serving the
+     * runs it just made — everything here is yours, which it is.
+     */
+    private Map<String, String> origins(Path runs) {
+        Map<String, String> out = new LinkedHashMap<>();
+        Path marks = runs.resolve(".origins");
+        if (!Files.isReadable(marks)) return out;
+        try {
+            for (String line : Files.readAllLines(marks)) {
+                int tab = line.indexOf('\t');
+                if (tab > 0) out.put(line.substring(0, tab), line.substring(tab + 1));
+            }
+        } catch (IOException ignored) { /* a list nobody can read is no list */ }
+        return out;
+    }
+
+    /**
+     * One line of the picker, and one card of the gallery.
+     *
+     * More than a name, because the page this feeds is a gallery rather than a
+     * dropdown: what a run cost, how many machines it had and how far apart they
+     * were are the things somebody chooses between runs *on*, and a card that
+     * cannot say them is a card nobody can choose from. All of it is copied out
+     * of the trace and the bill beside it — nothing here is computed, because a
+     * second place that prices a run is a second accountant.
+     */
+    private Map<String, Object> summary(Path p, Map<String, String> origins) {
         String name = p.getFileName().toString().replaceAll("\\.json$", "");
+        Path billed = p.resolveSibling(name + ".bill.json");
         String key;
         try {
-            key = name + ":" + Files.size(p) + ":" + Files.getLastModifiedTime(p).toMillis();
+            key = name + ":" + Files.size(p) + ":" + Files.getLastModifiedTime(p).toMillis()
+                    + ":" + (Files.isReadable(billed) ? Files.getLastModifiedTime(billed).toMillis() : 0);
         } catch (IOException e) {
             key = name;
         }
@@ -392,7 +612,7 @@ public final class Serve {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("name", name);
         row.put("href", "traces/" + p.getFileName());
-        row.put("from", "yours");
+        row.put("from", origins.getOrDefault(name, "yours"));
         try {
             Object parsed = JsonReader.read(Files.readString(p));
             if (parsed instanceof Map<?, ?> m) {
@@ -401,12 +621,38 @@ public final class Serve {
                     if (d instanceof Number n) row.put("durationRefMs", n.doubleValue());
                     Object job = meta.get("job");
                     if (job != null) row.put("job", String.valueOf(job));
+                    Object scenario = meta.get("scenario");
+                    if (scenario != null) row.put("scenario", String.valueOf(scenario));
+                    if (Boolean.FALSE.equals(meta.get("completed"))) row.put("completed", false);
                 }
-                if (m.get("machines") instanceof List<?> l) row.put("machines", l.size());
+                if (m.get("machines") instanceof List<?> l) {
+                    row.put("machines", l.size());
+                    List<String> zones = new ArrayList<>();
+                    for (Object o : l) {
+                        if (o instanceof Map<?, ?> mm && mm.get("zone") instanceof String z
+                                && !z.isEmpty() && !zones.contains(z)) {
+                            zones.add(z);
+                        }
+                    }
+                    Collections.sort(zones);
+                    if (!zones.isEmpty()) row.put("zones", zones);
+                }
             }
         } catch (Exception ignored) {
             // A half-written trace is what a run in progress looks like. It will
             // be readable in a moment; until then it is a name in the list.
+        }
+        try {
+            if (Files.isReadable(billed)
+                    && JsonReader.read(Files.readString(billed)) instanceof Map<?, ?> b
+                    && b.get("observed") instanceof Map<?, ?> o) {
+                if (o.get("cost") instanceof Number c) row.put("cost", c.doubleValue());
+                if (o.get("currency") instanceof String c) row.put("currency", c);
+                if (o.get("buckets") instanceof Map<?, ?> bk) row.put("buckets", bk);
+            }
+        } catch (Exception ignored) {
+            // No bill, or one being rewritten. The money is simply absent, which
+            // is the right failure: the viewer will not invent prices of its own.
         }
         summaries.keySet().removeIf(k -> k.startsWith(name + ":"));
         summaries.put(key, row);
@@ -466,6 +712,27 @@ public final class Serve {
         x.getResponseHeaders().set("Cache-Control", "no-store");
         x.sendResponseHeaders(code, body.length);
         try (OutputStream out = x.getResponseBody()) { out.write(body); }
+    }
+
+    /**
+     * An unexpected failure is still an answer.
+     *
+     * <p>A handler that throws leaves the browser waiting on a socket nobody will
+     * ever write to, and the page it is behind simply never loads — which reads
+     * as the whole server being wedged rather than as one endpoint being wrong.
+     * The message is losim's own, because a 500 with nothing in it is a thing
+     * somebody has to go and find the log for.
+     */
+    private static com.sun.net.httpserver.HttpHandler safe(com.sun.net.httpserver.HttpHandler h) {
+        return x -> {
+            try {
+                h.handle(x);
+            } catch (Throwable e) {
+                if (x.getResponseCode() != -1) return;   // already answered; the rest is the socket's
+                try { fail(x, 500, "losim could not answer that: " + e); }
+                catch (IOException ignored) { /* the client has gone */ }
+            }
+        };
     }
 
     /** A failure a person reads, not a status code they have to look up. */

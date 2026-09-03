@@ -29,11 +29,22 @@ const POLL_MS = 400;
 export function Lab({
   onLab,
   onRan,
+  watch = 0,
 }: {
   /** Whether this page has a lab behind it at all, so the chrome can know. */
   onLab: (present: boolean) => void;
   /** A run finished and wrote a trace: open it. */
   onRan: (name: string, href: string) => void;
+  /**
+   * Ask the lab again whenever this changes.
+   *
+   * A run started somewhere other than this panel — the designer, two pages
+   * away — is a run this panel is supposed to follow, and it cannot follow one
+   * it has not noticed. Asking on a timer would notice it too, and would also
+   * ask five thousand times an afternoon for an answer that almost never
+   * changes.
+   */
+  watch?: number;
 }) {
   const [systems, setSystems] = useState<System[] | null>(null);
   const [world, setWorld] = useState<Record<string, string>>({});
@@ -53,7 +64,7 @@ export function Lab({
 
   useEffect(() => {
     void look();
-  }, [look]);
+  }, [look, watch]);
 
   /**
    * Follow the run that is going, wherever it was started from.

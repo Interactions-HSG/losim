@@ -66,7 +66,17 @@ public final class Regions {
 
     private Regions() {}
 
-    public static Map<String, Region> all() { return Map.copyOf(KNOWN); }
+    /**
+     * Every region, in the order they are declared above.
+     *
+     * <p>Order-preserving on purpose. `Map.copyOf` does not promise one, and what
+     * came out was ten places in a scrambled order — which is fine for a lookup
+     * and wrong for a list somebody has to choose from, where the two European
+     * ones being next to each other is the whole help.
+     */
+    public static Map<String, Region> all() {
+        return java.util.Collections.unmodifiableMap(new LinkedHashMap<>(KNOWN));
+    }
 
     public static List<String> names() { return List.copyOf(KNOWN.keySet()); }
 
