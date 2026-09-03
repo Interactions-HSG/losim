@@ -24,19 +24,48 @@
 # What it deliberately does not copy: the gallery. Those traces exist to test
 # losim and shipping them would put a hundred worked examples in front of a
 # student whose own first run is one line among them.
+#
+# ## More than one lab in an assignment
+#
+#   ./publish.sh --lib-only <path>
+#
+# Skips viewer/ and docs/ — writes lib/ alone, into whatever you point it at.
+# For when a course wants two labs that cannot take each other down by failing
+# to compile: `Experiments.show()` always resolves its own viewer by looking
+# for `viewer/` beside its lab's own root (`Serve.siteIn`, and `show()` never
+# overrides it), so each lab needs *something* called `viewer/` next to it —
+# but nothing says that has to be a second copy. Publish once in full, into
+# wherever the shared viewer and docs live, then `--lib-only` into each lab and
+# symlink the rest:
+#
+#   ./publish.sh ../assignment/shared
+#   ./publish.sh --lib-only ../assignment/1-independent
+#   ./publish.sh --lib-only ../assignment/2-distributed
+#   ln -s ../shared/viewer ../assignment/1-independent/viewer
+#   ln -s ../shared/docs   ../assignment/1-independent/docs
+#   ln -s ../shared/viewer ../assignment/2-distributed/viewer
+#   ln -s ../shared/docs   ../assignment/2-distributed/docs
+#
+# The symlinks are the assignment's own to make and commit — this script only
+# ever writes real files, into whichever one directory you point it at.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT"
 
-TARGET="${1:?usage: ./publish.sh <path to the assignment repository>}"
+LIB_ONLY=0
+if [ "${1:-}" = "--lib-only" ]; then LIB_ONLY=1; shift; fi
+
+TARGET="${1:?usage: ./publish.sh [--lib-only] <path to the assignment repository>}"
 TARGET="$(cd "$TARGET" && pwd)"
 [ "$TARGET" != "$ROOT" ] || { echo "that is this repository" >&2; exit 1; }
 
 echo "Building the simulator…"
 ./build.sh > /dev/null
 
-echo "Exporting the viewer…"
-[ -d build/viewer/_next ] || ./viewer/export.sh > /dev/null
+if [ "$LIB_ONLY" -eq 0 ]; then
+  echo "Exporting the viewer…"
+  [ -d build/viewer/_next ] || ./viewer/export.sh > /dev/null
+fi
 
 # The two architectures a container is. Not the mac binaries: students open this
 # in a devcontainer or a Codespace, both of which are Linux, and 36 MB of
@@ -45,7 +74,11 @@ BINS=(protoc-linux-x86_64 protoc-gen-grpc-java-linux-x86_64
       protoc-linux-aarch_64 protoc-gen-grpc-java-linux-aarch_64)
 
 echo "Publishing into ${TARGET}…"
-rm -rf "$TARGET/lib" "$TARGET/viewer" "$TARGET/docs"
+if [ "$LIB_ONLY" -eq 0 ]; then
+  rm -rf "$TARGET/lib" "$TARGET/viewer" "$TARGET/docs"
+else
+  rm -rf "$TARGET/lib"
+fi
 mkdir -p "$TARGET/lib/jars" "$TARGET/lib/bin" "$TARGET/lib/prices" "$TARGET/lib/test-jars"
 
 cp build/losim.jar          "$TARGET/lib/losim.jar"
@@ -55,11 +88,13 @@ cp prices/*.yaml            "$TARGET/lib/prices/"
 for b in "${BINS[@]}"; do cp "vendor/bin/$b" "$TARGET/lib/bin/$b"; chmod +x "$TARGET/lib/bin/$b"; done
 cp -r vendor/LICENSES       "$TARGET/lib/LICENSES"
 
-# The application, and nothing that was ever run through it.
-mkdir -p "$TARGET/viewer"
-( cd build/viewer && tar -c --exclude traces . ) | ( cd "$TARGET/viewer" && tar -x )
+if [ "$LIB_ONLY" -eq 0 ]; then
+  # The application, and nothing that was ever run through it.
+  mkdir -p "$TARGET/viewer"
+  ( cd build/viewer && tar -c --exclude traces . ) | ( cd "$TARGET/viewer" && tar -x )
 
-cp -r docs "$TARGET/docs"
+  cp -r docs "$TARGET/docs"
+fi
 
 cat > "$TARGET/lib/README.md" <<'MSG'
 # lib — the simulator
@@ -97,4 +132,10 @@ machine in a fleet is another.
 MSG
 
 printf 'published:\n'
-du -sh "$TARGET/lib" "$TARGET/viewer" "$TARGET/docs" | sed 's/^/  /'
+if [ "$LIB_ONLY" -eq 0 ]; then
+  du -sh "$TARGET/lib" "$TARGET/viewer" "$TARGET/docs" | sed 's/^/  /'
+else
+  du -sh "$TARGET/lib" | sed 's/^/  /'
+  [ -e "$TARGET/viewer" ] || echo "  no viewer/ here yet — this lab needs one, real or a symlink to a shared one"
+  [ -e "$TARGET/docs" ]   || echo "  no docs/ here yet — same"
+fi
