@@ -129,6 +129,12 @@ const DRAFTS: [string, Draft][] = [
     ...base, name: 'lossy',
     net: { sameZoneRefMs: 0, crossZoneRefMs: 0, jitterRefMs: 0, loss: 0.2 },
   }],
+  // kTime is the one field `toYaml` writes conditionally that no other draft
+  // here exercises: they all sit at 1, which writes no key whether or not the
+  // writer knows the field exists. So a scenario that is actually compressed —
+  // where losing the key on save means the run silently takes twenty times as
+  // long as the author asked for.
+  ['a run compressed twenty times', { ...base, name: 'quick', kTime: 20 }],
   ['a standing rate of every kind', {
     ...base, name: 'chaotic',
     chaos: [
@@ -145,7 +151,7 @@ const DRAFTS: [string, Draft][] = [
     ],
   }],
   ['all of it at once', {
-    ...base, name: 'everything', seed: 9, expectedRunRefSeconds: 45,
+    ...base, name: 'everything', seed: 9, kTime: 4, expectedRunRefSeconds: 45,
     pools: [
       { name: 'master', count: 1, instance: 'm5.large', zones: ['eu-central-1a'], runs: [] },
       { name: 'workers', count: 4, instance: 'c5.large',
@@ -260,7 +266,61 @@ try {
     const wrote = toYaml(draft);
     const back = await get(`${draft.name}.yaml`);
     if (!back.draft) { say(`${what}: would not open — ${back.error}`); continue; }
-    const again = toYaml(back.draft);
+    const got = back.draft;
+
+    // First: what the form said is what the lab read back.
+    //
+    // The text comparison below cannot do this on its own. It is symmetric — a
+    // writer that drops a field drops it on both passes, so the file it wrote
+    // and the file it would write again agree perfectly about a value that was
+    // lost on the way. `kTime` is the live example: every draft here but two
+    // sits at the default, which writes no key whether or not the writer has
+    // ever heard of the field.
+    const off: string[] = [];
+    const same = (k: string, a: unknown, b: unknown) => {
+      if (a !== b) off.push(`${k}: form said ${JSON.stringify(a)}, lab read ${JSON.stringify(b)}`);
+    };
+    same('job', draft.job, got.job);
+    same('seed', draft.seed, got.seed);
+    same('kTime', draft.kTime, got.kTime);
+    same('expectedRunRefSeconds', draft.expectedRunRefSeconds, got.expectedRunRefSeconds);
+    same('net.sameZone', draft.net.sameZoneRefMs, got.net.sameZoneRefMs);
+    same('net.crossZone', draft.net.crossZoneRefMs, got.net.crossZoneRefMs);
+    same('net.jitter', draft.net.jitterRefMs, got.net.jitterRefMs);
+    same('net.loss', draft.net.loss, got.net.loss);
+    same('pools', draft.pools.length, got.pools.length);
+    draft.pools.forEach((p, j) => {
+      const q2 = got.pools[j];
+      if (!q2) return;
+      same(`pool ${j} name`, p.name, q2.name);
+      same(`pool ${j} count`, p.count, q2.count);
+      same(`pool ${j} instance`, p.instance, q2.instance);
+      same(`pool ${j} zones`, p.zones.join(','), q2.zones.join(','));
+      same(`pool ${j} runs`, p.runs.join(','), q2.runs.join(','));
+    });
+    same('faults', draft.faults.length, got.faults.length);
+    draft.faults.forEach((f, j) => {
+      const g = got.faults[j];
+      if (!g) return;
+      same(`fault ${j} kind`, f.kind, g.kind);
+      same(`fault ${j} at`, f.atRefMs, g.atRefMs);
+      same(`fault ${j} target`, f.target, g.target);
+      // Only the number this kind actually obeys: the others are never written,
+      // so the lab reads its own defaults for them and a difference means nothing.
+      if (f.kind === 'kill') same(`fault ${j} restart_after`, f.restartAfterRefMs, g.restartAfterRefMs);
+      if (f.kind === 'freeze') same(`fault ${j} for`, f.forRefMs, g.forRefMs);
+      if (f.kind === 'degrade') same(`fault ${j} factor`, f.factor, g.factor);
+    });
+    same('chaos', draft.chaos.length, got.chaos.length);
+    same('retries', draft.retries.length, got.retries.length);
+    if (off.length) {
+      say(`${what}: the lab did not read back what the form wrote`);
+      for (const o of off) console.log(`        ${o}`);
+      continue;
+    }
+
+    // Then: and saving it again changes nothing.
+    const again = toYaml(got);
     if (again !== wrote) {
       say(`${what}: opening and saving it changed the file`);
       const a = wrote.split('\n');
