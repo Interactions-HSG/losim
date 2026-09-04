@@ -312,7 +312,28 @@ try {
       if (f.kind === 'degrade') same(`fault ${j} factor`, f.factor, g.factor);
     });
     same('chaos', draft.chaos.length, got.chaos.length);
+    draft.chaos.forEach((c, j) => {
+      const g = got.chaos[j];
+      if (!g) return;
+      same(`chaos ${j} kind`, c.kind, g.kind);
+      same(`chaos ${j} every`, c.everyRefMs, g.everyRefMs);
+      same(`chaos ${j} among`, c.among, g.among);
+      if (c.kind !== 'kill') same(`chaos ${j} for`, c.forRefMs, g.forRefMs);
+      if (c.kind === 'degrade') same(`chaos ${j} factor`, c.factor, g.factor);
+    });
     same('retries', draft.retries.length, got.retries.length);
+    draft.retries.forEach((r, j) => {
+      const g = got.retries[j];
+      if (!g) return;
+      same(`retry ${j} method`, r.method, g.method);
+      same(`retry ${j} attempts`, r.attempts, g.attempts);
+      same(`retry ${j} backoff`, r.backoffRefMs, g.backoffRefMs);
+      // The one with real teeth. `unsafe: true` is what lets a retry stand on a
+      // method the .proto never declared idempotent; the loader is happy without
+      // it and `Retry.check` refuses at *run* time, so losing it here would pass
+      // every load-time check in this file and break only when someone ran it.
+      same(`retry ${j} unsafe`, r.unsafe, g.unsafe);
+    });
     if (off.length) {
       say(`${what}: the lab did not read back what the form wrote`);
       for (const o of off) console.log(`        ${o}`);
