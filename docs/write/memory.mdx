@@ -8,7 +8,7 @@ icon: "memory"
 
 | | |
 |---|---|
-| **`allocMb`** | everything this machine ever allocated, exactly, from `getThreadAllocatedBytes` on its own pool threads. |
+| **`allocMb`** | what your program allocated, from `getThreadAllocatedBytes` on this machine's own pool threads — losim's own allocation on those threads is metered and taken back off, so this is what your code cost, not what watching it cost. |
 | **`memoryMb`** | the **most it was ever seen holding** — a retained-heap walk from the machine's own service instances. |
 
 A design that accumulates and a design that streams allocate about the same amount.
@@ -104,11 +104,27 @@ Per machine, per tick:
 | `retainMb` | what it is holding now |
 | `memCapMb` | its cap |
 | `memPct` | the first over the second |
-| `allocMb` | what it has allocated so far, cumulative |
+| `allocMb` | what your program has allocated so far, cumulative |
 
 The heap walk costs about 0.06 µs per object, so a busy machine is walked every
 eighth tick rather than every tick. `retainMb` therefore steps rather than glides —
 that is the cadence, not your program.
+
+<Note>
+**`allocMb` is a corrected figure, and it only ever rises.** What the meter reads is
+the machine's own threads, losim's bookkeeping included; what the series carries is
+that total with the bookkeeping subtracted, so a machine is not billed for being
+watched. Two rising numbers subtracted can dip for a moment when the second gains on
+the first — and a program cannot un-allocate, so a dip is the correction being
+briefly wrong rather than memory coming back. The series reports the high-water mark
+for that reason: a counter that goes backwards reads as a broken trace, and this one
+is fitted against by the scale engine.
+
+A machine that loses one of its threads — which is what being killed does — can no
+longer be metered at all. That is reported as a `meter_lost` event and the last
+figure it could read is held, rather than reported as zero: nothing allocated and
+nothing knowable must not arrive looking the same.
+</Note>
 
 ## Keeping a design honest
 

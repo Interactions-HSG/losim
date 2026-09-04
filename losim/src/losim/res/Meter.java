@@ -36,11 +36,21 @@ public final class Meter {
         return MX.getThreadAllocatedBytes(Thread.currentThread().threadId());
     }
 
-    /** Bytes allocated by a set of threads, or 0 if any of them cannot be read. */
+    /**
+     * Bytes allocated by a set of threads, or <b>−1 if any of them cannot be read</b>.
+     *
+     * <p>Unknown rather than zero, which is the whole point of the sentinel. A
+     * terminated thread reads −1, and this used to answer 0 for the entire
+     * machine when one of its own had gone — which a caller subtracting a boot
+     * baseline from turns into a negative, and a caller clamping at zero turns
+     * into "this machine has allocated nothing", permanently and silently. Zero
+     * is a number a machine can honestly have; not knowing is not, and the two
+     * must not arrive looking the same.
+     */
     public static long allocatedBy(long[] threadIds) {
         long[] each = MX.getThreadAllocatedBytes(threadIds);
         long sum = 0;
-        for (long b : each) { if (b < 0) return 0; sum += b; }
+        for (long b : each) { if (b < 0) return -1; sum += b; }
         return sum;
     }
 

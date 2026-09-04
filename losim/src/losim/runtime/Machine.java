@@ -101,6 +101,12 @@ public final class Machine implements Bound, Telemetry.Sampled {
     final AtomicLong handled     = new AtomicLong();
     final AtomicLong diskBytes   = new AtomicLong();
     final AtomicLong retainedBytes = new AtomicLong();
+    /** The last allocation total that could actually be read, net of the boot baseline. */
+    private final AtomicLong lastGoodRaw = new AtomicLong();
+    /** The largest program allocation seen, because a cumulative figure must not fall. */
+    private final AtomicLong allocHighWater = new AtomicLong();
+    /** Whether the loss of this machine's allocation meter has been reported yet. */
+    private final AtomicBoolean meterLost = new AtomicBoolean();
     final AtomicLong peakRetainedBytes = new AtomicLong();
 
     /** Bytes that left this machine for another zone, which is the traffic anyone pays for. */
@@ -156,7 +162,10 @@ public final class Machine implements Bound, Telemetry.Sampled {
         for (Thread t : Thread.getAllStackTraces().keySet())
             if (t.getName().equals(threadName)) ids.add(t.threadId());
         this.threadIds = ids.stream().mapToLong(Long::longValue).toArray();
-        this.allocAtBoot = Meter.allocatedBy(threadIds);
+        // −1 means the meter could not be read at all; 0 is the honest baseline
+        // to fall back on, and `rawAllocatedBytes` reports the loss either way.
+        long boot = Meter.allocatedBy(threadIds);
+        this.allocAtBoot = boot < 0 ? 0 : boot;
     }
 
     Fleet fleet() { return fleet; }
@@ -411,12 +420,41 @@ public final class Machine implements Bound, Telemetry.Sampled {
      * instrumented (D13).
      */
     public long allocatedBytes() {
-        return Math.max(0, rawAllocatedBytes() - losimBytes.get());
+        long now = Math.max(0, rawAllocatedBytes() - losimBytes.get());
+        // A cumulative number must not fall, and this one is a difference of two
+        // rising figures — the machine's own total and the instrumentation taken
+        // back off it — so it can dip whenever the second gains on the first.
+        // A program cannot un-allocate, so a dip is the estimate being wrong for
+        // a moment rather than the machine giving memory back, and the honest
+        // reading of a monotonic quantity measured imperfectly is its high-water
+        // mark. Without this the series goes backwards and anyone plotting it as
+        // a counter — including the scaler, which fits a law against it —
+        // believes the trace is broken.
+        return allocHighWater.accumulateAndGet(now, Math::max);
     }
 
-    /** Before the subtraction. Only for measuring the observer effect itself. */
+    /**
+     * Before the subtraction. Only for measuring the observer effect itself.
+     *
+     * <p>Answers the last figure it was able to read when the meter cannot be
+     * read now, rather than a number derived from {@code -1}. A machine loses a
+     * thread when it is killed, and its allocation to that point is still true;
+     * what would not be true is that it suddenly allocated nothing.
+     */
     public long rawAllocatedBytes() {
-        return Meter.allocatedBy(threadIds) - allocAtBoot;
+        long total = Meter.allocatedBy(threadIds);
+        if (total < 0) {
+            // Said once, and said in the trace: the difference between "nothing"
+            // and "cannot say" has to be visible to whoever reads the number.
+            if (meterLost.compareAndSet(false, true) && fleet != null && tel() != null)
+                tel().event(name, "meter_lost", "resource", "allocation",
+                        "cause", "a thread of this machine can no longer be read",
+                        "lastKnownBytes", lastGoodRaw.get());
+            return lastGoodRaw.get();
+        }
+        long raw = total - allocAtBoot;
+        lastGoodRaw.set(raw);
+        return raw;
     }
 
     public long crossZoneBytes() { return crossZoneBytes.get(); }
