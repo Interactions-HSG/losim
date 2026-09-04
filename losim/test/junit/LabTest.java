@@ -78,6 +78,31 @@ class LabTest {
     }
 
     @Test
+    @DisplayName("numbered scenarios list in their numbers' order, not their digits'")
+    void ordersScenariosTheWayAPersonNumbersThem() throws Exception {
+        Path dir = root.resolve("scenarios");
+        String[] made = {"2-two.yaml", "10-ten.yaml", "1-one.yaml", "9-nine.yaml", "01-one.yaml",
+                         "2-two-slow.yaml"};
+        for (String n : made) Files.writeString(dir.resolve(n), Fixture.SCENARIO);
+        try {
+            var names = new java.util.ArrayList<>(lab.scenarioNames());
+            names.retainAll(java.util.List.of(made));
+            assertEquals(
+                    java.util.List.of("1-one.yaml", "01-one.yaml", "2-two.yaml", "2-two-slow.yaml",
+                                      "9-nine.yaml", "10-ten.yaml"),
+                    names);
+            // The same list read backwards is not the same order — without which
+            // this would still pass on a plain string sort of a list that happens
+            // to be short enough to look right.
+            assertNotEquals(names, names.reversed());
+            assertNotEquals(new java.util.TreeSet<>(names).stream().toList(), names,
+                    "a string sort would put 10- second");
+        } finally {
+            for (String n : made) Files.deleteIfExists(dir.resolve(n));
+        }
+    }
+
+    @Test
     @DisplayName("a scenario by name, and the first one when none is named")
     void scenarioLookup() {
         assertNotNull(lab.scenario("main.yaml"));

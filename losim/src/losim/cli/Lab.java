@@ -133,14 +133,75 @@ public final class Lab {
      * {@code .yaml} sitting loose in the lab root counts too, so that a lab which
      * has one does not show an empty list and leave a student wondering where it
      * went.
+     *
+     * <p>They come back in the order a person would put them in, which is not the
+     * order a string comparison puts them in: a lab whose scenarios are numbered
+     * to be read in sequence would otherwise list {@code 10-} between {@code 1-}
+     * and {@code 2-}, and the numbering that was meant to teach an order would
+     * teach the wrong one.
      */
     public List<Path> scenarios() {
         List<Path> out = new ArrayList<>();
         Path dir = root.resolve(SCENARIOS);
         for (Path p : children(dir)) if (yaml(p)) out.add(p);
         for (Path p : children(root)) if (yaml(p)) out.add(p);
-        out.sort(Comparator.comparing(p -> p.getFileName().toString()));
+        out.sort(Lab::byName);
         return out;
+    }
+
+    /**
+     * Two scenario files, in the order a reader expects them.
+     *
+     * <p>The extension is compared last, not in the middle of the name, so that
+     * {@code chain-of-calls.yaml} comes before {@code chain-of-calls-slow.yaml}:
+     * a variant belongs under the thing it varies, and comparing whole file names
+     * would put it above, because {@code -} sorts under {@code .}.
+     */
+    private static int byName(Path a, Path b) {
+        String x = a.getFileName().toString(), y = b.getFileName().toString();
+        int by = humanOrder(stem(x), stem(y));
+        return by != 0 ? by : humanOrder(x, y);
+    }
+
+    /** A file name without its extension — {@code two-machines} of {@code two-machines.yaml}. */
+    private static String stem(String name) {
+        int dot = name.lastIndexOf('.');
+        return dot <= 0 ? name : name.substring(0, dot);
+    }
+
+    /**
+     * Two names, in the order a reader expects them.
+     *
+     * <p>Digits are read as the number they spell rather than character by
+     * character, so {@code 2-} comes before {@code 10-}; everything else compares
+     * as text. Leading zeros do not change a number's place — {@code 02} and
+     * {@code 2} are the same position — but they do decide it when the numbers
+     * are otherwise equal, so that two names never compare as identical and the
+     * sort stays a total order.
+     */
+    static int humanOrder(String a, String b) {
+        int i = 0, j = 0;
+        while (i < a.length() && j < b.length()) {
+            char x = a.charAt(i), y = b.charAt(j);
+            if (Character.isDigit(x) && Character.isDigit(y)) {
+                int si = i, sj = j;
+                while (i < a.length() && Character.isDigit(a.charAt(i))) i++;
+                while (j < b.length() && Character.isDigit(b.charAt(j))) j++;
+                String na = a.substring(si, i).replaceFirst("^0+(?=.)", "");
+                String nb = b.substring(sj, j).replaceFirst("^0+(?=.)", "");
+                int by = na.length() != nb.length()
+                        ? Integer.compare(na.length(), nb.length())
+                        : na.compareTo(nb);
+                if (by != 0) return by;
+                // Same number, written differently: keep the shorter spelling first.
+                by = Integer.compare(i - si, j - sj);
+                if (by != 0) return by;
+                continue;
+            }
+            if (x != y) return Character.compare(x, y);
+            i++; j++;
+        }
+        return Integer.compare(a.length() - i, b.length() - j);
     }
 
     /** What the picker offers. */
