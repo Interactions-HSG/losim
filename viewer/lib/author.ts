@@ -26,11 +26,43 @@ export interface Pool {
   runs: string[];
 }
 
-export interface Kill {
+/**
+ * One thing that happens to one machine at one instant.
+ *
+ * Which fields mean anything depends on `kind`, and only those are written:
+ * a kill's `restartAfterRefMs`, a freeze's `forRefMs`, a degrade's `factor`.
+ * The others are kept so switching kind in the form does not lose what was
+ * typed under the previous one.
+ */
+export interface Fault {
+  kind: 'kill' | 'freeze' | 'degrade';
   atRefMs: number;
   target: string;
-  /** 0 means it never comes back, which is a different exercise. */
+  /** How long a freeze holds. A degrade has no end — see `toYaml`. */
+  forRefMs: number;
+  /** How many times slower a degrade makes it. */
+  factor: number;
+  /** Kill only. 0 means it never comes back, which is a different exercise. */
   restartAfterRefMs: number;
+}
+
+/**
+ * The medium the fleet talks over.
+ *
+ * All four zero is the same file as no `network:` key at all, which is what
+ * `toYaml` then writes — and it is the default a scenario gets by saying
+ * nothing: instant, lossless, and the reason a fleet that never sets this can
+ * only be tested on a network that never costs it anything.
+ */
+export interface Net {
+  /** What a call between two machines in one zone costs. */
+  sameZoneRefMs: number;
+  /** And between zones — the only thing that makes placement a decision. */
+  crossZoneRefMs: number;
+  /** Spread around both, so no two calls take exactly as long. */
+  jitterRefMs: number;
+  /** 0 to 1. A dropped call, indistinguishable from a dead machine to the caller. */
+  loss: number;
 }
 
 export interface Chaos {
@@ -62,8 +94,9 @@ export interface Draft {
    */
   kTime: number;
   expectedRunRefSeconds: number;
+  net: Net;
   pools: Pool[];
-  kills: Kill[];
+  faults: Fault[];
   chaos: Chaos[];
   retries: RetryRule[];
 }
@@ -185,6 +218,17 @@ export function toYaml(draft: Draft): string {
   if (draft.kTime !== 1) L.push(`kTime: ${draft.kTime}`);
   L.push(`job: ${q(draft.job)}`);
   L.push(`expectedRun: ${draft.expectedRunRefSeconds} refSeconds`);
+  // Only the numbers that are actually set, and no key at all when none is:
+  // every one of these defaults to 0, so `network: { loss: 0 }` and silence are
+  // the same scenario, and writing the silent ones out on every save would put
+  // four lines of nothing into every file the console touches.
+  const n = draft.net;
+  const net: string[] = [];
+  if (n.sameZoneRefMs > 0) net.push(`sameZone: ${n.sameZoneRefMs} refMs`);
+  if (n.crossZoneRefMs > 0) net.push(`crossZone: ${n.crossZoneRefMs} refMs`);
+  if (n.jitterRefMs > 0) net.push(`jitter: ${n.jitterRefMs} refMs`);
+  if (n.loss > 0) net.push(`loss: ${n.loss}`);
+  if (net.length) L.push(`network: { ${net.join(', ')} }`);
   L.push('');
   L.push('machines:');
   for (const p of draft.pools) {
@@ -204,13 +248,23 @@ export function toYaml(draft: Draft): string {
     }
     if (p.runs.length) L.push(`    runs: [${p.runs.join(', ')}]`);
   }
-  if (draft.kills.length) {
+  if (draft.faults.length) {
     L.push('');
     L.push('faults:');
-    for (const f of draft.kills) {
-      const after = f.restartAfterRefMs > 0
-        ? `, restart_after: ${f.restartAfterRefMs} refMs` : '';
-      L.push(`  - { at: ${f.atRefMs} refMs, kill: ${q(f.target)}${after} }`);
+    for (const f of draft.faults) {
+      // Each kind writes only what it actually obeys. A `for:` on a degrade is
+      // accepted by the loader and then ignored by the run — a one-time degrade
+      // schedules no thaw and the machine stays slow — so writing one would put
+      // a number in the file that the scenario does not honour.
+      let tail = '';
+      if (f.kind === 'kill' && f.restartAfterRefMs > 0) {
+        tail = `, restart_after: ${f.restartAfterRefMs} refMs`;
+      } else if (f.kind === 'freeze') {
+        tail = `, for: ${f.forRefMs} refMs`;
+      } else if (f.kind === 'degrade') {
+        tail = `, factor: ${f.factor}`;   // required: the loader refuses a degrade without one
+      }
+      L.push(`  - { at: ${f.atRefMs} refMs, ${f.kind}: ${q(f.target)}${tail} }`);
     }
   }
   if (draft.chaos.length) {
@@ -251,6 +305,8 @@ export function firstDraft(palette: Palette): Draft {
     seed: 1,
     kTime: 1,
     expectedRunRefSeconds: 20,
+    // Instant and lossless, which is what a scenario that says nothing gets.
+    net: { sameZoneRefMs: 0, crossZoneRefMs: 0, jitterRefMs: 0, loss: 0 },
     pools: [
       {
         name: 'coordinator',
@@ -267,7 +323,7 @@ export function firstDraft(palette: Palette): Draft {
         runs: worker ? [worker.cls] : [],
       },
     ],
-    kills: [],
+    faults: [],
     chaos: [],
     retries: [],
   };

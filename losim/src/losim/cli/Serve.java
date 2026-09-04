@@ -468,10 +468,16 @@ public final class Serve {
             row.put("runs", p.runs());
             pools.add(row);
         }
-        List<Object> kills = new ArrayList<>();
-        for (Draft.Kill k : d.kills()) {
-            kills.add(new LinkedHashMap<>(Map.of("atRefMs", k.atRefMs(), "target", k.target(),
-                    "restartAfterRefMs", k.restartAfterRefMs())));
+        List<Object> faults = new ArrayList<>();
+        for (Draft.Fault f : d.faults()) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("kind", f.kind());
+            row.put("atRefMs", f.atRefMs());
+            row.put("target", f.target());
+            row.put("forRefMs", f.forRefMs());
+            row.put("factor", f.factor());
+            row.put("restartAfterRefMs", f.restartAfterRefMs());
+            faults.add(row);
         }
         List<Object> chaos = new ArrayList<>();
         for (Draft.Chaos c : d.chaos()) {
@@ -499,8 +505,14 @@ public final class Serve {
         draft.put("seed", d.seed());
         draft.put("kTime", d.kTime());
         draft.put("expectedRunRefSeconds", d.expectedRunRefSeconds());
+        Map<String, Object> net = new LinkedHashMap<>();
+        net.put("sameZoneRefMs", d.net().sameZoneRefMs());
+        net.put("crossZoneRefMs", d.net().crossZoneRefMs());
+        net.put("jitterRefMs", d.net().jitterRefMs());
+        net.put("loss", d.net().loss());
+        draft.put("net", net);
         draft.put("pools", pools);
-        draft.put("kills", kills);
+        draft.put("faults", faults);
         draft.put("chaos", chaos);
         draft.put("retries", retries);
 

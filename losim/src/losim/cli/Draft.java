@@ -23,20 +23,54 @@ import losim.scenario.Yaml;
  * private methods already have to it — not a second grammar.
  *
  * <p><b>Everything the form has no control for is a refusal, not a guess.</b>
- * A scenario using {@code network:}, a pool's {@code memoryMb}, a retry's
- * {@code multiplier} — anything present here and absent from the Draft model
- * comes back naming the key and the line, never a Draft missing it silently.
+ * A scenario using {@code mode:}, a pool's {@code memoryMb}, a retry's
+ * {@code multiplier}, a {@code partition:} fault — anything present here and
+ * absent from the Draft model comes back naming the key and the line, never a
+ * Draft missing it silently and a save that quietly drops what it never showed.
  */
 public final class Draft {
     private Draft() {}
 
     public record Pool(String name, int count, String instance, List<String> zones, List<String> runs) {}
-    public record Kill(double atRefMs, String target, double restartAfterRefMs) {}
+
+    /**
+     * One thing that happens to one machine at one instant.
+     *
+     * <p>{@code kind} is {@code kill}, {@code freeze} or {@code degrade} — the
+     * three of {@link losim.scenario.Scenario.Kind} that happen to a single
+     * machine and that the form has controls for. Which of the remaining
+     * fields means anything depends on it, and the ones that do not are not
+     * written back: a kill's {@code restartAfterRefMs}, a freeze's
+     * {@code forRefMs}, a degrade's {@code factor}.
+     */
+    public record Fault(String kind, double atRefMs, String target,
+                        double forRefMs, double factor, double restartAfterRefMs) {}
+
     public record Chaos(String kind, double everyRefMs, String among, double forRefMs, double factor) {}
     public record Retry(String method, int attempts, double backoffRefMs, boolean unsafe) {}
 
+    /** The medium, in the same four numbers {@code network:} is written in. All zero is no key at all. */
+    public record Net(double sameZoneRefMs, double crossZoneRefMs, double jitterRefMs, double loss) {}
+
     public record Of(String name, String job, long seed, double kTime, double expectedRunRefSeconds,
-                      List<Pool> pools, List<Kill> kills, List<Chaos> chaos, List<Retry> retries) {}
+                      Net net, List<Pool> pools, List<Fault> faults, List<Chaos> chaos,
+                      List<Retry> retries) {}
+
+    /**
+     * The one-time faults the form can show, and for each the keys it cannot.
+     *
+     * <p>Refused rather than dropped, and refused rather than shown, because
+     * every one of them is a key that either belongs to a different fault kind
+     * or does nothing at all. {@code for:} on a degrade is the interesting one:
+     * {@link losim.scenario.Loader} accepts it, and {@code Run.schedule}
+     * schedules no thaw for a one-time degrade — the machine stays slow for the
+     * rest of the run. A control writing a key the run ignores is a lie told in
+     * a form, so the form does not have one and a file using it is sent back.
+     */
+    private static final java.util.Map<String, List<String>> UNUSABLE = java.util.Map.of(
+            "kill",    List.of("notice", "for", "factor"),
+            "freeze",  List.of("notice", "factor", "restart_after"),
+            "degrade", List.of("notice", "for", "restart_after"));
 
     /**
      * @param name the file's own name, {@code two-machines.yaml} — trimmed to the
@@ -52,7 +86,10 @@ public final class Draft {
         Node root = Yaml.parse(name, text);
         var sc = Loader.of(root);   // the real check, first — baseline correctness is never re-done below
 
-        for (String key : List.of("network", "tightMargin", "mode", "workload")) {
+        // `network:` is not here: the form has a control for all four keys
+        // `Loader.network` allows, so there is nothing to refuse and nothing to
+        // walk — `sc.net()` below is the loader's own already-resolved answer.
+        for (String key : List.of("tightMargin", "mode", "workload")) {
             if (root.opt(key).present()) throw root.at(key).fail(
                     "uses " + key + ":, which the form doesn't have a control for yet. Edit the"
                     + " file directly, then open it here again once it's out.");
@@ -86,17 +123,28 @@ public final class Draft {
             pools.add(new Pool(poolName, count, instance, zones, runs));
         }
 
-        var kills = new ArrayList<Kill>();
+        var faults = new ArrayList<Fault>();
         for (Node f : root.opt("faults").list()) {
-            if (!f.opt("kill").present()) throw f.fail(
-                    "a fault that isn't kill: — the form only edits one-time kill faults yet."
-                    + " Edit the file directly, then open it here again.");
-            for (String key : List.of("notice", "for")) {
+            String kind = null;
+            for (String k : UNUSABLE.keySet()) if (f.opt(k).present()) kind = k;
+            // Two kinds at once is already the loader's refusal, so reaching here
+            // with none of the three means one of the kinds it accepts and this
+            // does not: spot_reclaim, partition, heal, restart.
+            if (kind == null) throw f.fail(
+                    "a fault the form has no control for — it edits kill, freeze and degrade,"
+                    + " which are the ones that happen to a single machine. Edit the file"
+                    + " directly, then open it here again.");
+            for (String key : UNUSABLE.get(kind)) {
                 if (f.opt(key).present()) throw f.at(key).fail(
-                        "this kill fault uses " + key + ":, which the form doesn't have a control"
-                        + " for yet. Edit the file directly, then open it here again.");
+                        "this " + kind + " fault uses " + key + ":, which does nothing to a "
+                        + kind + " and which the form has no control for. Edit the file"
+                        + " directly, then open it here again.");
             }
-            kills.add(new Kill(f.at("at").refMs(), f.at("kill").str(),
+            // Defaults match the loader's own, so a freeze that omits `for:` reads
+            // back as the 1000 refMs it will actually be run with rather than a 0
+            // the form would then write down and change the scenario by.
+            faults.add(new Fault(kind, f.at("at").refMs(), f.at(kind).str(),
+                    f.opt("for").refMs(1000), f.opt("factor").num(2),
                     f.opt("restart_after").refMs(0)));
         }
 
@@ -118,8 +166,11 @@ public final class Draft {
                     r.opt("backoff").refMs(0), r.opt("unsafe").bool(false)));
         }
 
+        var net = new Net(sc.net().sameZoneRefMs(), sc.net().crossZoneRefMs(),
+                sc.net().jitterRefMs(), sc.net().loss());
+
         return new Of(name.replaceAll("\\.ya?ml$", ""), sc.job(), sc.seed(), sc.kTime(),
-                sc.expectedRunRefMs() / 1000, List.copyOf(pools), List.copyOf(kills),
+                sc.expectedRunRefMs() / 1000, net, List.copyOf(pools), List.copyOf(faults),
                 List.copyOf(chaos), List.copyOf(retries));
     }
 }

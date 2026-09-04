@@ -28,7 +28,7 @@ import { useConsole } from '../../lib/console.tsx';
 import { Lab } from '../Lab.tsx';
 import {
   distances, expand, firstDraft, linkOf, perHour, toYaml, unplaced,
-  type Chaos, type Draft, type Pool,
+  type Chaos, type Draft, type Fault, type Pool,
 } from '../../lib/author.ts';
 import {
   openScenario, palette as fetchPalette, saveScenario, type Palette,
@@ -256,6 +256,7 @@ export function Scenarios() {
           <div className="col">
             <Machines draft={draft} palette={palette} edit={edit} />
             <Placing draft={draft} palette={palette} edit={edit} />
+            <Network draft={draft} palette={palette} edit={edit} />
             <Weather draft={draft} palette={palette} machines={machines} edit={edit} />
           </div>
 
@@ -822,6 +823,136 @@ function Placing({
   );
 }
 
+/* ------------------------------------------------------------------ the wire
+ *
+ * Left at zero — which is what a scenario gets by saying nothing — every call
+ * returns the instant it is made. That is not a neutral default: it is a fleet
+ * in which no deadline can ever fire, no placement can ever be wrong, and no
+ * message can ever go missing, which between them are most of what makes a
+ * system distributed rather than one program in several pieces.
+ *
+ * So the numbers are here, next to the placement they give a cost to, and the
+ * panel says out loud when they and the fleet disagree.
+ */
+function Network({
+  draft, palette, edit,
+}: {
+  draft: Draft;
+  palette: Palette;
+  edit: (f: (d: Draft) => void) => void;
+}) {
+  const n = draft.net;
+  const links = distances(draft, palette.regions);
+  const apart = links['same region'] + links['same continent'] + links['across an ocean'];
+  const quiet = !n.sameZoneRefMs && !n.crossZoneRefMs && !n.jitterRefMs && !n.loss;
+
+  return (
+    <Panel title="Network" note={quiet ? 'instant and lossless' : undefined}>
+      <p className="lead">
+        What a gRPC call costs before your code has done anything with it. These are the four
+        numbers <code>network:</code> is written in, and they apply to every call in the run.
+      </p>
+
+      <div className="jobs">
+        <div className="field">
+          <label htmlFor="samezone">Same zone</label>
+          <input id="samezone" type="number" min={0} step="any" value={n.sameZoneRefMs}
+                 onChange={(e) => edit((d) => {
+                   d.net.sameZoneRefMs = Math.max(0, Number(e.target.value) || 0);
+                 })} />
+          <span className="hint">refMs for a call between two machines in one zone.</span>
+        </div>
+        <div className="field">
+          <label htmlFor="crosszone">Across zones</label>
+          <input id="crosszone" type="number" min={0} step="any" value={n.crossZoneRefMs}
+                 onChange={(e) => edit((d) => {
+                   d.net.crossZoneRefMs = Math.max(0, Number(e.target.value) || 0);
+                 })} />
+          <span className="hint">
+            refMs when they are not. The only thing that makes where you put a machine matter.
+          </span>
+        </div>
+        <div className="field">
+          <label htmlFor="jitter">Jitter</label>
+          <input id="jitter" type="number" min={0} step="any" value={n.jitterRefMs}
+                 onChange={(e) => edit((d) => {
+                   d.net.jitterRefMs = Math.max(0, Number(e.target.value) || 0);
+                 })} />
+          <span className="hint">
+            Spread around both, so no two calls take exactly as long and a timeout is a judgement.
+          </span>
+        </div>
+        <div className="field">
+          <label htmlFor="loss">Loss</label>
+          <input id="loss" type="number" min={0} max={1} step="any" value={n.loss}
+                 onChange={(e) => edit((d) => {
+                   d.net.loss = Math.min(1, Math.max(0, Number(e.target.value) || 0));
+                 })} />
+          <span className="hint">
+            0 to 1 — the chance a call never arrives. 0.01 is one in a hundred.
+          </span>
+        </div>
+      </div>
+
+      {/* The two ways the numbers and the fleet can disagree. Both are legal and
+          both are almost always a mistake, so they are said rather than fixed. */}
+      {apart > 0 && n.crossZoneRefMs <= n.sameZoneRefMs && (
+        <div className="flag warn">
+          <span>⚠</span>
+          <span>
+            <strong>
+              {apart} pair{apart === 1 ? '' : 's'} of machines are in different zones, and
+              reaching across costs no more than staying put
+            </strong>{' '}
+            — so nothing in this scenario can be placed wrong, and moving a machine cannot be
+            shown to help. Put a bigger number in <em>Across zones</em> to make placement a
+            decision.
+          </span>
+        </div>
+      )}
+      {apart === 0 && n.crossZoneRefMs > 0 && (
+        <div className="flag">
+          <span>·</span>
+          <span>
+            Every machine here is in one zone, so <em>Across zones</em> never applies. Deal a
+            pool over more zones above and it starts to.
+          </span>
+        </div>
+      )}
+      {n.loss > 0 && (
+        <div className="flag">
+          <span>·</span>
+          <span>
+            A call that is dropped looks exactly like one to a machine that has died — the caller
+            cannot tell the difference, and finding out that it cannot is the exercise.
+          </span>
+        </div>
+      )}
+
+      <style>{`
+        .lead { font-size: 13px; margin: 0 0 14px; }
+        .jobs { display: flex; gap: 16px; flex-wrap: wrap; }
+        .field { display: flex; flex-direction: column; gap: 4px; min-width: 150px; flex: 1; }
+        .field label { font-size: 11.5px; color: var(--text-3); }
+        .field input {
+          height: 32px; padding: 0 10px; font: inherit; font-size: 13px;
+          font-family: var(--mono);
+          color: var(--text); background: var(--surface);
+          border: 1px solid var(--border); border-radius: var(--r-sm);
+        }
+        .hint { font-size: 11px; color: var(--text-3); }
+        .flag {
+          display: flex; gap: 10px; align-items: flex-start; margin-top: 14px;
+          padding: 11px 14px; border-radius: var(--r-sm); font-size: 12.5px;
+          background: var(--accent-soft); color: var(--text-2);
+        }
+        .flag.warn { background: #fff8e8; color: #6b4d09; }
+        @media (prefers-color-scheme: dark) { .flag.warn { background: #2a2211; color: #e6c684; } }
+      `}</style>
+    </Panel>
+  );
+}
+
 /* --------------------------------------------------------------- the weather
  *
  * A design tested on a day nothing went wrong is a design nobody has tested.
@@ -853,41 +984,88 @@ function Weather({
     <Panel title="Weather" note="optional, and the reason to have run this twice">
       <section>
         <header>
-          <h3>A machine dies, at a moment</h3>
+          <h3>Something happens to a machine, at a moment</h3>
           <button
             className="btn"
             disabled={!machines.length}
             onClick={() => edit((d) => {
-              d.kills.push({ atRefMs: 300, target: machines[0]?.name ?? '', restartAfterRefMs: 2000 });
+              d.faults.push({
+                kind: 'kill', atRefMs: 300, target: machines[0]?.name ?? '',
+                forRefMs: 500, factor: 3, restartAfterRefMs: 2000,
+              });
             })}
           >
             + Fault
           </button>
         </header>
-        {!draft.kills.length && (
-          <p className="none">Nothing dies. Every run of this will be the good afternoon.</p>
+        {!draft.faults.length && (
+          <p className="none">Nothing happens. Every run of this will be the good afternoon.</p>
         )}
-        {draft.kills.map((f, i) => (
+        {draft.faults.map((f, i) => (
           <div className="rule" key={i}>
             <span>at</span>
             <input type="number" value={f.atRefMs}
-                   onChange={(e) => edit((d) => { d.kills[i].atRefMs = Number(e.target.value) || 0; })} />
-            <span>refMs, kill</span>
+                   onChange={(e) => edit((d) => { d.faults[i].atRefMs = Number(e.target.value) || 0; })} />
+            <span>refMs,</span>
+            {/* The kind decides which control follows it, because each kind obeys
+                a different one — and the values behind the others are kept, so
+                changing your mind twice does not lose what you typed. */}
+            <select value={f.kind}
+                    onChange={(e) => edit((d) => { d.faults[i].kind = e.target.value as Fault['kind']; })}>
+              <option value="kill">kill</option>
+              <option value="freeze">freeze</option>
+              <option value="degrade">degrade</option>
+            </select>
             <select value={f.target}
-                    onChange={(e) => edit((d) => { d.kills[i].target = e.target.value; })}>
+                    onChange={(e) => edit((d) => { d.faults[i].target = e.target.value; })}>
               {machines.map((m) => (
                 <option key={m.name} value={m.name}>{m.name}</option>
               ))}
             </select>
-            <span>and bring it back after</span>
-            <input type="number" value={f.restartAfterRefMs}
-                   onChange={(e) => edit((d) => {
-                     d.kills[i].restartAfterRefMs = Math.max(0, Number(e.target.value) || 0);
-                   })} />
-            <span>refMs</span>
-            <button className="btn" onClick={() => edit((d) => { d.kills.splice(i, 1); })}>×</button>
-            {f.restartAfterRefMs === 0 && (
+            {f.kind === 'kill' && (
+              <>
+                <span>and bring it back after</span>
+                <input type="number" value={f.restartAfterRefMs}
+                       onChange={(e) => edit((d) => {
+                         d.faults[i].restartAfterRefMs = Math.max(0, Number(e.target.value) || 0);
+                       })} />
+                <span>refMs</span>
+              </>
+            )}
+            {f.kind === 'freeze' && (
+              <>
+                <span>for</span>
+                <input type="number" value={f.forRefMs}
+                       onChange={(e) => edit((d) => {
+                         d.faults[i].forRefMs = Math.max(0, Number(e.target.value) || 0);
+                       })} />
+                <span>refMs</span>
+              </>
+            )}
+            {f.kind === 'degrade' && (
+              <>
+                <span>×</span>
+                <input type="number" value={f.factor}
+                       onChange={(e) => edit((d) => {
+                         d.faults[i].factor = Math.max(1, Number(e.target.value) || 1);
+                       })} />
+                <span>slower</span>
+              </>
+            )}
+            <button className="btn" onClick={() => edit((d) => { d.faults.splice(i, 1); })}>×</button>
+            {f.kind === 'kill' && f.restartAfterRefMs === 0 && (
               <span className="aside">0 — it never comes back, which is a different exercise</span>
+            )}
+            {f.kind === 'freeze' && (
+              <span className="aside">
+                it stops answering and then thaws — the calls that were waiting find out late,
+                which is the whole difference from a kill
+              </span>
+            )}
+            {f.kind === 'degrade' && (
+              <span className="aside">
+                a one-time degrade has no end: it stays this slow for the rest of the run
+              </span>
             )}
           </div>
         ))}

@@ -104,10 +104,30 @@ const DRAFTS: [string, Draft][] = [
   }],
   ['a machine killed, and one that never comes back', {
     ...base, name: 'killed',
-    kills: [
-      { atRefMs: 300, target: 'workers1', restartAfterRefMs: 2000 },
-      { atRefMs: 900, target: 'workers2', restartAfterRefMs: 0 },
+    faults: [
+      { kind: 'kill', atRefMs: 300, target: 'workers1', forRefMs: 0, factor: 1, restartAfterRefMs: 2000 },
+      { kind: 'kill', atRefMs: 900, target: 'workers2', forRefMs: 0, factor: 1, restartAfterRefMs: 0 },
     ],
+  }],
+  ['a machine frozen, and another made permanently slow', {
+    ...base, name: 'slowed',
+    faults: [
+      { kind: 'freeze', atRefMs: 300, target: 'workers1', forRefMs: 800, factor: 1, restartAfterRefMs: 0 },
+      { kind: 'degrade', atRefMs: 900, target: 'workers2', forRefMs: 0, factor: 4, restartAfterRefMs: 0 },
+    ],
+  }],
+  ['a network that costs something, and drops one call in a hundred', {
+    ...base, name: 'wired',
+    net: { sameZoneRefMs: 0.5, crossZoneRefMs: 30, jitterRefMs: 2, loss: 0.01 },
+    pools: [
+      { name: 'master', count: 1, instance: 'm5.large', zones: ['eu-central-1a'], runs: [] },
+      { name: 'workers', count: 3, instance: 'c5.large',
+        zones: ['eu-central-1a', 'ap-northeast-1a'], runs: ['lab.Combiner'] },
+    ],
+  }],
+  ['a network set one number at a time', {
+    ...base, name: 'lossy',
+    net: { sameZoneRefMs: 0, crossZoneRefMs: 0, jitterRefMs: 0, loss: 0.2 },
   }],
   ['a standing rate of every kind', {
     ...base, name: 'chaotic',
@@ -132,7 +152,12 @@ const DRAFTS: [string, Draft][] = [
         zones: ['eu-central-1a', 'eu-central-1b'], runs: ['lab.Combiner', 'lab.Reducer'] },
       { name: 'edge', count: 1, instance: 't3.small', zones: ['ap-northeast-1a'], runs: ['lab.Combiner'] },
     ],
-    kills: [{ atRefMs: 300, target: 'workers1', restartAfterRefMs: 2000 }],
+    net: { sameZoneRefMs: 0.4, crossZoneRefMs: 25, jitterRefMs: 3, loss: 0.005 },
+    faults: [
+      { kind: 'kill', atRefMs: 300, target: 'workers1', forRefMs: 0, factor: 1, restartAfterRefMs: 2000 },
+      { kind: 'freeze', atRefMs: 600, target: 'workers2', forRefMs: 400, factor: 1, restartAfterRefMs: 0 },
+      { kind: 'degrade', atRefMs: 1200, target: 'edge', forRefMs: 0, factor: 3, restartAfterRefMs: 0 },
+    ],
     chaos: [{ kind: 'freeze', everyRefMs: 700, among: 'workers', forRefMs: 150, factor: 2 }],
     retries: [{ method: 'lab.Worker.Map', attempts: 3, backoffRefMs: 40, unsafe: false }],
   }],
@@ -148,6 +173,12 @@ const REFUSED: [string, string][] = [
    'job: J\nexpectedRun: 900\nmachines:\n  a: { instance: m5.large, zone: eu-central-1a }\n'],
   ['a key that is a typo for a real one',
    'job: J\nmachiens:\n  a: { instance: m5.large, zone: eu-central-1a }\n'],
+  // The form clamps loss to 0..1, so this is the loader being asked to hold the
+  // line underneath it rather than a file the console could produce.
+  ['a loss that is not a probability',
+   'job: J\nnetwork: { loss: 2 }\nmachines:\n  a: { instance: m5.large, zone: eu-central-1a }\n'],
+  ['a degrade with no factor to say how much slower',
+   'job: J\nmachines:\n  a: { instance: m5.large, zone: eu-central-1a }\nfaults:\n  - { at: 1 refMs, degrade: a }\n'],
 ];
 
 /**
@@ -185,6 +216,12 @@ async function post(body: unknown): Promise<{ status: number; body: Record<strin
   return { status: res.status, body: (await res.json()) as Record<string, string> };
 }
 
+/** What the Edit form opens with: the file on disk, as a Draft, from `Draft.of`. */
+async function get(name: string): Promise<{ draft?: Draft; error?: string }> {
+  const res = await fetch(`http://127.0.0.1:${port}/api/scenario?name=${encodeURIComponent(name)}`);
+  return (await res.json()) as { draft?: Draft; error?: string };
+}
+
 try {
   // The server is a JVM: give it a moment, and say so if it never arrives.
   let up = false;
@@ -211,6 +248,29 @@ try {
       continue;
     }
     console.log(`  ok  ${what.padEnd(48)} ${expand(draft).length} machines, ${yaml.split('\n').length} lines`);
+  }
+
+  // Opening a scenario in the form and pressing Save without touching anything
+  // must not change the file. That is one property and it covers the whole Edit
+  // path: the Java that reads a file into a Draft, the JSON it crosses in, and
+  // the writer that turns it back into YAML. Anything either side learns to say
+  // and the other does not shows up here as a diff.
+  console.log('\nand what Edit opens, saved again untouched\n');
+  for (const [what, draft] of DRAFTS) {
+    const wrote = toYaml(draft);
+    const back = await get(`${draft.name}.yaml`);
+    if (!back.draft) { say(`${what}: would not open — ${back.error}`); continue; }
+    const again = toYaml(back.draft);
+    if (again !== wrote) {
+      say(`${what}: opening and saving it changed the file`);
+      const a = wrote.split('\n');
+      const b = again.split('\n');
+      for (let i = 0; i < Math.max(a.length, b.length); i++) {
+        if (a[i] !== b[i]) console.log(`        ${i + 1}  wrote: ${a[i] ?? '—'}\n        ${i + 1}  again: ${b[i] ?? '—'}`);
+      }
+      continue;
+    }
+    console.log(`  ok  ${what}`);
   }
 
   console.log('\nand what it must refuse\n');

@@ -85,11 +85,91 @@ class DraftTest {
                 faults:
                   - { at: 300 refMs, kill: a, restart_after: 2000 refMs }
                 """);
-        assertEquals(1, d.kills().size());
-        var k = d.kills().get(0);
+        assertEquals(1, d.faults().size());
+        var k = d.faults().get(0);
+        assertEquals("kill", k.kind());
         assertEquals(300.0, k.atRefMs());
         assertEquals("a", k.target());
         assertEquals(2000.0, k.restartAfterRefMs());
+    }
+
+    @Test
+    @DisplayName("a freeze holds for a while; one that says nothing holds for the loader's own default")
+    void freezeFault() {
+        var d = Draft.of("main.yaml", """
+                job: J
+                machines:
+                  a: { instance: m5.large, zone: eu-central-1a }
+                faults:
+                  - { at: 300 refMs, freeze: a, for: 800 refMs }
+                  - { at: 900 refMs, freeze: a }
+                """);
+        assertEquals(2, d.faults().size());
+        assertEquals("freeze", d.faults().get(0).kind());
+        assertEquals("a", d.faults().get(0).target());
+        assertEquals(800.0, d.faults().get(0).forRefMs());
+        // Not 0: `Loader.faults` defaults a freeze to 1000 refMs, and reading it
+        // back as anything else would write a different scenario on the next save.
+        assertEquals(1000.0, d.faults().get(1).forRefMs());
+    }
+
+    @Test
+    @DisplayName("a degrade carries its factor and nothing else — it has no end")
+    void degradeFault() {
+        var d = Draft.of("main.yaml", """
+                job: J
+                machines:
+                  a: { instance: m5.large, zone: eu-central-1a }
+                faults:
+                  - { at: 300 refMs, degrade: a, factor: 4 }
+                """);
+        assertEquals(1, d.faults().size());
+        var f = d.faults().get(0);
+        assertEquals("degrade", f.kind());
+        assertEquals("a", f.target());
+        assertEquals(4.0, f.factor());
+    }
+
+    @Test
+    @DisplayName("the network, read back in the four numbers it is written in")
+    void network() {
+        var d = Draft.of("main.yaml", """
+                job: J
+                network: { sameZone: 0.5 refMs, crossZone: 30 refMs, jitter: 2 refMs, loss: 0.01 }
+                machines:
+                  a: { instance: m5.large, zone: eu-central-1a }
+                """);
+        assertEquals(0.5, d.net().sameZoneRefMs(), 1e-9);
+        assertEquals(30.0, d.net().crossZoneRefMs(), 1e-9);
+        assertEquals(2.0, d.net().jitterRefMs(), 1e-9);
+        assertEquals(0.01, d.net().loss(), 1e-9);
+    }
+
+    @Test
+    @DisplayName("no network: at all is four zeros — instant and lossless, the same file either way")
+    void networkAbsent() {
+        var d = Draft.of("main.yaml", """
+                job: J
+                machines:
+                  a: { instance: m5.large, zone: eu-central-1a }
+                """);
+        assertEquals(0.0, d.net().sameZoneRefMs());
+        assertEquals(0.0, d.net().crossZoneRefMs());
+        assertEquals(0.0, d.net().jitterRefMs());
+        assertEquals(0.0, d.net().loss());
+    }
+
+    @Test
+    @DisplayName("a network setting only one of the four leaves the rest at zero")
+    void networkPartial() {
+        var d = Draft.of("main.yaml", """
+                job: J
+                network: { loss: 0.2 }
+                machines:
+                  a: { instance: m5.large, zone: eu-central-1a }
+                """);
+        assertEquals(0.2, d.net().loss(), 1e-9);
+        assertEquals(0.0, d.net().crossZoneRefMs());
     }
 
     @Test
@@ -143,15 +223,8 @@ class DraftTest {
     }
 
     @Test
-    @DisplayName("network:, tightMargin:, mode: and workload: are all refused by name")
+    @DisplayName("tightMargin:, mode: and workload: are refused by name — network: no longer is")
     void topLevelKeysTheFormHasNoControlFor() {
-        assertTrue(refusal("""
-                job: J
-                network: { loss: 0.1 }
-                machines:
-                  a: { instance: m5.large, zone: eu-central-1a }
-                """).contains("network:"));
-
         assertTrue(refusal("""
                 job: J
                 tightMargin: true
@@ -232,8 +305,9 @@ class DraftTest {
     }
 
     @Test
-    @DisplayName("a fault that isn't kill: is refused")
-    void nonKillFault() {
+    @DisplayName("a fault that is none of kill, freeze or degrade is refused")
+    void faultKindsTheFormHasNoControlFor() {
+        // The two that take a pair of machines rather than one.
         assertTrue(refusal("""
                 job: J
                 machines:
@@ -241,20 +315,60 @@ class DraftTest {
                   b: { instance: m5.large, zone: eu-central-1a }
                 faults:
                   - { at: 100 refMs, partition: [a, b] }
-                """).contains("kill:"));
+                """).contains("kill, freeze and degrade"));
 
         assertTrue(refusal("""
                 job: J
                 machines:
                   a: { instance: m5.large, zone: eu-central-1a }
                 faults:
-                  - { at: 100 refMs, freeze: a, for: 500 refMs }
-                """).contains("kill:"));
+                  - { at: 100 refMs, spot_reclaim: a, notice: 50 refMs }
+                """).contains("kill, freeze and degrade"));
+
+        assertTrue(refusal("""
+                job: J
+                machines:
+                  a: { instance: m5.large, zone: eu-central-1a }
+                faults:
+                  - { at: 100 refMs, restart: a }
+                """).contains("kill, freeze and degrade"));
     }
 
     @Test
-    @DisplayName("a kill fault's notice: or for: is refused — Draft.Kill has neither field")
-    void killFaultWithNoticeOrFor() {
+    @DisplayName("a key belonging to a different fault kind is refused, naming the kind it is on")
+    void faultKeysThatBelongToAnotherKind() {
+        // `for:` on a kill: the loader takes it, and nothing ever reads it.
+        String said = refusal("""
+                job: J
+                machines:
+                  a: { instance: m5.large, zone: eu-central-1a }
+                faults:
+                  - { at: 100 refMs, kill: a, for: 500 refMs }
+                """);
+        assertTrue(said.contains("for:") && said.contains("kill"), said);
+
+        // A freeze thaws on its own, so `restart_after:` means nothing to it.
+        assertTrue(refusal("""
+                job: J
+                machines:
+                  a: { instance: m5.large, zone: eu-central-1a }
+                faults:
+                  - { at: 100 refMs, freeze: a, restart_after: 200 refMs }
+                """).contains("restart_after:"));
+
+        // And the one that reads like it ought to work and does not: a one-time
+        // degrade schedules no thaw, so `for:` is accepted by the loader and then
+        // ignored, and the machine stays slow for the rest of the run.
+        String degrade = refusal("""
+                job: J
+                machines:
+                  a: { instance: m5.large, zone: eu-central-1a }
+                faults:
+                  - { at: 100 refMs, degrade: a, factor: 3, for: 500 refMs }
+                """);
+        assertTrue(degrade.contains("for:") && degrade.contains("degrade"), degrade);
+
+        // `notice:` belongs to spot_reclaim, which has no control of its own either.
         assertTrue(refusal("""
                 job: J
                 machines:
@@ -262,14 +376,6 @@ class DraftTest {
                 faults:
                   - { at: 100 refMs, kill: a, notice: 50 refMs }
                 """).contains("notice:"));
-
-        assertTrue(refusal("""
-                job: J
-                machines:
-                  a: { instance: m5.large, zone: eu-central-1a }
-                faults:
-                  - { at: 100 refMs, kill: a, for: 500 refMs }
-                """).contains("for:"));
     }
 
     @Test
