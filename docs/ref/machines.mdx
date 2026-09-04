@@ -92,8 +92,8 @@ The most useful thing in this section:
 
 ```yaml
 overrides:
-  w3: { memoryMb: 4 }        # cannot hold its share, and will say so
-  w2: { instance: t3.small } # half the cores of the rest
+  w3: { memoryMb: 4 }         # cannot hold its share, and will say so
+  w2: { instance: a1.medium } # one core against the pool's two — half the machine
 ```
 
 A fleet where every machine is identical teaches nothing about placement, and

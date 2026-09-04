@@ -8,6 +8,8 @@ Anything not in this table is refused at load, with the list.
 
 | instance | family | vCPU | memory | network | storage | burstable | $/hour |
 |---|---|---|---|---|---|---|---|
+| `a1.nano` | a1 | **1** | 512 MB | 0.5 Gbps | 8 GB | no | 0.0064 |
+| `a1.medium` | a1 | **1** | 2 GB | 0.5 Gbps | 8 GB | no | 0.0255 |
 | `t3.nano` | t3 | 2 | 512 MB | 0.5 Gbps | 8 GB | yes | 0.0060 |
 | `t3.micro` | t3 | 2 | 1 GB | 0.5 Gbps | 8 GB | yes | 0.0120 |
 | `t3.small` | t3 | 2 | 2 GB | 1.0 Gbps | 16 GB | yes | 0.0240 |
@@ -25,6 +27,13 @@ Anything not in this table is refused at load, with the list.
 ## What each family is for
 
 <Columns cols={2}>
+  <Card title="a1 — narrow" icon="compress">
+    The only machines here with **one** core. Every other type has at least two, so
+    these are the only way to say *half the machine the others are* — reach for one
+    when the shape of the fleet is the lesson and somebody has to be the weak link.
+    `a1.nano` holds the same 512 MB as `t3.nano` on half the cores, which makes that
+    pair the one comparison in the table where a single variable moves.
+  </Card>
   <Card title="t3 — burstable" icon="battery-half">
     The **straggler generator**. Cheap, and only sustains a fraction of a vCPU once
     its credits are gone. Put one in an otherwise uniform fleet and find out whether
