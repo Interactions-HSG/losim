@@ -64,6 +64,25 @@ public final class Telemetry {
 
         /** Wall clock spent inside this span on losim's own bookkeeping, not the program's. */
         public final AtomicLong losimNanos = new AtomicLong();
+        /** Bytes allocated inside this span by losim's own bookkeeping, not the program's. */
+        public final AtomicLong losimBytes = new AtomicLong();
+        /**
+         * Bytes the <i>handler</i> allocated, once losim's own are taken back off.
+         *
+         * <p>The counterpart to {@link #programMs}: a handler is no more expensive
+         * for having been watched. Every message built, every string formatted,
+         * every list grown while the method ran — measured from
+         * {@code getThreadAllocatedBytes} on the machine's own platform thread,
+         * which is exact rather than sampled.
+         *
+         * <p><b>Allocated, not retained.</b> A handler that builds a reply and
+         * lets it go allocates exactly as much as one that files it away
+         * forever; only the second fills the machine up. What a machine
+         * <i>holds</i> is its own number, walked from the service instances, and
+         * it cannot be attributed to a call — the walk can say what is there, not
+         * which call put it there.
+         */
+        public final AtomicLong allocBytes = new AtomicLong();
         /** Records the handler declared it processed, or −1 if it never said. */
         public final AtomicLong records = new AtomicLong(-1);
 

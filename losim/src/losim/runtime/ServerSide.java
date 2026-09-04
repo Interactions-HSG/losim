@@ -125,7 +125,27 @@ final class ServerSide implements ServerInterceptor {
                 if (takes != null && takes.refMs() > 0)
                     node.fleet().clock.spend(takes.refMs() * node.effectiveFactor());
 
-                super.onHalfClose();
+                // The handler runs inside this call, on this thread, and so does
+                // some of losim's own work — `sendMessage` and `close` are both
+                // reached from inside it. Both marks are taken here and the
+                // charged bytes between them subtracted, which leaves what the
+                // *program* allocated: the same subtraction `programMs` makes,
+                // in the other unit.
+                //
+                // The two marks are deliberately *not* a charged region of their
+                // own. They cost 57 ns the pair, measured, against a
+                // `UNSEEN_NANOS_PER_REGION` of about 70 — so bracketing them
+                // would hand the program back more than taking them ever cost
+                // it, which is the same error as not correcting at all, in the
+                // other direction.
+                long h0 = Meter.allocNow(), l0 = span.losimBytes.get();
+                try {
+                    super.onHalfClose();
+                } finally {
+                    long mine = Meter.allocNow() - h0;
+                    long ours = span.losimBytes.get() - l0;
+                    span.allocBytes.addAndGet(Math.max(0, mine - ours));
+                }
             }
 
             @Override public void onComplete() { finish("OK"); super.onComplete(); }
@@ -135,11 +155,15 @@ final class ServerSide implements ServerInterceptor {
                 long b0 = Meter.allocNow(), n0 = System.nanoTime();
                 node.inflight.decrementAndGet();
                 node.handled.incrementAndGet();
+                // On the span before it closes, so every handler in the trace
+                // carries what it allocated next to what it took.
+                span.detail.put("allocBytes", span.allocBytes.get());
                 tel.close(span, status);
                 tel.event(node.name, "handler_end", "method", method, "call", callId,
                           "status", status,
                           "ms", Machine.round(span.programMs(tel.kTime())),
                           "grossMs", Machine.round(span.grossMs()),
+                          "allocBytes", span.allocBytes.get(),
                           "arg", span.detail.get("arg"),
                           "result", span.detail.get("result"));
                 node.chargeTo(span, Meter.allocNow() - b0, System.nanoTime() - n0);
