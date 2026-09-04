@@ -486,6 +486,8 @@ export function Film({
           dense={dense}
           hovered={shown}
           onHover={(n) => setHovered(n)}
+          // Clicking the one already pinned closes it, the same as a message.
+          onPinMachine={(n) => setPinned(pinned === n ? null : n)}
           onMessage={(f, at) => {
             if (!f) {
               setMessage(null);

@@ -71,6 +71,11 @@ export function MachinePanel({ trace, m, t, money, pinned, onPin, onClose }: Mac
           <div className="sub">
             {m.instance} · {m.vcpu} vCPU · {m.zone}
           </div>
+          {/* Hovering shows this over the picture, and moving the pointer onto it
+              takes the pointer off the drawing — which closes it. So while it is
+              only hovered it can be read and nothing else, and the way to scroll
+              it, or to select anything in it, is to pin it first. */}
+          {!pinned && <div className="hintline">click the machine to keep this open</div>}
         </div>
         <div className="acts">
           <span className={`state ${m.state}`}>{m.state}</span>
@@ -249,6 +254,7 @@ export function MachinePanel({ trace, m, t, money, pinned, onPin, onClose }: Mac
           padding-top: 14px; margin-top: -14px;
         }
         .panel .sub { font-size: 12px; color: var(--text-3); margin-top: 1px; }
+        .panel .hintline { font-size: 11px; color: var(--text-3); margin-top: 3px; font-style: italic; }
         .panel .acts { margin-left: auto; display: flex; align-items: center; gap: 6px; }
         .state {
           font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase;

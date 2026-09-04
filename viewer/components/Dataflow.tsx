@@ -37,6 +37,17 @@ export interface DataflowProps {
   /** Clicking a message, which keeps its panel open and makes it readable. */
   onPinMessage?: (f: Flight, at: [number, number]) => void;
   /**
+   * Clicking a machine, which docks its panel beside the film.
+   *
+   * The same gesture a message already had, and for the same reason. Hovering
+   * one shows its panel *over* the picture, and reaching for that panel takes
+   * the pointer off the drawing — which fires the SVG's own `onMouseLeave` and
+   * closes the thing being reached for. So a hovered panel can be read and
+   * nothing else: not scrolled, not selected from, not even pinned by the
+   * button inside it.
+   */
+  onPinMachine?: (name: string) => void;
+  /**
    * Pointing at a message, with where the pointer is.
    *
    * In client coordinates rather than SVG ones: the panel is an HTML element
@@ -75,6 +86,7 @@ export function Dataflow({
   onMessage,
   onPinMessage,
   onHover,
+  onPinMachine,
   muted,
   task,
   ref,
@@ -174,6 +186,7 @@ export function Dataflow({
           dense={!!dense}
           dim={(!!hovered && hovered !== m.name) || !!muted?.has(m.name)}
           onHover={onHover}
+          onPin={onPinMachine}
         />
       ))}
 
@@ -213,12 +226,14 @@ const Machine = memo(
     dense,
     dim,
     onHover,
+    onPin,
   }: {
     m: FrameMachine;
     theme: Theme;
     dense: boolean;
     dim: boolean;
     onHover?: (name: string | null) => void;
+    onPin?: (name: string) => void;
   }) {
     const { w, h } = m;
     const dead = m.state === 'dead';
@@ -236,6 +251,10 @@ const Machine = memo(
         transform={`translate(${m.x} ${-m.y})`}
         opacity={dim ? 0.32 : 1}
         onMouseEnter={() => onHover?.(m.name)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onPin?.(m.name);
+        }}
         style={{ cursor: 'pointer' }}
       >
         <rect x={-w / 2 - 0.1} y={-h / 2 - 0.34} width={w + 0.2} height={h + 0.8} fill="transparent" />
