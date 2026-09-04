@@ -27,7 +27,7 @@ what happened
   capacity    w0 (c5.large)                       0.01670 machine-hours  CHF    0.0017
   capacity    w1 (c5.large)                       0.01670 machine-hours  CHF    0.0017
   capacity    w2 (c5.large)                       0.01670 machine-hours  CHF    0.0017
-  capacity    w3 (t3.small)                       0.01670 machine-hours  CHF    0.0004
+  capacity    w3 (a1.medium)                      0.01670 machine-hours  CHF    0.0004
   consumption cross-zone egress                   0.02300 GB             CHF    0.0002
   incidents   calls that did not answer in time     40.00 reruns         CHF    0.8000
   incidents   machines lost                         1.000 failures       CHF    0.2000
@@ -47,7 +47,7 @@ the ordinary case, not a contrived one. Before you tune anything, look at which 
 is actually large.
 
 **Capacity is one line per machine, with the instance type on it.** `w3` is the
-`t3.small` you gave it in the scenario, and it costs a quarter of what its neighbours
+`a1.medium` you gave it in the scenario, and it costs a quarter of what its neighbours
 do for exactly the same reserved period. That row is where an instance choice becomes
 money.
 

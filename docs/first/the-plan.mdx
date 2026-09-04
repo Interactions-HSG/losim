@@ -52,12 +52,13 @@ yours to write.
       ├── w0  c5.large  eu-central-1a  ┐
       ├── w1  c5.large  eu-central-1b  │  all four serve Thumbnailer
       ├── w2  c5.large  eu-central-1a  │  so the job finds them by that,
-      └── w3  t3.small  eu-central-1b  ┘  never by name
+      └── w3  a1.medium eu-central-1b  ┘  never by name
 ```
 
-`w3` is deliberately the odd one out — a small burstable machine among three
-compute-shaped ones. A fleet where every machine is identical teaches nothing
-about placement, and placement is most of what a coordinator is for.
+`w3` is deliberately the odd one out — **one core against everyone else's two**,
+so it does half the work in the same time and costs a quarter as much. A fleet
+where every machine is identical teaches nothing about placement, and placement
+is most of what a coordinator is for.
 
 ## Where this is going
 

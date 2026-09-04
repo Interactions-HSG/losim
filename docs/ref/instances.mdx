@@ -6,38 +6,29 @@ icon: "microchip"
 
 Anything not in this table is refused at load, with the list.
 
-| instance | family | vCPU | memory | network | storage | burstable | $/hour |
-|---|---|---|---|---|---|---|---|
-| `a1.nano` | a1 | **1** | 512 MB | 0.5 Gbps | 8 GB | no | 0.0064 |
-| `a1.medium` | a1 | **1** | 2 GB | 0.5 Gbps | 8 GB | no | 0.0255 |
-| `t3.nano` | t3 | 2 | 512 MB | 0.5 Gbps | 8 GB | yes | 0.0060 |
-| `t3.micro` | t3 | 2 | 1 GB | 0.5 Gbps | 8 GB | yes | 0.0120 |
-| `t3.small` | t3 | 2 | 2 GB | 1.0 Gbps | 16 GB | yes | 0.0240 |
-| `t3.medium` | t3 | 2 | 4 GB | 1.0 Gbps | 16 GB | yes | 0.0480 |
-| `m5.large` | m5 | 2 | 8 GB | 0.75 Gbps | 32 GB | no | 0.1150 |
-| `m5.xlarge` | m5 | 4 | 16 GB | 1.25 Gbps | 32 GB | no | 0.2300 |
-| `m5.2xlarge` | m5 | 8 | 32 GB | 2.5 Gbps | 32 GB | no | 0.4600 |
-| `c5.large` | c5 | 2 | 4 GB | 0.75 Gbps | 32 GB | no | 0.1020 |
-| `c5.xlarge` | c5 | 4 | 8 GB | 1.25 Gbps | 32 GB | no | 0.2040 |
-| `c5.4xlarge` | c5 | 16 | 32 GB | 5.0 Gbps | 32 GB | no | 0.8160 |
-| `r5.large` | r5 | 2 | 16 GB | 0.75 Gbps | 32 GB | no | 0.1520 |
-| `r5.xlarge` | r5 | 4 | 32 GB | 1.25 Gbps | 32 GB | no | 0.3040 |
-| `i3.large` | i3 | 2 | 15.25 GB | 0.75 Gbps | **475 GB** | no | 0.1720 |
+| instance | family | vCPU | memory | network | storage | $/hour |
+|---|---|---|---|---|---|---|
+| `a1.nano` | a1 | **1** | 512 MB | 0.5 Gbps | 8 GB | 0.0064 |
+| `a1.medium` | a1 | **1** | 2 GB | 0.5 Gbps | 8 GB | 0.0255 |
+| `m5.large` | m5 | 2 | 8 GB | 0.75 Gbps | 32 GB | 0.1150 |
+| `m5.xlarge` | m5 | 4 | 16 GB | 1.25 Gbps | 32 GB | 0.2300 |
+| `m5.2xlarge` | m5 | 8 | 32 GB | 2.5 Gbps | 32 GB | 0.4600 |
+| `c5.large` | c5 | 2 | 4 GB | 0.75 Gbps | 32 GB | 0.1020 |
+| `c5.xlarge` | c5 | 4 | 8 GB | 1.25 Gbps | 32 GB | 0.2040 |
+| `c5.4xlarge` | c5 | 16 | 32 GB | 5.0 Gbps | 32 GB | 0.8160 |
+| `r5.large` | r5 | 2 | 16 GB | 0.75 Gbps | 32 GB | 0.1520 |
+| `r5.xlarge` | r5 | 4 | 32 GB | 1.25 Gbps | 32 GB | 0.3040 |
+| `i3.large` | i3 | 2 | 15.25 GB | 0.75 Gbps | **475 GB** | 0.1720 |
 
 ## What each family is for
 
 <Columns cols={2}>
   <Card title="a1 — narrow" icon="compress">
-    The only machines here with **one** core. Every other type has at least two, so
-    these are the only way to say *half the machine the others are* — reach for one
-    when the shape of the fleet is the lesson and somebody has to be the weak link.
-    `a1.nano` holds the same 512 MB as `t3.nano` on half the cores, which makes that
-    pair the one comparison in the table where a single variable moves.
-  </Card>
-  <Card title="t3 — burstable" icon="battery-half">
-    The **straggler generator**. Cheap, and only sustains a fraction of a vCPU once
-    its credits are gone. Put one in an otherwise uniform fleet and find out whether
-    your placement notices.
+    The **straggler generator**, and the only machines here with **one** core. Every
+    other type has at least two, so these are the only way to say *half the machine
+    the others are*: one call at a time, and declared work takes twice as long. Put
+    an `a1.medium` in a pool of `c5.large`s — a quarter of the price and half the
+    machine — and find out whether your placement notices.
   </Card>
   <Card title="m5 — balanced" icon="scale-balanced">
     The default. Use it when the point of the scenario is not the machines.
@@ -59,7 +50,7 @@ Anything not in this table is refused at load, with the list.
 <ParamField path="vCPU" type="int">
   The size of the machine's **thread pool**, and its speed relative to the reference
   machine: `machineFactor = 2 ÷ vcpu`. A `c5.4xlarge` runs a `@Takes(refMs = 8)`
-  handler in 1 refMs; a `t3.small` takes the full 8.
+  handler in 1 refMs; an `m5.large` takes the full 8, and an `a1.nano` takes 16.
 </ParamField>
 
 <ParamField path="memory" type="MB">
@@ -83,13 +74,6 @@ makes. Two places declaring what an `r5.large` costs would be two places to drif
 apart, and the drift would be silent.
 </Note>
 
-## Burstable machines
-
-`t3` instances carry `baselineFraction` and `creditSeconds`: a sustained share of a
-vCPU, and how many seconds of full speed they get first. The throttled factor is
-`cpuFactor ÷ baselineFraction` — so a `t3.small` at 20% baseline is **five times**
-slower than its core count suggests once its credits are gone.
-
 ## Choosing them
 
 <Tip>
@@ -102,7 +86,7 @@ workers:
   instance: c5.large
   runs: [lab.Shrinker]
   overrides:
-    w3: { instance: t3.small }
+    w3: { instance: a1.medium }
 ```
 
 Three compute machines and one that will fall behind. Whether your coordinator

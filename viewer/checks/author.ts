@@ -62,9 +62,9 @@ const PALETTE: Palette = {
   ],
   other: 12,
   instances: [
-    { name: 'm5.large', family: 'm5', vcpu: 2, memoryMb: 8192, storageGb: 32, burstable: false, onDemandPerHour: 0.115 },
-    { name: 'c5.large', family: 'c5', vcpu: 2, memoryMb: 4096, storageGb: 32, burstable: false, onDemandPerHour: 0.102 },
-    { name: 't3.small', family: 't3', vcpu: 2, memoryMb: 2048, storageGb: 16, burstable: true, onDemandPerHour: 0.024 },
+    { name: 'm5.large', family: 'm5', vcpu: 2, memoryMb: 8192, storageGb: 32, onDemandPerHour: 0.115 },
+    { name: 'c5.large', family: 'c5', vcpu: 2, memoryMb: 4096, storageGb: 32, onDemandPerHour: 0.102 },
+    { name: 'a1.medium', family: 'a1', vcpu: 1, memoryMb: 2048, storageGb: 8, onDemandPerHour: 0.0255 },
   ],
   regions: [
     { name: 'eu-central-1', provider: 'aws', continent: 'europe', where: 'Frankfurt',
@@ -98,7 +98,7 @@ const DRAFTS: [string, Draft][] = [
     ...base, name: 'far',
     pools: [
       { name: 'master', count: 1, instance: 'm5.large', zones: ['eu-central-1a'], runs: [] },
-      { name: 'edge', count: 1, instance: 't3.small', zones: ['ap-northeast-1a'], runs: ['lab.Combiner'] },
+      { name: 'edge', count: 1, instance: 'a1.medium', zones: ['ap-northeast-1a'], runs: ['lab.Combiner'] },
       { name: 'vault', count: 2, instance: 'm5.large', zones: ['switzerlandnorth-1'], runs: ['lab.Reducer'] },
     ],
   }],
@@ -156,7 +156,7 @@ const DRAFTS: [string, Draft][] = [
       { name: 'master', count: 1, instance: 'm5.large', zones: ['eu-central-1a'], runs: [] },
       { name: 'workers', count: 4, instance: 'c5.large',
         zones: ['eu-central-1a', 'eu-central-1b'], runs: ['lab.Combiner', 'lab.Reducer'] },
-      { name: 'edge', count: 1, instance: 't3.small', zones: ['ap-northeast-1a'], runs: ['lab.Combiner'] },
+      { name: 'edge', count: 1, instance: 'a1.medium', zones: ['ap-northeast-1a'], runs: ['lab.Combiner'] },
     ],
     net: { sameZoneRefMs: 0.4, crossZoneRefMs: 25, jitterRefMs: 3, loss: 0.005 },
     faults: [

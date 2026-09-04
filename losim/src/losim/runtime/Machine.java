@@ -302,7 +302,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
     /**
      * Makes the machine slower than its instance type says.
      *
-     * <p>A noisy neighbour, a throttled burstable, a degraded disk. Every declared
+     * <p>A noisy neighbour, a machine sharing a host, a degraded disk. Every declared
      * cost is multiplied, so the machine is a straggler rather than a casualty —
      * which is the failure most designs handle worst.
      */

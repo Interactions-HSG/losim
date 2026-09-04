@@ -136,11 +136,11 @@ workers:
   zone: [eu-central-1a, eu-central-1b]
   runs: [lab.Shrinker]
   overrides:
-    w3: { instance: t3.small }
+    w3: { instance: a1.medium }
 
 faults:
   - { at: 900 refMs, kill: w1 }
 ```
 
-Two zones become two bands. A `t3.small` among three `c5.large`s is visibly a smaller
+Two zones become two bands. A `a1.medium` among three `c5.large`s is visibly a smaller
 box. And the kill is a red marker on the bar you can jump straight to with `]`.

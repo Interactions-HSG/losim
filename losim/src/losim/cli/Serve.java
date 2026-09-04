@@ -343,7 +343,6 @@ public final class Serve {
             row.put("vcpu", i.vcpu());
             row.put("memoryMb", i.memoryMb());
             row.put("storageGb", i.storageGb());
-            row.put("burstable", i.burstable());
             row.put("onDemandPerHour", i.onDemandPerHour());
             out.add(row);
         }

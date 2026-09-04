@@ -541,14 +541,17 @@ function PoolCard({
             {palette.instances.map((x) => (
               <option key={x.name} value={x.name}>
                 {x.name} — {x.vcpu} vCPU, {(x.memoryMb / 1024).toFixed(0)} GB
-                {x.burstable ? ' (burstable)' : ''}
               </option>
             ))}
           </select>
-          {inst?.burstable && (
+          {/* Width is the only thing about an instance that changes how it runs:
+              the thread pool is sized by it, and declared work is multiplied by
+              2 ÷ vcpu. Said here because it is the one number on this control
+              that has a consequence, and one core is easy to pick by accident. */}
+          {inst && inst.vcpu < 2 && (
             <span className="hint warn">
-              Burstable: full speed until its credits run out, then a fraction of a core. This is
-              where stragglers come from.
+              One core: half the reference machine. It runs one call at a time, and declared work
+              takes twice as long — this is how you make a straggler.
             </span>
           )}
         </div>

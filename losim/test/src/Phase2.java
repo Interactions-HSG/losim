@@ -204,7 +204,7 @@ public class Phase2 {
                     zone: [eu-a, eu-b]
                     runs: [Pinger]
                     overrides:
-                      w3: { instance: t3.micro }
+                      w3: { instance: a1.nano }
                       w4: { memoryMb: 16 }
                 """));
         var byName = new LinkedHashMap<String, Scenario.MachineSpec>();
@@ -214,7 +214,7 @@ public class Phase2 {
               "a pool of six is six machines, named from its prefix");
         check(byName.get("w0").zone().equals("eu-a") && byName.get("w1").zone().equals("eu-b"),
               "zones are dealt round-robin, so a pool is spread rather than stacked");
-        check(byName.get("w3").instance().equals("t3.micro")
+        check(byName.get("w3").instance().equals("a1.nano")
               && byName.get("w2").instance().equals("m5.large"),
               "an override changes one machine and leaves the rest alone");
         check(byName.get("w4").memoryCapMb() == 16 && byName.get("w0").memoryCapMb() == null,

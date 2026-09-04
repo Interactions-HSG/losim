@@ -134,7 +134,6 @@ export interface Instance {
   vcpu: number;
   memoryMb: number;
   storageGb: number;
-  burstable: boolean;
   onDemandPerHour: number;
 }
 

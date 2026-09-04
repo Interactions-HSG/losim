@@ -27,7 +27,7 @@ machines:
     zone: [eu-central-1a, eu-central-1b]
     runs: [lab.Shrinker]
     overrides:
-      w3: { instance: t3.small }     # half the machine, and it will show
+      w3: { instance: a1.medium }    # one core against their two, and it will show
 
 network:
   sameZone:  0.4 refMs
@@ -135,8 +135,8 @@ count, prefix, memoryMb, diskMb, overrides
 ```
 
 ```text an unknown instance
-thumbs.yaml:9: unknown instance type 'c5.medium'; known types: t3.nano,
-t3.micro, t3.small, t3.medium, m5.large, m5.xlarge, m5.2xlarge, c5.large, …
+thumbs.yaml:9: unknown instance type 'c5.medium'; known types: a1.nano,
+a1.medium, m5.large, m5.xlarge, m5.2xlarge, c5.large, c5.xlarge, …
 ```
 
 ```text a fault aimed at nothing

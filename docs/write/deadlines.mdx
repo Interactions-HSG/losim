@@ -70,7 +70,7 @@ are related:
 @Takes(refMs = 3, refNsPerRecord = 240_000)     // 25 frames -> 3 + 6 = 9 refMs
 ```
 
-Nine reference milliseconds of work on a two-vCPU machine. On the `t3.small` in the
+Nine reference milliseconds of work on a two-vCPU machine. On the `c5.large`s in the
 fleet, still 9. But if four calls arrive at once and the machine has two cores,
 the fourth waits for two others to finish — so the *observed* duration is nearer 27,
 plus the round trip.

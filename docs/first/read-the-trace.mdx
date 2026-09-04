@@ -112,7 +112,7 @@ questions a debugger answers, one channel answered one and a half out of five.
   <Step title="Did anything queue, or fill up?">
     `queue_wait` events say a call waited for a core. A few are healthy. A wall of
     them on one machine says your placement is ignoring how big the machines are —
-    which, with a `t3.small` in the fleet, is what you should expect on the first
+    which, with a `a1.medium` in the fleet, is what you should expect on the first
     attempt.
 
     `oom` and `disk_full` events name the machine, the resource, the cap and the

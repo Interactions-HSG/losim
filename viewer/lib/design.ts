@@ -111,7 +111,7 @@ export const MACHINE_H = 1.02;
 // distinction.
 //
 // Compressed hard, and against the fleet's own median rather than against an
-// absolute. A fleet spanning t3.nano to c5.4xlarge covers sixty-four times the
+// absolute. A fleet spanning a1.nano to c5.4xlarge covers sixty-four times the
 // memory, and drawn linearly the small machines vanish. The exponents below turn
 // that sixty-four-fold spread into about two and a half, which is as much as a
 // picture can carry while keeping the smallest machine legible.
