@@ -21,6 +21,16 @@ import org.junit.jupiter.api.Test;
  * rather than measuring them. A test that needed a genuinely overloaded machine
  * to fail is a test that would pass on every machine anybody ran it on, which is
  * what would let this go unnoticed.
+ *
+ * <p><b>None of this gates a run any more.</b> It did briefly: a calibration too
+ * erratic, or too high to be a real timer, was refused outright. Then
+ * {@link Clock#spend} was fixed to park a cost repeatedly until it is actually
+ * paid, and the correction stopped deciding how much time a cost gets — five
+ * 200 refMs costs take 1000 ms whether the correction is 1.0 or 20.0, and on a
+ * host starved of every core. Refusing on these grounds would now stop runs that
+ * would have been right. What is tested here is that the two conditions are
+ * still told apart and still reported, because they explain a slow run;
+ * {@code Clock.unpaidCosts()} is what says a figure is actually short.
  */
 class ClockCalibrationTest {
 
@@ -79,7 +89,7 @@ class ClockCalibrationTest {
     }
 
     @Test
-    @DisplayName("a host that cannot hold a sleep is reported as noisy, and refused")
+    @DisplayName("a host that cannot hold a sleep is reported as noisy")
     void loadedHostIsNoticed() {
         // A fifth of the parks come back at four times their neighbours, which is
         // what eleven busy cores out of twelve actually produced.
@@ -89,7 +99,7 @@ class ClockCalibrationTest {
         var c = summarise(starved, parks(0.1e6, 1.28, 200), parks(0.25e6, 1.28, 200),
                           parks(0.5e6, 1.28, 60), parks(1e6, 1.28, 60), parks(2e6, 1.28, 60));
         assertTrue(c.noise() > Clock.NOISE_LIMIT,
-                "a fifth of the parks being wild has to exceed the limit, or nothing is refused");
+                "a fifth of the parks being wild has to exceed the limit, or nothing is reported");
         assertFalse(c.quiet());
     }
 
@@ -116,11 +126,11 @@ class ClockCalibrationTest {
                 new Clock.Calibration(1.91, 0.14));
         var picked = Clock.quietest(rounds);
         assertEquals(1.28, picked.correction(), 1e-9);
-        assertTrue(picked.quiet(), "the quietest here is below the limit, so the run proceeds");
+        assertTrue(picked.quiet(), "the quietest here is below the limit");
     }
 
     @Test
-    @DisplayName("retrying does not rescue a host that is starved every time")
+    @DisplayName("retrying does not launder a host that is starved every time")
     void retryingIsNotAnEscapeHatch() {
         // The failure mode a retry invites: trying until the answer is liked.
         // Every round is noisy, so the quietest is still noisy, and the run is
@@ -132,11 +142,11 @@ class ClockCalibrationTest {
                 new Clock.Calibration(1.98, 0.21));
         var picked = Clock.quietest(rounds);
         assertEquals(0.15, picked.noise(), 1e-9, "the least bad of them");
-        assertFalse(picked.quiet(), "still refused — three bad measurements are not one good one");
+        assertFalse(picked.quiet(), "still noisy — three bad measurements are not one good one");
     }
 
     @Test
-    @DisplayName("a slow but perfectly steady timer is caught, which spread alone cannot do")
+    @DisplayName("a slow but steady timer is told apart from a busy one, which spread cannot do")
     void biasIsNotVariance() {
         // Rosetta, measured: correction 6.579, noise 0.001 — quieter than some
         // idle native runs. Every check that looks at spread passes it, which is

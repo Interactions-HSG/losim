@@ -43,6 +43,26 @@ public final class Clock {
     /** Owed nanoseconds, per thread: a debt is a property of whoever incurred it. */
     private final ThreadLocal<double[]> debt = ThreadLocal.withInitial(() -> new double[1]);
 
+    /**
+     * Costs that ran out of parks with time still owed.
+     *
+     * <p>The one measure of "this host could not serve the time it was asked
+     * for" that is about the time actually served, rather than about a property
+     * of the host that is thought to predict it. It replaced two such
+     * predictions — a bound on how erratic the calibration was and a bound on
+     * how large it came out — both of which turned out to refuse runs that the
+     * parking loop went on to serve correctly.
+     *
+     * <p>Zero on every host measured so far, busy and translated ones included.
+     * Non-zero means a figure in this run is short by more than the floor, and
+     * the trace says so rather than the terminal.
+     */
+    private final java.util.concurrent.atomic.AtomicLong unpaid =
+            new java.util.concurrent.atomic.AtomicLong();
+
+    /** How many declared costs could not be paid in full. Written into the trace. */
+    public long unpaidCosts() { return unpaid.get(); }
+
     public Clock(double kTime, double correction) {
         this.kTime = kTime;
         this.correction = correction;
@@ -82,11 +102,62 @@ public final class Clock {
         if (refMs <= 0) return;
         double[] owedNs = debt.get();
         owedNs[0] += refMs / kTime * 1e6;
-        if (owedNs[0] < FLOOR_MS * 1e6) return;
-        long before = System.nanoTime();
-        LockSupport.parkNanos((long) (owedNs[0] / correction));
-        owedNs[0] -= (System.nanoTime() - before);      // settle against reality, not intent
+
+        // Park until the debt is actually paid, rather than once and onwards.
+        //
+        // One park settles against reality — but a park lands short whenever the
+        // correction is larger than this host's real overshoot *at this size*,
+        // and it usually is. The overshoot is not one ratio: measured here it is
+        // 1.33 at 0.05 ms and 1.02 at 200 ms, while the fit is taken over
+        // 0.05-2 ms and applied to everything. So a 400 refMs cost was parked as
+        // 400/1.28 and came back after 337, leaving 88 owed — and that residue
+        // was paid inside the *next* handler's span, because the ledger is
+        // per-thread and spans are not.
+        //
+        // Aggregate time was right the whole time, which is why this survived:
+        // ten such costs still totalled 98% of ten. What was wrong was every
+        // individual figure. `grossMs` closes at the end of the span with the
+        // debt still outstanding, so a handler declaring 400 reported 330, the
+        // first call of a run reported worst, and a series of identical calls
+        // read as a ramp climbing towards its own declared value and never
+        // arriving. Two people reported that ramp as a bug in something else.
+        //
+        // Looping fixes it without a better model of the host, which is the
+        // point: each pass pays the fraction the correction happens to be right
+        // about, and the remainder is re-parked. It converges for any correction
+        // at or above 1, so a host whose ratio this cannot describe — a
+        // translated one, a starved one — arrives at the same total by way of
+        // more parks. Calibration becomes a question of how many parks, not of
+        // whether the time is served.
+        //
+        // It ends at the floor, which is where the debt was always meant to
+        // live: what carries across calls now is only what is too fine to
+        // express, never a quarter of a declared cost.
+        for (int pass = 0; pass < MAX_PARKS && owedNs[0] >= FLOOR_MS * 1e6; pass++) {
+            long before = System.nanoTime();
+            LockSupport.parkNanos((long) (owedNs[0] / correction));
+            long slept = System.nanoTime() - before;
+            owedNs[0] -= slept;                    // settle against reality, not intent
+            // A park that returns at once returns at once every time: an
+            // interrupt or a pending permit, neither of which more attempts
+            // cure. Leaving the rest owed is right — it is the one thing this
+            // ledger has always known how to carry.
+            if (slept <= 0) break;
+        }
+        if (owedNs[0] >= FLOOR_MS * 1e6) unpaid.incrementAndGet();
     }
+
+    /**
+     * How many parks one cost may take before the rest is left owed.
+     *
+     * <p>A bound rather than a promise. With a correction this host can describe
+     * it takes one pass or two; with one it cannot — a 6.6 measured under binary
+     * translation against a real ratio near 1 — each pass pays about a seventh
+     * and it takes on the order of fifty. Sixty-four leaves room for that and
+     * still cannot spin: every pass either sleeps, and so reduces the debt, or
+     * returns instantly and stops the loop.
+     */
+    private static final int MAX_PARKS = 64;
 
     /** What this thread still owes, in reference milliseconds. */
     public double owedRefMs() { return debt.get()[0] / 1e6 * kTime; }
