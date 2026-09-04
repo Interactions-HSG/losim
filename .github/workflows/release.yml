@@ -1,0 +1,161 @@
+# Cutting a release: the lib/ a lab downloads, and the jar a POM points at.
+#
+# Releasing is pushing a tag. There is no button and no version to type twice —
+# ./VERSION is the number, the tag has to agree with it, and the job stops if it
+# does not. A release whose tag says v1.2.0 while its jar says 1.0.1 would be
+# discovered by a student, months later, as a bug that cannot be reproduced.
+#
+#   git tag v1.2.0 && git push origin v1.2.0
+#
+# What it publishes, and who reads it:
+#
+#   losim-lib.zip   `losim update` in a student's lab. This is the one that
+#                   matters — it is the whole of lib/, the same bytes publish.sh
+#                   writes into an assignment.
+#   VERSION         a one-line asset, so `losim update --check` costs a few bytes
+#                   instead of 22 MB.
+#   the Maven tree  what a lab resolves with Gradle, pushed to the dist
+#                   repository's Pages site and attached here as
+#                   losim-maven-repo.zip.
+#
+# ## Everything here has to be readable without a token
+#
+# A hundred students each making a personal access token is not a thing a course
+# can run, so no student-facing path may need one. Two consequences, and the
+# second is easy to get wrong:
+#
+#   **Release assets** are served anonymously only for *public* repositories. So
+#   the repository these releases land in must be public. If the simulator's own
+#   repository is not, publish to a small public one that holds releases and
+#   nothing else, and point losim/cli/Update.java's DIST at it.
+#
+#   **GitHub Packages' Maven registry is not an option at all.** It requires a
+#   token to *read*, and — unlike the Container registry, which is the only one
+#   exempt — that is true whether the package is public or private. Making a
+#   repository public does not make its Maven packages anonymously resolvable.
+#   That is why the Maven artifact is published as a plain file tree on the
+#   `maven-repo` branch of this repository, which any public URL serves without
+#   a credential, and why the Packages step below is marked maintainers-only and
+#   allowed to fail.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write   # to create the release
+  packages: write   # to publish the jar
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '25' }
+
+      # The tag and the file are two places holding one number, so they are
+      # compared before anything is built. This is the whole reason the file
+      # exists rather than the version being passed in on the command line.
+      - name: the tag and ./VERSION agree
+        run: |
+          set -e
+          FILE="$(tr -d '[:space:]' < VERSION)"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            TAG="${GITHUB_REF_NAME#v}"
+            if [ "$TAG" != "$FILE" ]; then
+              echo "::error::tag ${GITHUB_REF_NAME} does not match ./VERSION ($FILE)."
+              echo "Edit VERSION, commit, and tag that commit." >&2
+              exit 1
+            fi
+          fi
+          echo "releasing losim $FILE"
+
+      # Not a fast gate, and deliberately not skipped. CI has already run this on
+      # the commit; running it again here is what makes "this tag was tested" a
+      # fact about the tag rather than about a branch it was once on.
+      - run: ./check.sh
+
+      - name: build the archive
+        run: ./dist.sh
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # The Maven layout, as files. This is the artifact students resolve, and it
+      # is built before anything is pushed anywhere so a broken build file fails
+      # the release rather than half-publishing one.
+      - name: build the Maven repository
+        run: gradle publishAllPublicationsToPagesRepository --no-daemon
+
+      # Attached to the release as well as served. A course that would rather not
+      # depend on Pages at all can unzip this into any static host, and it means
+      # the release is self-contained even if the Pages push below is skipped.
+      - name: attach the Maven repository to the release
+        run: cd build/maven-repo && zip -qr ../losim-maven-repo.zip .
+
+      # Served anonymously, which GitHub Packages' Maven registry cannot be: it
+      # wants a token to read even a public package, and a student cannot be
+      # asked for one. So the Maven tree is pushed to a branch of *this*
+      # repository, which GITHUB_TOKEN can already write — no second repository,
+      # no extra secret, and nothing for anybody to configure before it works.
+      #
+      # A lab then resolves from either of these, both anonymous on a public repo:
+      #
+      #   https://raw.githubusercontent.com/Interactions-HSG/losim/maven-repo/
+      #   https://interactions-hsg.github.io/losim/        (if Pages is enabled
+      #                                                     on the maven-repo branch)
+      #
+      # The first works with no setup at all. The second is nicer and is one
+      # switch in the repository's settings.
+      - name: publish the Maven tree to the maven-repo branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          V="$(tr -d '[:space:]' < VERSION)"
+          REPO="${GITHUB_REPOSITORY}"
+          git clone --depth 1 --branch maven-repo \
+            "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" mr 2>/dev/null || {
+              git clone --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" mr
+              cd mr && git checkout --orphan maven-repo && git rm -rf . >/dev/null && cd ..
+            }
+          cd mr
+          # Additive: a Maven repository is every version ever published, and a
+          # lab pinned to an older one has to keep resolving.
+          cp -r ../build/maven-repo/* .
+          touch .nojekyll
+          git add -A
+          git -c user.name=losim-release -c user.email=noreply@github.com \
+              commit -m "losim ${V}" || echo "nothing changed"
+          git push origin maven-repo
+
+      - name: publish to GitHub Packages (maintainers only, needs a token to read)
+        run: gradle publishAllPublicationsToGitHubPackagesRepository --no-daemon
+        continue-on-error: true
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # `gh` is on the runner already, so this needs no third-party action to be
+      # trusted with a token that can write releases.
+      - name: publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          V="$(tr -d '[:space:]' < VERSION)"
+          TAG="${GITHUB_REF_TYPE:-branch}"
+          if [ "$TAG" = "tag" ]; then TAG="${GITHUB_REF_NAME}"; else TAG="v${V}"; fi
+          # Re-running a release must not fail on "already exists": the assets are
+          # replaced, so a botched release can be fixed by re-running the job.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" build/losim-lib.zip build/VERSION \
+                              build/losim-maven-repo.zip --clobber
+          else
+            gh release create "$TAG" build/losim-lib.zip build/VERSION \
+              build/losim-maven-repo.zip \
+              --title "losim $V" \
+              --notes "\`losim update\` in any lab picks this up. It replaces lib/ and nothing else."
+          fi

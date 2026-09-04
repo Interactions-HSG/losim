@@ -68,11 +68,17 @@ public final class Main {
         // `losim manual` is the same thing as `losim serve docs`, kept because a
         // devcontainer somewhere is invoking it and a lab whose manual silently
         // did not start would fail in exactly the way the manual exists to
-        // prevent. It fell through to the usage text once; it must not again.
+        // prevent, so this alias must not fall through to the usage text below.
         if (args.length > 0 && args[0].equals("manual")) {
             return Manual.main(Path.of(option(args, "--docs", "docs")),
                                Integer.parseInt(option(args, "--port", "3000")),
                                option(args, "--host", host()));
+        }
+        if (args.length > 0 && args[0].equals("update")) {
+            return Update.run(Path.of(option(args, "--root", ".")),
+                              option(args, "--from", null),
+                              option(args, "--to", null),
+                              flag(args, "--check"));
         }
         if (args.length > 0 && args[0].equals("diff")) {
             List<String> two = positionals(args);
@@ -115,6 +121,13 @@ public final class Main {
                   Whether two traces are the same simulator. Structure and attribution
                   have to agree; measurements are printed rather than judged, because
                   runs are not reproducible and hosts are not identical.
+
+                       losim update [--check] [--root .]
+
+                  Replace this lab's lib/ with the newest one the course published.
+                  The only command here that touches the network, and it only does so
+                  when you type it — lib/ is committed, so a lab that is never updated
+                  keeps working exactly as it did. Commit what it writes.
 
                        losim bill <trace.json> [--prices <file>] [--json]
 
@@ -191,10 +204,9 @@ public final class Main {
      * to pass it is covered anyway, because a redirected stream is not a terminal
      * and this does not fire.
      *
-     * <p>Both modes come through here. Written inline in the direct path, it was
-     * unreachable for a scaled scenario — which returned before it — so a student
-     * at a terminal got a viewer for one kind of run and silence for the other,
-     * and an explicit `--view` was ignored.
+     * <p>Both modes come through here, so a scaled scenario and a direct one open
+     * the viewer the same way: a student at a terminal gets one whichever kind of
+     * run this was, and an explicit `--view` is always honoured.
      */
     private static void show(String[] args, Path target) {
         if (flag(args, "--no-view")) return;
@@ -293,17 +305,18 @@ public final class Main {
     }
 
     /** Flags that stand alone; everything else beginning with `--` takes a value. */
-    private static final List<String> BARE = List.of("--no-view", "--view", "--json");
+    private static final List<String> BARE = List.of("--no-view", "--view", "--json", "--check");
 
     /**
      * Every argument that is not a flag or a flag's value, in order.
      *
-     * <p>Written as a scan rather than as `args[1]` because `losim run --no-view
-     * thing.yaml` should mean what it looks like it means. Taking the second
-     * argument on faith made that read as "no such scenario: --no-view", which is
-     * the sort of message that sends somebody looking in the wrong place — and
-     * `losim bill --prices expensive.yaml trace.json` was reading the same way,
-     * so every subcommand's arguments are found here now rather than at two.
+     * <p>Written as a scan rather than as `args[1]`, because `losim run --no-view
+     * thing.yaml` must mean what it looks like it means: taking the second
+     * argument on faith would read that as "no such scenario: --no-view", which
+     * is the sort of message that sends somebody looking in the wrong place — and
+     * `losim bill --prices expensive.yaml trace.json` would read the same way. So
+     * every subcommand's arguments are found here, this way, rather than at a
+     * fixed position.
      */
     private static List<String> positionals(String[] args) {
         List<String> out = new ArrayList<>();

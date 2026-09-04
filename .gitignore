@@ -29,3 +29,6 @@ tsconfig.tsbuildinfo
 
 # Where s10-console.ts emits the views so it can render them without a browser.
 viewer/.check/
+
+# Gradle scratch state. The build outputs go to build/, which is already ignored.
+.gradle/

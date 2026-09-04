@@ -88,6 +88,11 @@ cp prices/*.yaml            "$TARGET/lib/prices/"
 for b in "${BINS[@]}"; do cp "vendor/bin/$b" "$TARGET/lib/bin/$b"; chmod +x "$TARGET/lib/bin/$b"; done
 cp -r vendor/LICENSES       "$TARGET/lib/LICENSES"
 
+# Which losim this is, where a person can read it without unpacking a jar.
+# `losim update` compares against the one stamped inside losim.jar; this is
+# the same number, for eyes rather than for code.
+tr -d "[:space:]" < VERSION > "$TARGET/lib/version"
+
 if [ "$LIB_ONLY" -eq 0 ]; then
   # The application, and nothing that was ever run through it.
   mkdir -p "$TARGET/viewer"
