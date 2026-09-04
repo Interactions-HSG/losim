@@ -15,7 +15,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-if [ ! -d build/viewer/traces ]; then
+# The index, not the directory: `traces.sh` writes an empty `{"runs": []}` index
+# before it has anything to put in it, so a directory that exists proves nothing.
+# Checked against the index's own contents, because an empty run set is what two
+# of these checks below quietly pass on and two others fail on for reasons that
+# read like a regression and are not one.
+if ! grep -q '"runs":[[:space:]]*\[[[:space:]]*{' build/viewer/traces/index.json 2>/dev/null; then
   echo "no traces yet — run ./viewer/traces.sh first" >&2
   exit 1
 fi
