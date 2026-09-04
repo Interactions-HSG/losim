@@ -217,6 +217,8 @@ public final class Lab {
             log.accept("There is no code in this lab yet.\n");
             return null;
         }
+        String missing = c.protos().isEmpty() ? null : noProtoc();
+        if (missing != null) { log.accept(missing); return null; }
         Path gen = root.resolve("gen");
         Path classes = classes();
         wipe(gen);
@@ -293,6 +295,12 @@ public final class Lab {
             return 2;
         }
 
+        // Asked before anything is deleted, because `gen/` is worth more than a
+        // build directory (see below) and a build that cannot possibly succeed
+        // should leave the lab exactly as it found it.
+        String missing = c.protos().isEmpty() ? null : noProtoc();
+        if (missing != null) { log.accept(missing); return 1; }
+
         // Generated code lands **beside the schema it came from**, not off in a
         // build directory. Two reasons, and the second is the real one: the
         // editor finds it there, so `tour.ping.Ping` resolves and completion
@@ -341,11 +349,31 @@ public final class Lab {
         return code;
     }
 
+    /**
+     * Why this platform cannot run {@code protoc}, or null if it can.
+     *
+     * <p>Its own method because the answer is needed twice and in two places
+     * that must not disagree: here, where the binaries are about to be used,
+     * and before {@link #compile} and {@link #run} delete {@code gen/}. A build
+     * that is going to fail on the toolchain has to fail before it destroys the
+     * output of the last one that worked — a published lab on a platform with no
+     * binary in {@code lib/bin} would otherwise lose every generated type on the
+     * first press, and unresolve them in the editor, while reporting something
+     * about protoc rather than about the imports that just broke.
+     */
+    private String noProtoc() {
+        Path protoc = lib.resolve("bin").resolve("protoc-" + platform());
+        Path plugin = lib.resolve("bin").resolve("protoc-gen-grpc-java-" + platform());
+        if (Files.isExecutable(protoc) && Files.isExecutable(plugin)) return null;
+        return "No protobuf compiler for " + platform() + " in " + lib.resolve("bin") + ".\n";
+    }
+
     private int generate(List<Path> protos, Path gen, Consumer<String> log) throws IOException, InterruptedException {
         Path protoc = lib.resolve("bin").resolve("protoc-" + platform());
         Path plugin = lib.resolve("bin").resolve("protoc-gen-grpc-java-" + platform());
-        if (!Files.isExecutable(protoc) || !Files.isExecutable(plugin)) {
-            log.accept("No protobuf compiler for " + platform() + " in " + lib.resolve("bin") + ".\n");
+        String missing = noProtoc();
+        if (missing != null) {
+            log.accept(missing);
             return 1;
         }
         List<String> argv = new ArrayList<>(List.of(protoc.toString(),
