@@ -86,6 +86,90 @@ public final class Run {
      *              thirty times and disassembling them thirty times would be thirty
      *              times the answer
      */
+    /**
+     * The escape hatch, and why it is an environment variable.
+     *
+     * <p>Whether this host is too busy is a fact about the host, not about the
+     * scenario — so it must not be written into a scenario file, where it would
+     * be committed, copied between labs, and eventually be the reason a run
+     * nobody could explain was believed. An environment variable belongs to the
+     * machine and the session, which is the same scope as the problem.
+     */
+    private static final String OVERRIDE = "LOSIM_ALLOW_BUSY_HOST";
+
+    /**
+     * Calibrates the clock, and refuses to run on a host that cannot hold a sleep.
+     *
+     * <p>losim's every declared duration is a {@code parkNanos} divided by a ratio
+     * measured here, at startup, once. When the host is starved of cores that
+     * measurement comes back near double its true value and every handler then
+     * sleeps about half as long as it declared — which does not look like a
+     * broken run. It looks like a run. The totals are self-consistent, the trace
+     * is well-formed, the bill adds up, and the only thing wrong with it is
+     * every number in it.
+     *
+     * <p>So this is a refusal rather than a warning. A warning above a valid-looking
+     * trace is a warning that gets read once and scrolled past, and the trace
+     * outlives the terminal it was printed in. {@link Clock.Calibration#noise()}
+     * separates the two states cleanly enough to decide — see
+     * {@link Clock#NOISE_LIMIT} for the measurements the threshold comes from.
+     */
+    private static Clock.Calibration calibrate() {
+        Clock.Calibration c = Clock.calibrate();
+        if (c.usable() || System.getenv(OVERRIDE) != null) return c;
+        // Two different findings about two different machines, and a reader has
+        // to be able to tell them apart: "close your other windows" is useless
+        // advice to somebody whose container is emulating a different processor.
+        if (!c.plausible()) throw new IllegalStateException("""
+                This machine's timer is too slow to be calibrated.
+
+                losim sleeps every declared duration and divides it by a ratio it
+                measures against this host at startup. On every ordinary machine that
+                ratio is about 1.28. Here it came out at %.2f, and the host was not
+                busy while it was measured — %.1f%% of the sample sleeps were wild, which
+                is as clean as an idle laptop.
+
+                A slow, steady timer is what binary translation looks like: an x86_64
+                container on an Apple Silicon Mac, running under Rosetta. Under
+                translation the overshoot stops behaving like a ratio, so a figure
+                fitted over sleeps of a twentieth of a millisecond says nothing about a
+                sleep of two hundred, and every @Takes in the run is served at roughly
+                half its declared length. The trace looks entirely well-formed.
+
+                The fix is to run the container on its native architecture — for a
+                devcontainer on Apple Silicon, remove any platform pin such as
+                `--platform=linux/amd64` or a `"runArgs"` entry naming amd64, and let
+                it build arm64. A Codespace is unaffected.
+
+                If you accept the caveat — comparing two runs made the same way on this
+                same machine, where the same error is in both — set %s=1.
+                parkCorrection and hostNoise are written into every trace either way."""
+                .formatted(c.correction(), c.noise() * 100, OVERRIDE));
+        throw new IllegalStateException("""
+                This machine is too busy to time anything.
+
+                losim sleeps every declared duration and divides it by a ratio it
+                measures against this host at startup. That measurement needs a core to
+                itself for about half a second, and it did not get one: %.0f%% of the
+                sample sleeps came back at more than twice the length of their
+                neighbours, where a quiet host gives under 1%%.
+
+                The ratio it arrived at was %.2f. A host under load reports that figure
+                at roughly double its true value, which would make every @Takes in this
+                run sleep about half as long as it declares — and nothing in the trace
+                would look wrong. It would be well-formed, self-consistent, billed to
+                the cent, and wrong in every number. That is why this is a refusal and
+                not a warning.
+
+                Close whatever else is compiling or running, and try again.
+
+                If you accept the caveat — comparing two runs made the same way, say,
+                where the same error is in both — set %s=1.
+                The two figures are written into every trace as parkCorrection and
+                hostNoise either way."""
+                .formatted(c.noise() * 100, c.correction(), OVERRIDE));
+    }
+
     public static Result of(Scenario s, ClassLoader loader, Telemetry.Level level, Trust trust)
             throws Exception {
         // Before anything: the JVM's first gRPC call costs sixty times what the
@@ -93,7 +177,8 @@ public final class Run {
         // billed for it. Paid here, on a fleet of losim's own, in no trace.
         Warm.once();
 
-        var clock = new Clock(s.kTime(), Clock.measureCorrection());
+        var calibration = calibrate();
+        var clock = new Clock(s.kTime(), calibration.correction());
         var tel = new Telemetry(clock, level);
         var net = new Net(s.seed())
                 .latency(s.net().sameZoneRefMs(), s.net().crossZoneRefMs())
@@ -216,6 +301,14 @@ public final class Run {
             if (failure != null) trace.meta("failure", failure);
             if (s.tightMargin()) trace.meta("tightMargin", true);
             if (trust.checked()) trace.meta("trusted", trust.clean());
+            // What the clock was calibrated to, and how still the host was while
+            // it was measured. Written always, not only when something is wrong:
+            // a trace whose durations look surprising is read afterwards, on a
+            // different day, by somebody who cannot re-measure the host it came
+            // from. `trusted` answers a question about the code; these two answer
+            // the question about the machine, which is the one that was missing.
+            trace.meta("parkCorrection", Math.round(calibration.correction() * 1000) / 1000.0);
+            trace.meta("hostNoise", Math.round(calibration.noise() * 1000) / 1000.0);
 
             // The closing balance, in the same units and under the same names the
             // engine fits its laws on — so an observed figure and a projected one can
