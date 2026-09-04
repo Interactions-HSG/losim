@@ -31,6 +31,12 @@ public final class Meter {
      *
      * <p>Returns −1 for a virtual thread, which is why platform threads are a
      * requirement rather than a preference (D12).
+     *
+     * <p>Monotonic, because a thread asking for its own figure cannot be in the
+     * middle of refilling its own TLAB while it asks — unlike
+     * {@link #allocatedBy}, which reads other threads' and can go backwards. So
+     * a bracket's width is never negative: 77 million self-reads under hard
+     * allocation produced no dip and no negative width.
      */
     public static long allocNow() {
         return MX.getThreadAllocatedBytes(Thread.currentThread().threadId());
@@ -46,6 +52,15 @@ public final class Meter {
      * into "this machine has allocated nothing", permanently and silently. Zero
      * is a number a machine can honestly have; not knowing is not, and the two
      * must not arrive looking the same.
+     *
+     * <p><b>Not monotonic, and cannot be made so here.</b> Reading another
+     * thread's figure sums its retired total and the used part of its current
+     * TLAB, and the two are not read together — so a reader that catches a
+     * thread mid-refill sees up to a whole TLAB disappear, and more when it is
+     * descheduled across several. Measured: the worst fall equals the TLAB size
+     * (0.062 MB at {@code -XX:TLABSize=65536}, 0.999 MB at 1m, none under
+     * {@code -XX:-UseTLAB}). Whoever plots this as a counter has to carry a
+     * high-water mark, which is what {@code Machine.allocatedBytes()} does.
      */
     public static long allocatedBy(long[] threadIds) {
         long[] each = MX.getThreadAllocatedBytes(threadIds);

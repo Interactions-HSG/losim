@@ -421,15 +421,28 @@ public final class Machine implements Bound, Telemetry.Sampled {
      */
     public long allocatedBytes() {
         long now = Math.max(0, rawAllocatedBytes() - losimBytes.get());
-        // A cumulative number must not fall, and this one is a difference of two
-        // rising figures — the machine's own total and the instrumentation taken
-        // back off it — so it can dip whenever the second gains on the first.
-        // A program cannot un-allocate, so a dip is the estimate being wrong for
-        // a moment rather than the machine giving memory back, and the honest
-        // reading of a monotonic quantity measured imperfectly is its high-water
-        // mark. Without this the series goes backwards and anyone plotting it as
-        // a counter — including the scaler, which fits a law against it —
-        // believes the trace is broken.
+        // A cumulative number must not fall, and this one does: not because the
+        // subtraction gets ahead of itself, but because `raw` itself goes
+        // backwards. `getThreadAllocatedBytes`, read from another thread, sums a
+        // thread's retired total and the used part of its current TLAB, and those
+        // two are not read together — so a reader that samples the total just
+        // before a TLAB is retired and the buffer just after sees up to a whole
+        // TLAB vanish. Measured: the worst dip equals the TLAB size (0.062 MB at
+        // `-XX:TLABSize=65536`, 0.999 MB at 1m, none at all under
+        // `-XX:-UseTLAB`), and larger still when the reader is descheduled across
+        // several refills.
+        //
+        // So this is below anything losim can fix by bookkeeping, and the clamp
+        // is the fix rather than a cover for one. A program cannot un-allocate,
+        // so the honest reading of a monotonic quantity measured by a racy
+        // counter is its high-water mark. Without it the series goes backwards
+        // and anyone plotting it as a counter — including the scaler, which fits
+        // a law against it — believes the trace is broken.
+        //
+        // Only cross-thread reads are exposed. A thread reading its own counter
+        // cannot be mid-refill while it asks, so every metered bracket in losim
+        // is safe: 77 million self-reads under hard allocation produced no dip
+        // and no negative bracket width.
         return allocHighWater.accumulateAndGet(now, Math::max);
     }
 

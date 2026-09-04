@@ -114,11 +114,21 @@ that is the cadence, not your program.
 **`allocMb` is a corrected figure, and it only ever rises.** What the meter reads is
 the machine's own threads, losim's bookkeeping included; what the series carries is
 that total with the bookkeeping subtracted, so a machine is not billed for being
-watched. Two rising numbers subtracted can dip for a moment when the second gains on
-the first — and a program cannot un-allocate, so a dip is the correction being
-briefly wrong rather than memory coming back. The series reports the high-water mark
-for that reason: a counter that goes backwards reads as a broken trace, and this one
+watched.
+
+The raw counter underneath it is not monotonic. `getThreadAllocatedBytes`, asked
+about *another* thread, adds up that thread's retired total and the used part of the
+buffer it is currently allocating out of, and it does not read the two together — so
+a sampler that catches a thread swapping buffers sees up to a whole buffer's worth
+disappear. It is measurable: the size of the largest fall is exactly the TLAB size,
+and setting `-XX:-UseTLAB` removes it entirely. A program cannot un-allocate, so this
+is the instrument slipping, not memory coming back. The series therefore reports the
+high-water mark — a counter that goes backwards reads as a broken trace, and this one
 is fitted against by the scale engine.
+
+Your own code is not exposed to this. A thread reading its own counter cannot be
+mid-swap while it asks, and every measurement losim takes inside a handler is a
+thread reading itself.
 
 A machine that loses one of its threads — which is what being killed does — can no
 longer be metered at all. That is reported as a `meter_lost` event and the last
