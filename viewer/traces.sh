@@ -165,8 +165,12 @@ for (const file of readdirSync(into).sort()) {
 
 // Yours first, then the suite, then the gallery: somebody looking for their own
 // run should not have to scroll past a hundred worked examples to find it.
+// Within a heading, digits read as the number they spell, so `2-` comes before
+// `10-`. A tour numbered to be read in order is listed in that order, which a
+// plain string compare does not do.
 const rank = { yours: 0, suite: 1, gallery: 2 };
-runs.sort((a, b) => (rank[a.from] ?? 3) - (rank[b.from] ?? 3) || a.name.localeCompare(b.name));
+const byName = (a, b) => a.localeCompare(b, undefined, { numeric: true });
+runs.sort((a, b) => (rank[a.from] ?? 3) - (rank[b.from] ?? 3) || byName(a.name, b.name));
 
 writeFileSync(join(into, "index.json"), JSON.stringify({ runs }));
 const counts = runs.reduce((n, r) => (n[r.from] = (n[r.from] ?? 0) + 1, n), {});

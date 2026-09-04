@@ -28,6 +28,7 @@ import { useConsole } from '../../lib/console.tsx';
 import { Lab } from '../Lab.tsx';
 import {
   distances, expand, firstDraft, linkOf, perHour, toYaml, unplaced,
+  FAULT_KINDS, PAIRED,
   type Chaos, type Draft, type Fault, type Pool,
 } from '../../lib/author.ts';
 import {
@@ -174,9 +175,9 @@ export function Scenarios() {
           ) : (
             <>
               The same form, filled in from what is already written. Nothing is written back
-              until you press save — and a scenario the form has no control for something in
-              (a hand-tuned rate, an advanced key) is refused before it opens here at all,
-              rather than opened with that something quietly missing.
+              until you press save — and a scenario the form could not write back exactly as
+              it found it is refused before it opens at all, rather than opened with
+              something quietly missing from it.
             </>
           )
         }
@@ -258,6 +259,7 @@ export function Scenarios() {
             <Placing draft={draft} palette={palette} edit={edit} />
             <Network draft={draft} palette={palette} edit={edit} />
             <Weather draft={draft} palette={palette} machines={machines} edit={edit} />
+            <Scale draft={draft} machines={machines} edit={edit} />
           </div>
 
           <div className="col sticky">
@@ -392,6 +394,180 @@ export function Scenarios() {
   );
 }
 
+/* ------------------------------------------------------------------ the scale
+ *
+ * Two questions, and the second only exists because of the first. **How much
+ * work is there** at the size this design is meant to handle, and **do we run
+ * that or measure our way to it**.
+ *
+ * Direct mode runs whatever `records` says, so a big number is a long
+ * afternoon. Scaled mode runs a ladder of small sizes instead, fits a law to
+ * each resource, and projects to `records` — and refuses to project the ones
+ * whose law does not hold, which is the honest half of it. Neither is the
+ * advanced option: a scenario says nothing here and gets one record in direct
+ * mode, which is exactly right until the question is how a design behaves at a
+ * size nobody can afford to run.
+ */
+function Scale({
+  draft, machines, edit,
+}: {
+  draft: Draft;
+  machines: { name: string; pool: string }[];
+  edit: (f: (d: Draft) => void) => void;
+}) {
+  const w = draft.workload;
+  /** What the loader would fill in if a `workload:` said only `records:`. */
+  const declared = machines.filter((m) => m.pool).length;
+  const start = () => ({
+    records: 100_000,
+    probe: [1000, 2000, 4000, 8000],
+    workers: [Math.max(2, Math.round(declared / 2)), Math.max(3, declared)],
+  });
+
+  /** One list of positive integers, typed as text so a half-typed comma survives. */
+  const list = (xs: number[]) => xs.join(', ');
+  const parse = (text: string) =>
+    text.split(',').map((x) => Math.round(Number(x.trim()))).filter((n) => Number.isFinite(n) && n > 0);
+
+  return (
+    <Panel title="Scale" note={w ? `${w.records.toLocaleString()} records` : 'one record, run directly'}>
+      <p className="lead">
+        How much work there is at the size this design is <em>for</em> — which is not always a
+        size you can afford to run.
+      </p>
+
+      {!w && (
+        <>
+          <p className="none">
+            No <code>workload:</code>. The job gets one record and the run is whatever your code
+            does with it.
+          </p>
+          <button className="btn" onClick={() => edit((d) => { d.workload = start(); })}>
+            + Workload
+          </button>
+        </>
+      )}
+
+      {w && (
+        <>
+          <div className="jobs">
+            <div className="field">
+              <label htmlFor="records">Records</label>
+              <input
+                id="records"
+                type="number"
+                min={1}
+                value={w.records}
+                onChange={(e) => edit((d) => {
+                  if (d.workload) d.workload.records = Math.max(1, Math.round(Number(e.target.value) || 1));
+                })}
+              />
+              <span className="hint">The size the design is meant to handle.</span>
+            </div>
+            <div className="field">
+              <label htmlFor="mode">Mode</label>
+              <select
+                id="mode"
+                value={draft.mode}
+                onChange={(e) => edit((d) => { d.mode = e.target.value as Draft['mode']; })}
+              >
+                <option value="direct">direct — run all of it</option>
+                <option value="scaled">scaled — probe and project</option>
+              </select>
+              <span className="hint">
+                {draft.mode === 'direct'
+                  ? 'Every record actually runs. Honest, and slow at a real size.'
+                  : 'The ladder below runs; the engine fits a law and projects to Records.'}
+              </span>
+            </div>
+          </div>
+
+          {draft.mode === 'scaled' && (
+            <div className="jobs">
+              <div className="field grow">
+                <label htmlFor="probe">Probe ladder</label>
+                <input
+                  id="probe"
+                  value={list(w.probe)}
+                  onChange={(e) => edit((d) => { if (d.workload) d.workload.probe = parse(e.target.value); })}
+                />
+                <span className={w.probe.length < 4 ? 'hint warn' : 'hint'}>
+                  {w.probe.length < 4
+                    ? `${w.probe.length} rung${w.probe.length === 1 ? '' : 's'} — the loader `
+                      + 'wants at least four: three cannot show whether a law bends, and one '
+                      + 'that bends has to be refused rather than extrapolated across.'
+                    : `${w.probe.length} rungs, each run in full.`}
+                </span>
+              </div>
+              <div className="field grow">
+                <label htmlFor="workers">Fleet sizes</label>
+                <input
+                  id="workers"
+                  value={list(w.workers)}
+                  onChange={(e) => edit((d) => { if (d.workload) d.workload.workers = parse(e.target.value); })}
+                />
+                <span className="hint">
+                  How many machines to put in each multi-machine pool, varied on its own so a
+                  cost can be attributed to the right variable rather than to whichever one
+                  happened to move with it.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {draft.mode === 'scaled' && (
+            <div className="flag">
+              <span>·</span>
+              <span>
+                {w.probe.length * Math.max(1, w.workers.length)} runs, not one — every rung at
+                every fleet size. What comes back is a projection with an error bar, and any
+                resource whose law does not hold is <strong>refused</strong> rather than
+                extrapolated.
+              </span>
+            </div>
+          )}
+
+          <button
+            className="btn"
+            onClick={() => edit((d) => { d.workload = null; d.mode = 'direct'; })}
+          >
+            Remove workload
+          </button>
+          {draft.mode === 'scaled' && (
+            <p className="note">
+              Removing it puts the run back to direct: scaled mode has nothing to scale down
+              from without a workload, and the loader says so rather than guessing one.
+            </p>
+          )}
+        </>
+      )}
+
+      <style>{`
+        .lead { font-size: 13px; margin: 0 0 14px; }
+        .none { font-size: 12.5px; color: var(--text-3); margin: 0 0 12px; }
+        .jobs { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+        .field { display: flex; flex-direction: column; gap: 4px; min-width: 150px; flex: 1; }
+        .field.grow { flex: 2; min-width: 220px; }
+        .field label { font-size: 11.5px; color: var(--text-3); }
+        .field input, .field select {
+          height: 32px; padding: 0 10px; font: inherit; font-size: 13px;
+          color: var(--text); background: var(--surface);
+          border: 1px solid var(--border); border-radius: var(--r-sm);
+        }
+        .field input { font-family: var(--mono); }
+        .hint { font-size: 11px; color: var(--text-3); }
+        .hint.warn { color: var(--warn); }
+        .note { font-size: 11.5px; color: var(--text-3); margin: 10px 0 0; }
+        .flag {
+          display: flex; gap: 10px; align-items: flex-start; margin: 0 0 14px;
+          padding: 11px 14px; border-radius: var(--r-sm); font-size: 12.5px;
+          background: var(--accent-soft); color: var(--text-2);
+        }
+      `}</style>
+    </Panel>
+  );
+}
+
 /* ---------------------------------------------------------------- the machines
  *
  * The part a student actually authors. Each block is a pool — machines that grow
@@ -418,9 +594,13 @@ function Machines({
               d.pools.push({
                 name: `pool${d.pools.length + 1}`,
                 count: 1,
+                prefix: `pool${d.pools.length + 1}`,
                 instance: palette.instances[0]?.name ?? 'm5.large',
                 zones: [palette.regions[0]?.zones[0] ?? 'eu-central-1a'],
                 runs: [],
+                memoryMb: null,
+                diskMb: null,
+                overrides: [],
               });
             })
           }
@@ -483,13 +663,25 @@ function PoolCard({
   const inst = palette.instances.find((x) => x.name === p.instance);
   const region = palette.regions.find((r) => p.zones.some((z) => r.zones.includes(z)))
     ?? palette.regions[0];
+  // The names the loader will give this pool's machines, which is what an
+  // exception has to be keyed by and what a fault has to point at.
+  const count = Math.max(1, Math.round(p.count));
+  const numbered = count > 1 || p.prefix !== p.name;
+  const names = Array.from({ length: count }, (_, k) => (numbered ? `${p.prefix}${k}` : p.name));
   return (
     <div className="pool">
       <header>
         <input
           className="nm"
           value={p.name}
-          onChange={(e) => edit((d) => { d.pools[i].name = e.target.value; })}
+          onChange={(e) => edit((d) => {
+            // The prefix follows the name while the two are the same, because
+            // that is the ordinary case and nobody renaming `workers` means to
+            // leave its machines called `workers0`. One deliberately set apart
+            // stays put.
+            if (d.pools[i].prefix === d.pools[i].name) d.pools[i].prefix = e.target.value;
+            d.pools[i].name = e.target.value;
+          })}
           aria-label="pool name"
         />
         <span className="chip">
@@ -532,6 +724,19 @@ function PoolCard({
             })}
           />
         </div>
+        {(p.count > 1 || p.prefix !== p.name) && (
+          <div className="field">
+            <label>Called</label>
+            <input
+              value={p.prefix}
+              onChange={(e) => edit((d) => { d.pools[i].prefix = e.target.value; })}
+              aria-label="machine name prefix"
+            />
+            <span className="hint">
+              {p.prefix ? `${p.prefix}0, ${p.prefix}1, …` : 'machines are named prefix0, prefix1'}
+            </span>
+          </div>
+        )}
         <div className="field grow">
           <label>Instance</label>
           <select
@@ -572,6 +777,141 @@ function PoolCard({
           </select>
         </div>
       </div>
+
+      {/* Caps, and the third state. An empty box is not zero: it is whatever the
+          instance type says, which is what a pool that never mentions these
+          gets. A `0` is a machine that cannot hold anything — legal, and a
+          different scenario — so the two must not be typed by the same gesture. */}
+      <div className="row">
+        <div className="field grow">
+          <label>Memory cap</label>
+          <input
+            type="number"
+            min={0}
+            step="any"
+            placeholder={inst ? `${inst.memoryMb} — the instance’s own` : 'the instance’s own'}
+            value={p.memoryMb ?? ''}
+            onChange={(e) => edit((d) => {
+              const v = e.target.value.trim();
+              d.pools[i].memoryMb = v === '' ? null : Math.max(0, Number(v) || 0);
+            })}
+          />
+          <span className="hint">
+            {p.memoryMb === null
+              ? 'MB. Empty is the instance’s own — nothing is written to the file.'
+              : `MB, instead of the ${inst?.memoryMb ?? '?'} this instance comes with. Under it, `
+                + 'a machine that holds too much fills up and says so.'}
+          </span>
+        </div>
+        <div className="field grow">
+          <label>Disk cap</label>
+          <input
+            type="number"
+            min={0}
+            step="any"
+            placeholder={inst ? `${inst.storageGb * 1024} — the instance’s own` : 'the instance’s own'}
+            value={p.diskMb ?? ''}
+            onChange={(e) => edit((d) => {
+              const v = e.target.value.trim();
+              d.pools[i].diskMb = v === '' ? null : Math.max(0, Number(v) || 0);
+            })}
+          />
+          <span className="hint">
+            MB. Only a job that calls <code>wroteDisk</code> can ever reach it.
+          </span>
+        </div>
+      </div>
+
+      {/* One machine unlike the rest. A pool of eight where one is half the size
+          is the cheapest straggler there is, and it cannot be said at pool level
+          — that is the whole point of it. Only offered where there is more than
+          one machine to be the exception to. */}
+      {names.length > 1 && (
+        <div className="excs">
+          <div className="exhead">
+            <span className="lbl">Exceptions</span>
+            <button
+              className="btn"
+              onClick={() => edit((d) => {
+                const taken = new Set(d.pools[i].overrides.map((o) => o.machine));
+                const free = names.find((nm) => !taken.has(nm)) ?? names[0];
+                d.pools[i].overrides.push({
+                  machine: free, instance: '', zone: '', memoryMb: null, diskMb: null,
+                });
+              })}
+              disabled={p.overrides.length >= names.length}
+            >
+              + Exception
+            </button>
+          </div>
+          {!p.overrides.length && (
+            <span className="hint">
+              Every machine in this pool is the same. Add one to make a straggler, or a
+              machine too small for the work it is given.
+            </span>
+          )}
+          {p.overrides.map((o, k) => (
+            <div className="exc" key={k}>
+              <select
+                value={o.machine}
+                aria-label="which machine"
+                onChange={(e) => edit((d) => { d.pools[i].overrides[k].machine = e.target.value; })}
+              >
+                {names.map((nm) => <option key={nm} value={nm}>{nm}</option>)}
+                {/* An override the loader would silently ignore: it names no
+                    machine in this pool. Kept rather than dropped, and shown as
+                    what it is. */}
+                {!names.includes(o.machine) && <option value={o.machine}>{o.machine} — no such machine</option>}
+              </select>
+              <select
+                value={o.instance}
+                aria-label="instance for this machine"
+                onChange={(e) => edit((d) => { d.pools[i].overrides[k].instance = e.target.value; })}
+              >
+                <option value="">same instance</option>
+                {palette.instances.map((x) => (
+                  <option key={x.name} value={x.name}>{x.name}</option>
+                ))}
+              </select>
+              <select
+                value={o.zone}
+                aria-label="zone for this machine"
+                onChange={(e) => edit((d) => { d.pools[i].overrides[k].zone = e.target.value; })}
+              >
+                <option value="">same zone</option>
+                {palette.regions.flatMap((r) => r.zones).map((z) => (
+                  <option key={z} value={z}>{z}</option>
+                ))}
+              </select>
+              <input
+                type="number" min={0} step="any" placeholder="memory MB"
+                aria-label="memory cap for this machine"
+                value={o.memoryMb ?? ''}
+                onChange={(e) => edit((d) => {
+                  const v = e.target.value.trim();
+                  d.pools[i].overrides[k].memoryMb = v === '' ? null : Math.max(0, Number(v) || 0);
+                })}
+              />
+              <input
+                type="number" min={0} step="any" placeholder="disk MB"
+                aria-label="disk cap for this machine"
+                value={o.diskMb ?? ''}
+                onChange={(e) => edit((d) => {
+                  const v = e.target.value.trim();
+                  d.pools[i].overrides[k].diskMb = v === '' ? null : Math.max(0, Number(v) || 0);
+                })}
+              />
+              <button className="btn" onClick={() => edit((d) => { d.pools[i].overrides.splice(k, 1); })}>×</button>
+              {!names.includes(o.machine) && (
+                <span className="hint warn">
+                  This pool has no machine called <code>{o.machine}</code>, so the run ignores
+                  this line. Point it at one, or remove it.
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="zones">
         <span className="lbl">Zones</span>
@@ -621,6 +961,20 @@ function PoolCard({
         }
         .hint { font-size: 11px; color: var(--text-3); }
         .hint.warn { color: var(--warn); }
+        .excs { display: flex; flex-direction: column; gap: 7px;
+                padding-top: 11px; border-top: 1px solid var(--border); }
+        .exhead { display: flex; align-items: center; gap: 10px; }
+        .exhead .lbl { font-size: 11.5px; color: var(--text-3); }
+        .exhead .btn { margin-left: auto; height: 26px; }
+        .exc { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .exc select, .exc input {
+          height: 28px; padding: 0 8px; font: inherit; font-size: 12px;
+          color: var(--text); background: var(--surface);
+          border: 1px solid var(--border); border-radius: var(--r-sm);
+        }
+        .exc input { width: 100px; font-family: var(--mono); }
+        .exc .btn { height: 26px; width: 26px; padding: 0; justify-content: center; }
+        .exc .hint { flex-basis: 100%; }
         .zones { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .zones .lbl { font-size: 11.5px; color: var(--text-3); }
         .zone {
@@ -790,6 +1144,22 @@ function Placing({
           />
           <span className="hint">In reference seconds — the clock the scenario is written in.</span>
         </div>
+        <div className="field">
+          <label htmlFor="tight">Tight margin</label>
+          <label className="check">
+            <input
+              id="tight"
+              type="checkbox"
+              checked={draft.tightMargin}
+              onChange={(e) => edit((d) => { d.tightMargin = e.target.checked; })}
+            />
+            <span>mark this one as thin</span>
+          </label>
+          <span className="hint">
+            A note in the trace and nothing else — nothing in the run reads it. For exercises
+            where the gap between working and not working is meant to be narrow.
+          </span>
+        </div>
       </div>
 
       <style>{`
@@ -813,6 +1183,8 @@ function Placing({
         @media (prefers-color-scheme: dark) { .flag.warn { background: #2a2211; color: #e6c684; } }
         .jobs { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 18px;
                 padding-top: 16px; border-top: 1px solid var(--border); }
+        .check { display: flex; align-items: center; gap: 7px; height: 32px; font-size: 13px; }
+        .check input { height: auto; }
         .field { display: flex; flex-direction: column; gap: 4px; min-width: 150px; flex: 1; }
         .field label { font-size: 11.5px; color: var(--text-3); }
         .field input, .field select {
@@ -993,8 +1365,13 @@ function Weather({
             disabled={!machines.length}
             onClick={() => edit((d) => {
               d.faults.push({
-                kind: 'kill', atRefMs: 300, target: machines[0]?.name ?? '',
-                forRefMs: 500, factor: 3, restartAfterRefMs: 2000,
+                kind: 'kill', atRefMs: 300,
+                target: machines[0]?.name ?? '',
+                // A pair fault needs two, and two that differ: `partition: [a, a]`
+                // is a machine cut off from itself. Prefilled so switching kind
+                // never lands on one.
+                other: machines[1]?.name ?? machines[0]?.name ?? '',
+                forRefMs: 500, factor: 3, noticeRefMs: 200, restartAfterRefMs: 2000,
               });
             })}
           >
@@ -1015,9 +1392,9 @@ function Weather({
                 changing your mind twice does not lose what you typed. */}
             <select value={f.kind}
                     onChange={(e) => edit((d) => { d.faults[i].kind = e.target.value as Fault['kind']; })}>
-              <option value="kill">kill</option>
-              <option value="freeze">freeze</option>
-              <option value="degrade">degrade</option>
+              {FAULT_KINDS.map((k) => (
+                <option key={k} value={k}>{k}</option>
+              ))}
             </select>
             <select value={f.target}
                     onChange={(e) => edit((d) => { d.faults[i].target = e.target.value; })}>
@@ -1025,6 +1402,20 @@ function Weather({
                 <option key={m.name} value={m.name}>{m.name}</option>
               ))}
             </select>
+            {/* The second machine, and only these two have one. It is a pair of
+                machines that stops reaching each other, not a machine that
+                stops. */}
+            {PAIRED.includes(f.kind) && (
+              <>
+                <span>{f.kind === 'heal' ? 'and' : 'from'}</span>
+                <select value={f.other}
+                        onChange={(e) => edit((d) => { d.faults[i].other = e.target.value; })}>
+                  {machines.map((m) => (
+                    <option key={m.name} value={m.name}>{m.name}</option>
+                  ))}
+                </select>
+              </>
+            )}
             {f.kind === 'kill' && (
               <>
                 <span>and bring it back after</span>
@@ -1055,6 +1446,16 @@ function Weather({
                 <span>slower</span>
               </>
             )}
+            {f.kind === 'spot_reclaim' && (
+              <>
+                <span>after warning it for</span>
+                <input type="number" value={f.noticeRefMs}
+                       onChange={(e) => edit((d) => {
+                         d.faults[i].noticeRefMs = Math.max(0, Number(e.target.value) || 0);
+                       })} />
+                <span>refMs</span>
+              </>
+            )}
             <button className="btn" onClick={() => edit((d) => { d.faults.splice(i, 1); })}>×</button>
             {f.kind === 'kill' && f.restartAfterRefMs === 0 && (
               <span className="aside">0 — it never comes back, which is a different exercise</span>
@@ -1068,6 +1469,32 @@ function Weather({
             {f.kind === 'degrade' && (
               <span className="aside">
                 a one-time degrade has no end: it stays this slow for the rest of the run
+              </span>
+            )}
+            {f.kind === 'restart' && (
+              <span className="aside">
+                it goes and comes straight back, with a fresh instance of every service it
+                serves — which is where a design that kept state in a field finds out
+              </span>
+            )}
+            {f.kind === 'spot_reclaim' && (
+              <span className="aside">
+                the warning is the whole lesson: it is announced, then taken away that long
+                after. A design that ignores the notice deserves what happens.
+              </span>
+            )}
+            {f.kind === 'partition' && (
+              <span className="aside">
+                {f.target === f.other
+                  ? 'both ends are the same machine — a machine cannot be cut off from itself'
+                  : 'both stay alive and keep serving everybody else; these two stop reaching '
+                    + 'each other. Nothing heals it — write a heal: at a later instant.'}
+              </span>
+            )}
+            {f.kind === 'heal' && (
+              <span className="aside">
+                the other half of a partition. On its own it does nothing, because there is
+                nothing to mend.
               </span>
             )}
           </div>
@@ -1146,7 +1573,8 @@ function Weather({
             onClick={() => edit((d) => {
               const safe = methods.find((m) => m.idempotent) ?? methods[0];
               d.retries.push({
-                method: safe.method, attempts: 3, backoffRefMs: 40, unsafe: !safe.idempotent,
+                method: safe.method, attempts: 3, backoffRefMs: 40, multiplier: 1,
+                unsafe: !safe.idempotent,
               });
             })}
           >
@@ -1186,8 +1614,19 @@ function Weather({
                      onChange={(e) => edit((d) => {
                        d.retries[i].backoffRefMs = Math.max(0, Number(e.target.value) || 0);
                      })} />
-              <span>refMs</span>
+              <span>refMs, ×</span>
+              <input type="number" min={1} step="any" value={r.multiplier}
+                     onChange={(e) => edit((d) => {
+                       d.retries[i].multiplier = Math.max(1, Number(e.target.value) || 1);
+                     })} />
+              <span>each time</span>
               <button className="btn" onClick={() => edit((d) => { d.retries.splice(i, 1); })}>×</button>
+              {r.multiplier === 1 && r.attempts > 2 && (
+                <span className="aside">
+                  flat: every attempt waits the same. A fleet that does not ease off a
+                  struggling machine is how one slow machine becomes an outage.
+                </span>
+              )}
               {!safe && (
                 <span className="aside warn">
                   its <code>.proto</code> declares no <code>idempotency_level</code>, so this is

@@ -19,31 +19,112 @@ export interface Pool {
   name: string;
   /** 1 writes no `count:` at all, and the machine is called after the pool. */
   count: number;
+  /**
+   * What the machines in it are called: `prefix0`, `prefix1`.
+   *
+   * Usually the pool's own name, and then a pool of one keeps that name with no
+   * digit on it. Set it apart — `mappers` numbered `m0`, `m1` — and the count
+   * and the prefix are both written, because the naming no longer follows from
+   * the pool's name alone and every fault points at a name.
+   */
+  prefix: string;
   instance: string;
   /** Machines are dealt round-robin over these. */
   zones: string[];
   /** Java classes, fully qualified. */
   runs: string[];
+  /**
+   * A memory cap, or `null` for whatever the instance type says.
+   *
+   * Three states, not two: `null` inherits, a number overrides, and 0 would be a
+   * machine that cannot hold anything — which is a legal scenario and a
+   * different one, so the form must be able to write it and must not write it by
+   * accident.
+   */
+  memoryMb: number | null;
+  /** The same, for disk. Nothing is capped until something writes. */
+  diskMb: number | null;
+  /** Machines in this pool that differ from their siblings. Usually none. */
+  overrides: Override[];
 }
 
 /**
- * One thing that happens to one machine at one instant.
+ * One machine in a pool, set apart from the rest.
+ *
+ * Empty and null both mean "whatever the pool says", because that is what a key
+ * the file leaves out means. A pool of eight where one is half the size is the
+ * cheapest way to build a straggler; a pool where one has a smaller disk is how
+ * a scenario shows a machine filling up while its neighbours do not.
+ */
+export interface Override {
+  /** The machine's own name — `w2`, not `workers`. */
+  machine: string;
+  /** '' keeps the pool's. */
+  instance: string;
+  /** '' keeps the zone the pool would have dealt it. */
+  zone: string;
+  memoryMb: number | null;
+  diskMb: number | null;
+}
+
+/** Everything that can happen at an instant, in the order the form offers them. */
+export const FAULT_KINDS = [
+  'kill', 'freeze', 'degrade', 'restart', 'spot_reclaim', 'partition', 'heal',
+] as const;
+
+export type FaultKind = (typeof FAULT_KINDS)[number];
+
+/** The two whose value is a pair of machines rather than one. */
+export const PAIRED: readonly FaultKind[] = ['partition', 'heal'];
+
+/**
+ * One thing that happens at one instant.
  *
  * Which fields mean anything depends on `kind`, and only those are written:
- * a kill's `restartAfterRefMs`, a freeze's `forRefMs`, a degrade's `factor`.
- * The others are kept so switching kind in the form does not lose what was
- * typed under the previous one.
+ * a kill's `restartAfterRefMs`, a freeze's `forRefMs`, a degrade's `factor`, a
+ * spot reclaim's `noticeRefMs`. The others are kept so switching kind in the
+ * form does not lose what was typed under the previous one.
  */
 export interface Fault {
-  kind: 'kill' | 'freeze' | 'degrade';
+  kind: FaultKind;
   atRefMs: number;
   target: string;
+  /**
+   * The second machine — `partition` and `heal` only, and empty otherwise.
+   *
+   * Reachability is a property of a *pair*: both machines stay alive, stay in
+   * the registry and keep serving everybody else, and one caller sees nothing.
+   * No other fault can make that point, which is why this field exists at all.
+   */
+  other: string;
   /** How long a freeze holds. A degrade has no end — see `toYaml`. */
   forRefMs: number;
   /** How many times slower a degrade makes it. */
   factor: number;
-  /** Kill only. 0 means it never comes back, which is a different exercise. */
+  /** Spot reclaim only: how long the warning comes before the machine goes. */
+  noticeRefMs: number;
+  /** Kill and spot reclaim. 0 means it never comes back, a different exercise. */
   restartAfterRefMs: number;
+}
+
+/**
+ * How much work there is at full scale, and the grid the engine probes with.
+ *
+ * `null` on a draft means no `workload:` key at all — which is not the same
+ * scenario as one declaring a single record, and `mode: scaled` needs one to
+ * scale down from.
+ */
+export interface Workload {
+  /** The size the design is meant to handle. At least 1. */
+  records: number;
+  /**
+   * The ladder the engine climbs to fit its laws. At least four rungs — three
+   * cannot show whether a law bends, and one that bends has to be refused
+   * rather than extrapolated across.
+   */
+  probe: number[];
+  /** How many machines to put in each multi-machine pool, varied independently. */
+  workers: number[];
 }
 
 /**
@@ -79,6 +160,15 @@ export interface RetryRule {
   method: string;
   attempts: number;
   backoffRefMs: number;
+  /**
+   * What the wait is multiplied by after each attempt. 1 is flat.
+   *
+   * Above 1 is exponential backoff, which is the difference between a fleet that
+   * eases off a struggling machine and one that keeps asking at a fixed rate —
+   * and a fixed rate is how a retry policy turns one slow machine into an
+   * outage.
+   */
+  multiplier: number;
   /** Retrying something the `.proto` did not declare idempotent, on purpose. */
   unsafe: boolean;
 }
@@ -94,6 +184,16 @@ export interface Draft {
    */
   kTime: number;
   expectedRunRefSeconds: number;
+  /**
+   * A marker, and only a marker: it is recorded in the trace's `meta` and
+   * nothing in the run reads it. For exercises where the gap between a design
+   * working and not working is deliberately thin.
+   */
+  tightMargin: boolean;
+  /** `direct` runs what the workload says; `scaled` probes and projects to it. */
+  mode: 'direct' | 'scaled';
+  /** `null` writes no `workload:` at all. Scaled mode requires one. */
+  workload: Workload | null;
   net: Net;
   pools: Pool[];
   faults: Fault[];
@@ -122,12 +222,17 @@ export function expand(draft: Draft): Machine[] {
   for (const p of draft.pools) {
     const n = Math.max(1, Math.round(p.count));
     const zones = p.zones.length ? p.zones : ['eu-central-1a'];
+    // The same condition `toYaml` writes `count:` under, because the two have to
+    // agree about naming or every fault points at a machine that is not there.
+    const numbered = n > 1 || p.prefix !== p.name;
     for (let i = 0; i < n; i++) {
+      const name = numbered ? `${p.prefix}${i}` : p.name;
+      const over = p.overrides.find((o) => o.machine === name);
       out.push({
-        name: n === 1 ? p.name : `${p.name}${i}`,
+        name,
         pool: p.name,
-        instance: p.instance,
-        zone: zones[i % zones.length],
+        instance: over?.instance || p.instance,
+        zone: over?.zone || zones[i % zones.length],
         runs: p.runs,
       });
     }
@@ -218,6 +323,20 @@ export function toYaml(draft: Draft): string {
   if (draft.kTime !== 1) L.push(`kTime: ${draft.kTime}`);
   L.push(`job: ${q(draft.job)}`);
   L.push(`expectedRun: ${draft.expectedRunRefSeconds} refSeconds`);
+  // Omitted at `direct`, which is what a scenario gets by saying nothing.
+  if (draft.mode === 'scaled') L.push('mode: scaled');
+  // False is what a scenario gets by saying nothing, so it says nothing.
+  if (draft.tightMargin) L.push('tightMargin: true');
+  // Written in full whenever there is one, ladder and all. The loader fills a
+  // ladder the file leaves out, so omitting it here would mean the form showing
+  // rungs the file does not contain — and the file is the thing a classmate
+  // reads. Every number on screen is a number in the file.
+  if (draft.workload) {
+    const w = draft.workload;
+    L.push(`workload: { records: ${Math.round(w.records)}, `
+           + `probe: [${w.probe.map(Math.round).join(', ')}], `
+           + `workers: [${w.workers.map(Math.round).join(', ')}] }`);
+  }
   // Only the numbers that are actually set, and no key at all when none is:
   // every one of these defaults to 0, so `network: { loss: 0 }` and silence are
   // the same scenario, and writing the silent ones out on every save would put
@@ -242,11 +361,33 @@ export function toYaml(draft: Draft): string {
     );
     // A pool of one is written without a count, so its machine keeps the pool's
     // own name — `master`, not `master0`. Faults name machines.
-    if (n > 1) {
+    //
+    // Unless the prefix says otherwise: a pool called `mappers` whose machines
+    // are `m0`, `m1` needs both keys written even at a count of one, because the
+    // naming no longer follows from the pool's name.
+    if (n > 1 || p.prefix !== p.name) {
       L.push(`    count: ${n}`);
-      L.push(`    prefix: ${q(p.name)}`);
+      L.push(`    prefix: ${q(p.prefix)}`);
     }
     if (p.runs.length) L.push(`    runs: [${p.runs.join(', ')}]`);
+    // Null is not zero. A cap the pool never set is the instance type's own, and
+    // writing `memoryMb: 0` for it would be a machine that cannot hold anything.
+    if (p.memoryMb !== null) L.push(`    memoryMb: ${p.memoryMb}`);
+    if (p.diskMb !== null) L.push(`    diskMb: ${p.diskMb}`);
+    if (p.overrides.length) {
+      L.push('    overrides:');
+      for (const o of p.overrides) {
+        // Only what this machine actually differs in. An override that repeated
+        // the pool's own values would be four lines saying nothing, and the
+        // point of the block is that one machine is not like the others.
+        const bits: string[] = [];
+        if (o.instance) bits.push(`instance: ${o.instance}`);
+        if (o.zone) bits.push(`zone: ${o.zone}`);
+        if (o.memoryMb !== null) bits.push(`memoryMb: ${o.memoryMb}`);
+        if (o.diskMb !== null) bits.push(`diskMb: ${o.diskMb}`);
+        L.push(`      ${q(o.machine)}: { ${bits.join(', ')} }`);
+      }
+    }
   }
   if (draft.faults.length) {
     L.push('');
@@ -263,8 +404,18 @@ export function toYaml(draft: Draft): string {
         tail = `, for: ${f.forRefMs} refMs`;
       } else if (f.kind === 'degrade') {
         tail = `, factor: ${f.factor}`;   // required: the loader refuses a degrade without one
+      } else if (f.kind === 'spot_reclaim') {
+        // The notice is the whole lesson, so it is always written — a spot
+        // machine that gives no warning is just a kill by another name.
+        tail = `, notice: ${f.noticeRefMs} refMs`;
+        if (f.restartAfterRefMs > 0) tail += `, restart_after: ${f.restartAfterRefMs} refMs`;
       }
-      L.push(`  - { at: ${f.atRefMs} refMs, ${f.kind}: ${q(f.target)}${tail} }`);
+      // A pair fault names two machines under one key. `restart` names one and
+      // takes nothing else.
+      const who = PAIRED.includes(f.kind)
+        ? `[${q(f.target)}, ${q(f.other)}]`
+        : q(f.target);
+      L.push(`  - { at: ${f.atRefMs} refMs, ${f.kind}: ${who}${tail} }`);
     }
   }
   if (draft.chaos.length) {
@@ -281,8 +432,10 @@ export function toYaml(draft: Draft): string {
     L.push('retries:');
     for (const r of draft.retries) {
       const unsafe = r.unsafe ? ', unsafe: true' : '';
+      // Omitted at 1, which is the loader's own default and a flat backoff.
+      const mult = r.multiplier !== 1 ? `, multiplier: ${r.multiplier}` : '';
       L.push(`  - { method: ${q(r.method)}, attempts: ${r.attempts}, `
-             + `backoff: ${r.backoffRefMs} refMs${unsafe} }`);
+             + `backoff: ${r.backoffRefMs} refMs${mult}${unsafe} }`);
     }
   }
   return L.join('\n') + '\n';
@@ -305,22 +458,35 @@ export function firstDraft(palette: Palette): Draft {
     seed: 1,
     kTime: 1,
     expectedRunRefSeconds: 20,
+    // Direct, and no workload: what a scenario gets by saying nothing, and the
+    // only pair of the two that needs no numbers decided for the student.
+    tightMargin: false,
+    mode: 'direct',
+    workload: null,
     // Instant and lossless, which is what a scenario that says nothing gets.
     net: { sameZoneRefMs: 0, crossZoneRefMs: 0, jitterRefMs: 0, loss: 0 },
     pools: [
       {
         name: 'coordinator',
         count: 1,
+        prefix: 'coordinator',
         instance: has('m5.large') ? 'm5.large' : (palette.instances[0]?.name ?? 'm5.large'),
         zones: [zone],
         runs: [],
+        memoryMb: null,
+        diskMb: null,
+        overrides: [],
       },
       {
         name: 'workers',
         count: 3,
+        prefix: 'workers',
         instance: has('c5.large') ? 'c5.large' : (palette.instances[0]?.name ?? 'c5.large'),
         zones: [zone],
         runs: worker ? [worker.cls] : [],
+        memoryMb: null,
+        diskMb: null,
+        overrides: [],
       },
     ],
     faults: [],

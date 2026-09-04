@@ -150,14 +150,19 @@ public final class Lab {
     }
 
     /**
-     * Two scenario files, in the order a reader expects them.
+     * Two files, in the order a reader expects them.
      *
      * <p>The extension is compared last, not in the middle of the name, so that
      * {@code chain-of-calls.yaml} comes before {@code chain-of-calls-slow.yaml}:
      * a variant belongs under the thing it varies, and comparing whole file names
      * would put it above, because {@code -} sorts under {@code .}.
+     *
+     * <p>Shared with {@code Serve}'s run index, because a run is named after the
+     * scenario it came from. A tour numbered to be read in order has to be listed
+     * in that order in both places, or the numbering teaches nothing in one of
+     * them.
      */
-    private static int byName(Path a, Path b) {
+    public static int byName(Path a, Path b) {
         String x = a.getFileName().toString(), y = b.getFileName().toString();
         int by = humanOrder(stem(x), stem(y));
         return by != 0 ? by : humanOrder(x, y);

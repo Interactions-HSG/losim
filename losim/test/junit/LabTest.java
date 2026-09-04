@@ -103,6 +103,25 @@ class LabTest {
     }
 
     @Test
+    @DisplayName("runs list in the same order their scenarios do")
+    void ordersRunsTheSameWay() {
+        // `Serve`'s run index sorts by this same comparator. A run is named after
+        // the scenario it came from, so a tour numbered to be read in order has
+        // to come out in that order on the Runs page too — it did not, and the
+        // sixteen-stop tour listed 1, 10, 11, … 2, 3.
+        var files = new java.util.ArrayList<>(java.util.List.of(
+                Path.of("10-two-halves.json"), Path.of("2-three-machines.json"),
+                Path.of("1-two-machines.json"), Path.of("16-thirty-runs.json"),
+                Path.of("6-chain-of-calls-slow.json"), Path.of("6-chain-of-calls.json")));
+        files.sort(Lab::byName);
+        assertEquals(
+                java.util.List.of("1-two-machines.json", "2-three-machines.json",
+                                  "6-chain-of-calls.json", "6-chain-of-calls-slow.json",
+                                  "10-two-halves.json", "16-thirty-runs.json"),
+                files.stream().map(Path::toString).toList());
+    }
+
+    @Test
     @DisplayName("a scenario by name, and the first one when none is named")
     void scenarioLookup() {
         assertNotNull(lab.scenario("main.yaml"));

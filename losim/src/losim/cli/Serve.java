@@ -462,9 +462,26 @@ public final class Serve {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("name", p.name());
             row.put("count", p.count());
+            row.put("prefix", p.prefix());
             row.put("instance", p.instance());
             row.put("zones", p.zones());
             row.put("runs", p.runs());
+            // Null rather than absent, and null rather than 0: a cap the file did
+            // not set is the instance type's own, and the form has to be able to
+            // tell that from a machine given nothing.
+            row.put("memoryMb", p.memoryMb());
+            row.put("diskMb", p.diskMb());
+            List<Object> overrides = new ArrayList<>();
+            for (Draft.Override o : p.overrides()) {
+                Map<String, Object> one = new LinkedHashMap<>();
+                one.put("machine", o.machine());
+                one.put("instance", o.instance());
+                one.put("zone", o.zone());
+                one.put("memoryMb", o.memoryMb());
+                one.put("diskMb", o.diskMb());
+                overrides.add(one);
+            }
+            row.put("overrides", overrides);
             pools.add(row);
         }
         List<Object> faults = new ArrayList<>();
@@ -473,8 +490,10 @@ public final class Serve {
             row.put("kind", f.kind());
             row.put("atRefMs", f.atRefMs());
             row.put("target", f.target());
+            row.put("other", f.other());
             row.put("forRefMs", f.forRefMs());
             row.put("factor", f.factor());
+            row.put("noticeRefMs", f.noticeRefMs());
             row.put("restartAfterRefMs", f.restartAfterRefMs());
             faults.add(row);
         }
@@ -494,6 +513,7 @@ public final class Serve {
             row.put("method", r.method());
             row.put("attempts", r.attempts());
             row.put("backoffRefMs", r.backoffRefMs());
+            row.put("multiplier", r.multiplier());
             row.put("unsafe", r.unsafe());
             retries.add(row);
         }
@@ -504,6 +524,20 @@ public final class Serve {
         draft.put("seed", d.seed());
         draft.put("kTime", d.kTime());
         draft.put("expectedRunRefSeconds", d.expectedRunRefSeconds());
+        draft.put("tightMargin", d.tightMargin());
+        draft.put("mode", d.mode());
+        if (d.workload() == null) {
+            // No `workload:` at all is a different scenario from one declaring a
+            // single record, and the form's control has to open in the same state
+            // the file is in.
+            draft.put("workload", null);
+        } else {
+            Map<String, Object> w = new LinkedHashMap<>();
+            w.put("records", d.workload().records());
+            w.put("probe", d.workload().probe());
+            w.put("workers", d.workload().workers());
+            draft.put("workload", w);
+        }
         Map<String, Object> net = new LinkedHashMap<>();
         net.put("sameZoneRefMs", d.net().sameZoneRefMs());
         net.put("crossZoneRefMs", d.net().crossZoneRefMs());
@@ -630,7 +664,11 @@ public final class Serve {
                         .filter(p -> !p.getFileName().toString().endsWith(".bill.json"))
                         // The index is in the directory it indexes, and it is not a run.
                         .filter(p -> !p.getFileName().toString().equals("index.json"))
-                        .sorted().toList();
+                        // A run is named after the scenario it came from, so it is
+                        // ordered the way the scenario list is: 2- before 10-, not
+                        // the character-by-character order a plain sort gives, which
+                        // reads a numbered tour out in the wrong sequence.
+                        .sorted(Lab::byName).toList();
                 Map<String, String> origins = origins(runs);
                 for (Path p : files) out.add(summary(p, origins));
             } catch (IOException ignored) { /* an unreadable runs dir is an empty picker */ }

@@ -1,5 +1,6 @@
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.List;
 import losim.cli.Draft;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -223,22 +224,74 @@ class DraftTest {
     }
 
     @Test
-    @DisplayName("tightMargin:, mode: and workload: are refused by name — network: no longer is")
-    void topLevelKeysTheFormHasNoControlFor() {
-        assertTrue(refusal("""
+    @DisplayName("tightMargin: reads back as the marker it is")
+    void tightMarginReadsBack() {
+        assertTrue(Draft.of("main.yaml", """
                 job: J
                 tightMargin: true
                 machines:
                   a: { instance: m5.large, zone: eu-central-1a }
-                """).contains("tightMargin:"));
+                """).tightMargin());
+        assertFalse(Draft.of("main.yaml", """
+                job: J
+                machines:
+                  a: { instance: m5.large, zone: eu-central-1a }
+                """).tightMargin(), "false is what a scenario gets by saying nothing");
+    }
 
-        assertTrue(refusal("""
+    @Test
+    @DisplayName("a workload, read back with the ladder the loader fills in when the file does not")
+    void workloadReadsBack() {
+        var d = Draft.of("main.yaml", """
+                job: J
+                workload: { records: 5000, probe: [500, 1000, 2000, 4000], workers: [2, 4, 6] }
+                machines:
+                  a: { instance: m5.large, zone: eu-central-1a, runs: [Counter] }
+                """);
+        assertEquals("direct", d.mode());
+        assertEquals(5000, d.workload().records());
+        assertEquals(List.of(500, 1000, 2000, 4000), d.workload().probe());
+        assertEquals(List.of(2, 4, 6), d.workload().workers());
+
+        // A ladder the file leaves out is still the ladder the run climbs, so the
+        // form has to be shown it — an empty box here would write a different
+        // scenario back on the next save.
+        var e = Draft.of("main.yaml", """
+                job: J
+                workload: { records: 900 }
+                machines:
+                  a: { instance: m5.large, zone: eu-central-1a, runs: [Counter] }
+                """);
+        assertEquals(4, e.workload().probe().size(), "the loader's own default ladder");
+        assertFalse(e.workload().workers().isEmpty());
+    }
+
+    @Test
+    @DisplayName("no workload: at all is null, which is not a workload of one record")
+    void noWorkloadIsNotAWorkloadOfOne() {
+        var d = Draft.of("main.yaml", """
+                job: J
+                machines:
+                  a: { instance: m5.large, zone: eu-central-1a }
+                """);
+        assertNull(d.workload(),
+                "a scenario that never mentions a workload has none; the run gives the job one "
+                + "record, which is a different file from one that says so");
+        assertEquals("direct", d.mode());
+    }
+
+    @Test
+    @DisplayName("mode: scaled reads back as scaled")
+    void scaledMode() {
+        var d = Draft.of("main.yaml", """
                 job: J
                 mode: scaled
                 workload: { records: 1000000 }
                 machines:
-                  a: { instance: m5.large, zone: eu-central-1a }
-                """).contains("mode:"));
+                  a: { instance: m5.large, zone: eu-central-1a, runs: [Counter] }
+                """);
+        assertEquals("scaled", d.mode());
+        assertEquals(1000000, d.workload().records());
     }
 
     @Test
@@ -261,26 +314,78 @@ class DraftTest {
     }
 
     @Test
-    @DisplayName("a pool's memoryMb, diskMb and overrides are refused, naming the pool")
-    void poolKeysTheFormHasNoControlFor() {
+    @DisplayName("a pool's caps read back, and null is not zero")
+    void poolCaps() {
+        var d = Draft.of("main.yaml", """
+                job: J
+                machines:
+                  a: { instance: m5.large, zone: eu-central-1a, memoryMb: 4096, diskMb: 1024 }
+                  b: { instance: m5.large, zone: eu-central-1a }
+                """);
+        assertEquals(4096.0, d.pools().get(0).memoryMb(), 1e-9);
+        assertEquals(1024.0, d.pools().get(0).diskMb(), 1e-9);
+        // The third state. A pool that never mentioned a cap has the instance
+        // type's own, and reading that back as 0 would be a machine that cannot
+        // hold anything — a legal scenario, and not this one.
+        assertNull(d.pools().get(1).memoryMb());
+        assertNull(d.pools().get(1).diskMb());
+    }
+
+    @Test
+    @DisplayName("a pool's overrides read back, one entry per machine set apart")
+    void poolOverrides() {
+        var d = Draft.of("main.yaml", """
+                job: J
+                machines:
+                  workers:
+                    instance: c5.large
+                    zone: eu-central-1a
+                    count: 4
+                    prefix: w
+                    overrides:
+                      w1: { instance: a1.medium }
+                      w2: { zone: eu-central-1b }
+                      w3: { memoryMb: 4, diskMb: 512 }
+                """);
+        var over = d.pools().get(0).overrides();
+        assertEquals(3, over.size());
+        assertEquals("w1", over.get(0).machine());
+        assertEquals("a1.medium", over.get(0).instance());
+        // Empty and null are "the pool's own", which is what a missing key means.
+        assertEquals("", over.get(0).zone());
+        assertNull(over.get(0).memoryMb());
+        assertEquals("eu-central-1b", over.get(1).zone());
+        assertEquals(4.0, over.get(2).memoryMb(), 1e-9);
+        assertEquals(512.0, over.get(2).diskMb(), 1e-9);
+
+        // A pool nobody made an exception in carries none, rather than one empty
+        // entry per machine.
+        assertTrue(Draft.of("main.yaml", """
+                job: J
+                machines:
+                  a: { instance: m5.large, zone: eu-central-1a }
+                """).pools().get(0).overrides().isEmpty());
+    }
+
+    @Test
+    @DisplayName("an override with a key nothing reads is refused, even for a machine the loader ignores")
+    void overrideWithAnUnknownKey() {
+        // The loader checks an override only when it names a machine it expands,
+        // and silently ignores one that names nothing. This has to check every
+        // entry: what it cannot read it cannot write back, and a save would drop
+        // it without saying so.
         String said = refusal("""
                 job: J
                 machines:
-                  a: { instance: m5.large, zone: eu-central-1a, memoryMb: 4096 }
+                  workers:
+                    instance: c5.large
+                    zone: eu-central-1a
+                    count: 2
+                    prefix: w
+                    overrides:
+                      nobody: { memoryMB: 4 }
                 """);
-        assertTrue(said.contains("'a'") && said.contains("memoryMb:"), said);
-
-        assertTrue(refusal("""
-                job: J
-                machines:
-                  a: { instance: m5.large, zone: eu-central-1a, count: 2, prefix: a, diskMb: 1024 }
-                """).contains("diskMb:"));
-
-        assertTrue(refusal("""
-                job: J
-                machines:
-                  a: { instance: m5.large, zone: eu-central-1a, count: 2, prefix: a, overrides: { a1: { instance: c5.large } } }
-                """).contains("overrides:"));
+        assertTrue(said.contains("memoryMB"), said);
     }
 
     @Test
@@ -294,44 +399,78 @@ class DraftTest {
     }
 
     @Test
-    @DisplayName("a prefix that disagrees with the pool's own name is refused")
-    void prefixMismatch() {
-        String said = refusal("""
+    @DisplayName("a prefix that names the machines apart from their pool reads back")
+    void prefixReadsBack() {
+        var d = Draft.of("main.yaml", """
                 job: J
                 machines:
-                  a: { instance: m5.large, zone: eu-central-1a, count: 2, prefix: other }
+                  mappers: { instance: c5.large, zone: eu-central-1a, count: 4, prefix: m }
                 """);
-        assertTrue(said.contains("prefix:") && said.contains("'a'"), said);
+        assertEquals("mappers", d.pools().get(0).name());
+        assertEquals("m", d.pools().get(0).prefix());
+        assertEquals(4, d.pools().get(0).count());
+
+        // A pool that never said one is named after itself, which is what the
+        // loader does with it.
+        var e = Draft.of("main.yaml", """
+                job: J
+                machines:
+                  workers: { instance: c5.large, zone: eu-central-1a, count: 2 }
+                """);
+        assertEquals("workers", e.pools().get(0).prefix());
     }
 
     @Test
-    @DisplayName("a fault that is none of kill, freeze or degrade is refused")
-    void faultKindsTheFormHasNoControlFor() {
-        // The two that take a pair of machines rather than one.
-        assertTrue(refusal("""
+    @DisplayName("a pool of one spelled count: 1 is refused — its machine is a0, and the form's is a")
+    void poolOfOneWithAnExplicitCount() {
+        // The one shape left that the form cannot write back unchanged. Both
+        // files are one machine; they disagree about what it is called, and
+        // every fault points at a name.
+        String said = refusal("""
                 job: J
                 machines:
-                  a: { instance: m5.large, zone: eu-central-1a }
-                  b: { instance: m5.large, zone: eu-central-1a }
-                faults:
-                  - { at: 100 refMs, partition: [a, b] }
-                """).contains("kill, freeze and degrade"));
+                  a: { instance: m5.large, zone: eu-central-1a, count: 1 }
+                """);
+        assertTrue(said.contains("a0") && said.contains("count"), said);
+    }
 
-        assertTrue(refusal("""
+    @Test
+    @DisplayName("every fault kind the loader accepts opens in the form")
+    void everyFaultKindOpens() {
+        var d = Draft.of("main.yaml", """
                 job: J
                 machines:
                   a: { instance: m5.large, zone: eu-central-1a }
+                  b: { instance: m5.large, zone: eu-central-1b }
                 faults:
-                  - { at: 100 refMs, spot_reclaim: a, notice: 50 refMs }
-                """).contains("kill, freeze and degrade"));
+                  - { at: 100 refMs, kill: a, restart_after: 500 refMs }
+                  - { at: 200 refMs, freeze: a, for: 300 refMs }
+                  - { at: 300 refMs, degrade: b, factor: 4 }
+                  - { at: 400 refMs, restart: a }
+                  - { at: 500 refMs, spot_reclaim: b, notice: 120 refMs }
+                  - { at: 600 refMs, partition: [a, b] }
+                  - { at: 900 refMs, heal: [a, b] }
+                """);
+        assertEquals(List.of("kill", "freeze", "degrade", "restart", "spot_reclaim",
+                             "partition", "heal"),
+                d.faults().stream().map(Draft.Fault::kind).toList());
 
-        assertTrue(refusal("""
-                job: J
-                machines:
-                  a: { instance: m5.large, zone: eu-central-1a }
-                faults:
-                  - { at: 100 refMs, restart: a }
-                """).contains("kill, freeze and degrade"));
+        // The warning is the whole of what a spot reclaim teaches, so it is the
+        // one field that has to survive the trip.
+        assertEquals(120.0, d.faults().get(4).noticeRefMs(), 1e-9);
+
+        // And the pair, read apart. Reachability is a property of two machines,
+        // and a Draft that carried only the first would write a partition of one.
+        assertEquals("a", d.faults().get(5).target());
+        assertEquals("b", d.faults().get(5).other());
+        assertEquals("a", d.faults().get(6).target());
+        assertEquals("b", d.faults().get(6).other());
+
+        // Every other kind names one machine and leaves the second empty, rather
+        // than repeating the first — which would read as a machine cut off from
+        // itself if anything ever wrote it out.
+        for (int i = 0; i < 5; i++)
+            assertEquals("", d.faults().get(i).other(), "fault " + i + " has no second machine");
     }
 
     @Test
@@ -379,14 +518,18 @@ class DraftTest {
     }
 
     @Test
-    @DisplayName("a retry's multiplier: is refused — Draft.Retry has no field for it")
-    void retryWithMultiplier() {
-        assertTrue(refusal("""
+    @DisplayName("a retry's multiplier reads back, and 1 is the flat default")
+    void retryMultiplier() {
+        var d = Draft.of("main.yaml", """
                 job: J
                 machines:
-                  a: { instance: m5.large, zone: eu-central-1a, count: 2, prefix: a }
+                  a: { instance: m5.large, zone: eu-central-1a }
                 retries:
-                  - { method: lab.Worker.Map, attempts: 3, backoff: 40 refMs, multiplier: 2 }
-                """).contains("multiplier:"));
+                  - { method: lab.Worker.Map, attempts: 5, backoff: 20 refMs, multiplier: 2 }
+                  - { method: lab.Worker.Reduce, attempts: 2, backoff: 40 refMs }
+                """);
+        assertEquals(2.0, d.retries().get(0).multiplier(), 1e-9);
+        assertEquals(1.0, d.retries().get(1).multiplier(), 1e-9,
+                "a flat backoff is what a retry gets by saying nothing");
     }
 }
