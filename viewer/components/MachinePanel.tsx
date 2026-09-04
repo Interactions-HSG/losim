@@ -423,15 +423,22 @@ const TOLD = new Set([
   'disk_full',
   'spot_notice',
   'partition',
+  'heal',
   'retry',
   'rpc_timeout',
+  'rpc_error',
   'job_failed',
+  // What this machine said about itself, in time order among the things that
+  // were done to it — which is the order a narration is written to be read in.
+  'log',
 ]);
 
 function kindColour(kind: string): string {
   if (kind === 'oom' || kind === 'disk_full' || kind === 'kill' || kind === 'job_failed') return D.ALARM;
   if (kind === 'freeze' || kind === 'thaw') return D.CHILL;
   if (kind === 'restart' || kind === 'boot') return '#4F8A5B';
+  // Narration is not a warning about anything, and amber would say it was.
+  if (kind === 'log') return D.NARRATE;
   return D.WARN;
 }
 

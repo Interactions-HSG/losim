@@ -6,11 +6,11 @@
  * drew last time. That one constraint pays for itself four times over:
  *
  * - **The transience rule enforces itself.** "The picture holds only what is
- *   currently true" was a rule that had to be *remembered* in the renderer that
- *   came before this, and a rule left to discipline decays until the last frame
- *   is the static figure again. Derived from `t`, a call that has finished is
- *   simply not in the frame. There is nothing to remove and so nothing to forget
- *   to remove.
+ *   currently true" is not a rule that has to be *remembered* — a renderer that
+ *   accumulates state must remember to remove what has finished, and discipline
+ *   enforced by memory decays until the last frame is the static figure again.
+ *   Derived from `t`, a call that has finished is simply not in the frame here.
+ *   There is nothing to remove and so nothing to forget to remove.
  * - **Scrubbing is free.** Seeking backwards is the same operation as playing.
  * - **Recording is the same code path as playing** (lib/record.ts). The only
  *   difference is who advances the clock.
@@ -433,10 +433,33 @@ const NOTABLE = new Set([
   'disk_full',
   'spot_notice',
   'partition',
+  // The repair, and not only the break. Both paired events have both ends here:
+  // `thaw` beside `freeze`, and `heal` beside `partition`. Without `heal`, `]`
+  // would walk into a partition and straight past the moment the network comes
+  // back, which is the instant a partition is interesting for: it is not the
+  // same instant as the one where the data agrees again, and on a real trace
+  // those sit 350 refMs apart. Being unable to park on either end of that gap
+  // would hide the whole of what it teaches.
+  'heal',
   'retry',
   'rpc_timeout',
+  // The other half of the same ternary. `Dropped.java:78` and
+  // `ClientSide.java:139` both read `? "rpc_timeout" : "rpc_error"` — one call
+  // that did not come back, labelled by why — so both outcomes of that ternary
+  // have to be reachable here, not only one. A RESOURCE_EXHAUSTED on the call
+  // that then cascaded is the moment somebody is looking for, and it has to be
+  // a moment they can step to.
+  'rpc_error',
   'job_failed',
   'over_horizon',
+  // Narration, which is an instant somebody chose. `write/telemetry.mdx` offers
+  // log() as "the sentence a reader needs and no key-value pair captures" — a
+  // promise that depends on it turning up where a reader is looking, not merely
+  // reaching the terminal and the trace, so it belongs among the reachable stops
+  // rather than being left to reveal(), which is the opposite of what the two
+  // are for. A log line is sparse by intent, and it is the one marker here the
+  // author placed deliberately rather than the weather placing it for them.
+  'log',
 ]);
 
 /**

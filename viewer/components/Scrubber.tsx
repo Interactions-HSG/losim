@@ -47,14 +47,21 @@ const MARKER: Record<string, string> = {
   job_failed: D.ALARM,
   kill: D.ALARM,
   rpc_timeout: D.WARN,
+  rpc_error: D.WARN,
   retry: D.WARN,
   freeze: D.CHILL,
   thaw: D.CHILL,
   degrade: D.WARN,
   spot_notice: D.WARN,
   partition: D.WARN,
+  // The repair reads in the same colour as the break, the way thaw reads in
+  // freeze's: a paired event is one interval, and its two ends belong to each
+  // other more than either belongs to a severity.
+  heal: D.WARN,
   restart: '#4F8A5B',
   over_horizon: D.NARRATE,
+  // The lecturer's pen, which is what D.NARRATE is for.
+  log: D.NARRATE,
 };
 
 export function Scrubber({ t, duration, chapters, events, onSeek }: ScrubberProps) {

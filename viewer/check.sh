@@ -38,6 +38,7 @@ run cost     # is a frame cheap enough to be a frame, at the largest fleet
 run pace     # is nothing on screen for less than a second, on every trace
 run console  # do the console's views render, and does any ruler move under the clock
 run author   # does what the designer writes load, and is what it must refuse refused
+run stops    # is every kind a trace carries reachable, or named as furniture
 
 echo
 if [ "$fail" -eq 0 ]; then
