@@ -106,13 +106,24 @@ public final class Update {
 
     public static int run(Path root, String from, String to, boolean check) throws IOException {
         Path lib = root.resolve("lib");
-        if (!Files.isRegularFile(lib.resolve("losim.jar"))) {
-            System.err.println("""
-                    This is not a lab: %s has no lib/losim.jar.
+        boolean isLab = Files.isRegularFile(lib.resolve("losim.jar"));
 
-                    `losim update` replaces a lab's lib/ directory, so it has to be run
-                    from a lab — the folder holding your systems, your scenarios and the
-                    lib/ the assignment came with. Use --root to point at one.""".formatted(root));
+        // A directory that is not a lab can still be losim's to update. Several labs
+        // sharing one viewer put that viewer in a plain folder holding the labs —
+        // which is a sensible layout and is not itself a lab, having no lib/ and no
+        // scenarios. Refusing it made the redirect this command prints when it meets
+        // a symlink ("update it once where it lives") point at a directory this
+        // command would then decline, which is a dead end of its own making.
+        boolean shared = !isLab && (holds(root, VIEWER) || holds(root, DOCS));
+
+        if (!isLab && !shared) {
+            System.err.println("""
+                    Nothing here for `losim update` to replace: %s has no lib/losim.jar,
+                    and no viewer/ or docs/ that losim published.
+
+                    Point --root at a lab — the folder holding your systems, your scenarios
+                    and the lib/ the assignment came with — or, if several labs share one
+                    viewer, at the folder that viewer actually lives in.""".formatted(root));
             return 2;
         }
 
@@ -126,7 +137,13 @@ public final class Update {
         String there = to != null ? bare(to) : latest(base);
 
         boolean known = !Version.UNKNOWN.equals(have);
-        System.out.println("  this lab has  " + (known ? have : have + " (an older lib/, from before these were numbered)"));
+        if (isLab) {
+            System.out.println("  this lab has  " + (known ? have : have + " (an older lib/, from before these were numbered)"));
+        } else {
+            // Saying "this lab has an older lib/" about a folder with no lib/ in it
+            // is how a person starts looking for the thing that is not there.
+            System.out.println("  a shared viewer or manual here, not a lab");
+        }
         System.out.println("  released      " + there);
         System.out.println("  from          " + base);
 
@@ -138,6 +155,10 @@ public final class Update {
         var behind = new ArrayList<Part>();
         for (Part part : List.of(LIB, VIEWER, DOCS)) {
             if (!Files.exists(root.resolve(part.name()), LinkOption.NOFOLLOW_LINKS)) continue;
+            // Outside a lab, only what losim plainly published. A folder holding a
+            // shared viewer may hold anything else too, and a directory called
+            // docs/ that losim never wrote is not this command's to replace.
+            if (shared && !holds(root, part)) continue;
             if (!there.equals(installed(root, part))) behind.add(part);
         }
 
@@ -145,7 +166,11 @@ public final class Update {
         // binaries only, on purpose — see dist.sh — so on a Mac outside a container
         // there is no protobuf compiler at all, and "up to date" would be a true
         // answer to a question nobody asked.
-        boolean tools = toolsMissing(lib);
+        // A shared lib/ is not this lab's to write into, and that includes adding a
+        // compiler to its bin/. Following the link to do so would put a binary in a
+        // directory every other lab reads, from inside one that never said it was
+        // touching anything shared.
+        boolean tools = isLab && !Files.isSymbolicLink(lib) && toolsMissing(lib);
 
         if (behind.isEmpty() && !tools) {
             System.out.println("\nUp to date. Nothing to do.");
@@ -172,7 +197,7 @@ public final class Update {
         Files.createDirectories(work);
         var changed = new ArrayList<String>();
 
-        if (behind.contains(LIB)) {
+        if (behind.contains(LIB) && !sharedElsewhere(lib, LIB.name())) {
             Path zip = work.resolve(ASSET);
             Path staged = work.resolve("lib");
 
@@ -204,7 +229,8 @@ public final class Update {
         // Kept out of `changed` deliberately. The rest of an update is a change to
         // commit; this one is a change not to, and saying "git add" here would
         // recommend putting in a fork exactly the 36 MB the template leaves out.
-        boolean gotTools = toolsMissing(lib) && hostTools(lib, work, base, to);
+        boolean gotTools = isLab && !Files.isSymbolicLink(lib)
+                && toolsMissing(lib) && hostTools(lib, work, base, to);
         if (gotTools) {
             System.out.println("""
 
@@ -277,20 +303,7 @@ public final class Update {
      */
     private static boolean refresh(Path root, Path work, String base, String to, Part part) {
         Path target = root.resolve(part.name());
-        if (Files.isSymbolicLink(target)) {
-            Path shared;
-            try {
-                shared = target.resolveSibling(Files.readSymbolicLink(target)).normalize();
-            } catch (IOException e) {
-                System.out.println("  " + part.name() + "/ is a link; left alone");
-                return false;
-            }
-            Path where = shared.getParent();
-            System.out.println(("  %s/ is a link to %s, which another lab may be reading too.%n"
-                    + "  Left alone. Update it once where it lives:  losim update --root %s")
-                    .formatted(part.name(), shared, where == null ? shared : where));
-            return false;
-        }
+        if (sharedElsewhere(target, part.name())) return false;
         try {
             Path zip = work.resolve(part.asset());
             Path staged = work.resolve(part.name() + "-new");
@@ -312,6 +325,32 @@ public final class Update {
     }
 
     /**
+     * Whether this directory belongs to somebody else, and says where if so.
+     *
+     * <p>A lab may reach any of the three by symlink — several labs sharing one
+     * viewer, or one {@code lib/} built once and pointed at from each lab. A shared
+     * directory is deliberately one copy: replacing it from inside one lab would
+     * change what its neighbours read without saying so, and replacing the
+     * <i>link</i> with a real directory would quietly end the sharing altogether,
+     * which is worse for being invisible until the next update.
+     */
+    private static boolean sharedElsewhere(Path target, String name) {
+        if (!Files.isSymbolicLink(target)) return false;
+        Path shared;
+        try {
+            shared = target.resolveSibling(Files.readSymbolicLink(target)).normalize();
+        } catch (IOException e) {
+            System.out.println("  " + name + "/ is a link; left alone");
+            return true;
+        }
+        Path where = shared.getParent();
+        System.out.println(("  %s/ is a link to %s, which another lab may be reading too.%n"
+                + "  Left alone. Update it once where it lives:  losim update --root %s")
+                .formatted(name, shared, where == null ? shared : where));
+        return true;
+    }
+
+    /**
      * Puts {@code staged} where {@code target} is, in the one order that leaves
      * {@code target} intact if any step fails: the old one is moved aside before
      * the new one takes its name, and moved back if taking the name does not work.
@@ -325,6 +364,28 @@ public final class Update {
             throw e;
         }
         rmrf(previous);
+    }
+
+    /**
+     * Whether this directory is one losim published, rather than one that merely
+     * has the right name.
+     *
+     * <p>Asked only of a root that is not a lab, where the answer decides whether
+     * this command may overwrite it. A lab's own {@code viewer/} needs no such test
+     * — it got there from {@code publish.sh} — but a plain folder holding a shared
+     * viewer is identified by nothing except what is in it, and "there is a
+     * directory called viewer here" is not enough to start deleting one.
+     *
+     * <p>The stamp settles it from 1.1.0 on. Before that there was none, so the
+     * export's own shape stands in: a built Next application has {@code _next/},
+     * and the manual has an {@code index.mdx} at its root.
+     */
+    private static boolean holds(Path root, Part part) {
+        Path dir = root.resolve(part.name());
+        if (!Files.isDirectory(dir) || Files.isSymbolicLink(dir)) return false;
+        if (Files.isRegularFile(dir.resolve("version"))) return true;
+        return VIEWER.equals(part) ? Files.isDirectory(dir.resolve("_next"))
+                                   : Files.isRegularFile(dir.resolve("index.mdx"));
     }
 
     /** Whether this host has no protobuf compiler it can actually execute. */

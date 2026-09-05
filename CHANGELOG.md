@@ -7,6 +7,42 @@ Gradle, so it is a fact about a jar rather than about a branch. Every release is
 cut from a tag whose name and `./VERSION` are checked against each other before
 anything is built.
 
+## 1.1.1
+
+A shared viewer can be updated where it lives.
+
+1.1.0 taught `losim update` to refuse a `viewer/` that is a symlink into a
+directory several labs share, and to print the command to run instead. That
+command did not work. It pointed at the folder the shared viewer lives in, and
+such a folder is generally *not a lab* — it holds the labs, and has no `lib/` and
+no scenarios of its own — so `losim update` met it with "this is not a lab" and
+stopped. The redirect was a dead end of this command's own making, found by
+running the instruction rather than reading it.
+
+Being a lab was never the right test. It is required to replace `lib/`, and has
+nothing to do with replacing a viewer or a manual. So a root with no `lib/` is
+now accepted when it holds a `viewer/` or `docs/` that losim published, and only
+those are touched: outside a lab, a directory is replaced only if it carries the
+stamp, or failing that has the shape of the thing it claims to be — `_next/` for
+the export, `index.mdx` for the manual. A folder that merely has a directory
+called `viewer/` in it is refused and left exactly as it was.
+
+Such a root also no longer reports "this lab has an older lib/", which is how a
+person starts looking for something that was never there.
+
+`lib/` may be a symlink too, and was the one of the three that never checked. A
+course that builds one `lib/` and points every lab at it — which is what a Gradle
+assignment does — would have had that link replaced by a real directory on the
+first update, silently ending the sharing, and the host compiler written through
+the link into a directory every other lab reads. Both are now refused with the
+same redirect the viewer gets.
+
+**The redirect assumes the shared directory is named `lib/`, `viewer/` or
+`docs/`.** A course that calls it `build/losim-lib/` or `losim-docs/` gets a
+correct refusal and a `--root` that will not find anything, because `--root`
+names the folder a directory sits in and not the directory. There is no
+invocation for that layout yet; refresh it the way your build already does.
+
 ## 1.1.0
 
 Everything a lab carries from losim can now be replaced by `losim update`, and a
