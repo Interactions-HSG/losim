@@ -77,7 +77,76 @@ public final class Lab {
      * run button compiled sixty files. Better to say "this is not a lab" once
      * than to offer somebody thirteen buttons, none of them theirs.
      */
-    public boolean isLab() { return Files.isRegularFile(lib.resolve("losim.jar")); }
+    public boolean isLab() {
+        return Files.isRegularFile(lib.resolve("losim.jar")) || !declared("classpath").isEmpty();
+    }
+
+    // ------------------------------------------------------- a declared toolchain
+
+    /**
+     * Where a build may state the toolchain instead of losim finding it.
+     *
+     * <p>A lab that resolves losim with Gradle has no {@code lib/} and cannot
+     * sensibly be given one: its jars are in a package cache under names and
+     * versions the build chose, not in a directory anybody can copy. Without a
+     * way to say so, such a lab has to keep an otherwise pointless {@code lib/}
+     * beside it purely so that {@link #isLab} and {@link #cp} have something to
+     * look at — a directory that exists to be found, holding a second copy of
+     * what the build already resolved, and free to disagree with it.
+     *
+     * <p>So the build can write this file instead, and losim reads what it says:
+     *
+     * <pre>
+     * classpath=/…/losim-1.1.0.jar:/…/grpc-api-1.83.1.jar:…
+     * protoc=/…/protoc-osx-aarch_64.exe
+     * protoc-gen-grpc-java=/…/protoc-gen-grpc-java-osx-aarch_64.exe
+     * </pre>
+     *
+     * <p>In Gradle that is one task, and it is the build's own resolved graph
+     * rather than a restatement of it:
+     *
+     * <pre>
+     * val losimToolchain by tasks.registering {
+     *     val cp = sourceSets.main.get().runtimeClasspath
+     *     val out = layout.buildDirectory.file("losim-toolchain.properties")
+     *     inputs.files(cp); outputs.file(out)
+     *     doLast { out.get().asFile.writeText("classpath=${cp.asPath}\n") }
+     * }
+     * </pre>
+     *
+     * <p>Under {@code build/} on purpose: it names absolute paths on one machine,
+     * so it is generated rather than committed, and {@code build/} is already
+     * both gitignored and {@link #NOT_CODE}. A key that is absent falls back to
+     * {@code lib/}, so a lab may declare its classpath and still take the
+     * vendored compilers, which is exactly what a Gradle lab in a container wants.
+     */
+    public static final String TOOLCHAIN = "build/losim-toolchain.properties";
+
+    /**
+     * What the build says about one part of the toolchain, or {@code ""}.
+     *
+     * <p>Read each time rather than cached: {@code losim serve} outlives any
+     * number of Gradle invocations, and a server holding the classpath from
+     * before a dependency was added is a build failure nobody can explain.
+     */
+    private String declared(String key) {
+        Path file = root.resolve(TOOLCHAIN);
+        if (!Files.isRegularFile(file)) return "";
+        var props = new java.util.Properties();
+        try (var in = Files.newInputStream(file)) {
+            props.load(in);
+        } catch (IOException e) {
+            // An unreadable toolchain is not an answer, and lib/ may well be one.
+            return "";
+        }
+        return props.getProperty(key, "").trim();
+    }
+
+    /** A tool the build declared, or the vendored one for this platform. */
+    private Path tool(String name) {
+        String said = declared(name);
+        return said.isEmpty() ? lib.resolve("bin").resolve(name + "-" + platform()) : Path.of(said);
+    }
 
     /**
      * The code in this lab: one folder of gRPC jobs.
@@ -428,15 +497,15 @@ public final class Lab {
      * about protoc rather than about the imports that just broke.
      */
     private String noProtoc() {
-        Path protoc = lib.resolve("bin").resolve("protoc-" + platform());
-        Path plugin = lib.resolve("bin").resolve("protoc-gen-grpc-java-" + platform());
+        Path protoc = tool("protoc");
+        Path plugin = tool("protoc-gen-grpc-java");
         if (Files.isExecutable(protoc) && Files.isExecutable(plugin)) return null;
-        return "No protobuf compiler for " + platform() + " in " + lib.resolve("bin") + ".\n";
+        return "No protobuf compiler for " + platform() + " at " + protoc + ".\n";
     }
 
     private int generate(List<Path> protos, Path gen, Consumer<String> log) throws IOException, InterruptedException {
-        Path protoc = lib.resolve("bin").resolve("protoc-" + platform());
-        Path plugin = lib.resolve("bin").resolve("protoc-gen-grpc-java-" + platform());
+        Path protoc = tool("protoc");
+        Path plugin = tool("protoc-gen-grpc-java");
         String missing = noProtoc();
         if (missing != null) {
             log.accept(missing);
@@ -528,6 +597,8 @@ public final class Lab {
 
     /** The classpath a lab compiles and runs against: the simulator and gRPC. */
     public String cp() {
+        String said = declared("classpath");
+        if (!said.isEmpty()) return said;
         StringBuilder sb = new StringBuilder();
         Path jars = lib.resolve("jars");
         for (Path p : children(jars)) {

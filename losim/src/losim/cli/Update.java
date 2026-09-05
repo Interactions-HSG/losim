@@ -117,7 +117,7 @@ public final class Update {
         }
 
         String base = base(from);
-        String have = installed(lib);
+        String have = installed(root, LIB);
         // Releases are tagged `v1.2.3` and versions are written `1.2.3`, and a
         // person may reasonably type either. Stripping the tag's `v` here rather
         // than at the URL means `--to v1.0.1` on a lab already at 1.0.1 is
@@ -130,12 +130,37 @@ public final class Update {
         System.out.println("  released      " + there);
         System.out.println("  from          " + base);
 
-        if (there.equals(have)) {
+        // Which of the three are behind, asked separately. They do not have to move
+        // together: a lab that took a new lib/ from a losim too old to know viewer/
+        // was updatable has a current jar beside a stale viewer, and asking only the
+        // jar would answer "up to date" forever — which is this command's own upgrade
+        // path, so it is not a hypothetical.
+        var behind = new ArrayList<Part>();
+        for (Part part : List.of(LIB, VIEWER, DOCS)) {
+            if (!Files.exists(root.resolve(part.name()), LinkOption.NOFOLLOW_LINKS)) continue;
+            if (!there.equals(installed(root, part))) behind.add(part);
+        }
+
+        // A lab can be perfectly current and still not run here. lib/ carries Linux
+        // binaries only, on purpose — see dist.sh — so on a Mac outside a container
+        // there is no protobuf compiler at all, and "up to date" would be a true
+        // answer to a question nobody asked.
+        boolean tools = toolsMissing(lib);
+
+        if (behind.isEmpty() && !tools) {
             System.out.println("\nUp to date. Nothing to do.");
             return 0;
         }
         if (check) {
-            System.out.println("\nA newer losim is available. `losim update` writes it.");
+            if (!behind.isEmpty()) {
+                System.out.println("\nBehind: " + listing(behind.stream().map(Part::name).toList())
+                        + ". `losim update` writes " + (behind.size() == 1 ? "it." : "them."));
+            }
+            if (tools) {
+                System.out.println((behind.isEmpty() ? "\n" : "")
+                        + "No protobuf compiler for " + Lab.platform() + " in lib/bin. "
+                        + "`losim update` fetches one.");
+            }
             return 0;
         }
 
@@ -145,45 +170,80 @@ public final class Update {
         Path work = root.resolve("build/update");
         rmrf(work);
         Files.createDirectories(work);
-        Path zip = work.resolve(ASSET);
-        Path staged = work.resolve("lib");
+        var changed = new ArrayList<String>();
 
-        System.out.println("\nfetching " + ASSET + "…");
-        download(url(base, to, ASSET), zip);
-        unzip(zip, staged, LIB.name());
+        if (behind.contains(LIB)) {
+            Path zip = work.resolve(ASSET);
+            Path staged = work.resolve("lib");
 
-        if (!Files.isRegularFile(staged.resolve("losim.jar"))) {
-            System.err.println("that archive has no losim.jar in it; lib/ is untouched");
-            return 3;
+            System.out.println("\nfetching " + ASSET + "…");
+            download(url(base, to, ASSET), zip);
+            unzip(zip, staged, LIB.name());
+
+            if (!Files.isRegularFile(staged.resolve("losim.jar"))) {
+                System.err.println("that archive has no losim.jar in it; lib/ is untouched");
+                return 3;
+            }
+            executable(staged.resolve("bin"));
+            swap(lib, staged, work.resolve("lib-previous"));
+            Files.deleteIfExists(zip);
+            changed.add(LIB.name());
         }
-        executable(staged.resolve("bin"));
-
-        // The swap, in the one order that leaves lib/ intact if any step fails:
-        // the old one is moved aside before the new one takes its name, and moved
-        // back if taking the name does not work.
-        swap(lib, staged, work.resolve("lib-previous"));
-        Files.deleteIfExists(zip);
 
         // The viewer and the manual, which go stale exactly as the jar does. After
         // lib/ and never instead of it: if the network dies halfway, the thing a
         // lab cannot run without is already in place.
-        var changed = new ArrayList<String>();
-        changed.add(LIB.name());
-        for (Part part : List.of(VIEWER, DOCS)) if (refresh(root, work, base, to, part)) changed.add(part.name());
+        for (Part part : List.of(VIEWER, DOCS)) {
+            if (behind.contains(part) && refresh(root, work, base, to, part)) changed.add(part.name());
+        }
+
+        // Asked again rather than reused: replacing lib/ has just put a fresh
+        // Linux-only bin/ there, so a Mac needs its compiler after every update
+        // and not only the first.
+        //
+        // Kept out of `changed` deliberately. The rest of an update is a change to
+        // commit; this one is a change not to, and saying "git add" here would
+        // recommend putting in a fork exactly the 36 MB the template leaves out.
+        boolean gotTools = toolsMissing(lib) && hostTools(lib, work, base, to);
+        if (gotTools) {
+            System.out.println("""
+
+                    lib/bin now has a protobuf compiler for %s.
+
+                    That one is for this machine and does not belong in the repository. The
+                    template ships Linux only so that a fork does not carry 36 MB nothing in
+                    a container can execute, so leave it out of your commit — `losim update`
+                    puts it back on any machine that needs it.""".formatted(Lab.platform()));
+        }
+
+        if (changed.isEmpty()) {
+            if (!gotTools) {
+                // Everything behind was somebody else's to update — a shared viewer,
+                // a shared manual. `refresh` has already said where.
+                System.out.println("\nNothing here was this lab's to replace.");
+            }
+            return 0;
+        }
+
+        // The restart only matters if the jar moved. Saying it when only the manual
+        // was replaced is advice that costs a person a minute to follow and teaches
+        // them the rest of the message is boilerplate too.
+        String restart = changed.contains(LIB.name()) ? """
+
+                The simulator you are running is still the old one — a JVM does not reload
+                a jar underneath itself — so restart the lab (stop `losim serve` and start
+                it again, or reopen the container).
+                """ : "";
 
         System.out.println("""
 
                 %s %s now %s.
-
-                Two things follow from that. The simulator you are running is still the
-                old one — a JVM does not reload a jar underneath itself — so restart the
-                lab (stop `losim serve` and start it again, or reopen the container).
-
-                And this is part of your repository, so it is a change like any other:
+                %s
+                This is part of your repository, so it is a change like any other:
                 `git add %s && git commit`. Committing it is what makes your next
                 Codespace, and whoever marks this, run the same simulator you just did."""
                 .formatted(listing(changed), changed.size() == 1 ? "is" : "are", there,
-                           String.join(" ", changed)));
+                           restart, String.join(" ", changed)));
         return 0;
     }
 
@@ -198,10 +258,13 @@ public final class Update {
     /**
      * Replaces one of the directories a release carries, if this lab owns it.
      *
-     * <p>Three cases, and only one of them is a download. The directory may be
-     * absent, which is what a lab published with {@code --lib-only} looks like and
-     * is not an error — the lab reaches its viewer and its manual somewhere else.
-     * It may be a symlink into a directory several labs share, and a shared copy
+     * <p>The caller has already established that this directory exists and is out
+     * of date. Absent is not an error and is not handled here: that is what a lab
+     * published with {@code --lib-only} looks like, and it reaches its viewer and
+     * its manual somewhere else.
+     *
+     * <p>Two cases remain, and only one is a download. The directory may be a
+     * symlink into a directory several labs share, and a shared copy
      * is deliberately one copy: replacing it from inside one lab would rewrite
      * what the others are reading without anybody asking. So that case is refused
      * and pointed at the place the update belongs, which is a one-line answer
@@ -214,10 +277,6 @@ public final class Update {
      */
     private static boolean refresh(Path root, Path work, String base, String to, Part part) {
         Path target = root.resolve(part.name());
-        if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
-            System.out.println("  no " + part.name() + "/ in this lab — nothing to refresh");
-            return false;
-        }
         if (Files.isSymbolicLink(target)) {
             Path shared;
             try {
@@ -268,6 +327,48 @@ public final class Update {
         rmrf(previous);
     }
 
+    /** Whether this host has no protobuf compiler it can actually execute. */
+    private static boolean toolsMissing(Path lib) {
+        Path bin = lib.resolve("bin");
+        String plat = Lab.platform();
+        return !Files.isExecutable(bin.resolve("protoc-" + plat))
+                || !Files.isExecutable(bin.resolve("protoc-gen-grpc-java-" + plat));
+    }
+
+    /**
+     * Fetches the protobuf compiler for the host, if one is published for it.
+     *
+     * <p>Unpacked into {@code lib/bin} rather than swapped over it: this adds two
+     * files to a directory that already holds four, and replacing the directory
+     * would take the container's compilers away from a repository that is also
+     * opened in a container.
+     *
+     * <p>Not being published for a platform is an ordinary outcome, not a failure.
+     * A lab on a machine losim has no binaries for still runs everything that does
+     * not need protoc, and saying so plainly is better than a stack trace.
+     */
+    private static boolean hostTools(Path lib, Path work, String base, String to) {
+        String plat = Lab.platform();
+        String asset = "losim-tools-" + plat + ".zip";
+        System.out.println("\nno protobuf compiler for " + plat + " here; fetching " + asset + "…");
+        try {
+            Path zip = work.resolve(asset);
+            download(url(base, to, asset), zip);
+            unzip(zip, lib, LIB.name());
+            executable(lib.resolve("bin"));
+            Files.deleteIfExists(zip);
+            if (toolsMissing(lib)) {
+                System.err.println("  that archive did not carry a compiler for " + plat);
+                return false;
+            }
+            return true;
+        } catch (IOException e) {
+            System.err.println("  none published for " + plat + ": " + e.getMessage());
+            System.err.println("  everything that does not compile a .proto still works.");
+            return false;
+        }
+    }
+
     private static boolean empty(Path dir) throws IOException {
         if (!Files.isDirectory(dir)) return true;
         try (var entries = Files.list(dir)) {
@@ -284,12 +385,14 @@ public final class Update {
      * the two come apart: a maintainer checking a student's lab from their own
      * checkout would otherwise be told the student has whatever the maintainer
      * has. So this reads the lab, not itself — the {@code version} file
-     * {@code publish.sh} writes, and failing that the stamp inside the lab's own
-     * jar, and failing that it says it does not know, which for a lib/ published
-     * before any of this existed is exactly true.
+     * {@code publish.sh} writes into each of the three, and for {@code lib/} the
+     * stamp inside the lab's own jar, and failing that it says it does not know —
+     * which for a directory published before any of this existed is exactly true,
+     * and counts as behind so that it is replaced once and then stamped.
      */
-    private static String installed(Path lib) {
-        Path stamp = lib.resolve("version");
+    private static String installed(Path root, Part part) {
+        Path dir = root.resolve(part.name());
+        Path stamp = dir.resolve("version");
         if (Files.isRegularFile(stamp)) {
             try {
                 String v = Files.readString(stamp).trim();
@@ -298,7 +401,8 @@ public final class Update {
                 // Fall through to the jar; an unreadable file is not an answer.
             }
         }
-        try (var jar = new java.util.zip.ZipFile(lib.resolve("losim.jar").toFile())) {
+        if (!LIB.equals(part)) return Version.UNKNOWN;
+        try (var jar = new java.util.zip.ZipFile(dir.resolve("losim.jar").toFile())) {
             ZipEntry e = jar.getEntry("losim/version");
             if (e != null) {
                 try (var in = jar.getInputStream(e)) {

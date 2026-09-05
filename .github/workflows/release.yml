@@ -20,6 +20,11 @@
 #                   manual by symlink, so a lab must be able to take a new
 #                   simulator without rewriting its neighbours' directories.
 #                   Small, too: 320 KB and 210 KB against 23 MB.
+#   losim-tools-*   the protobuf compiler for a platform the template does not
+#                   carry. lib/ ships Linux only so a fork is not 36 MB heavier
+#                   for binaries no container can run, which left a Mac outside
+#                   a container with no compiler at all. `losim update` fetches
+#                   one of these only on a host that needs it.
 #   VERSION         a one-line asset, so `losim update --check` costs a few bytes
 #                   instead of 22 MB.
 #   the Maven tree  what a lab resolves with Gradle, pushed to the dist
@@ -160,12 +165,12 @@ jobs:
           # replaced, so a botched release can be fixed by re-running the job.
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" build/losim-lib.zip build/losim-viewer.zip \
-                              build/losim-docs.zip build/VERSION \
-                              build/losim-maven-repo.zip --clobber
+                              build/losim-docs.zip build/losim-tools-*.zip \
+                              build/VERSION build/losim-maven-repo.zip --clobber
           else
             gh release create "$TAG" build/losim-lib.zip build/losim-viewer.zip \
-              build/losim-docs.zip build/VERSION \
-              build/losim-maven-repo.zip \
+              build/losim-docs.zip build/losim-tools-*.zip \
+              build/VERSION build/losim-maven-repo.zip \
               --title "losim $V" \
               --notes "\`losim update\` in any lab picks this up: lib/, and viewer/ and docs/ where the lab owns them."
           fi

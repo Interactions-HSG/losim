@@ -103,6 +103,13 @@ if [ "$LIB_ONLY" -eq 0 ]; then
   ( cd build/viewer && tar -c --exclude traces . ) | ( cd "$TARGET/viewer" && tar -x )
 
   cp -r docs "$TARGET/docs"
+
+  # Each directory carries its own number, because they do not have to move
+  # together. A lab that took a new lib/ from a losim too old to know that
+  # viewer/ was updatable has a current jar beside a stale viewer, and asking
+  # only the jar would answer "up to date" forever.
+  tr -d "[:space:]" < VERSION > "$TARGET/viewer/version"
+  tr -d "[:space:]" < VERSION > "$TARGET/docs/version"
 fi
 
 cat > "$TARGET/lib/README.md" <<'MSG'
