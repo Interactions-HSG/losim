@@ -6,19 +6,22 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermission;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import losim.Version;
 
 /**
- * Replaces this lab's {@code lib/} with a newer one.
+ * Replaces this lab's copy of losim with a newer one.
  *
  * <p>An assignment is a GitHub template. A student presses "Use this template"
  * in week one and works in their own repository for a term — which is the whole
@@ -46,6 +49,20 @@ import losim.Version;
  * the repository it points at has to be public. If the simulator's own
  * repository is not, point this at one that is; see {@link #DIST}.
  *
+ * <h2>Three archives, not one</h2>
+ *
+ * <p>A lab carries three things from losim and they go stale together: the
+ * simulator in {@code lib/}, the trace viewer in {@code viewer/}, and the manual
+ * in {@code docs/}. A viewer whose scrubber does not stop on a {@code heal} is a
+ * fix nobody sees if {@code lib/} is the only thing that can be replaced — and
+ * for a term that is exactly what happened.
+ *
+ * <p>They are fetched separately because only the first is certainly the lab's
+ * own. {@code publish.sh --lib-only} writes {@code lib/} alone, so that several
+ * labs in one assignment can share a single viewer and manual by symlink; a lab
+ * arranged that way must be able to take a new simulator without silently
+ * rewriting a directory its neighbours are also reading. See {@link #refresh}.
+ *
  * <h2>A zip, not a tar</h2>
  *
  * <p>{@code java.util.zip} is in the JDK and {@code tar} is not, and this must
@@ -68,8 +85,19 @@ public final class Update {
      */
     public static final String DIST = "https://github.com/Interactions-HSG/losim";
 
-    /** The published artifact. Made by {@code publish.sh}, released by CI. */
-    private static final String ASSET = "losim-lib.zip";
+    /**
+     * One of the directories a release carries: what it is called in a lab, and
+     * what it is called as a release asset. Made by {@code publish.sh} by way of
+     * {@code dist.sh}, released by CI.
+     */
+    private record Part(String name, String asset) {}
+
+    private static final Part LIB = new Part("lib", "losim-lib.zip");
+    private static final Part VIEWER = new Part("viewer", "losim-viewer.zip");
+    private static final Part DOCS = new Part("docs", "losim-docs.zip");
+
+    /** The published artifact holding the simulator itself. */
+    private static final String ASSET = LIB.asset();
 
     /** A one-line asset holding the version, so a check costs a few bytes. */
     private static final String STAMP = "VERSION";
@@ -107,7 +135,7 @@ public final class Update {
             return 0;
         }
         if (check) {
-            System.out.println("\nA newer lib/ is available. `losim update` writes it.");
+            System.out.println("\nA newer losim is available. `losim update` writes it.");
             return 0;
         }
 
@@ -122,7 +150,7 @@ public final class Update {
 
         System.out.println("\nfetching " + ASSET + "…");
         download(url(base, to, ASSET), zip);
-        unzip(zip, staged);
+        unzip(zip, staged, LIB.name());
 
         if (!Files.isRegularFile(staged.resolve("losim.jar"))) {
             System.err.println("that archive has no losim.jar in it; lib/ is untouched");
@@ -133,29 +161,118 @@ public final class Update {
         // The swap, in the one order that leaves lib/ intact if any step fails:
         // the old one is moved aside before the new one takes its name, and moved
         // back if taking the name does not work.
-        Path previous = work.resolve("lib-previous");
-        Files.move(lib, previous, StandardCopyOption.ATOMIC_MOVE);
-        try {
-            Files.move(staged, lib, StandardCopyOption.ATOMIC_MOVE);
-        } catch (IOException e) {
-            Files.move(previous, lib, StandardCopyOption.ATOMIC_MOVE);
-            throw e;
-        }
-        rmrf(previous);
+        swap(lib, staged, work.resolve("lib-previous"));
         Files.deleteIfExists(zip);
+
+        // The viewer and the manual, which go stale exactly as the jar does. After
+        // lib/ and never instead of it: if the network dies halfway, the thing a
+        // lab cannot run without is already in place.
+        var changed = new ArrayList<String>();
+        changed.add(LIB.name());
+        for (Part part : List.of(VIEWER, DOCS)) if (refresh(root, work, base, to, part)) changed.add(part.name());
 
         System.out.println("""
 
-                lib/ is now %s.
+                %s %s now %s.
 
                 Two things follow from that. The simulator you are running is still the
                 old one — a JVM does not reload a jar underneath itself — so restart the
                 lab (stop `losim serve` and start it again, or reopen the container).
 
-                And lib/ is part of your repository, so this is a change like any other:
-                `git add lib && git commit`. Committing it is what makes your next
-                Codespace, and whoever marks this, run the same simulator you just did.""".formatted(there));
+                And this is part of your repository, so it is a change like any other:
+                `git add %s && git commit`. Committing it is what makes your next
+                Codespace, and whoever marks this, run the same simulator you just did."""
+                .formatted(listing(changed), changed.size() == 1 ? "is" : "are", there,
+                           String.join(" ", changed)));
         return 0;
+    }
+
+    /** {@code lib/}, or {@code lib/ and viewer/}, or {@code lib/, viewer/ and docs/}. */
+    private static String listing(List<String> names) {
+        var slashed = names.stream().map(n -> n + "/").toList();
+        if (slashed.size() == 1) return slashed.get(0);
+        return String.join(", ", slashed.subList(0, slashed.size() - 1))
+                + " and " + slashed.get(slashed.size() - 1);
+    }
+
+    /**
+     * Replaces one of the directories a release carries, if this lab owns it.
+     *
+     * <p>Three cases, and only one of them is a download. The directory may be
+     * absent, which is what a lab published with {@code --lib-only} looks like and
+     * is not an error — the lab reaches its viewer and its manual somewhere else.
+     * It may be a symlink into a directory several labs share, and a shared copy
+     * is deliberately one copy: replacing it from inside one lab would rewrite
+     * what the others are reading without anybody asking. So that case is refused
+     * and pointed at the place the update belongs, which is a one-line answer
+     * rather than a surprise found later. Otherwise it is the lab's own and is
+     * replaced.
+     *
+     * <p>A failure here is reported and swallowed. {@code lib/} has already been
+     * written by the time this runs, and turning "the manual did not download"
+     * into a failed update would be a worse answer than a stale manual.
+     */
+    private static boolean refresh(Path root, Path work, String base, String to, Part part) {
+        Path target = root.resolve(part.name());
+        if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+            System.out.println("  no " + part.name() + "/ in this lab — nothing to refresh");
+            return false;
+        }
+        if (Files.isSymbolicLink(target)) {
+            Path shared;
+            try {
+                shared = target.resolveSibling(Files.readSymbolicLink(target)).normalize();
+            } catch (IOException e) {
+                System.out.println("  " + part.name() + "/ is a link; left alone");
+                return false;
+            }
+            Path where = shared.getParent();
+            System.out.println(("  %s/ is a link to %s, which another lab may be reading too.%n"
+                    + "  Left alone. Update it once where it lives:  losim update --root %s")
+                    .formatted(part.name(), shared, where == null ? shared : where));
+            return false;
+        }
+        try {
+            Path zip = work.resolve(part.asset());
+            Path staged = work.resolve(part.name() + "-new");
+            System.out.println("fetching " + part.asset() + "…");
+            download(url(base, to, part.asset()), zip);
+            unzip(zip, staged, part.name());
+            if (empty(staged)) {
+                System.err.println("  that archive was empty; " + part.name() + "/ is untouched");
+                return false;
+            }
+            swap(target, staged, work.resolve(part.name() + "-previous"));
+            Files.deleteIfExists(zip);
+            return true;
+        } catch (IOException e) {
+            System.err.println("  " + part.name() + "/ was not refreshed: " + e.getMessage());
+            System.err.println("  lib/ was, and that is the one a lab cannot run without.");
+            return false;
+        }
+    }
+
+    /**
+     * Puts {@code staged} where {@code target} is, in the one order that leaves
+     * {@code target} intact if any step fails: the old one is moved aside before
+     * the new one takes its name, and moved back if taking the name does not work.
+     */
+    private static void swap(Path target, Path staged, Path previous) throws IOException {
+        Files.move(target, previous, StandardCopyOption.ATOMIC_MOVE);
+        try {
+            Files.move(staged, target, StandardCopyOption.ATOMIC_MOVE);
+        } catch (IOException e) {
+            Files.move(previous, target, StandardCopyOption.ATOMIC_MOVE);
+            throw e;
+        }
+        rmrf(previous);
+    }
+
+    private static boolean empty(Path dir) throws IOException {
+        if (!Files.isDirectory(dir)) return true;
+        try (var entries = Files.list(dir)) {
+            return entries.findAny().isEmpty();
+        }
     }
 
     /**
@@ -319,28 +436,30 @@ public final class Update {
     // ------------------------------------------------------------------- unpacking
 
     /**
-     * Unpacks the archive, whose entries are all under a single {@code lib/}.
+     * Unpacks the archive, whose entries are all under a single directory named
+     * for the part — {@code lib/}, {@code viewer/} or {@code docs/}.
      *
      * <p>Every entry's destination is checked to be inside the target. An archive
      * naming {@code ../../.ssh/authorized_keys} is a real and old trick, and the
      * fact that this one comes from a repository the course controls is not a
      * reason to be the program that would have written it.
      */
-    private static void unzip(Path zip, Path into) throws IOException {
+    private static void unzip(Path zip, Path into, String prefix) throws IOException {
         Path target = into.toAbsolutePath().normalize();
+        String dir = prefix + "/";
         Files.createDirectories(target);
         try (ZipInputStream zin = new ZipInputStream(Files.newInputStream(zip))) {
             for (ZipEntry e; (e = zin.getNextEntry()) != null; ) {
                 String name = e.getName();
-                // The archive holds `lib/…`; this writes the contents of that
+                // The archive holds `<prefix>/…`; this writes the contents of that
                 // directory, because the caller already chose where it goes.
-                if (name.equals("lib/") || name.equals("lib")) continue;
-                if (name.startsWith("lib/")) name = name.substring(4);
+                if (name.equals(dir) || name.equals(prefix)) continue;
+                if (name.startsWith(dir)) name = name.substring(dir.length());
                 if (name.isEmpty()) continue;
 
                 Path out = target.resolve(name).normalize();
                 if (!out.startsWith(target)) {
-                    throw new IOException("that archive tried to write outside lib/: " + e.getName());
+                    throw new IOException("that archive tried to write outside " + dir + ": " + e.getName());
                 }
                 if (e.isDirectory()) {
                     Files.createDirectories(out);

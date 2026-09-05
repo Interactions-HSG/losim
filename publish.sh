@@ -63,8 +63,12 @@ echo "Building the simulator…"
 ./build.sh > /dev/null
 
 if [ "$LIB_ONLY" -eq 0 ]; then
-  echo "Exporting the viewer…"
-  [ -d build/viewer/_next ] || ./viewer/export.sh > /dev/null
+  # From the committed export, always — not from whatever build/viewer happens to
+  # hold, and never by running npm. Publishing a template is a thing a maintainer
+  # does on their own machine and a thing CI does on a tag, and only one of those
+  # has node installed.
+  echo "Staging the viewer…"
+  ./viewer/stage.sh
 fi
 
 # The two architectures a container is. Not the mac binaries: students open this

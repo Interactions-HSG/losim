@@ -19,10 +19,7 @@ mkdir -p build
 # like the generated protobuf sources are (D10), so putting it where the server
 # looks for it is a copy and never a build.
 if [ ! -f build/viewer/index.html ]; then
-  rm -rf build/viewer
-  cp -r viewer/out build/viewer
-  mkdir -p build/viewer/traces
-  echo '{"runs": []}' > build/viewer/traces/index.json
+  ./viewer/stage.sh
 fi
 
 # bash's own /dev/tcp, so this needs nothing installed. Attaching to a container

@@ -13,12 +13,10 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 npx next build
-rm -rf ../build/viewer
-cp -r out ../build/viewer
 
-# An empty index rather than none: the picker fetches it on load, and a 404 is a
-# harder thing for it to say something useful about than an empty list.
-mkdir -p ../build/viewer/traces
-echo '{"runs": []}' > ../build/viewer/traces/index.json
+# Where the build lands is `stage.sh`'s business, not this file's: a served
+# viewer and a published one have to be the same directory, and that is only
+# true if one script writes it.
+./stage.sh
 
 echo "exported -> build/viewer  (no traces in it; ./viewer/serve.sh adds them)"

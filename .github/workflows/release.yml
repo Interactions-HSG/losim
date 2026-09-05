@@ -12,6 +12,14 @@
 #   losim-lib.zip   `losim update` in a student's lab. This is the one that
 #                   matters: it is the whole of lib/, the same bytes publish.sh
 #                   writes into an assignment.
+#   losim-viewer.zip  and
+#   losim-docs.zip  the other two directories a lab carries from losim, which go
+#                   stale exactly as the jar does — a viewer fix reaches nobody
+#                   if lib/ is the only thing that can be replaced. Separate
+#                   assets because several labs can share one viewer and one
+#                   manual by symlink, so a lab must be able to take a new
+#                   simulator without rewriting its neighbours' directories.
+#                   Small, too: 320 KB and 210 KB against 23 MB.
 #   VERSION         a one-line asset, so `losim update --check` costs a few bytes
 #                   instead of 22 MB.
 #   the Maven tree  what a lab resolves with Gradle, pushed to the dist
@@ -151,11 +159,13 @@ jobs:
           # Re-running a release must not fail on "already exists": the assets are
           # replaced, so a botched release can be fixed by re-running the job.
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" build/losim-lib.zip build/VERSION \
+            gh release upload "$TAG" build/losim-lib.zip build/losim-viewer.zip \
+                              build/losim-docs.zip build/VERSION \
                               build/losim-maven-repo.zip --clobber
           else
-            gh release create "$TAG" build/losim-lib.zip build/VERSION \
+            gh release create "$TAG" build/losim-lib.zip build/losim-viewer.zip \
+              build/losim-docs.zip build/VERSION \
               build/losim-maven-repo.zip \
               --title "losim $V" \
-              --notes "\`losim update\` in any lab picks this up. It replaces lib/ and nothing else."
+              --notes "\`losim update\` in any lab picks this up: lib/, and viewer/ and docs/ where the lab owns them."
           fi
