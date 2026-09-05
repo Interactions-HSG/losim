@@ -410,6 +410,23 @@ public final class Main {
                     e.detail().get("method"), refMs(e.detail().get("deadlineRefMs")),
                     refMs(e.detail().get("declaredRefMs"))));
         }
+        // The subtler half, and the one people actually hit. The client can only
+        // check a deadline against the fixed part of a cost, because the per-record
+        // part is not knowable until the handler declares its count. So a deadline
+        // set above `refMs` and far below the real total times out with nothing said
+        // above. The callee knows both by the time it answers, and says so on its
+        // own span — reported here only where the client did not already, so one
+        // mistake is not announced twice in two different phrasings.
+        for (var s : result.telemetry().spans()) {
+            if (s.detail.get("unmeetable") == null) continue;
+            String method = s.label;
+            if (unmeetable.containsKey(method)) continue;
+            unmeetable.put(method, String.format(
+                    "    %s: the deadline was %s refMs and the handler declares %s once "
+                    + "its records are counted", method, refMs(s.detail.get("deadlineRefMs")),
+                    refMs(s.detail.get("declaredRefMs"))));
+        }
+
         for (String line : unmeetable.values()) sb.append(line).append(System.lineSeparator());
         if (!unmeetable.isEmpty())
             sb.append("    a deadline below the declared cost cannot be met on any host")

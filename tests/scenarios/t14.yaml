@@ -1,0 +1,12 @@
+# 40000 records at 0.02 refMs each, asked for twice: once with 2000 refMs of
+# patience and once with 600. The fixed cost is 2 refMs, so neither deadline looks
+# wrong until the handler declares its count.
+seed: 1
+kTime: 20
+job: Budget
+expectedRun: 8 refSeconds
+tightMargin: true          # this case is about a margin, and says so
+
+machines:
+  client: { instance: m5.large, zone: eu-central-1a }
+  srv:    { instance: m5.large, zone: eu-central-1a, runs: [Steady] }

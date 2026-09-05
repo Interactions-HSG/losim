@@ -59,7 +59,7 @@ assert() {                                        # class [paths...]
 run_case() { run_scenario "$1" "$3"; assert "$2" "$OUT/traces/$1.json" "$OUT/traces/$1.out"; }
 
 cases=("$@")
-if [ ${#cases[@]} -eq 0 ]; then cases=(t1 t2 t3 t4 t5 t6 t7 t8 t9 t10 t11 t12 t13 bill); fi
+if [ ${#cases[@]} -eq 0 ]; then cases=(t1 t2 t3 t4 t5 t6 t7 t8 t9 t10 t11 t12 t13 t14 bill); fi
 
 for c in "${cases[@]}"; do
   case "$c" in
@@ -106,6 +106,11 @@ for c in "${cases[@]}"; do
          run_scenario t13-chatty    t13-chatty.yaml --telemetry FULL
          assert T13 "$OUT/traces/t13-off.json" "$OUT/traces/t13-nopayload.json" \
                     "$OUT/traces/t13-full.json" "$OUT/traces/t13-chatty.json" ;;
+    # Both directions in one run: the same method, one deadline it can meet and
+    # one it cannot. The summary is read as well as the trace, because this exists
+    # to reach somebody who never opens the trace.
+    t14) run_scenario t14 t14.yaml
+         assert T14 "$OUT/traces/t14.json" "$OUT/traces/t14.out" ;;
     *)  echo "no such case: $c" >&2; exit 2 ;;
   esac
 done

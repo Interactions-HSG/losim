@@ -117,6 +117,30 @@ class LabToolchainTest {
     }
 
     @Test
+    @DisplayName("the fallback says what it disregarded, rather than working silently")
+    void saysWhatItIgnored(@TempDir Path root) throws Exception {
+        // Two machines disagreeing about one lab, where the difference is a file one
+        // of them carries, is the case silence costs: the working machine and the
+        // machine that would have failed otherwise print the same thing.
+        declare(root, "classpath=/Users/someone/losim.jar\nprotoc=/Users/someone/protoc-osx-aarch_64\n");
+        String note = at(root).toolchainNote();
+        assertTrue(note.contains("classpath"), () -> "the classpath is not named: " + note);
+        assertTrue(note.contains("protoc"), () -> "the compiler is not named: " + note);
+        assertTrue(note.contains("lib/"), () -> "what it used instead is not named: " + note);
+    }
+
+    @Test
+    @DisplayName("and says nothing when there is nothing to say")
+    void quietWhenHonoured(@TempDir Path root) throws Exception {
+        // A declaration this machine can use is used, and a run that ignored nothing
+        // must not print a line about it — a note that fires every time is noise.
+        declare(root, "classpath=" + jar(root, "losim.jar") + "\n");
+        assertEquals("", at(root).toolchainNote());
+        Files.delete(root.resolve(Lab.TOOLCHAIN));
+        assertEquals("", at(root).toolchainNote(), "no file, nothing to report");
+    }
+
+    @Test
     @DisplayName("an unreadable toolchain is not an answer, and lib/ may still be one")
     void unreadable(@TempDir Path root) throws Exception {
         // A directory where the file should be: load() fails, and the fallback has

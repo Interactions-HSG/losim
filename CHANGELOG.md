@@ -7,6 +7,77 @@ Gradle, so it is a fact about a jar rather than about a branch. Every release is
 cut from a tag whose name and `./VERSION` are checked against each other before
 anything is built.
 
+## 1.1.4
+
+A timeout the caller could not have predicted now says so.
+
+1.1.0 taught `rpc_timeout` to carry the deadline and the declared cost, and to
+say when one was below the other. That catches the crude mistake and misses the
+one people actually make. The client can only compare a deadline with the
+**fixed** part of a `@Takes`: `refNsPerRecord` needs a count, and the count is the
+handler's to declare while it runs. So a deadline set comfortably above `refMs`
+and hopelessly below the real total — 600 refMs against `2 + 0.02` per record,
+about 800 at forty thousand — timed out with every number looking reasonable and
+nothing said.
+
+The callee knows both by the time it answers, and gRPC hands it the caller's
+deadline, so it records them on its own span: `declaredRefMs`, `deadlineRefMs`,
+and `unmeetable` when the first exceeds the second. The run summary reports it
+beside the client-side line, once per method and never twice for one mistake:
+
+    2 calls, 2 failed (timed out)
+      lab.Worker.Map: the deadline was 590 refMs and the handler declares 802 once
+        its records are counted
+      a deadline below the declared cost cannot be met on any host
+
+**Sound in one direction only, and that is the useful one.** A declared cost is
+slept and never subtracted — `@Takes` can make a run longer and never shorter — so
+it is a lower bound on what the handler actually took, and a declared cost above
+the deadline is *impossible* rather than unlikely. The converse still says
+nothing: a declared cost under the deadline leaves the handler's own work to come
+on top of it, so a silent `unmeetable` is not a claim that a deadline is adequate.
+It was already true of the 1.1.0 check and is worth repeating, because reading the
+silence as an all-clear is the one way this can mislead.
+
+Recorded in `close()` rather than when the answer is sent, because it has to hold
+for a call that never answered: over the in-process transport the server is not
+told the caller gave up, so it runs to completion and closes, and `close()` is the
+one place reached whether the answer arrived in time, late, or not at all.
+
+### The fallback says what it disregarded
+
+1.1.3 made a declared toolchain fall back to `lib/` when it is not this machine's.
+It did so silently, which is right for the run and wrong for the person.
+
+The case that costs is the one that is hardest to diagnose anyway: two machines
+disagreeing about the same lab, where the difference is a file one of them is
+carrying. Silence makes the working machine and the machine that would have
+failed print the same thing, so there is nothing to compare — where a failure at
+least announced itself. So the fallback now names what it ignored and what it
+used instead, and says nothing at all when it honoured the declaration.
+
+### A generated package may be called `docs`
+
+The same bug 1.1.2 fixed, in the place nobody would have looked. `gen/` is
+excluded from the walk over the lab root so javac is not handed it twice, and
+then walked separately and compiled — which is why generated stubs always
+compiled despite `gen` being on the list, and why "in NOT_CODE" was never the
+same as "not compiled".
+
+That second walk was still filtering `gen`'s own children by the furniture names.
+Its children are packages `protoc` named from a `java_package`, so a schema
+declaring itself in `docs` or `input` would have had its stubs skipped in the same
+silent way — and been harder to diagnose, because nobody suspects the generated
+tree. This is a generalisation of the rule rather than a case that was reproduced
+against a real schema.
+
+### Checked
+
+Checked in both directions by `t14`, which makes the same call twice against a
+deadline it can meet and one it cannot. Identical declared cost, 802 refMs; one
+refused at 598 allowed and one left alone at 1987. A check that fired on both
+would be saying nothing.
+
 ## 1.1.3
 
 A declared toolchain is a claim, and it has to check out.

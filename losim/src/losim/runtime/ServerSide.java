@@ -38,6 +38,24 @@ final class ServerSide implements ServerInterceptor {
         final String method = Wire.dotted(full);
         final Takes takes = node.takenBy(full);
 
+        // What the caller allowed, read on arrival and in reference milliseconds.
+        //
+        // The client side can only ever check a deadline against the *fixed* part
+        // of a cost: `refNsPerRecord` is not knowable before the handler runs,
+        // because the handler is what declares the count. So a deadline set
+        // comfortably above `refMs` and hopelessly below the real total — 600 refMs
+        // against 2 + 0.02 per record, about 780 at six million — times out with
+        // nothing said, which is the shape of the mistake people actually make.
+        //
+        // Here that is knowable. The callee has the count by the time it answers,
+        // and gRPC hands it the caller's deadline. `timeRemaining` rather than the
+        // original figure because it is the truer number: it is what this handler
+        // actually had once the request had crossed the network.
+        final Deadline allowed = Context.current().getDeadline();
+        final Double deadlineRefMs = allowed == null ? null
+                : allowed.timeRemaining(java.util.concurrent.TimeUnit.NANOSECONDS)
+                        * node.fleet().clock.kTime() / 1e6;
+
         // The parent arrives in a header, from a thread on another machine this
         // one has no context from. Reading it from the ambient context instead
         // would hang every server span off the root, and there would be no
@@ -82,6 +100,33 @@ final class ServerSide implements ServerInterceptor {
                     if (!status.isOk())
                         span.detail.put("error", status.getDescription() == null
                                 ? status.getCode().name() : status.getDescription());
+
+                    // In close() and not in sendMessage(), because this has to hold
+                    // for a call that never answered. The server is not told that
+                    // the caller gave up — over the in-process transport it runs to
+                    // completion and closes OK — so close() is the one place reached
+                    // whether the answer arrived in time, late, or not at all.
+                    if (takes != null && deadlineRefMs != null) {
+                        long n = span.records.get();
+                        double declared = takes.refMs();
+                        if (n > 0 && takes.refNsPerRecord() > 0) declared += takes.refNsPerRecord() * n / 1e6;
+                        declared *= node.effectiveFactor();
+                        span.detail.put("declaredRefMs", Machine.round(declared));
+                        span.detail.put("deadlineRefMs", Machine.round(deadlineRefMs));
+                        // Sound in one direction only, and that is the useful one. A
+                        // declared cost is *slept* and never subtracted — @Takes can
+                        // make a run longer and never shorter — so it is a lower bound
+                        // on what the handler actually took, and a declared cost above
+                        // the deadline is impossible rather than unlikely. The converse
+                        // does not hold: a declared cost under the deadline says
+                        // nothing, because the handler's own work is still to come on
+                        // top of it.
+                        //
+                        // Strictly greater: a cost that exactly equals its deadline is
+                        // not a mistake, it is a tight budget, and calling it impossible
+                        // would be wrong.
+                        if (declared > deadlineRefMs) span.detail.put("unmeetable", true);
+                    }
                 }
                 node.chargeTo(span, Meter.allocNow() - b0, System.nanoTime() - n0);
                 super.close(status, trailers);

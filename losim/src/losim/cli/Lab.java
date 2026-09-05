@@ -249,6 +249,39 @@ public final class Lab {
         return sb.toString();
     }
 
+    /**
+     * What was declared and disregarded, or {@code ""} when nothing was.
+     *
+     * <p>Falling back to {@code lib/} silently is right for the run and wrong for
+     * the person. The case it costs is the one that is hardest to diagnose anyway:
+     * two machines disagreeing about the same lab, where the difference is a file
+     * one of them is carrying. Silence makes the working machine and the machine
+     * that would have failed produce identical output, so there is nothing to
+     * compare — where a failure at least announced itself.
+     *
+     * <p>So the fallback says what it ignored. "It worked" is a worse answer than
+     * "it worked, and here is what it disregarded".
+     */
+    public String toolchainNote() {
+        if (!Files.isRegularFile(root.resolve(TOOLCHAIN))) return "";
+        var sb = new StringBuilder();
+        String said = declared("classpath");
+        if (!said.isEmpty() && !here(said)) {
+            sb.append("Ignoring the classpath declared in ").append(TOOLCHAIN)
+              .append(": nothing on it exists here, so it is another machine's.\n")
+              .append("  Using lib/ instead. Delete that file if it arrived with a copied directory.\n");
+        }
+        for (String key : List.of("protoc", "protoc-gen-grpc-java")) {
+            String stated = declared(key);
+            if (!stated.isEmpty() && !Files.isExecutable(Path.of(stated))) {
+                sb.append("Ignoring the ").append(key).append(" declared in ").append(TOOLCHAIN)
+                  .append(": ").append(stated).append(" will not run here.\n")
+                  .append("  Using the one in lib/bin for ").append(platform()).append(".\n");
+            }
+        }
+        return sb.toString();
+    }
+
     /** Where scenarios live, and where the console writes a new one. */
     public static final String SCENARIOS = "scenarios";
 
@@ -390,9 +423,18 @@ public final class Lab {
     }
 
     /** Every file of one extension in the lab, skipping what is not the student's. */
-    private List<Path> walk(Path dir, String ext) {
+    private List<Path> walk(Path dir, String ext) { return walk(dir, ext, true); }
+
+    /**
+     * @param furniture whether this directory's own children may be the lab's
+     *                  furniture. True of the lab root, and false of {@code gen/},
+     *                  whose children are packages {@code protoc} named from a
+     *                  {@code java_package} — so a schema declaring itself in
+     *                  {@code docs} or {@code input} compiles like any other.
+     */
+    private List<Path> walk(Path dir, String ext, boolean furniture) {
         List<Path> out = new ArrayList<>();
-        collect(dir, ext, out, true);
+        collect(dir, ext, out, furniture);
         out.sort(Comparator.comparing(Path::toString));
         return out;
     }
@@ -438,6 +480,8 @@ public final class Lab {
         Code c = code();
         String reserved = reservedNote();
         if (!reserved.isEmpty()) log.accept(reserved);
+        String ignored = toolchainNote();
+        if (!ignored.isEmpty()) log.accept(ignored);
         if (!c.started()) {
             log.accept("There is no code in this lab yet.\n");
             return null;
@@ -517,6 +561,8 @@ public final class Lab {
         Code c = code();
         String reserved = reservedNote();
         if (!reserved.isEmpty()) log.accept(reserved);
+        String ignored = toolchainNote();
+        if (!ignored.isEmpty()) log.accept(ignored);
         if (!c.started()) {
             log.accept("There is no code in this lab yet — that is the exercise.\n");
             return 2;
@@ -616,7 +662,7 @@ public final class Lab {
 
     private int compile(List<Path> own, Path gen, Path classes, Consumer<String> log)
             throws IOException, InterruptedException {
-        List<Path> sources = new ArrayList<>(walk(gen, ".java"));
+        List<Path> sources = new ArrayList<>(walk(gen, ".java", false));
         sources.addAll(own);
         List<String> argv = new ArrayList<>(List.of(javac(), "-nowarn", "--release", "21",
                 "-cp", cp(), "-d", classes.toString()));
