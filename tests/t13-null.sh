@@ -58,9 +58,15 @@ for g in $(seq 1 "$GROUPS"); do
   for r in 1 2 3 4; do
     # Forced refit. Without this the key is identical and the fit is reused.
     rm -rf build/.losim-plans
+    # Timed and announced as it goes. A long job whose only output arrives at the
+    # end is a job nobody can tell apart from a hung one — which is exactly how the
+    # first run of this was watched for half an hour before being abandoned blind.
+    started=$(date +%s)
     java -Xmx3g -cp "$LAB" losim.cli.Main run --no-view tests/scenarios/t13.yaml \
          --cp "$OUT/classes" --out "$OUT/traces/g$g-r$r.json" --telemetry "$LEVEL" \
          > "$OUT/traces/g$g-r$r.out" 2>&1 || true
+    printf '    g%s r%s  %ss\n' "$g" "$r" "$(( $(date +%s) - started ))"
+    tail -2 "$OUT/traces/g$g-r$r.out" | sed 's/^/      /'
     b=$(python3 -c "
 import json,sys
 try:
