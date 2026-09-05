@@ -127,11 +127,38 @@ public final class T11 {
         e.note(String.format("(the map phase's own wall clock: %.0f then %.0f — shorter, but by "
                 + "less, because the coordinator's serial share of it is not the fleet's to divide)",
                 cells.get("fleet2").phase("map"), cells.get("fleet8").phase("map")));
-        e.check(map8 * 3 < map2 && col8 > col2 * 0.9,
-                "and four times the fleet divides the work of fanning out by four while leaving "
-                + "the phase that merges no shorter at all — which is the difference a projection "
-                + "has to keep, because it is the difference between a design that scales and "
-                + "one that does not");
+        // Asserted as two speedups compared with each other, rather than as a floor
+        // under the collect phase's own duration.
+        //
+        // It was the latter — `col8 > col2 * 0.9`, the merge is never shorter —
+        // and it failed about one run in three. Not because the merge ever
+        // parallelised: because `col2` is a short phase, around 200 refMs, and a
+        // phase that short is measured in wall clock that includes what losim
+        // itself costs. Under load that measurement inflates. Across nine runs
+        // col2 sat between 185 and 219 eight times and came back 478 once, and
+        // that once the run "failed" for having a merge that was too *slow* at
+        // two workers.
+        //
+        // The claim underneath was never about either number on its own. It is
+        // that the two phases scale differently — one divides with the fleet and
+        // one does not — and a ratio of ratios says that in a way a busy host
+        // cannot flip. Over those same nine runs:
+        //
+        //   map      3.77 to 4.23   (four times the machines, four times faster)
+        //   collect  0.54 to 1.49   (no faster, mostly slower: more to merge)
+        //
+        // with nothing in between. The bounds go in that gap. The inflated run is
+        // still the worst case at 1.49 and still lands the right side of 2.
+        double mapSpeedup = map8 > 0 ? map2 / map8 : 0;
+        double colSpeedup = col8 > 0 ? col2 / col8 : 0;
+        e.note(String.format("mapping is %.2fx faster on four times the fleet; merging is %.2fx",
+                mapSpeedup, colSpeedup));
+        e.check(mapSpeedup > 3 && colSpeedup < 2,
+                "and four times the fleet divides the work of fanning out by close to four while "
+                + "the phase that merges is no faster at all — which is the difference a "
+                + "projection has to keep, because it is the difference between a design that "
+                + "scales and one that does not");
+
 
         // The fault dimension. A model fitted only on clean runs under-predicts a
         // fleet that loses a machine, and it under-predicts optimistically.

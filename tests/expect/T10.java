@@ -98,13 +98,40 @@ public final class T10 {
 
         // D7: a projection carries its confidence or it is absent. Never a plausible
         // number in a column that could not be filled.
+        // D7 as the claim it actually is: the timeline is never a bare number. It
+        // is either refused with a reason, or projected with the error bar that
+        // says how much to trust it — and it must be exactly one of the two.
+        //
+        // This used to assert the stronger thing: that the timeline is *always*
+        // refused, because "wall clock is the noisiest thing measured". That was
+        // true when it was written and is no longer. Clock.spend used to park a
+        // declared cost once and leave a quarter of it owed to the next span, so
+        // every duration in a run carried a transient that no two seed sets
+        // agreed on; the wobble came out around 0.6 to 0.8 and the engine refused
+        // the law, correctly, on evidence the simulator was manufacturing. With
+        // costs now paid in full the wobble lands anywhere from 0.30 to 0.82, so
+        // the same scenario refuses on some runs and fits on others — and a test
+        // that requires a refusal fails precisely when the engine has done
+        // something better.
+        //
+        // Asserting the disjunction keeps what the case is for. A timeline
+        // printed beside a byte count as though the two were equally trustworthy
+        // is still a failure; a timeline projected with an error bar of x1.7 is
+        // the engine saying how far it would trust itself, which is the whole
+        // point of D7.
         var time = projected.get("makespanRefMs");
-        e.check(time != null && !time.containsKey("projected") && time.containsKey("refused"),
-                "the timeline carries no projection at all — wall clock is the noisiest thing"
-                + " measured, and a duration that could not be reproduced is absent with a"
-                + " reason rather than printed beside a byte count as though the two were"
-                + " equally trustworthy");
-        if (time != null && time.containsKey("refused")) e.note("" + time.get("refused"));
+        boolean refusedWithReason = time != null
+                && time.containsKey("refused") && !time.containsKey("projected");
+        boolean projectedWithBar = time != null
+                && time.containsKey("projected") && time.containsKey("errorBar");
+        e.check(time != null && (refusedWithReason || projectedWithBar),
+                "the timeline is never a bare number: it is refused with a reason, or projected"
+                + " with the error bar that says how far to trust it, and never a duration"
+                + " printed beside a byte count as though the two were equally trustworthy");
+        if (refusedWithReason) e.note("refused: " + time.get("refused"));
+        else if (projectedWithBar) e.note(String.format(
+                "projected %s refMs, error bar x%s — the engine says how far it trusts itself",
+                time.get("projected"), time.get("errorBar")));
 
         // The plan travels, so projected = f(observed) is something a reader can
         // redo rather than take on trust.
