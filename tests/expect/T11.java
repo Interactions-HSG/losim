@@ -187,7 +187,13 @@ public final class T11 {
 
         String warns = "declares no faults";
         boolean cleanSaysSo = clean.notes().stream().anyMatch(n -> n.contains(warns));
-        boolean weatheredDoesNot = cells.get("kill").notes().stream().noneMatch(n -> n.contains(warns))
+        // Both weathered cells have to have produced notes at all: `noneMatch` over
+        // an empty list is true, so a cell that said nothing whatever would read
+        // here as a cell that correctly declined to say this one thing.
+        boolean weatheredSpoke = !cells.get("kill").notes().isEmpty()
+                && !cells.get("chaos").notes().isEmpty();
+        boolean weatheredDoesNot = weatheredSpoke
+                && cells.get("kill").notes().stream().noneMatch(n -> n.contains(warns))
                 && cells.get("chaos").notes().stream().noneMatch(n -> n.contains(warns));
         e.check(cleanSaysSo && weatheredDoesNot,
                 "and the clean cell says out loud that its model describes a fleet where nothing "

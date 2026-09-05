@@ -43,14 +43,25 @@ public final class T12 {
                 + "line reaches just as easily. No threshold on R2 separates bent from noisy, "
                 + "which is why the check is not allowed to be simplified back to one", r2));
 
+        // The refusal has to be *present*, not merely un-contradicted.
+        //
+        // This was `allMatch` over the memoryMb projections, and allMatch on an
+        // empty stream is true — so an engine that emitted no memoryMb entry at
+        // all would have passed a check whose own sentence demands a field
+        // "absent with a reason". Absent without one is the failure it is meant
+        // to catch, and it was the one shape that could not fail it.
         var memory = T10.sub(T10.sub(scale, "laws"), "memoryMb");
+        var memoryProjections = T10.projections(e).stream()
+                .filter(p -> "memoryMb".equals(p.get("resource")))
+                .toList();
         boolean absent = memory.isEmpty()
-                && T10.projections(e).stream()
-                     .filter(p -> "memoryMb".equals(p.get("resource")))
+                && !memoryProjections.isEmpty()
+                && memoryProjections.stream()
                      .allMatch(p -> !p.containsKey("projected") && p.containsKey("refused"));
         e.check(absent,
-                "and no projection is emitted for it at all — a field absent with a reason, "
-                + "never one filled in with a plausible number");
+                "and no projection is emitted for it at all — a field absent with a reason "
+                + "the trace states, never one filled in with a plausible number and never "
+                + "one simply missing");
 
         // Other resources on the same run are unaffected. Refusing a law is not
         // refusing the run: what could be said is still said.

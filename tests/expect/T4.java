@@ -36,7 +36,10 @@ public final class T4 {
                 + "dispatched in " + returned + " ms of host time, where awaiting even one "
                 + "of them would have cost twenty");
 
-        e.check(e.spans().stream().noneMatch(s -> "OPEN".equals(s.get("status"))),
+        // Spans first, then the property. `noneMatch` over nothing is true, so a
+        // run that recorded no spans would have proved that none of them dangled.
+        e.check(!e.spans().isEmpty()
+                        && e.spans().stream().noneMatch(s -> "OPEN".equals(s.get("status"))),
                 "no span dangles — a dangling span is a telemetry bug rather than a finding, "
                 + "and async calls are where one would first appear");
 
