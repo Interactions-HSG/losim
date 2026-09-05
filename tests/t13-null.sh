@@ -27,7 +27,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-GROUPS="${1:-4}"
+# Not GROUPS: that is a bash special variable holding the current user's group
+# ids, read-only, and an assignment to it is silently ignored. `$GROUPS` then
+# expands to the primary gid — 20 on a Mac, 1001 on a GitHub runner — so this
+# script quietly ran twenty groups locally and asked for a thousand on CI, and
+# looked from the outside exactly like a hang.
+ROUNDS="${1:-4}"
 LEVEL="${2:-FULL}"
 
 case "$(uname -s)-$(uname -m)" in
@@ -48,12 +53,12 @@ LAB="${CP}build/losim.jar:$OUT/classes"
 
 # Echoed as parsed, not as passed: a run whose group count is not the one asked
 # for is a run whose numbers mean something other than the caller thinks.
-echo "null distribution of the t13 statistic: $GROUPS groups of 4, all at $LEVEL"
+echo "null distribution of the t13 statistic: $ROUNDS groups of 4, all at $LEVEL"
 echo "cores: $(getconf _NPROCESSORS_ONLN 2>/dev/null || echo unknown)"
 echo "(a spread inside a group cannot be telemetry: every run in it is watched identically)"
 echo
 
-for g in $(seq 1 "$GROUPS"); do
+for g in $(seq 1 "$ROUNDS"); do
   betas=()
   for r in 1 2 3 4; do
     # Forced refit. Without this the key is identical and the fit is reused.
