@@ -99,7 +99,7 @@ public final class Run {
      * it gets. Measured across corrections from 1.0 to 20.0, and on a host
      * starved of every core, five 200 refMs costs take 1000 ms either way. A
      * refusal on calibration grounds would stop runs that are right — an
-     * instructor's Mac, a 2-core runner, a laptop with a build going — to
+     * instructor's Mac, a shared CI runner, a laptop with a build going — to
      * prevent nothing.
      *
      * <p>The figures are written into the trace instead, beside

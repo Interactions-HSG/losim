@@ -48,9 +48,9 @@ public final class T11 {
          *
          * <p>Summed from the spans rather than read off the wall clock, because a
          * declared duration is slept and a sleeping thread needs no core. This
-         * number is therefore the same on a laptop and on a two-core runner, where
-         * the phase's wall clock is not: that one carries the coordinator's own
-         * serial work, which does scale with how fast the host is.
+         * number is therefore the same on a laptop and on a CI runner, where the
+         * phase's wall clock is not: that one carries the coordinator's own serial
+         * work, which does scale with how fast the host is.
          */
         /**
          * How many calls of a method the busiest machine handled.
@@ -161,11 +161,13 @@ public final class T11 {
         // broke. Then two absolute bounds on the speedups, from a gap that looked
         // empty on twelve cores. Then their ratio, on the reasoning that a slow
         // host drags both phases down together and dividing takes it out. CI
-        // answered each in turn: on two-core runners the map speedup came back
-        // 3.10, then 2.49, then 1.82, then 1.29 — four times the machines and
-        // barely any faster, because eight workers sleep concurrently on any host
-        // but the protobuf and the gRPC around those sleeps need cores the runner
-        // does not have. At 1.29 against a merge of 0.84 there is no threshold
+        // answered each in turn: on CI the map speedup came back 3.10, then 2.49,
+        // then 1.82, then 1.29 — four times the machines and barely any faster,
+        // because eight workers sleep concurrently on any host but the protobuf and
+        // the gRPC around those sleeps need cores the runner does not have. (Those
+        // runners are four-core, not the two-core machines this comment asserted
+        // until somebody printed `nproc` on one. The measurements stand; the
+        // explanation for them was reasoned from a number nobody had checked.) At 1.29 against a merge of 0.84 there is no threshold
         // that separates them, and there should not be: the parallelism genuinely
         // was not there to measure.
         //
