@@ -127,52 +127,45 @@ public final class T11 {
         e.note(String.format("(the map phase's own wall clock: %.0f then %.0f — shorter, but by "
                 + "less, because the coordinator's serial share of it is not the fleet's to divide)",
                 cells.get("fleet2").phase("map"), cells.get("fleet8").phase("map")));
-        // Asserted as two speedups compared with each other, rather than as a floor
-        // under the collect phase's own duration.
+        // Asserted as one speedup divided by the other, because on a slow host
+        // neither number means anything on its own.
         //
-        // It was the latter — `col8 > col2 * 0.9`, the merge is never shorter —
-        // and it failed about one run in three. Not because the merge ever
-        // parallelised: because `col2` is a short phase, around 200 refMs, and a
-        // phase that short is measured in wall clock that includes what losim
-        // itself costs. Under load that measurement inflates. Across nine runs
-        // col2 sat between 185 and 219 eight times and came back 478 once, and
-        // that once the run "failed" for having a merge that was too *slow* at
-        // two workers.
+        // Three shapes have been tried here and the first two were wrong in the
+        // same way. It began as a floor under the merge phase's own duration —
+        // `col8 > col2 * 0.9`, the merge is never shorter — which failed about one
+        // run in three, not because the merge ever parallelised but because col2
+        // is a ~200 refMs phase measured in wall clock that includes what losim
+        // itself costs. Across nine runs it sat between 185 and 219 eight times
+        // and came back 478 once, and that once the run "failed" for having a
+        // merge too *slow* at two workers.
         //
-        // The claim underneath was never about either number on its own. It is
-        // that the two phases scale differently — one divides with the fleet and
-        // one does not — and a ratio of ratios says that in a way a busy host
-        // cannot flip. Over those same nine runs:
+        // The second shape was two absolute bounds, map above 3 and merge below 2,
+        // on the strength of a gap that looked empty on a twelve-core laptop: map
+        // 3.77 to 4.23, merge 0.54 to 1.49. CI showed the gap was an artefact of
+        // measuring one machine. On two-core runners the map speedup has come back
+        // at 3.10, 2.49 and then 1.82 — below what had been called the floor, and
+        // near the merge maximum. Eight workers sleep their declared costs
+        // concurrently on any host, but the protobuf, the gRPC and the trace
+        // around those sleeps are real work, and where the host has two cores it
+        // is the host that is the bottleneck rather than the design.
         //
-        //   map      3.77 to 4.23   (four times the machines, four times faster)
-        //   collect  0.54 to 1.49   (no faster, mostly slower: more to merge)
-        //
-        // with nothing in between, and the bounds go in that gap.
-        //
-        // The map bound is 2 rather than 3 because the fleet's speedup is capped
-        // by the host, not by the design. Eight simulated workers sleep their
-        // declared costs concurrently whatever the machine, but the work around
-        // those sleeps — protobuf, gRPC, the trace — is real, and on a two-core
-        // runner it is a large enough share that mapping came back 2.49x and
-        // 3.10x rather than near four. That is a fact about the runner and not
-        // about whether the design scales, so a bound that fails there would be
-        // measuring the wrong thing. Across every run seen, on twelve cores and
-        // on two:
-        //
-        //   map      2.49 to 4.23
-        //   collect  0.35 to 1.49
-        //
-        // The gap is narrower than it looked on one machine and it is still
-        // empty.
+        // So neither figure is a fact about scaling on its own. Their ratio is:
+        // a slow host drags both phases down together, and dividing one by the
+        // other takes the host out. Over 22 runs on both hardware classes it
+        // stays between 2.74 and 8.86, where map alone spans 1.82 to 4.31 and
+        // merge 0.35 to 1.49. The bound is 2, with 37% of margin under the
+        // worst run seen — which is the one whose col2 was inflated to 478, so
+        // the two failure modes are covered by the same number.
         double mapSpeedup = map8 > 0 ? map2 / map8 : 0;
         double colSpeedup = col8 > 0 ? col2 / col8 : 0;
-        e.note(String.format("mapping is %.2fx faster on four times the fleet; merging is %.2fx",
-                mapSpeedup, colSpeedup));
-        e.check(mapSpeedup > 2 && colSpeedup < 2,
-                "and four times the fleet divides the work of fanning out by close to four while "
-                + "the phase that merges is no faster at all — which is the difference a "
-                + "projection has to keep, because it is the difference between a design that "
-                + "scales and one that does not");
+        double apart = colSpeedup > 0 ? mapSpeedup / colSpeedup : 0;
+        e.note(String.format("mapping is %.2fx faster on four times the fleet and merging %.2fx"
+                + " — a factor of %.2f between them", mapSpeedup, colSpeedup, apart));
+        e.check(apart > 2,
+                "and four times the fleet divides the work of fanning out while leaving the "
+                + "phase that merges no faster — which is the difference a projection has to "
+                + "keep, because it is the difference between a design that scales and one "
+                + "that does not");
 
 
         // The fault dimension. A model fitted only on clean runs under-predicts a
