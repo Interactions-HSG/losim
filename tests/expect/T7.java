@@ -26,8 +26,8 @@ public final class T7 {
                 + kills.stream().map(k -> k.get("vm") + " at " + Math.round(Expect.num(k.get("t")))
                         + " refMs").toList());
         double at = kills.isEmpty() ? -1 : Expect.num(kills.get(0).get("t"));
-        e.check(at > 240 && at < 400,
-                String.format("and it fired at about the 300 refMs the scenario wrote, not "
+        e.check(at > 150 && at < 280,
+                String.format("and it fired at about the 200 refMs the scenario wrote, not "
                         + "wherever the host got round to it (%.0f refMs)", at));
 
         var chaos = e.of("chaos");

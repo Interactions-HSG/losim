@@ -22,8 +22,21 @@ machines:
     zone: eu-central-1a
     runs: [Reducer]
 
+# Killed before its chunk is handed out, not while it holds one.
+#
+# This was `at: 300 refMs`, and the mappers are dispatched somewhere between 266
+# and 379 depending on what setup cost that run — so the fault landed inside the
+# dispatch window and a coin flip decided the afternoon. Land before it and m2 is
+# dead when the work arrives: the calls fail, the retries fire, the pool carries
+# the chunk, and the run lasts long enough for the standing rate of failure to
+# draw at all. Land after it and m2 has already answered, killing it costs
+# nothing, the job finishes in 400 refMs and no chaos is ever due.
+#
+# Both are legitimate afternoons. Only one of them is the exercise this scenario
+# says it is, and a scenario that is the exercise half the time is a test that
+# fails a sixth of the time for the least interesting reason available.
 faults:
-  - { at: 300 refMs, kill: m2, restart_after: 2 refSeconds }
+  - { at: 200 refMs, kill: m2, restart_after: 2 refSeconds }
 
 chaos:
   - { freeze: { every: 700 refMs, among: mappers, for: 150 refMs } }

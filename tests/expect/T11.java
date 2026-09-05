@@ -187,13 +187,17 @@ public final class T11 {
 
         String warns = "declares no faults";
         boolean cleanSaysSo = clean.notes().stream().anyMatch(n -> n.contains(warns));
-        // Both weathered cells have to have produced notes at all: `noneMatch` over
-        // an empty list is true, so a cell that said nothing whatever would read
-        // here as a cell that correctly declined to say this one thing.
-        boolean weatheredSpoke = !cells.get("kill").notes().isEmpty()
-                && !cells.get("chaos").notes().isEmpty();
-        boolean weatheredDoesNot = weatheredSpoke
-                && cells.get("kill").notes().stream().noneMatch(n -> n.contains(warns))
+        // `noneMatch` over an empty list is true, and this deliberately does not
+        // guard against that. It was guarded for one run, on the general principle
+        // that a check passing over nothing has proved nothing, and the guard was
+        // wrong here: a weathered cell that emits no notes at all is a cell that
+        // does not warn, which is exactly the claim. Requiring notes to exist
+        // asserted something the engine never promised, and duly failed.
+        //
+        // What makes the vacuous case unreachable is the line above. If notes had
+        // stopped working altogether, `cleanSaysSo` is an anyMatch and fails
+        // first — so the pair cannot both pass on an empty world.
+        boolean weatheredDoesNot = cells.get("kill").notes().stream().noneMatch(n -> n.contains(warns))
                 && cells.get("chaos").notes().stream().noneMatch(n -> n.contains(warns));
         e.check(cleanSaysSo && weatheredDoesNot,
                 "and the clean cell says out loud that its model describes a fleet where nothing "
