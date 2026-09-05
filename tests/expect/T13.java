@@ -38,31 +38,46 @@ public final class T13 {
         e.note("allocation exponent: " + alloc.entrySet().stream()
                 .map(x -> String.format("%s %.4f", x.getKey(), x.getValue())).toList());
         // Each law's own seed-to-seed wobble, printed beside the spread it is being
-        // compared against. Not asserted, and deliberately so.
+        // compared against. Not asserted, and deliberately so — see the bound below,
+        // which is what the wobble was once proposed to replace.
         //
-        // The 0.05 bound below was set on a fast machine and is marginal on a slow
-        // one: six CI runs on two-core runners gave 0.021, 0.031, 0.036, 0.040,
-        // 0.054 and 0.062, so it fails about a third of the time there while
-        // running 0.006 to 0.028 locally. The obvious repair is to compare the
-        // spread against the exponent's own uncertainty rather than a constant —
-        // if telemetry moves the law by less than re-seeding does, telemetry is
-        // not what moved it — but locally the spread already exceeds a single
-        // wobble one run in four, because the spread is a range over four
-        // independent runs and the wobble is one run's own. Replacing a bound
-        // that cannot be justified with another that cannot be justified is not
-        // progress, so the number stays until there is enough evidence from the
-        // hardware it actually fails on. This line is that evidence: the next
-        // failure carries the wobbles that would set it.
+        // The bound is 0.10, and it was measured rather than chosen. `tests/t13-null.sh`
+        // runs groups of four at **one fixed telemetry level**, so a spread inside a
+        // group cannot be telemetry; the distribution of those spreads is what this
+        // statistic does when nothing is moving it. On a CI runner, 283 groups:
+        //
+        //     min 0.0030   median 0.0286   p90 0.0503   p99 0.0718   max 0.0768
+        //
+        // So **11% of groups already exceed 0.05 with telemetry held constant**. The
+        // old bound was not measuring the observer effect on that hardware, it was
+        // measuring the noise floor, and it failed accordingly — which is exactly
+        // what it looked like from the outside and could not be told apart from a
+        // real signal without this.
+        //
+        // 0.10 sits about 30% above the highest noise-only spread ever observed here.
+        // It is not a weaker test than it looks: the regression this exists to catch
+        // is a leak that halves a fitted exponent, which on an exponent near 0.84 is
+        // a move of about 0.42 — four times the bound.
+        //
+        // The repair everyone reaches for first does not work, and it is worth
+        // recording why. Comparing the spread against the exponent's own seed wobble
+        // is self-calibrating and needs no constant — but the spread is a range over
+        // four independent runs and the wobble is one run's own, so locally the
+        // spread exceeds a single wobble one run in four. And CI wobbles measure
+        // 0.032 to 0.036, the same as local, so the wobble does not grow on slow
+        // hardware and cannot account for the difference at all.
         e.note("their own seed wobble: " + runs.entrySet().stream()
                 .map(x -> String.format("%s %.4f", x.getKey(),
                         Expect.num(law(x.getValue(), "allocMb").get("wobble"))))
                 .toList());
         double lo = alloc.values().stream().mapToDouble(Double::doubleValue).min().orElse(0);
         double hi = alloc.values().stream().mapToDouble(Double::doubleValue).max().orElse(0);
-        e.check(hi - lo < 0.05, String.format(
+        e.check(hi - lo < 0.10, String.format(
                 "the allocation exponent moves by %.4f between telemetry off, telemetry on, "
                 + "every payload rendered, and a thousand reveal calls per handler — the law is "
-                + "the same law, and the law is what gets extrapolated", hi - lo));
+                + "the same law, and the law is what gets extrapolated. The bound is 0.10 because "
+                + "283 groups of four runs at one fixed telemetry level put the noise floor at "
+                + "0.077, so anything tighter was measuring the machine", hi - lo));
 
         double bare = beta(runs.get("no payloads"), "memoryMb");
         double watched = beta(runs.get("full"), "memoryMb");

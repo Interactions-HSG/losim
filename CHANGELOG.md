@@ -289,15 +289,32 @@ staged the committed export by hand; they now all call `viewer/stage.sh`.
 - Three assertions passed over empty collections and so proved nothing. Fixed and
   checked by pointing each at data that should fail it.
 
-### Known
+### Known — since measured, and settled
 
 `t13-transparent` bounds the observer effect by requiring the fitted allocation
-exponent to move less than 0.05 across four telemetry levels. That bound was set
-on a fast machine and is marginal on a slow one: it fails about a third of the
-time on two-core CI runners while running 0.006–0.028 locally. It is left as it
-is rather than widened to something equally unjustifiable, and the test now
-prints the four exponents and each law's own seed wobble on every run, so the
-next failure carries the evidence that would set a defensible bound.
+exponent to move less than 0.05 across four telemetry levels. That bound failed
+about a third of the time on CI while never failing locally, and nothing on hand
+distinguished "a real signal on slower hardware" from "a bound that was never
+right".
+
+It has since been measured. `tests/t13-null.sh` runs groups of four at **one
+fixed telemetry level**, so a spread inside a group cannot be telemetry; the
+distribution of those spreads is what the statistic does when nothing is moving
+it. Over 283 groups on a CI runner:
+
+    min 0.0030   median 0.0286   p90 0.0503   p99 0.0718   max 0.0768
+
+**Eleven percent of groups exceed 0.05 with telemetry held constant.** The bound
+was not measuring the observer effect there, it was measuring the noise floor.
+It is now 0.10, about 30% above the highest noise-only spread observed — and not
+a weaker test than it sounds, since the regression it exists to catch halves a
+fitted exponent, a move of about 0.42 on an exponent near 0.84.
+
+The self-calibrating repair — compare the spread against the exponent's own seed
+wobble — does not work, and the reason is recorded in the test: the spread is a
+range over four independent runs while the wobble is one run's own, and CI
+wobbles measure the same 0.032–0.036 as local ones, so the wobble does not grow
+with the noise it would have to absorb.
 
 ## 1.0.0
 
