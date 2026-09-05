@@ -37,6 +37,26 @@ public final class T13 {
         runs.forEach((name, r) -> alloc.put(name, beta(r, "allocMb")));
         e.note("allocation exponent: " + alloc.entrySet().stream()
                 .map(x -> String.format("%s %.4f", x.getKey(), x.getValue())).toList());
+        // Each law's own seed-to-seed wobble, printed beside the spread it is being
+        // compared against. Not asserted, and deliberately so.
+        //
+        // The 0.05 bound below was set on a fast machine and is marginal on a slow
+        // one: six CI runs on two-core runners gave 0.021, 0.031, 0.036, 0.040,
+        // 0.054 and 0.062, so it fails about a third of the time there while
+        // running 0.006 to 0.028 locally. The obvious repair is to compare the
+        // spread against the exponent's own uncertainty rather than a constant —
+        // if telemetry moves the law by less than re-seeding does, telemetry is
+        // not what moved it — but locally the spread already exceeds a single
+        // wobble one run in four, because the spread is a range over four
+        // independent runs and the wobble is one run's own. Replacing a bound
+        // that cannot be justified with another that cannot be justified is not
+        // progress, so the number stays until there is enough evidence from the
+        // hardware it actually fails on. This line is that evidence: the next
+        // failure carries the wobbles that would set it.
+        e.note("their own seed wobble: " + runs.entrySet().stream()
+                .map(x -> String.format("%s %.4f", x.getKey(),
+                        Expect.num(law(x.getValue(), "allocMb").get("wobble"))))
+                .toList());
         double lo = alloc.values().stream().mapToDouble(Double::doubleValue).min().orElse(0);
         double hi = alloc.values().stream().mapToDouble(Double::doubleValue).max().orElse(0);
         e.check(hi - lo < 0.05, String.format(
