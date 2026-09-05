@@ -1,6 +1,7 @@
 package losim.runtime;
 
 import io.grpc.*;
+import losim.api.Takes;
 import losim.res.Meter;
 import losim.trace.Telemetry;
 import losim.trace.Values;
@@ -9,7 +10,7 @@ import losim.trace.Values;
  * What losim does around a call the machine makes: the network, the byte count,
  * and the causal link to whatever the callee then does.
  *
- * <h2>Where the latency is slept, and why there</h2>
+ * <h2>The latency's sleep point</h2>
  * The whole round trip is paid once, in {@code onClose}, on the thread that
  * delivers the response. For a blocking call that is the caller's own thread,
  * which is waiting anyway; for an async call it is the channel's executor, so the
@@ -57,6 +58,27 @@ final class ClientSide implements ClientInterceptor {
         final Net net = from.fleet().net;
         final CallOptions call = inRealTime(opts, from.fleet().clock.kTime());
         final Deadline deadline = call.getDeadline();
+
+        // What a timeout will need to explain itself: the deadline the caller set,
+        // in the reference milliseconds they wrote it in, and what the callee has
+        // declared this method costs. Both are read here, before the call goes
+        // out, because both are properties of the call rather than of its failure.
+        //
+        // A deadline shorter than the callee's declared cost cannot ever succeed,
+        // and until now a trace said only that a call had timed out. That is the
+        // one fact a reader cannot recover: they can see the deadline in their own
+        // source and the @Takes in theirs, and the run does not put the two
+        // together. Someone spent an afternoon diffing traces against a second
+        // machine to rule out host noise for exactly this, on a deadline that had
+        // been computed once for a smaller workload and left as a literal.
+        final Double deadlineRefMs = opts.getDeadline() == null ? null
+                : opts.getDeadline().timeRemaining(java.util.concurrent.TimeUnit.NANOSECONDS) / 1e6;
+        final Takes callee = target == null ? null : target.takenBy(md.getFullMethodName());
+        // The fixed part only. `refNsPerRecord` is not knowable here — the handler
+        // declares its count while it runs — so what is reported is a lower bound
+        // on the cost, and a deadline under even that cannot be met.
+        final Double declaredRefMs = callee == null || callee.refMs() <= 0 ? null
+                : callee.refMs() * target.effectiveFactor();
         from.charge(Meter.allocNow() - a0, System.nanoTime() - t0);
 
         // Three ways a message never arrives, and the caller cannot tell them
@@ -133,12 +155,21 @@ final class ClientSide implements ClientInterceptor {
                         // recorded said it had lasted −1 milliseconds.
                         tel.close(span, effective.getCode().name());
                         span.detail.put("ms", Machine.round(span.grossMs()));
-                        if (!effective.isOk())
-                            tel.event(from.name,
-                                      effective.getCode() == Status.Code.DEADLINE_EXCEEDED
-                                              ? "rpc_timeout" : "rpc_error",
+                        if (!effective.isOk()) {
+                            boolean timedOut = effective.getCode() == Status.Code.DEADLINE_EXCEEDED;
+                            // The two numbers only on the timeout, and only when
+                            // there are two: an error that is not a deadline has
+                            // nothing to do with one, and saying "deadline null"
+                            // beside every failure would bury the case that matters.
+                            boolean impossible = timedOut && deadlineRefMs != null
+                                    && declaredRefMs != null && declaredRefMs >= deadlineRefMs;
+                            tel.event(from.name, timedOut ? "rpc_timeout" : "rpc_error",
                                       "to", to, "method", method, "call", span.id,
-                                      "status", effective.getCode().name());
+                                      "status", effective.getCode().name(),
+                                      "deadlineRefMs", timedOut ? Machine.round(deadlineRefMs) : null,
+                                      "declaredRefMs", timedOut ? Machine.round(declaredRefMs) : null,
+                                      "unmeetable", impossible ? true : null);
+                        }
                         from.chargeTo(span, Meter.allocNow() - c0, System.nanoTime() - m0);
                         super.onClose(effective, trailers);
                     }

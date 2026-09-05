@@ -179,6 +179,7 @@ public final class Main {
         System.out.printf("%s  seed %d  %s in %.0f refMs%n", file.getFileName(), scenario.seed(),
                 result.completed() ? "completed" : "did not complete", result.durationRefMs());
         if (result.failure() != null) System.out.println("  " + result.failure());
+        System.out.print(wire(result));
         System.out.printf("  %d events, %d spans, %d series -> %s%n",
                 result.telemetry().events().size(), result.telemetry().spans().size(),
                 result.telemetry().series().size(), target);
@@ -360,6 +361,75 @@ public final class Main {
         int most = 1;
         for (int n : byPool.values()) most = Math.max(most, n);
         return most;
+    }
+
+    /**
+     * What happened on the wire, beside whether the job returned.
+     *
+     * <p>Those are two different facts and they looked like one. A fleet in which
+     * 64 of 68 calls failed reported {@code completed in 5003 refMs} and nothing
+     * else, because {@code run()} did return — the job's own counters said
+     * {@code wrong=0}, which was true and meant nothing, since nothing it never
+     * emitted can be wrong. Only a count of abandoned chunks said otherwise, and
+     * that count existed because that job's author had thought to add one.
+     *
+     * <p>This needs no such foresight and knows nothing about what any job
+     * computes. Calls, timeouts and errors are losim's own: the wire is its to
+     * report, the way the money and the clock are. Where a job's correctness
+     * begins is where this stops.
+     */
+    private static String wire(Run.Result result) {
+        long calls = 0, timeouts = 0, errors = 0;
+        for (var e : result.telemetry().events()) {
+            switch (e.kind()) {
+                case "rpc_call"    -> calls++;
+                case "rpc_timeout" -> timeouts++;
+                case "rpc_error"   -> errors++;
+                default -> { }
+            }
+        }
+        if (calls == 0) return "";
+        long failed = timeouts + errors;
+        if (failed == 0) return String.format("  %,d calls, none failed%n", calls);
+
+        var sb = new StringBuilder(String.format("  %,d calls, %,d failed", calls, failed));
+        if (timeouts > 0 && errors > 0) sb.append(String.format(" (%,d timed out, %,d errored)", timeouts, errors));
+        else if (timeouts > 0)          sb.append(" (timed out)");
+        else                            sb.append(" (errored)");
+        sb.append(System.lineSeparator());
+
+        // A deadline shorter than the callee's declared cost is a run that could
+        // not have worked, and it is worth saying once rather than leaving in the
+        // trace for whoever thinks to look. One line per method, not per call:
+        // when this happens it happens to every call of that method.
+        var unmeetable = new java.util.TreeMap<String, String>();
+        for (var e : result.telemetry().events()) {
+            if (!"rpc_timeout".equals(e.kind()) || e.detail().get("unmeetable") == null) continue;
+            unmeetable.putIfAbsent(String.valueOf(e.detail().get("method")), String.format(
+                    "    %s: the deadline was %s refMs and the handler declares at least %s",
+                    e.detail().get("method"), refMs(e.detail().get("deadlineRefMs")),
+                    refMs(e.detail().get("declaredRefMs"))));
+        }
+        for (String line : unmeetable.values()) sb.append(line).append(System.lineSeparator());
+        if (!unmeetable.isEmpty())
+            sb.append("    a deadline below the declared cost cannot be met on any host")
+              .append(System.lineSeparator());
+        return sb.toString();
+    }
+
+    /**
+     * A declared duration, as a person wrote it.
+     *
+     * <p>The trace keeps the measured figure; a line meant to be read at a glance
+     * does not need it. A deadline set at 200 refMs is read back as 199.972,
+     * because a few microseconds pass between setting it and asking what is left,
+     * and printing that invites somebody to wonder what happened to the 0.028.
+     */
+    private static String refMs(Object value) {
+        if (!(value instanceof Number n)) return String.valueOf(value);
+        double d = n.doubleValue();
+        return Math.abs(d - Math.rint(d)) < 0.05 || d >= 10
+                ? String.format("%.0f", d) : String.format("%.1f", d);
     }
 
     private static boolean flag(String[] args, String name) {
