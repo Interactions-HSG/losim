@@ -1,0 +1,66 @@
+# What t13's number does when nothing is moving it.
+#
+# **Not part of CI.** Run by hand, to answer one question and then be left alone.
+#
+# t13 asserts the fitted allocation exponent shifts by less than 0.05 across four
+# telemetry levels. That bound was set on a fast machine and fails about a third of
+# the time on the two-core runners this repository actually uses, while never
+# failing locally — so it is either a real signal on slow hardware or a bound that
+# was never right, and nothing on hand distinguishes those.
+#
+# This measures the null: groups of four runs at **one fixed telemetry level**, so
+# a spread inside a group cannot have been caused by telemetry. If those spreads
+# reach 0.05 on this hardware, the bound is too tight regardless of what telemetry
+# does, and the evidence for a new one is the upper tail of what comes back.
+#
+# Sharded because the runs are independent and public runners are free: ten jobs of
+# two groups is eighty scaled runs in the wall-clock of eight.
+name: t13 null distribution
+
+on:
+  workflow_dispatch:
+    inputs:
+      shards:
+        description: how many parallel jobs
+        default: '10'
+      groups:
+        description: groups of four runs per job
+        default: '2'
+      level:
+        description: the one telemetry level every run uses
+        default: FULL
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.build.outputs.shards }}
+    steps:
+      - id: build
+        run: |
+          python3 -c "
+import json
+print('shards=' + json.dumps(list(range(1, ${{ inputs.shards }} + 1))))
+" >> "$GITHUB_OUTPUT"
+
+  null-distribution:
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJson(needs.plan.outputs.shards) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '25' }
+      - name: how many cores this runner has
+        run: |
+          echo "cores: $(nproc)"
+          echo "model: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2)"
+      - name: measure
+        run: tests/t13-null.sh "${{ inputs.groups }}" "${{ inputs.level }}"
