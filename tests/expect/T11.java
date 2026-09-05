@@ -52,6 +52,31 @@ public final class T11 {
          * the phase's wall clock is not: that one carries the coordinator's own
          * serial work, which does scale with how fast the host is.
          */
+        /**
+         * How many calls of a method the busiest machine handled.
+         *
+         * <p>The counting sibling of {@link #busiestIn}, and the reason it exists
+         * is that the durations that one sums include work losim does not
+         * simulate — protobuf, gRPC, the trace — so on a host short of cores they
+         * say more about the host than about the fleet. A count of handled calls
+         * cannot be distorted by a slow machine: it is how the work was divided,
+         * which is the thing being claimed.
+         */
+        long busiestCountIn(String method) {
+            var perMachine = new java.util.HashMap<String, Long>();
+            for (var s : e.spansOf("handler")) {
+                if (!String.valueOf(s.get("label")).endsWith(method)) continue;
+                perMachine.merge(String.valueOf(s.get("vm")), 1L, Long::sum);
+            }
+            return perMachine.values().stream().mapToLong(Long::longValue).max().orElse(0);
+        }
+
+        /** How many calls of a method the whole fleet handled. */
+        long totalCountIn(String method) {
+            return e.spansOf("handler").stream()
+                    .filter(s -> String.valueOf(s.get("label")).endsWith(method)).count();
+        }
+
         double busiestIn(String method) {
             var perMachine = new java.util.HashMap<String, Double>();
             for (var s : e.spansOf("handler")) {
@@ -127,45 +152,47 @@ public final class T11 {
         e.note(String.format("(the map phase's own wall clock: %.0f then %.0f — shorter, but by "
                 + "less, because the coordinator's serial share of it is not the fleet's to divide)",
                 cells.get("fleet2").phase("map"), cells.get("fleet8").phase("map")));
-        // Asserted as one speedup divided by the other, because on a slow host
-        // neither number means anything on its own.
+        // Asserted in counts, because the wall clock cannot carry this claim on a
+        // host that has not got the cores to show it.
         //
-        // Three shapes have been tried here and the first two were wrong in the
-        // same way. It began as a floor under the merge phase's own duration —
-        // `col8 > col2 * 0.9`, the merge is never shorter — which failed about one
-        // run in three, not because the merge ever parallelised but because col2
-        // is a ~200 refMs phase measured in wall clock that includes what losim
-        // itself costs. Across nine runs it sat between 185 and 219 eight times
-        // and came back 478 once, and that once the run "failed" for having a
-        // merge too *slow* at two workers.
+        // Three shapes were tried in timing and all three measured the machine
+        // rather than the design. First a floor under the merge phase's own
+        // duration, which a 200 refMs phase inflated to 478 by host overhead duly
+        // broke. Then two absolute bounds on the speedups, from a gap that looked
+        // empty on twelve cores. Then their ratio, on the reasoning that a slow
+        // host drags both phases down together and dividing takes it out. CI
+        // answered each in turn: on two-core runners the map speedup came back
+        // 3.10, then 2.49, then 1.82, then 1.29 — four times the machines and
+        // barely any faster, because eight workers sleep concurrently on any host
+        // but the protobuf and the gRPC around those sleeps need cores the runner
+        // does not have. At 1.29 against a merge of 0.84 there is no threshold
+        // that separates them, and there should not be: the parallelism genuinely
+        // was not there to measure.
         //
-        // The second shape was two absolute bounds, map above 3 and merge below 2,
-        // on the strength of a gap that looked empty on a twelve-core laptop: map
-        // 3.77 to 4.23, merge 0.54 to 1.49. CI showed the gap was an artefact of
-        // measuring one machine. On two-core runners the map speedup has come back
-        // at 3.10, 2.49 and then 1.82 — below what had been called the floor, and
-        // near the merge maximum. Eight workers sleep their declared costs
-        // concurrently on any host, but the protobuf, the gRPC and the trace
-        // around those sleeps are real work, and where the host has two cores it
-        // is the host that is the bottleneck rather than the design.
+        // What is not in doubt on any host is how the work was divided. The map
+        // is split across the fleet, so the busiest machine handles a quarter as
+        // many chunks when there are four times as many machines — 80 against 20,
+        // exactly, every run. The merge is not split: there are more partitions to
+        // reduce, not fewer, so its count goes up rather than down (2 against 8).
+        // That is the same claim the timing was reaching for — one phase divides
+        // with the fleet and the other does not — stated in integers that a busy
+        // machine cannot move.
         //
-        // So neither figure is a fact about scaling on its own. Their ratio is:
-        // a slow host drags both phases down together, and dividing one by the
-        // other takes the host out. Over 22 runs on both hardware classes it
-        // stays between 2.74 and 8.86, where map alone spans 1.82 to 4.31 and
-        // merge 0.35 to 1.49. The bound is 2, with 37% of margin under the
-        // worst run seen — which is the one whose col2 was inflated to 478, so
-        // the two failure modes are covered by the same number.
-        double mapSpeedup = map8 > 0 ? map2 / map8 : 0;
-        double colSpeedup = col8 > 0 ? col2 / col8 : 0;
-        double apart = colSpeedup > 0 ? mapSpeedup / colSpeedup : 0;
-        e.note(String.format("mapping is %.2fx faster on four times the fleet and merging %.2fx"
-                + " — a factor of %.2f between them", mapSpeedup, colSpeedup, apart));
-        e.check(apart > 2,
-                "and four times the fleet divides the work of fanning out while leaving the "
-                + "phase that merges no faster — which is the difference a projection has to "
-                + "keep, because it is the difference between a design that scales and one "
-                + "that does not");
+        // The durations stay as a note. They are what a reader wants to see and
+        // they are worth printing; they are not something to fail a build on.
+        long mapPer2 = cells.get("fleet2").busiestCountIn("Map");
+        long mapPer8 = cells.get("fleet8").busiestCountIn("Map");
+        long redAll2 = cells.get("fleet2").totalCountIn("Reduce");
+        long redAll8 = cells.get("fleet8").totalCountIn("Reduce");
+        double divides = mapPer8 > 0 ? mapPer2 / (double) mapPer8 : 0;
+        e.note(String.format("the busiest machine maps %d chunks at 2 workers and %d at 8 (x%.2f);"
+                + " the fleet reduces %d partitions and then %d",
+                mapPer2, mapPer8, divides, redAll2, redAll8));
+        e.check(divides > 3.5 && divides < 4.5 && redAll8 >= redAll2,
+                "and four times the fleet divides the work of fanning out by four while leaving "
+                + "the phase that merges undivided — which is the difference a projection has to "
+                + "keep, because it is the difference between a design that scales and one that "
+                + "does not");
 
 
         // The fault dimension. A model fitted only on clean runs under-predicts a
