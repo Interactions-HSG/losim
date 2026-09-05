@@ -33,6 +33,18 @@ class LabToolchainTest {
         Files.writeString(file, body);
     }
 
+    /**
+     * A path that exists, so that a declaration is one this machine could use.
+     *
+     * <p>Every classpath here would otherwise name nothing real, which losim now
+     * reads — correctly — as a declaration copied in from somewhere else.
+     */
+    private static String jar(Path root, String name) throws Exception {
+        Path p = root.resolve(name);
+        Files.writeString(p, "stands in for a jar");
+        return p.toString();
+    }
+
     @Test
     @DisplayName("no lib/ and nothing declared is not a lab")
     void neither(@TempDir Path root) {
@@ -42,9 +54,10 @@ class LabToolchainTest {
     @Test
     @DisplayName("a declared classpath is a lab, with no lib/ anywhere")
     void declaredIsALab(@TempDir Path root) throws Exception {
-        declare(root, "classpath=/x/losim.jar:/x/grpc.jar\n");
+        String cp = jar(root, "losim.jar") + java.io.File.pathSeparator + jar(root, "grpc.jar");
+        declare(root, "classpath=" + cp + "\n");
         assertTrue(at(root).isLab());
-        assertEquals("/x/losim.jar:/x/grpc.jar", at(root).cp());
+        assertEquals(cp, at(root).cp());
     }
 
     @Test
@@ -52,8 +65,9 @@ class LabToolchainTest {
     void partial(@TempDir Path root) throws Exception {
         // The case a Gradle lab in a devcontainer is actually in: the build knows
         // the classpath, and the vendored protoc is still the right protoc.
-        declare(root, "classpath=/x/losim.jar\n");
-        assertEquals("/x/losim.jar", at(root).cp());
+        String cp = jar(root, "losim.jar");
+        declare(root, "classpath=" + cp + "\n");
+        assertEquals(cp, at(root).cp());
         assertTrue(at(root).isLab());
     }
 
@@ -64,12 +78,42 @@ class LabToolchainTest {
         // the classpath from before a dependency was added fails a build in a way
         // nobody can explain from the error.
         Lab lab = at(root);
-        declare(root, "classpath=/one.jar\n");
-        assertEquals("/one.jar", lab.cp());
-        declare(root, "classpath=/two.jar\n");
-        assertEquals("/two.jar", lab.cp());
+        String one = jar(root, "one.jar"), two = jar(root, "two.jar");
+        declare(root, "classpath=" + one + "\n");
+        assertEquals(one, lab.cp());
+        declare(root, "classpath=" + two + "\n");
+        assertEquals(two, lab.cp());
         Files.delete(root.resolve(Lab.TOOLCHAIN));
         assertFalse(lab.isLab());
+    }
+
+    @Test
+    @DisplayName("a classpath from somebody else's machine is not this machine's")
+    void foreignClasspath(@TempDir Path root) throws Exception {
+        // Marking a submission means copying a working directory that has run
+        // Gradle, and the file travels with it holding absolute paths from a
+        // laptop. Honouring those in a container reported the candidate's code as
+        // broken while the right jars sat in lib/.
+        declare(root, "classpath=/Users/someone/build/losim.jar:/Users/someone/.gradle/grpc.jar\n");
+        Lab lab = at(root);
+        assertFalse(lab.isLab(), "nothing on that classpath exists here");
+
+        // lib/ is what such a directory should fall back to, and does.
+        Files.createDirectories(root.resolve("lib"));
+        Files.writeString(root.resolve("lib/losim.jar"), "present");
+        assertTrue(lab.isLab());
+        assertTrue(lab.cp().contains("lib"), () -> "expected the fallback, got " + lab.cp());
+    }
+
+    @Test
+    @DisplayName("one surviving entry is enough — a half-built classpath is still the build's")
+    void partiallyPresent(@TempDir Path root) throws Exception {
+        Path real = root.resolve("real.jar");
+        Files.writeString(real, "a jar");
+        declare(root, "classpath=" + real + ":/nowhere/absent.jar\n");
+        Lab lab = at(root);
+        assertTrue(lab.isLab());
+        assertTrue(lab.cp().contains("absent.jar"), "the declaration is used whole, not filtered");
     }
 
     @Test

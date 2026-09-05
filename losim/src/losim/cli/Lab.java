@@ -78,7 +78,9 @@ public final class Lab {
      * than to offer somebody thirteen buttons, none of them theirs.
      */
     public boolean isLab() {
-        return Files.isRegularFile(lib.resolve("losim.jar")) || !declared("classpath").isEmpty();
+        if (Files.isRegularFile(lib.resolve("losim.jar"))) return true;
+        String said = declared("classpath");
+        return !said.isEmpty() && here(said);
     }
 
     // ------------------------------------------------------- a declared toolchain
@@ -142,10 +144,25 @@ public final class Lab {
         return props.getProperty(key, "").trim();
     }
 
-    /** A tool the build declared, or the vendored one for this platform. */
+    /**
+     * A tool the build declared, or the vendored one for this platform.
+     *
+     * <p>A declaration is a claim about this machine, and it can be false. The file
+     * lives under {@code build/} and is never committed, but it does not have to be
+     * committed to travel: copy a working directory that has run Gradle — which is
+     * what marking a submission is — and it arrives holding absolute paths from
+     * somebody else's laptop. Honouring those gave a Linux container
+     * "No protobuf compiler for linux-aarch_64 at /Users/…/protoc-osx-aarch_64",
+     * which reads as the submission failing to build while the right binary sits
+     * unused in {@code lib/bin}.
+     *
+     * <p>So a declared tool that cannot be executed here is not used here.
+     */
     private Path tool(String name) {
         String said = declared(name);
-        return said.isEmpty() ? lib.resolve("bin").resolve(name + "-" + platform()) : Path.of(said);
+        if (said.isEmpty()) return lib.resolve("bin").resolve(name + "-" + platform());
+        Path stated = Path.of(said);
+        return Files.isExecutable(stated) ? stated : lib.resolve("bin").resolve(name + "-" + platform());
     }
 
     /**
@@ -673,7 +690,7 @@ public final class Lab {
     /** The classpath a lab compiles and runs against: the simulator and gRPC. */
     public String cp() {
         String said = declared("classpath");
-        if (!said.isEmpty()) return said;
+        if (!said.isEmpty() && here(said)) return said;
         StringBuilder sb = new StringBuilder();
         Path jars = lib.resolve("jars");
         for (Path p : children(jars)) {
@@ -681,6 +698,22 @@ public final class Lab {
         }
         sb.append(lib.resolve("losim.jar"));
         return sb.toString();
+    }
+
+    /**
+     * Whether a declared classpath is one this machine could actually use.
+     *
+     * <p>The weakest test that catches the case that matters: a classpath naming a
+     * laptop's home directory, read inside a container, has nothing on it that
+     * exists. One surviving entry is enough to treat the declaration as this
+     * machine's — a build part-way through is still the build's business, and
+     * second-guessing a classpath that mostly resolves would be worse than useless.
+     */
+    private static boolean here(String classpath) {
+        for (String entry : classpath.split(java.io.File.pathSeparator)) {
+            if (!entry.isBlank() && Files.exists(Path.of(entry))) return true;
+        }
+        return false;
     }
 
     private String cp(Path extra) {

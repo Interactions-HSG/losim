@@ -29,7 +29,11 @@ class LabWalkTest {
     private static Lab labAt(Path root) throws Exception {
         Path toolchain = root.resolve(Lab.TOOLCHAIN);
         Files.createDirectories(toolchain.getParent());
-        Files.writeString(toolchain, "classpath=/nowhere/losim.jar\n");
+        // A real file: a declared classpath none of whose entries exist here is
+        // somebody else's, and losim now falls back to lib/ rather than honouring it.
+        Path jar = root.resolve("fake-losim.jar");
+        Files.writeString(jar, "stands in for the jar");
+        Files.writeString(toolchain, "classpath=" + jar + "\n");
         return new Lab(root, root.resolve("lib"), root.resolve("runs"));
     }
 

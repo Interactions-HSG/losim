@@ -7,6 +7,34 @@ Gradle, so it is a fact about a jar rather than about a branch. Every release is
 cut from a tag whose name and `./VERSION` are checked against each other before
 anything is built.
 
+## 1.1.3
+
+A declared toolchain is a claim, and it has to check out.
+
+`build/losim-toolchain.properties` is generated and never committed, and that is
+not enough to stop it travelling: copy a working directory that has run Gradle —
+which is exactly what marking a submission is — and it arrives holding absolute
+paths from somebody else's laptop. A grading container honoured them and reported
+
+    No protobuf compiler for linux-aarch_64 at /Users/…/protoc-osx-aarch_64
+
+which reads as the submission failing to build, while the right binary sat unused
+in `lib/bin`.
+
+So a declaration is now checked before it is used. A declared tool that cannot be
+executed here falls back to the vendored one for this platform. A declared
+classpath none of whose entries exist here is not this machine's, and `lib/` is
+used instead — one surviving entry is enough to accept it, because a build
+part-way through is still the build's business and second-guessing a classpath
+that mostly resolves would be worse than useless.
+
+**This is robustness, not a permission check.** A grader that mounts a submission
+should still delete the file rather than rely on this: losim cannot tell a stale
+declaration from a deliberate one, and a classpath naming paths that do exist in
+the container will be honoured. The file is a statement by the thing under
+examination about what it should be measured with — reasonable for a lab, wrong
+for a grader.
+
 ## 1.1.2
 
 A Java package may be called `input`.
