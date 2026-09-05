@@ -7,6 +7,50 @@ Gradle, so it is a fact about a jar rather than about a branch. Every release is
 cut from a tag whose name and `./VERSION` are checked against each other before
 anything is built.
 
+## 1.1.2
+
+A Java package may be called `input`.
+
+`NOT_CODE` names the furniture at a lab root — `build/`, `gen/`, `scenarios/`, a
+data directory called `input/`. It was applied at **every depth** of the source
+walk, which quietly made it a list of forbidden *package* names as well. A lab
+that hands students a corpus generator at `src/input/Corpus.java` had that
+package skipped without a word: 23 files compiled instead of 24, and the failure
+arrived as
+
+    Coordinator.java:201: error: package input does not exist
+
+on the line that used it — which reads as the author importing something
+imaginary rather than as the compiler being told not to look. Renaming to
+`corpus` fails identically, because that is on the list too.
+
+The names apply at the root now and nowhere below it, which is where the things
+they name actually are: `build/` and `gen/` are both resolved against the root,
+so the duplicate-classes problem the list was written for is untouched.
+Dot-directories stay excluded at every depth — `.git` can be nested, and no
+package can be called `.anything`.
+
+**A reserved directory that holds Java now says so.** The root-only rule leaves a
+narrower version of the same trap: a lab keeping its sources at the root rather
+than under `src/` still has `input` reserved there. That skip is correct and it
+was still invisible, so it is stated on the compile line instead of being
+inferred from an error somewhere else. losim's own output — `gen/`, `build/` —
+says nothing, because Java under `gen/` is Java losim put there, and a warning
+that fires every run is a warning nobody reads.
+
+### A price list is found inside the jar
+
+`losim bill` looked for `lib/prices/<region>.yaml` and then `prices/<region>.yaml`
+on disk. A lab that resolves losim from Maven has neither, because it has no
+`lib/` — so it billed at the built-in defaults and said so in one line on stderr.
+That is correct for Frankfurt, which is what the defaults are, and silently wrong
+for anybody who asked for another region.
+
+Every list in `prices/` is also a resource inside the jar, so it was never
+actually missing. A named list is now read from there when no file of that name
+is on disk. A file still wins: a list somebody wrote and put on disk is theirs,
+and a built-in of the same name must not take precedence over it.
+
 ## 1.1.1
 
 A shared viewer can be updated where it lives.

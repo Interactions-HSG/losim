@@ -38,13 +38,21 @@ public final class Bills {
         if (!Files.exists(trace)) throw new IllegalArgumentException("no such trace: " + trace);
         Path list = Path.of(priceFile);
         PriceList prices;
+        PriceList bundled;
         if (Files.exists(list)) {
             prices = PriceList.load(list);
+        } else if ((bundled = PriceList.bundled(list.getFileName().toString())) != null) {
+            // No file, but this is a region losim ships. A lab that resolves losim
+            // from Maven has no lib/prices/ to read, and billing it at the defaults
+            // because of that would answer a question about Frankfurt when somebody
+            // asked about Tokyo.
+            prices = bundled;
         } else {
             prices = PriceList.defaults();
             // On stderr: a note printed onto stdout would be the first line of what
             // is supposed to be a JSON document.
-            System.err.println("no price list at " + priceFile + "; using the built-in defaults");
+            System.err.println("no price list at " + priceFile
+                    + " and none of that name inside losim; using the built-in defaults");
         }
 
         var t = JsonReader.readObject(Files.readString(trace));

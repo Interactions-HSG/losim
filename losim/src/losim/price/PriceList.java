@@ -83,6 +83,32 @@ public final class PriceList {
         return of(Yaml.parse(p));
     }
 
+    /**
+     * The list of this name that ships inside the jar, or null if there is none.
+     *
+     * <p>Every list in {@code prices/} is a resource of the jar as well as a file
+     * on disk, and a lab that resolves losim from Maven has only the first: there
+     * is no {@code lib/prices/} because there is no {@code lib/}. Before this, such
+     * a lab silently billed at the built-in defaults and said so in one line on
+     * stderr — correct for Frankfurt, which is what the defaults are, and quietly
+     * wrong for anyone who asked for a different region.
+     *
+     * <p>Looked up by name rather than by path so that {@code --prices} keeps
+     * naming a file first: a list somebody wrote and put on disk is theirs, and a
+     * built-in of the same name must not take precedence over it.
+     */
+    public static PriceList bundled(String name) {
+        try (var in = PriceList.class.getResourceAsStream("/losim/prices/" + name)) {
+            if (in == null) return null;
+            return of(Yaml.parse(name, new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (IOException e) {
+            // A resource that will not read is not a price list, and the caller has
+            // a defensible fallback. Saying nothing here keeps that decision in one
+            // place rather than two.
+            return null;
+        }
+    }
+
     public static PriceList of(Node root) {
         root.onlyAllows("region", "currency", "spot_discount", "egress_per_gb",
                 "egress_cross_region_per_gb", "egress_intercontinental_per_gb",

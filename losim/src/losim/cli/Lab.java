@@ -175,10 +175,62 @@ public final class Lab {
      * <p>The project's own furniture, plus the two that are output rather than
      * input: handing {@code gen/} to javac twice is how a build starts reporting
      * duplicate classes.
+     *
+     * <p>These are names of things at the <b>lab root</b>, and {@link #opaque}
+     * applies them only there. They are not a list of forbidden Java package
+     * names, and several of them are words a package may perfectly well use.
      */
     private static final List<String> NOT_CODE =
             List.of("build", "lib", "docs", "viewer", "node_modules", "presentation",
                     "gen", "out", "classes", "input", "corpus", "scenarios");
+
+    /**
+     * The reserved names losim writes into itself.
+     *
+     * <p>Finding {@code .java} under {@code gen/} is not a surprise — losim put it
+     * there. Finding {@code .java} under {@code input/} is, and is worth a word.
+     */
+    private static final List<String> OURS = List.of("build", "gen", "out", "classes", "node_modules");
+
+    /**
+     * Root directories that hold Java and are not compiled, because their name is
+     * the lab's furniture.
+     *
+     * <p>The names in {@link #NOT_CODE} apply at the root only, which is where the
+     * things they name live — but a lab may keep its sources at the root rather
+     * than under {@code src/}, and then a package called {@code input} is at the
+     * root too and is skipped. That skip is correct and it is also invisible: the
+     * only symptom is {@code package input does not exist} on a line that used it,
+     * which reads as the author importing something imaginary.
+     *
+     * <p>So it is said out loud. A silent skip that surfaces as an error somewhere
+     * else is the worst version of this, and it has cost people afternoons.
+     */
+    public List<Path> reserved() {
+        var out = new ArrayList<Path>();
+        for (Path p : children(root)) {
+            if (!Files.isDirectory(p)) continue;
+            String name = p.getFileName().toString();
+            if (!NOT_CODE.contains(name) || OURS.contains(name)) continue;
+            var java = new ArrayList<Path>();
+            collect(p, ".java", java, false);
+            if (!java.isEmpty()) out.add(p);
+        }
+        return out;
+    }
+
+    /** What {@link #reserved} has to say, or "" when it has nothing. */
+    public String reservedNote() {
+        List<Path> held = reserved();
+        if (held.isEmpty()) return "";
+        var sb = new StringBuilder();
+        for (Path p : held) {
+            sb.append("Not compiled: ").append(root.relativize(p))
+              .append("/ holds Java, but that name is reserved for the lab's own furniture.\n")
+              .append("  Move it under src/ if it is code — a package may be called anything there.\n");
+        }
+        return sb.toString();
+    }
 
     /** Where scenarios live, and where the console writes a new one. */
     public static final String SCENARIOS = "scenarios";
@@ -295,24 +347,43 @@ public final class Lab {
         return Files.isRegularFile(p) && (n.endsWith(".yaml") || n.endsWith(".yml"));
     }
 
-    /** Should the walk go into this directory? */
-    private static boolean opaque(Path dir) {
+    /**
+     * Should the walk go into this directory?
+     *
+     * <p>{@link #NOT_CODE} applies at the lab root and nowhere below it, because
+     * that is where the things it names actually are: {@code build/}, {@code gen/}
+     * and {@code scenarios/} are all resolved against the root, and a data
+     * directory called {@code input/} sits beside them. Below the root there are
+     * only Java packages, and a package is free to be called {@code input} — it is
+     * an ordinary word, and a lab that hands students a corpus generator will very
+     * reasonably put it in one.
+     *
+     * <p>Applying the list at every depth made such a package invisible: it was
+     * skipped silently, and the failure arrived as {@code package input does not
+     * exist} on the line that used it — which reads as the student importing
+     * something imaginary rather than as the compiler being told not to look.
+     *
+     * <p>Dot-directories stay excluded at every depth. {@code .git} can be nested,
+     * and no Java package can be called {@code .anything}, so there is nothing to
+     * collide with.
+     */
+    private static boolean opaque(Path dir, boolean root) {
         String name = dir.getFileName().toString();
-        return name.startsWith(".") || NOT_CODE.contains(name);
+        return name.startsWith(".") || (root && NOT_CODE.contains(name));
     }
 
     /** Every file of one extension in the lab, skipping what is not the student's. */
     private List<Path> walk(Path dir, String ext) {
         List<Path> out = new ArrayList<>();
-        collect(dir, ext, out);
+        collect(dir, ext, out, true);
         out.sort(Comparator.comparing(Path::toString));
         return out;
     }
 
-    private void collect(Path here, String ext, List<Path> out) {
+    private void collect(Path here, String ext, List<Path> out, boolean root) {
         for (Path p : children(here)) {
             if (Files.isDirectory(p)) {
-                if (!opaque(p)) collect(p, ext, out);
+                if (!opaque(p, root)) collect(p, ext, out, false);
             } else if (p.getFileName().toString().endsWith(ext)) {
                 out.add(p);
             }
@@ -348,6 +419,8 @@ public final class Lab {
      */
     public Path compile(Consumer<String> log) throws IOException, InterruptedException {
         Code c = code();
+        String reserved = reservedNote();
+        if (!reserved.isEmpty()) log.accept(reserved);
         if (!c.started()) {
             log.accept("There is no code in this lab yet.\n");
             return null;
@@ -425,6 +498,8 @@ public final class Lab {
 
     public int run(String scenario, Consumer<String> log) throws IOException, InterruptedException {
         Code c = code();
+        String reserved = reservedNote();
+        if (!reserved.isEmpty()) log.accept(reserved);
         if (!c.started()) {
             log.accept("There is no code in this lab yet — that is the exercise.\n");
             return 2;
