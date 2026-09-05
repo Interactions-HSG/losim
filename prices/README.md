@@ -58,9 +58,9 @@ is free:
 | link | rate | when |
 |---|---|---|
 | same zone | free | both machines in `eu-central-1a` |
-| same region | `egress_per_gb` | `eu-central-1a` → `eu-central-1b` |
-| same continent | `egress_cross_region_per_gb` | `eu-central-1a` → `eu-west-1a` |
-| across an ocean | `egress_intercontinental_per_gb` | `eu-central-1a` → `ap-northeast-1a` |
+| same region | `egress_per_gb` | `eu-central-1a` -> `eu-central-1b` |
+| same continent | `egress_cross_region_per_gb` | `eu-central-1a` -> `eu-west-1a` |
+| across an ocean | `egress_intercontinental_per_gb` | `eu-central-1a` -> `ap-northeast-1a` |
 
 A machine's zone decides which. The region is read off the zone name — `eu-central-1a`
 is in `eu-central-1`, `switzerlandnorth-1` is in `switzerlandnorth` — so there is

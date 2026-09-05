@@ -17,7 +17,7 @@ import java.util.concurrent.locks.LockSupport;
  * measurement's own overhead dominates the thing measured. A cost that fine is
  * therefore <i>owed</i> rather than slept, and settled later.
  *
- * <h2>Why the ledger is closed-loop</h2>
+ * <h2>The ledger is closed-loop</h2>
  * The debt is settled against what was <i>actually</i> slept, not against what
  * was asked for. Open-loop, the calibration's residual compounds across
  * thousands of tiny sleeps: 6.8% aggregate error typically and 16% at worst.
@@ -48,10 +48,9 @@ public final class Clock {
      *
      * <p>The one measure of "this host could not serve the time it was asked
      * for" that is about the time actually served, rather than about a property
-     * of the host that is thought to predict it. It replaced two such
-     * predictions — a bound on how erratic the calibration was and a bound on
-     * how large it came out — both of which turned out to refuse runs that the
-     * parking loop went on to serve correctly.
+     * of the host thought to predict it. A bound on how erratic the calibration
+     * is, or on how large it comes out, refuses runs that the parking loop can
+     * still serve correctly; this does not.
      *
      * <p>Zero on every host measured so far, busy and translated ones included.
      * Non-zero means a figure in this run is short by more than the floor, and
@@ -105,7 +104,7 @@ public final class Clock {
 
         // Park until the debt is actually paid, rather than once and onwards.
         //
-        // One park settles against reality — but a park lands short whenever the
+        // One park settles against reality, but a park lands short whenever the
         // correction is larger than this host's real overshoot *at this size*,
         // and it usually is. The overshoot is not one ratio: measured here it is
         // 1.33 at 0.05 ms and 1.02 at 200 ms, while the fit is taken over
@@ -114,13 +113,14 @@ public final class Clock {
         // was paid inside the *next* handler's span, because the ledger is
         // per-thread and spans are not.
         //
-        // Aggregate time was right the whole time, which is why this survived:
-        // ten such costs still totalled 98% of ten. What was wrong was every
-        // individual figure. `grossMs` closes at the end of the span with the
-        // debt still outstanding, so a handler declaring 400 reported 330, the
-        // first call of a run reported worst, and a series of identical calls
-        // read as a ramp climbing towards its own declared value and never
-        // arriving. Two people reported that ramp as a bug in something else.
+        // A single park does not show up in the aggregate: ten such costs still
+        // total 98% of ten, because the shortfall is a property of each call,
+        // not of the sum. It shows up per call instead. `grossMs` closes at the
+        // end of the span with the debt still outstanding, so a handler
+        // declaring 400 would report 330, the first call of a run would report
+        // worst, and a series of identical calls would read as a ramp climbing
+        // towards its own declared value and never arriving — indistinguishable
+        // from a bug in whatever the handler is doing.
         //
         // Looping fixes it without a better model of the host, which is the
         // point: each pass pays the fraction the correction happens to be right
@@ -130,9 +130,9 @@ public final class Clock {
         // more parks. Calibration becomes a question of how many parks, not of
         // whether the time is served.
         //
-        // It ends at the floor, which is where the debt was always meant to
-        // live: what carries across calls now is only what is too fine to
-        // express, never a quarter of a declared cost.
+        // It ends at the floor, which is where the debt is meant to live: what
+        // carries across calls is only what is too fine to express, never a
+        // quarter of a declared cost.
         for (int pass = 0; pass < MAX_PARKS && owedNs[0] >= FLOOR_MS * 1e6; pass++) {
             long before = System.nanoTime();
             LockSupport.parkNanos((long) (owedNs[0] / correction));
@@ -140,8 +140,8 @@ public final class Clock {
             owedNs[0] -= slept;                    // settle against reality, not intent
             // A park that returns at once returns at once every time: an
             // interrupt or a pending permit, neither of which more attempts
-            // cure. Leaving the rest owed is right — it is the one thing this
-            // ledger has always known how to carry.
+            // cure. Leaving the rest owed is right: it is the one thing this
+            // ledger is built to carry.
             if (slept <= 0) break;
         }
         if (owedNs[0] >= FLOOR_MS * 1e6) unpaid.incrementAndGet();
@@ -271,16 +271,15 @@ public final class Clock {
      * floor the measurement's own overhead dominates, and including those points
      * would let the noisiest one set the calibration for every other.
      *
-     * <p><b>Summarised by the median, and this is the whole of a bug that cost a
-     * day.</b> It was the mean. A mean over parks is the one statistic a busy
-     * host destroys: a single descheduled sample of 50 ms among two hundred parks
-     * of 0.05 ms adds 0.25 ms to their average — five times the thing being
-     * measured — so the correction came back at 2.4 instead of 1.28 and every
-     * declared duration was slept at half its length. The same jar, run twenty
-     * minutes apart, billed a handler 200 refMs and then 100, and nothing said
-     * why: the trace's {@code trusted} flag is about what the code reads, and had
-     * no opinion about the clock. It does now — see {@link Calibration#noise()},
-     * which is written into every trace.
+     * <p><b>Summarised by the median, not the mean.</b> A mean over parks is the
+     * one statistic a busy host destroys: a single descheduled sample of 50 ms
+     * among two hundred parks of 0.05 ms adds 0.25 ms to their average — five
+     * times the thing being measured — so the correction comes back at 2.4
+     * instead of 1.28 and every declared duration sleeps at half its length. The
+     * same jar, run twenty minutes apart, can bill a handler 200 refMs and then
+     * 100, with nothing to say why: the trace's {@code trusted} flag covers what
+     * the code reads, not what the clock could serve. {@link Calibration#noise()}
+     * covers the clock, and is written into every trace.
      */
     public static Calibration calibrate() {
         // Up to three attempts, stopping at the first quiet one.
@@ -291,9 +290,9 @@ public final class Clock {
         // and the fix — measure again in a moment — is one this can do itself.
         // What it must not do is retry until it gets the answer it likes, so a
         // host that is *persistently* starved still hands back its quietest
-        // attempt and is still refused on it. Meter.calibrate() has taken the
-        // best of three rounds for the same reason for a long time, and that is
-        // most of why it survived this bug when the clock did not.
+        // attempt and is still refused on it. Meter.calibrate() takes the best
+        // of three rounds for the same reason, and resists the kind of
+        // transient noise a single mean-based pass does not.
         var rounds = new java.util.ArrayList<Calibration>();
         for (int round = 0; round < ROUNDS; round++) {
             Calibration c = measure();
@@ -384,7 +383,7 @@ public final class Clock {
     /**
      * The middle sample, which is what a busy host cannot move.
      *
-     * <p>The mean can be moved by one sample, and was: see {@link #calibrate()}.
+     * <p>The mean can be moved by one sample: see {@link #calibrate()}.
      */
     public static double median(double[] samples) {
         double[] sorted = samples.clone();

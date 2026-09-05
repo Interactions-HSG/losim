@@ -17,7 +17,7 @@ icon: "server"
 ]
 ```
 
-## Why it is its own channel
+## Its own channel
 
 <Note>
 These are **not moments** — they are the run's closing balance. Anything that reasons
@@ -30,7 +30,7 @@ A final heap walk happens after the job ends, so a machine that filled up in the
 tick is not reported at whatever it held eight ticks ago.
 </Note>
 
-## What it was
+## Identity
 
 | field | |
 |---|---|
@@ -42,7 +42,7 @@ tick is not reported at whatever it held eight ticks ago.
 | `memCapMb` | the cap it was under on this run |
 | `alive` | whether it survived to the end |
 
-## What it did
+## Activity
 
 | field | |
 |---|---|
@@ -61,7 +61,7 @@ that streams **allocate about the same**; only the first one retains, and only
 retention decides an out-of-memory.
 </Warning>
 
-## What losim cost this machine
+## losim's overhead
 
 | field | |
 |---|---|
@@ -70,7 +70,7 @@ retention decides an out-of-memory.
 
 Published rather than kept private, because *"`allocMb` is the program's own"* is a
 claim, and a reader is entitled to see the size of what was taken off it before
-believing it. [Self-accounting →](/engine/self-accounting)
+believing it. [Self-accounting ->](/engine/self-accounting)
 
 ## Units
 

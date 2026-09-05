@@ -24,8 +24,8 @@ import losim.scenario.Yaml;
  *
  * <p><b>Everything the form has no control for is a refusal, not a guess.</b>
  * Anything present here and absent from the Draft model comes back naming the
- * key and the line, never a Draft missing it silently and a save that quietly
- * drops what it never showed.
+ * key and the line, never a Draft missing it silently and a save that drops
+ * what it never showed.
  *
  * <p>The list is empty. A scenario the console can run but cannot open is a dead
  * end in a course whose interface <i>is</i> the console, so every key
@@ -42,10 +42,9 @@ public final class Draft {
     /**
      * One block of machines that grow and shrink together.
      *
-     * <p>{@code memoryMb} and {@code diskMb} are caps, and {@code null} is not
-     * zero: it means whatever the instance type says. The form needs the three
-     * states — inherit, or a number — because a scenario that wrote
-     * {@code memoryMb: 0} would be a machine that cannot hold anything.
+     * <p>{@code memoryMb} and {@code diskMb} are caps, with three states: no
+     * value inherits the instance type's own, a number overrides it, and 0
+     * means a machine that cannot hold anything.
      */
     public record Pool(String name, int count, String prefix, String instance,
                        List<String> zones, List<String> runs, Double memoryMb, Double diskMb,
@@ -54,10 +53,11 @@ public final class Draft {
     /**
      * One machine in a pool, differing from its siblings.
      *
-     * <p>Empty and null both mean "the pool's own", because that is what a key
-     * the file left out means. A pool of eight where one is half the size is the
-     * cheapest way to build a straggler, and a pool where one has a smaller disk
-     * is how a scenario shows a machine filling up while its neighbours do not.
+     * <p>An empty string or a null number falls back to the pool's own value,
+     * because that is what a key the file left out means. A pool of eight where
+     * one is half the size is the cheapest way to build a straggler; a pool
+     * where one has a smaller disk shows a machine filling up while its
+     * neighbours do not.
      */
     public record Override(String machine, String instance, String zone,
                            Double memoryMb, Double diskMb) {}
@@ -86,8 +86,8 @@ public final class Draft {
      *
      * <p>Read back after the loader has filled its own defaults, so what the form
      * shows is what the run will use rather than what the file happened to spell
-     * out. Null when the file has no {@code workload:} at all, which is a
-     * different thing from one that declares a single record.
+     * out. Null when the file has no {@code workload:} at all. That is different
+     * from one that declares a single record.
      */
     public record Workload(long records, List<Integer> probe, List<Integer> workers) {}
 
@@ -152,8 +152,8 @@ public final class Draft {
         Node root = Yaml.parse(name, text);
         var sc = Loader.of(root);   // the real check, first — baseline correctness is never re-done below
 
-        // Nothing is refused at the top level any more. The form has a control
-        // for every key `Loader.of` allows there, so `sc.net()`, `sc.mode()`,
+        // The form has a control for every key `Loader.of` allows at the top
+        // level, so nothing there is refused: `sc.net()`, `sc.mode()`,
         // `sc.workload()` and `sc.tightMargin()` below are read straight off the
         // loader's own already-resolved answer and there is nothing to walk.
 

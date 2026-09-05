@@ -24,10 +24,10 @@ park(owed / correction);
 owed -= actuallySlept;               // settle against reality, not intent
 ```
 
-The debt is per **thread** — a debt is a property of whoever incurred it — and it
+The debt is kept per **thread**, since a debt belongs to whoever incurred it, and it
 accumulates until it is large enough to express, then is paid off in one park.
 
-## Why the ledger is closed-loop
+## The ledger is closed-loop
 
 <Note>
 The debt is settled against what was **actually** slept, not against what was asked
@@ -41,7 +41,7 @@ the next sleeps shorten to absorb it, brings that to **0.3% and 2%**.
 That is what makes costs fifty times below the floor still total correctly, and it is
 why `k_time` is not capped by timer resolution.
 
-## What is lost, and what is not
+## Kept, and lost
 
 <Columns cols={2}>
   <Card title="Kept" icon="check">

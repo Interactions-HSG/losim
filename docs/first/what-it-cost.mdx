@@ -42,7 +42,7 @@ what happened
 Three things to notice before the buckets themselves.
 
 **Incidents are 135 times capacity.** `CHF 1.0000` against `CHF 0.0074`. One machine
-killed and one machine slowed down cost more than the entire fleet did — and this is
+killed and one machine slowed down cost more than the entire fleet did, and this is
 the ordinary case, not a contrived one. Before you tune anything, look at which bucket
 is actually large.
 
@@ -57,8 +57,8 @@ seconds — `60 ÷ 3600 = 0.01667` hours.
 
 <Warning>
 Until your run is longer than a minute of reference time, capacity is a flat charge
-and making the job faster will not move it. That is not losim being coarse — it is
-what a per-second cloud bill with a one-minute floor actually does. Raise `records`,
+and making the job faster will not move it. That is what a per-second cloud bill
+with a one-minute floor actually does, not losim being coarse. Raise `records`,
 or read the `consumption` line instead, which responds immediately.
 </Warning>
 
@@ -72,7 +72,7 @@ to beat to be worth building.
 
 
 
-## Why four, and why they are not added up
+## Four buckets, not summed
 
 <Columns cols={2}>
   <Card title="capacity" icon="server">
@@ -98,9 +98,9 @@ to beat to be worth building.
 
 <Note>
 **There is no revenue bucket, and no profit line.** There was one once. What a run
-*earns* is not a property of the run — it depends on what the service is worth to
-somebody, which is a business question this course cannot answer and had been
-answering with a number somebody picked. An argument that turns on an invented
+*earns* depends on what the service is worth to somebody — a business question this
+course cannot answer, and had been answering with a number somebody picked. An
+argument that turns on an invented
 revenue figure is an argument about the figure. What a design **costs** is computed
 from what actually happened, and that is the number worth defending.
 </Note>
@@ -145,8 +145,8 @@ would be silent.
 ## The bill you cannot always get
 
 Run a scaled scenario and you get **two** bills: one for what happened, and one for
-the job it is a model of. The second one is where this gets interesting, because a
-bill is quantities times prices and the engine will not project every quantity:
+the job it is a model of. The second one is harder to get: a bill is quantities
+times prices, and the engine will not project every quantity:
 
 ```
   capacity    the fleet, for the period            -             CHF   refused
@@ -162,7 +162,7 @@ nobody can tell you what the machines cost, because nobody can tell you how long
 the job takes.*
 
 That is a useful answer. It says where the uncertainty in the cost of a design
-actually lives, which is not where most people would look for it.
+sits.
 
 <Note>
 **Incidents are never projected.** A machine either failed or it did not, and an

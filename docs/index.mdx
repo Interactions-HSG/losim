@@ -25,18 +25,18 @@ Your program never imports a simulator type into a signature. It calls peers ove
 losim from the classpath, the only thing that stops compiling is one annotation.
 
 That separation is what makes the numbers mean something. When losim says a
-machine ran out of memory, it is not accounting fiction: the machine really was
+machine ran out of memory, that is what happened: the machine really was
 made small, your code really did fill it, and the failure happened in your code
 for the reason it would happen at full size.
 
 <Note>
 **Nothing is downloaded and nothing is generated at build time.** The toolchain is
 vendored into the repository, so the same commands produce the same result on a
-laptop, in the devcontainer, and in a Codespace. A number that depends on where it
-was computed is the one thing a simulator cannot afford.
+laptop, in the devcontainer, and in a Codespace: a simulator's numbers must not
+depend on where they were computed.
 </Note>
 
-## What you actually do
+## The workflow
 
 <Steps>
   <Step title="Write a schema">
@@ -75,24 +75,24 @@ was computed is the one thing a simulator cannot afford.
   </Card>
 </CardGroup>
 
-## What makes it different from a toy
+## More than a toy
 
 <AccordionGroup>
   <Accordion title="Machines are really small, so running out of memory is real" icon="memory">
-    A machine's memory cap is enforced against a **retained-heap walk** — what the
-    machine is actually still holding — not against how much it allocated. Those
+    A machine's memory cap is enforced against a **retained-heap walk**, which measures
+    what the machine is actually still holding, not how much it allocated. Those
     are different numbers, and only one of them decides an out-of-memory. A design
-    that accumulates and a design that streams allocate about the same; only one
-    of them dies.
+    that accumulates and a design that streams allocate about the same amount, but
+    only one of them runs out of memory.
 
-    [How a machine is modelled →](/engine/a-machine)
+    [How a machine is modelled ->](/engine/a-machine)
   </Accordion>
   <Accordion title="Concurrency is real, so queueing is real" icon="microchip">
     Each machine gets one thread pool sized to its vCPU count. Four concurrent
     calls into a two-vCPU machine genuinely queue, and the wait shows up in the
     trace as its own event. Nothing is simulated about it.
 
-    [Concurrency inside a machine →](/write/concurrency)
+    [Concurrency inside a machine ->](/write/concurrency)
   </Accordion>
   <Accordion title="A projection carries its confidence, or it is absent" icon="chart-line">
     In scaled mode the engine fits a law per resource and then tries to break it:
@@ -100,15 +100,15 @@ was computed is the one thing a simulator cannot afford.
     whole thing were measured again? When the answer is no, the field is **empty
     with a reason** rather than filled with a plausible number.
 
-    [When the engine refuses →](/run/when-it-refuses)
+    [When the engine refuses ->](/run/when-it-refuses)
   </Accordion>
   <Accordion title="Numbers that stopped meaning what they say are marked" icon="triangle-exclamation">
-    Reading the real clock, writing a real file, opening your own channel, sharing
-    a static field between machines — none of those throw. Each produces a run
+    Reading the real clock, writing a real file, opening your own channel, and
+    sharing a static field between machines: none of those throw. Each produces a run
     full of plausible figures, every one of them wrong in a direction nobody can
     see. So the compiled classes are read before anything runs, and what carries a
     caveat says so beside itself.
 
-    [Trust markers →](/engine/trust)
+    [Trust markers ->](/engine/trust)
   </Accordion>
 </AccordionGroup>

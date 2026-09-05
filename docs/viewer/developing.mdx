@@ -82,7 +82,7 @@ happened rather than against fixtures that agree with them by construction.
 | `author` | does what the designer writes load, and is what it must refuse refused |
 
 <Note>
-**Exactly four Python modules are load-bearing**, and it is worth being precise about
+**Exactly four Python modules are still imported**, and it is worth being precise about
 which, because the rest of `view/` is the abandoned renderer:
 
 ```
@@ -114,14 +114,14 @@ where those are answered: `./viewer/serve.sh`, then look.
     Nothing accumulates, nothing is remembered between frames, no view knows what it
     drew last time. One constraint, and it pays for itself four times:
 
-    - **the transience rule enforces itself** — a call that has finished is simply not
+    - the transience rule enforces itself — a call that has finished is simply not
       in the frame. There is nothing to remove, so nothing to forget to remove. In the
       renderer that came before this, "the picture holds only what is currently true"
       was a rule that had to be *remembered*, and a rule left to discipline decays
       until the last frame is the static figure again;
-    - **scrubbing is free** — seeking backwards is the same operation as playing;
-    - **recording is the same code path as playing** — only the clock's driver differs;
-    - **the views cannot disagree**, because they are functions of one value.
+    - scrubbing is free — seeking backwards is the same operation as playing;
+    - recording is the same code path as playing — only the clock's driver differs;
+    - the views cannot disagree, because they are functions of one value.
 
     If you find yourself adding state to a view, that is the thing to push back on.
   </Accordion>
@@ -165,8 +165,8 @@ where those are answered: `./viewer/serve.sh`, then look.
     `d3` and `mediabunny`, on top of Next and React. elkjs, Radix, framer-motion and
     react-virtual were each considered and rejected.
 
-    A viewer with fifteen dependencies is a viewer that stops building in two years —
-    and this one has to still build when the course runs again.
+    Fifteen dependencies would mean a viewer that stops building in two years — and
+    this one has to still build when the course runs again.
   </Accordion>
 </AccordionGroup>
 

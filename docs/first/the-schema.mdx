@@ -57,8 +57,8 @@ service Thumbnailer {
 
 <AccordionGroup>
   <Accordion title="A batch, not a frame" icon="layer-group" defaultOpen>
-    `Thumbnail` takes a `Batch` rather than one `Frame`. That is not a
-    micro-optimisation — it changes what the system is.
+    `Thumbnail` takes a `Batch` rather than one `Frame`, and that changes what the
+    system is, not just how fast it runs.
 
     Every call costs a round trip on the wire, a declared fixed duration, and a
     row in the trace. A design that sends one frame per call is a design whose
@@ -86,7 +86,7 @@ service Thumbnailer {
 
     `NO_SIDE_EFFECTS` is the stronger of the two: it means the call is a pure
     read. `IDEMPOTENT` means running it twice lands in the same place as running
-    it once. Either satisfies the gate. [More →](/write/retries)
+    it once. Either satisfies the gate. [More ->](/write/retries)
   </Accordion>
 
   <Accordion title="`Capacity`, because you cannot look" icon="eye-slash">
@@ -117,7 +117,7 @@ curious. It is gitignored, and you never edit it.
 losim's trust verifier knows to skip it — recognised by protobuf's own superclass and
 grpc-java's `@GrpcGenerated`, not by a guess about its name.
 
-<Accordion title="What it runs, if you want to see it">
+<Accordion title="The generated code, if you want to see it">
 The vendored compiler, chosen by host — `protoc-osx-aarch_64` on Apple silicon,
 `protoc-linux-x86_64` on Linux x86-64 — with grpc-java's plugin, an include path per
 schema directory, and every `.proto` in the system:

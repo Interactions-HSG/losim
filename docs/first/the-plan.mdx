@@ -22,29 +22,29 @@ yours to write.
     only way machines talk, so everything a machine can ask another machine is
     here and nowhere else.
 
-    [Write it →](/first/the-schema)
+    [Write it ->](/first/the-schema)
   </Step>
   <Step title="Shrinker.java — the service">
     A handler that takes a batch of frames and returns thumbnails, plus twelve
     lines of adapter that make it a plain method you can call from a plain test.
 
-    [Write it →](/first/the-service)
+    [Write it ->](/first/the-service)
   </Step>
   <Step title="ThumbnailJob.java — the job">
     One class with a `run(Cluster)` method. It finds peers by what they serve,
     asks each one how big it is, fans work out, and says what the answer was.
 
-    [Write it →](/first/the-job)
+    [Write it ->](/first/the-job)
   </Step>
   <Step title="thumbs.yaml — the scenario">
     Five machines, two zones, some latency, and something that goes wrong at 900
     reference milliseconds. Data, not code.
 
-    [Write it →](/first/the-scenario)
+    [Write it ->](/first/the-scenario)
   </Step>
 </Steps>
 
-## What the fleet will look like
+## The fleet's shape
 
 ```
   coordinator (m5.large, eu-central-1a)   runs the job
@@ -60,7 +60,7 @@ so it does half the work in the same time and costs a quarter as much. A fleet
 where every machine is identical teaches nothing about placement, and placement
 is most of what a coordinator is for.
 
-## Where this is going
+## By the end
 
 By the end you will have a trace with a few hundred events in it, a picture of
 which machine did what and when, and a bill in four buckets. You will also have

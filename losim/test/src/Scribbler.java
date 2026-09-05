@@ -10,7 +10,7 @@ import losim.t.Counts;
  *
  * <p>losim accounts disk through {@code Losim.current().wroteDisk(n)} and caps it per
  * machine, which is how a machine that fills up says so. These bytes are invisible to
- * the cap, to the series and to every projection of either — and they are on the host,
+ * the cap, to the series and to every projection of either, and they are on the host,
  * outside the one machine everything is meant to happen on.
  */
 public final class Scribbler extends WorkerBase {

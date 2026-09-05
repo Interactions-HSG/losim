@@ -84,9 +84,9 @@ public final class Machine implements Bound, Telemetry.Sampled {
      * no longer exists. Nobody would ever release it, and the <i>next</i> fleet in
      * the same JVM would find the name taken.
      *
-     * <p>That is why it showed up in the probe grid and only under chaos: thirty
-     * fleets back to back in one JVM, every one of them with a machine called
-     * {@code m0}, and enough scheduled restarts for one to fall off the end.
+     * <p>This is likeliest under chaos: thirty fleets running back to back in one
+     * JVM, every one of them with a machine called {@code m0}, and enough
+     * scheduled restarts for one to fall off the end.
      *
      * <p>The invariant this enforces is the half that holds whoever fires late: a
      * machine that has been shut down stays shut down.
@@ -421,23 +421,22 @@ public final class Machine implements Bound, Telemetry.Sampled {
      */
     public long allocatedBytes() {
         long now = Math.max(0, rawAllocatedBytes() - losimBytes.get());
-        // A cumulative number must not fall, and this one does: not because the
-        // subtraction gets ahead of itself, but because `raw` itself goes
-        // backwards. `getThreadAllocatedBytes`, read from another thread, sums a
-        // thread's retired total and the used part of its current TLAB, and those
-        // two are not read together — so a reader that samples the total just
-        // before a TLAB is retired and the buffer just after sees up to a whole
-        // TLAB vanish. Measured: the worst dip equals the TLAB size (0.062 MB at
-        // `-XX:TLABSize=65536`, 0.999 MB at 1m, none at all under
+        // A cumulative number must not fall, and this one does, because `raw`
+        // itself goes backwards. `getThreadAllocatedBytes`, read from another
+        // thread, sums a thread's retired total and the used part of its current
+        // TLAB, without reading the two together. A reader that samples the
+        // total just before a TLAB is retired and the buffer just after sees up
+        // to a whole TLAB vanish. Measured: the worst dip equals the TLAB size
+        // (0.062 MB at `-XX:TLABSize=65536`, 0.999 MB at 1m, none at all under
         // `-XX:-UseTLAB`), and larger still when the reader is descheduled across
         // several refills.
         //
-        // So this is below anything losim can fix by bookkeeping, and the clamp
-        // is the fix rather than a cover for one. A program cannot un-allocate,
-        // so the honest reading of a monotonic quantity measured by a racy
-        // counter is its high-water mark. Without it the series goes backwards
-        // and anyone plotting it as a counter — including the scaler, which fits
-        // a law against it — believes the trace is broken.
+        // The problem sits below anything losim can fix by bookkeeping, so the
+        // clamp is the fix. A program cannot un-allocate, so the honest reading
+        // of a monotonic quantity measured by a racy counter is its high-water
+        // mark. Without it the series goes backwards, and anyone plotting it as
+        // a counter believes the trace is broken. The scaler is one of them: it
+        // fits a law against this series.
         //
         // Only cross-thread reads are exposed. A thread reading its own counter
         // cannot be mid-refill while it asks, so every metered bracket in losim
@@ -651,7 +650,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
     /**
      * The edge of this machine.
      *
-     * <p>Its own plumbing is not its data; another machine's heap certainly is
+     * <p>Its own plumbing is not its data; another machine's heap is
      * not; gRPC's transport is shared by everyone. But the protobuf messages it is
      * holding <i>are</i> exactly its data. losim's own structures sit outside every
      * machine's boundary, which is asserted rather than assumed (D13 rule 7).
@@ -704,13 +703,12 @@ public final class Machine implements Bound, Telemetry.Sampled {
      * occasionally — it loses outright. And the <b>probe grid</b> runs thirty
      * fleets back to back in one JVM, all of them with a machine called {@code m0},
      * so the thirty-first fails to bind a name the thirtieth has not finished
-     * releasing. Both surfaced only under chaos, which is what made them worth
-     * chasing rather than retrying: more machines dying means more servers
-     * shutting down at once, so the race is wider. It was never about the killing.
+     * releasing. Both races are widest under chaos: more machines dying means more
+     * servers shutting down at once. It is the concurrent shutdowns that widen the
+     * race, not the killing itself.
      *
-     * <p>Written once and called from both, because the restart path had its own
-     * copy without the wait, and a race fixed in one of two identical places is a
-     * race that has been made rarer rather than removed.
+     * <p>Written once and called from both paths, because a race fixed in only
+     * one of two duplicated call sites is a race made rarer, not removed.
      */
     private boolean releaseName() {
         Server stopping = server;
@@ -730,8 +728,8 @@ public final class Machine implements Bound, Telemetry.Sampled {
         // The pool is interrupted *before* the server is waited on, not after.
         // shutdownNow cancels the calls but not the threads running them, and a
         // handler parked in a cost sleep goes on parking — so the transport never
-        // terminates, the wait times out, and the name stays bound. Under chaos
-        // there are always such threads, which is why it only ever surfaced there.
+        // terminates, the wait times out, and the name stays bound. Chaos runs
+        // always have such threads in flight, which is where this matters most.
         pool.shutdownNow();
         if (!releaseName())
             System.err.println("losim: " + name + " did not release its name in time");

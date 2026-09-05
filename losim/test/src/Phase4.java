@@ -8,12 +8,12 @@ import losim.trace.Telemetry;
 import losim.verify.*;
 
 /**
- * Phase 4 — trust markers.
+ * Phase 4: trust markers.
  *
  * <p>losim's numbers mean something only if the code stayed inside the simulated
  * world. Code that reads the real clock, or writes a real file, or hands its work to
  * a thread nobody owns, still runs perfectly well and produces a trace full of
- * plausible figures — and every one of them is wrong in a direction nobody can see.
+ * plausible figures, and every one of them is wrong in a direction nobody can see.
  *
  * <p>So the tests here are about two things, and the second is the harder one.
  * First, that each of those is actually found, at the line it was written on. Second,
@@ -83,9 +83,9 @@ public class Phase4 {
                 + " reference lives in a bootstrap argument, so reading the code alone makes"
                 + " Deferrer look spotless");
 
-        // The same for the channel rule: fanning out is not the finding, building your
-        // own channel is. A handler that had no way to do the first would be flagged
-        // for doing the only thing left.
+        // The same for the channel rule: fanning out is normal; the finding is
+        // building your own channel. A handler that had no way to do the first would
+        // be flagged for doing the only thing left.
         check(look("Forwarder").clean(),
               "a handler that calls a peer through Losim.current().channelTo() is not "
               + "flagged — what OWN_CHANNEL objects to is a channel with no interceptor "
@@ -143,7 +143,7 @@ public class Phase4 {
 
     /**
      * The claim D11 makes for flagging rather than refusing: generated code needs no
-     * special case. Worth testing because it is not obvious — protoc's output trips
+     * special case. Worth testing because it is not obvious: protoc's output trips
      * these rules freely, and a gate would have to argue with every one.
      */
     static void generated() {

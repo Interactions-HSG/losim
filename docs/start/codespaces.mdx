@@ -8,7 +8,7 @@ icon: "cloud"
 
 <Tabs>
   <Tab title="GitHub Codespaces">
-    From the repository page: **Code → Codespaces → Create codespace**.
+    From the repository page: **Code -> Codespaces -> Create codespace**.
 
     The container builds, `.devcontainer/setup.sh` runs, and when the terminal
     appears `build/losim.jar` already exists. Nothing else to install.
@@ -17,12 +17,12 @@ icon: "cloud"
     With Docker running and the **Dev Containers** extension installed, open the
     repository and accept **Reopen in Container**.
 
-    Same image, same setup script, same result as a Codespace — which is the
-    point, and is checked in CI rather than assumed.
+    Same image, same setup script, same result as a Codespace. That is the
+    point, and it is checked in CI rather than assumed.
   </Tab>
 </Tabs>
 
-## What the container gives you
+## The container's contents
 
 | | |
 |---|---|
@@ -44,17 +44,17 @@ There are three ways to read it and none can take out another: this port, the
 published site, and the `.mdx` files under `docs/` in the editor you are already in.
 </Note>
 
-## What `setup.sh` did
+## Inside `setup.sh`
 
 ```bash
 ./build.sh                     # the simulator -> build/losim.jar
 ```
 
 <Note>
-**Nothing is fetched.** The manual used to need Mintlify's CLI over npm; it is now
-rendered by the JDK that is already in the image. A container whose setup depends on a
-registry being up is a container that sometimes does not come up — and that stopped
-being hypothetical when the package in question began returning 404.
+**Nothing is fetched.** The manual is rendered by the JDK already in the image, not
+by a CLI pulled over npm. Setup that depends on a registry being up fails when the
+registry is not, and a manual is not a manual when it cannot be read because a
+package it needs was unpublished from under it.
 </Note>
 
 
@@ -92,18 +92,18 @@ docs-check/check.sh       # that it gives no assignment away
 
 <Note>
 Node 22 is in the image for two things only: previewing this manual, and
-**developing** the viewer. Neither losim nor watching a run needs it — the viewer's
-page is committed built, and the JDK serves it — no node and no Python.
+**developing** the viewer. Neither losim nor watching a run needs it. The viewer's
+page is committed built, and the JDK serves it, with no node and no Python.
 
 </Note>
 
-They are also VS Code tasks: **Terminal → Run Task**.
+They are also VS Code tasks: **Terminal -> Run Task**.
 
-## Why the toolchain is vendored
+## The toolchain is vendored on purpose
 
 Two runs of the same scenario on different hosts must be the *same simulator*.
 If the gRPC version could drift between a laptop and a Codespace, a byte count
-would drift with it — and a byte count that depends on where it was computed is
+would drift with it, and a byte count that depends on where it was computed is
 not a measurement.
 
 CI enforces this rather than trusting it. The reference suite runs twice, once on
@@ -117,7 +117,7 @@ are not reproducible and hosts are not identical.
 <Warning>
 **The one thing a Codespace changes is noise.** A two-core Codespace has more
 timing jitter than a laptop, and the scale engine measures that jitter rather than
-assuming it — so it may refuse to project a timeline in a Codespace that it would
+assuming it, so it may refuse to project a timeline in a Codespace that it would
 have projected on a laptop. That is the engine working. See
 [when the engine refuses](/run/when-it-refuses).
 </Warning>

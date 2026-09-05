@@ -35,7 +35,7 @@ loss.
   `[0, 1]` is refused: *"loss is a probability, from 0 to 1."*
 </ParamField>
 
-## Where latency is spent
+## Latency, paid once
 
 The whole round trip is slept **once**, in `onClose`, on the thread that delivers
 the response. For a blocking call that is the caller's own thread, which was waiting

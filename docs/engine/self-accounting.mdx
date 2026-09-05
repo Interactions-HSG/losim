@@ -50,7 +50,7 @@ public long allocatedBytes() {
     literally, everywhere.
   </Accordion>
 
-  <Accordion title="What the bracket cannot see is calibrated and charged back" icon="magnifying-glass">
+  <Accordion title="Outside the bracket: calibrated and charged back" icon="magnifying-glass">
     A bracket reads the clock and the allocation counter twice, and the **first read
     of each pair is taken before there is anything to charge it to.**
 
@@ -81,7 +81,7 @@ wait itself outside the bracket**: it is the program's own declared duration, an
 charging it to losim would subtract it straight back out of the span it exists to
 lengthen.
 
-## What can be subtracted, and what cannot
+## Only this machine's own threads can be subtracted back
 
 <Note>
 Only what landed on **this machine's own threads** can be taken back off it.
@@ -126,7 +126,6 @@ rendered, and a thousand reveals per handler), the fitted allocation exponent mo
 <Warning>
 **The extreme case is mandatory.** At one `reveal` per handler, a leak that halved an
 exponent would be undetectable. This is the thing that regresses invisibly: every
-number stays plausible and only the projection is wrong.
+number stays plausible and only the projection is wrong. The law your code is
+projected by does not depend on how much you instrumented it.
 </Warning>
-
-**The law your code is projected by does not depend on how much you instrumented it.**

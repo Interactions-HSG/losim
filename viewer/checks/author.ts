@@ -150,10 +150,9 @@ const DRAFTS: [string, Draft][] = [
       { method: 'lab.Worker.Note', attempts: 2, backoffRefMs: 0, multiplier: 1, unsafe: true },
     ],
   }],
-  // The five shapes the Edit form could not open until this session. Each is a
-  // scenario the console would run happily and then refuse to show you, which in
-  // a course whose interface *is* the console is a dead end rather than a
-  // limitation.
+  // Five shapes the Edit form has to be able to open. Each is a scenario the
+  // console would run happily and then refuse to show you, which in a course
+  // whose interface *is* the console is a dead end rather than a limitation.
   ['a pool capped below what its instance comes with', {
     ...base, name: 'capped',
     pools: [
@@ -198,9 +197,9 @@ const DRAFTS: [string, Draft][] = [
     ...base, name: 'projected', mode: 'scaled',
     workload: { records: 10_000_000, probe: [500, 1000, 2000, 4000, 8000], workers: [2, 4, 6] },
   }],
-  // The pool that blocked 59 of the repo's own scenarios: machines named apart
-  // from the pool they are in. `mappers` numbered `m0`, `m1` is how every
-  // MapReduce scenario in the gallery is written.
+  // A pool whose machines are named apart from the pool they are in, which every
+  // MapReduce scenario in the gallery depends on opening correctly: `mappers`
+  // numbered `m0`, `m1` is how every one of them is written.
   ['a pool whose machines are named apart from it', {
     ...base, name: 'prefixed',
     pools: [

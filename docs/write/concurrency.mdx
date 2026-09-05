@@ -57,7 +57,7 @@ list.parallelStream().map(this::heavyWork).toList();      // flagged — common 
 Thread.ofVirtual().start(() -> heavyWork());              // flagged
 ```
 
-None of them throw. Each produces a machine whose memory and CPU figures are quietly
+None of them throw. Each produces a machine whose memory and CPU figures are
 wrong, so the verifier names the file and line instead.
 </Warning>
 
@@ -69,7 +69,7 @@ loses its identity, and its memory and CPU are attributed to nobody.
 Wrap the machine's executor with Context.currentContextExecutor.
 ```
 
-## What to do instead
+## The alternative: more calls, more machines
 
 <Columns cols={2}>
   <Card title="Serve more calls at once" icon="arrows-split-up-and-left">
@@ -145,12 +145,12 @@ Experiments.here()
         .show();
 ```
 
-**What to look for.** Roughly four waves, not one and not eight — and `queue_wait`
+**What to look for.** Four waves rather than one or eight, and `queue_wait`
 events on the scrubber. Pin `small` in the [machine panel](/viewer/views) and watch
 `inflight` sit at 2 while `queued` climbs. Then change the instance to `c5.4xlarge`
 and run it again into `build/runs/queueing-16.json`; put the two up
 [on one clock](/viewer/views#two-runs-on-one-clock) and watch where the `queue_wait`
-markers are on each — that is the whole difference between the two runs, in the one
+markers are on each. That is the whole difference between the two runs, in the one
 place it is visible.
 
 

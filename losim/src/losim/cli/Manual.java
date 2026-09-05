@@ -21,17 +21,17 @@ import losim.trace.JsonReader;
 /**
  * The manual, rendered here rather than by a previewer that has to be fetched.
  *
- * <p>This started as a call to Mintlify's CLI, which is what the pages are
- * authored for. It is not that any more, for one reason: on the day this was
- * written {@code npx mint dev} failed for everybody, because one of its
- * transitive dependencies had gone from the registry. A student opening a
- * Codespace would have met a 404 as this course's first words — and would have
- * had no way of knowing the failure was not theirs.
+ * <p>The manual is rendered by the JDK that is already here, rather than by
+ * Mintlify's CLI, which is what the pages are authored for. Fetching a
+ * previewer at render time makes the manual only as available as somebody
+ * else's package registry, and this is the one program a student reaches for
+ * when something else has already gone wrong — the worst possible moment for
+ * it to depend on the network too.
  *
- * <p>So the manual is rendered by the JDK that is already here. That buys three
- * things worth more than perfect fidelity to the authored design: it works
- * offline, it cannot break because somebody else published something, and it
- * removes the last reason for node to be in the container at all.
+ * <p>Rendering it here instead buys three things worth more than perfect
+ * fidelity to the authored design: it works offline, it cannot break because
+ * somebody else's registry is down, and it removes the last reason for node to
+ * be in the container at all.
  *
  * <p><b>What this is not.</b> It is not an MDX implementation. It renders the
  * Markdown these pages are mostly made of, and maps the dozen components they

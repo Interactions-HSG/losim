@@ -3,20 +3,19 @@
 /**
  * The clock, in the chrome.
  *
- * It used to live under the film, which made it the film's clock: the ledger
- * could only accrue where the film was, and there was no way to ask what a run
- * had cost by the time something happened, because the only page with a cursor
- * on it was the one showing the picture.
+ * It lives above every view rather than under the film, so a cursor on the
+ * run is never confined to wherever the film happens to be open: there is
+ * always a way to ask what a run had cost by the time something happened,
+ * on whichever page is showing.
  *
- * So it is up here now, above every view, and it is sticky — a console whose
- * cost report is two screens long is a console where the cursor has to still be
- * reachable at the bottom of it.
+ * It sits up here, sticky, because a console whose cost report is two
+ * screens long is a console where the cursor has to still be reachable at
+ * the bottom of it.
  *
- * Everything on this bar was already in `Film`'s playbar and is unchanged in
- * behaviour: the scrubber is still the run's own phases with its own accidents
- * marked on it, `1x` still means the run at its natural pace with the quick
- * parts held long enough to see, and every reading anywhere in the console is at
- * the trace instant this playhead is at.
+ * Its behaviour matches `Film`'s own playbar exactly: the scrubber is the
+ * run's own phases with its own accidents marked on it, `1x` means the run at
+ * its natural pace with the quick parts held long enough to see, and every
+ * reading anywhere in the console is at the trace instant this playhead is at.
  */
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 
@@ -61,8 +60,8 @@ export function Transport({ run, clock }: { run: Run; clock: Clock }) {
   );
   const events = useMemo(() => index.events(), [index]);
 
-  // Space, the arrows and the brackets, wherever you are in the console. The
-  // film used to own these; a global clock has to answer to them everywhere.
+  // Space, the arrows and the brackets, wherever you are in the console. A
+  // global clock has to answer to them everywhere, not only where the film is open.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;

@@ -110,7 +110,7 @@ rm -rf build/.losim-plans      # force a refit
     somewhere else. A law whose exponent cannot be reproduced to better than its own
     effect size is a number with a line through it.
 
-    [In full →](/engine/refusals)
+    [In full ->](/engine/refusals)
   </Accordion>
 </AccordionGroup>
 
@@ -121,8 +121,8 @@ java -cp "$CP" losim.cli.Main bill build/scaled.json
 ```
 
 A scaled run is billed twice — for what happened, and for the job it is a model of.
-The second is where it gets interesting, because a bill is quantities times prices
-and the engine will not project every quantity:
+The second bill is quantities times prices, and the engine will not project every
+quantity:
 
 ```
   capacity    the fleet, for the period            -           CHF   refused
@@ -135,7 +135,7 @@ measures, and capacity is usually the largest line. So the honest account routin
 says: the bytes cost this much, the storage costs this much, and nobody can tell you
 what the machines cost.
 
-## When there is no feasible size
+## No feasible size
 
 ```
 thumbs-scaled.yaml  scaled mode: no feasible size
@@ -147,7 +147,7 @@ thumbs-scaled.yaml  scaled mode: no feasible size
 
 Feasibility is checked in both directions — large enough that the variable part
 dominates the fixed overhead, small enough that the whole scaled fleet fits in the
-host's heap. [What to do about it →](/run/when-it-refuses)
+host's heap. [What to do about it ->](/run/when-it-refuses)
 
 <Card title="Next: when it refuses" icon="arrow-right" href="/run/when-it-refuses">
   Every refusal, what it means, and what to change.

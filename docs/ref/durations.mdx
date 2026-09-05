@@ -23,7 +23,7 @@ crossZone:   3 refMs
 The number may have a decimal point, and whitespace before the unit is optional:
 `0.5 refMs`, `2refSeconds` and `900refMs` are all accepted.
 
-## What is refused
+## Bare durations, refused
 
 ```yaml
 at: 900        # refused
@@ -47,7 +47,7 @@ afternoon, and at `kTime: 40` those differ by a factor of forty.
 Writing `refMs` costs five characters and removes the whole class of question.
 </Note>
 
-## What "reference machine" means
+## The reference machine
 
 Two vCPUs, running alone, nothing else going on. A duration declared in refMs is a
 claim about how long something takes *there*, which stays true whatever fleet it

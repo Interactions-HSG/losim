@@ -67,8 +67,9 @@ want anyway, and each one has a specific consequence you can point at.
     Losim.current().wroteDisk(bytes);
     ```
 
-    It throws when the cap is exceeded — that is the disk model, not bookkeeping — and
-    a `disk_full` puts a red marker on the scrubber at the instant it happened.
+    It throws when the cap is exceeded, because that is the disk model rather than
+    bookkeeping, and a `disk_full` puts a red marker on the scrubber at the instant it
+    happened.
   </Step>
 
   <Step title="Put the trace where the viewer looks">

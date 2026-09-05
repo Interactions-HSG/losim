@@ -11,10 +11,10 @@ import org.junit.jupiter.api.Test;
 /**
  * What the allocation meter reports when it cannot report.
  *
- * <p>Both of these were live: a machine that lost one of its threads answered
- * "allocated nothing" for the rest of the run, and the figure a cumulative
- * series is plotted from could go backwards. Neither failed loudly, and
- * {@code allocMb} is one of the resources the scaler fits a law against.
+ * <p>A machine that has lost one of its threads must not answer "allocated
+ * nothing" for the rest of the run, and the figure a cumulative series is
+ * plotted from must never go backwards. Neither failure is loud on its own,
+ * and {@code allocMb} is one of the resources the scaler fits a law against.
  */
 class AllocMeterTest {
 
@@ -33,9 +33,10 @@ class AllocMeterTest {
         long alone = Meter.allocatedBy(new long[]{ live.threadId() });
         assertTrue(alone > 0, "a live thread has allocated something");
 
-        // The bug: this answered 0, which a caller cannot tell from a machine
-        // that genuinely allocated nothing — and which, once a boot baseline is
-        // subtracted, goes negative and clamps to zero for good.
+        // 0 here would be indistinguishable from a machine that genuinely
+        // allocated nothing, and, once a boot baseline is subtracted, would go
+        // negative and clamp to zero for good — so a set holding an unreadable
+        // thread must answer -1 instead.
         long withDead = Meter.allocatedBy(new long[]{ live.threadId(), gone.threadId() });
         assertEquals(-1, withDead,
                 "a set with an unreadable thread must say it does not know");

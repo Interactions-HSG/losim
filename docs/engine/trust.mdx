@@ -31,7 +31,7 @@ carries a caveat says so beside itself.
     Nothing was stopped: each of these is a wrong number, not a broken run.
 ```
 
-## Why flagging and not a gate
+## Flagging, not a gate
 
 <Columns cols={2}>
   <Card title="A gate would have to be right about generated code" icon="robot">
@@ -39,13 +39,13 @@ carries a caveat says so beside itself.
     statics. A hard gate would have to argue with every one of them.
   </Card>
   <Card title="A gate teaches the wrong thing" icon="lock">
-    losim is an instrument, not a cage. The useful output is not *"this code is
-    bad"* but *"this number is a lower bound"*, attached to the machine and to the
-    figure it undermines.
+    losim measures rather than restricts what your code does. The useful output is
+    *"this number is a lower bound"*, attached to the machine and to the
+    figure it undermines, not *"this code is bad."*
   </Card>
 </Columns>
 
-## What is walked
+## The walk's scope
 
 From the services each machine serves and the job that drives them, outward through
 everything they reference **that is also on the lab's classpath**.
@@ -86,7 +86,7 @@ afford.
     initialiser is read, rather than the declaration guessed at.
   </Accordion>
 
-  <Accordion title="What the call sites do not say, the declarations do" icon="file-code">
+  <Accordion title="Said by the declarations, not the call sites" icon="file-code">
     `System::nanoTime` appears in **no instruction anywhere** — only in a bootstrap
     argument. And a class that `extends Thread` starts itself through a method on
     itself.
@@ -101,7 +101,7 @@ afford.
   </Accordion>
 </AccordionGroup>
 
-## What a flag undermines
+## Each flag, and what it undermines
 
 Each rule carries a flag, and each flag names the measured resources it makes
 meaningless:
@@ -132,7 +132,7 @@ world is exactly that case. So the caveat goes next to the number, not only in a
 block at the end.
 </Note>
 
-## What is deliberately not checked
+## Left deliberately unchecked
 
 Nothing is flagged for determinism's sake. Unseeded `Random`, `Math.random` and
 identity-hash iteration order are all fine, because runs are not reproducible anyway

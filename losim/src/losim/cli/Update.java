@@ -36,7 +36,7 @@ import losim.Version;
  * breaks; they are behind in a way that is stable, which is the correct default
  * for an assignment being marked.
  *
- * <h2>Where it fetches from</h2>
+ * <h2>The fetch source</h2>
  *
  * <p>GitHub's {@code /releases/latest/download/<asset>} path, which redirects to
  * whatever the newest release published. Deliberately not the REST API: the API
@@ -46,7 +46,7 @@ import losim.Version;
  * the repository it points at has to be public. If the simulator's own
  * repository is not, point this at one that is; see {@link #DIST}.
  *
- * <h2>Why a zip and not a tar</h2>
+ * <h2>A zip, not a tar</h2>
  *
  * <p>{@code java.util.zip} is in the JDK and {@code tar} is not, and this must
  * work with nothing installed. The cost is that zip does not carry an executable

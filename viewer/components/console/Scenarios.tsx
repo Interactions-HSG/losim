@@ -8,9 +8,9 @@
  * the half that has only ever been reachable by copying somebody else's YAML and
  * editing it until it stopped complaining.
  *
- * Three things are read off the lab rather than written down here, and each of
- * them used to be a thing you had to already know: the **classes** (from the
- * compiled bytecode, so a service that does not exist cannot be placed), the
+ * Three things are read off the lab rather than written down here, so you do
+ * not have to already know them: the **classes** (from the compiled
+ * bytecode, so a service that does not exist cannot be placed), the
  * **instance types** and the **regions** (losim's own catalogues, so a zone
  * cannot be misspelled into being its own region).
  *

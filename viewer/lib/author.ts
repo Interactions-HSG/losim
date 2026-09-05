@@ -36,9 +36,9 @@ export interface Pool {
   /**
    * A memory cap, or `null` for whatever the instance type says.
    *
-   * Three states, not two: `null` inherits, a number overrides, and 0 would be a
-   * machine that cannot hold anything — which is a legal scenario and a
-   * different one, so the form must be able to write it and must not write it by
+   * Three states, not two: `null` inherits, a number overrides, and 0 means a
+   * machine that cannot hold anything. That is a legal scenario and a different
+   * one, so the form must be able to write it and must not write it by
    * accident.
    */
   memoryMb: number | null;
@@ -51,10 +51,10 @@ export interface Pool {
 /**
  * One machine in a pool, set apart from the rest.
  *
- * Empty and null both mean "whatever the pool says", because that is what a key
- * the file leaves out means. A pool of eight where one is half the size is the
- * cheapest way to build a straggler; a pool where one has a smaller disk is how
- * a scenario shows a machine filling up while its neighbours do not.
+ * An empty string or a null number falls back to the pool's own value, because
+ * that is what a key the file leaves out means. A pool of eight where one is
+ * half the size is the cheapest way to build a straggler; a pool where one has
+ * a smaller disk shows a machine filling up while its neighbours do not.
  */
 export interface Override {
   /** The machine's own name — `w2`, not `workers`. */
@@ -94,7 +94,7 @@ export interface Fault {
    *
    * Reachability is a property of a *pair*: both machines stay alive, stay in
    * the registry and keep serving everybody else, and one caller sees nothing.
-   * No other fault can make that point, which is why this field exists at all.
+   * No other fault can make that point.
    */
   other: string;
   /** How long a freeze holds. A degrade has no end — see `toYaml`. */
@@ -110,9 +110,9 @@ export interface Fault {
 /**
  * How much work there is at full scale, and the grid the engine probes with.
  *
- * `null` on a draft means no `workload:` key at all — which is not the same
- * scenario as one declaring a single record, and `mode: scaled` needs one to
- * scale down from.
+ * `null` on a draft means no `workload:` key at all. That is a different
+ * scenario from one declaring a single record, and `mode: scaled` needs a
+ * workload to scale down from.
  */
 export interface Workload {
   /** The size the design is meant to handle. At least 1. */
@@ -163,10 +163,9 @@ export interface RetryRule {
   /**
    * What the wait is multiplied by after each attempt. 1 is flat.
    *
-   * Above 1 is exponential backoff, which is the difference between a fleet that
-   * eases off a struggling machine and one that keeps asking at a fixed rate —
-   * and a fixed rate is how a retry policy turns one slow machine into an
-   * outage.
+   * Above 1 gives exponential backoff: each retry eases off a struggling
+   * machine instead of asking it again at the same fixed rate. A fixed rate
+   * turns one slow machine into an outage for the whole fleet.
    */
   multiplier: number;
   /** Retrying something the `.proto` did not declare idempotent, on purpose. */
@@ -370,8 +369,8 @@ export function toYaml(draft: Draft): string {
       L.push(`    prefix: ${q(p.prefix)}`);
     }
     if (p.runs.length) L.push(`    runs: [${p.runs.join(', ')}]`);
-    // Null is not zero. A cap the pool never set is the instance type's own, and
-    // writing `memoryMb: 0` for it would be a machine that cannot hold anything.
+    // A cap the pool never set is the instance type's own. Writing `memoryMb: 0`
+    // for it would instead be a machine that cannot hold anything.
     if (p.memoryMb !== null) L.push(`    memoryMb: ${p.memoryMb}`);
     if (p.diskMb !== null) L.push(`    diskMb: ${p.diskMb}`);
     if (p.overrides.length) {

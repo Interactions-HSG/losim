@@ -7,10 +7,10 @@
 # not start. Nothing a lab does — no compile, no fork, no classpath — can reach
 # this process.
 #
-# It used to be Mintlify's CLI over npm. That is gone: the package 404s on the
-# public registry, and a manual that cannot be read because somebody unpublished
-# a dependency is not a manual. The published Mintlify site stays authoritative
-# for design; this renders the same MDX beside the work, with no node at all.
+# Not Mintlify's CLI over npm: the package 404s on the public registry, and a
+# manual that cannot be read because somebody unpublished a dependency is not a
+# manual. The published Mintlify site stays authoritative for design; this
+# renders the same MDX beside the work, with no node at all.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

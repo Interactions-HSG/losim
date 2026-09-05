@@ -44,8 +44,9 @@ import losim.trace.Telemetry;
  * and the rest is JIT on their own generated classes, which cannot be warmed
  * without calling their handler — and calling a student's handler with a
  * fabricated request, before their job has started, is not something losim may
- * do. Serializing their messages without calling anything was tried and is worth
- * 2 ms and no improvement, so it is not done.
+ * do. Serializing their messages without calling anything is not done either:
+ * on its own it is worth only 2 ms, not enough to justify touching their
+ * messages before the job starts.
  */
 final class Warm {
 
@@ -117,15 +118,14 @@ final class Warm {
                 // A fresh channel per round, and each one shut down before the
                 // next. Fresh because building a channel is a large part of what
                 // is expensive about a first call, and five calls down one
-                // channel warm that path once — the ROUNDS figure above was
-                // measured with five of them, and reusing one quietly made the
-                // warm-up weaker than the number it is documented with.
+                // channel would warm that path only once: reusing one channel
+                // weakens the warm-up below the ROUNDS figure documented above.
                 //
                 // Shut down because `channelTo` is uncached: the machine never
-                // learns about these, so `Machine.shutdown()` never closes them,
-                // and five in-process transports were being left alive for the
-                // life of the JVM by the one method here whose whole job is to
-                // cost nothing.
+                // learns about these, so `Machine.shutdown()` never closes them.
+                // Left open, five in-process transports would stay alive for the
+                // life of the JVM — from the one method here whose whole job is
+                // to cost nothing.
                 ManagedChannel warm = caller.channelTo("losim-warm-b");
                 try {
                     ClientCalls.blockingUnaryCall(warm, TOUCH,

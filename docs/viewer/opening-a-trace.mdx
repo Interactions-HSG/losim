@@ -31,13 +31,6 @@ is how you get exactly two runs side by side.
 <Warning>
 **Nothing in this manual assumes a trace you did not make.** Every page that shows a
 picture also shows the run behind it. If your picker is empty, that is not a broken
-install — it means you have not run anything yet.
-</Warning>
-
-
-<Warning>
-**Nothing in this manual assumes a trace you did not make.** Every page that shows a
-picture also shows the run behind it. If your picker is empty, that is not a broken
 install — it means `build/runs` is empty, and the fix is to run something.
 </Warning>
 
@@ -47,7 +40,7 @@ Drag any `.json` anywhere onto the window. It opens the same way — it is a **r
 losim trace**, exactly as `losim run` wrote it, with nothing baked in between. A trace
 a classmate sends you works; so does one from a run that failed.
 
-## What the server does
+## The server's job
 
 It serves three things on one port: the viewer as static files, the runs under
 `build/runs`, and the list of systems with a way to run each. Written in Java and
@@ -67,7 +60,7 @@ the picker.
 ## The money, when it is there
 
 A bill is written beside each trace as `<name>.bill.json`, from `losim bill --json`,
-at the moment the run is made. The viewer loads it **by convention** — `foo.json` →
+at the moment the run is made. The viewer loads it **by convention** — `foo.json` ->
 `foo.bill.json` — and uses it for the [Ledger](/viewer/views#the-ledger).
 
 
@@ -99,9 +92,9 @@ http://localhost:8000/?run=mine&vs=mine-fixed&t=2400
 ```
 
 
-[Every parameter →](/viewer/views#driving-it)
+[Every parameter ->](/viewer/views#driving-it)
 
-## What a run leaves behind
+## The files a run leaves
 
 | | |
 |---|---|

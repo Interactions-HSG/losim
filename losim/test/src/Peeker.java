@@ -4,7 +4,7 @@ import losim.t.Chunk;
 import losim.t.Counts;
 
 /**
- * A worker that times itself — with the wrong clock.
+ * A worker that times itself, with the wrong clock.
  *
  * <p>It looks careful and it is wrong. Every duration losim knows is reference-machine
  * time divided by {@code k_time}; {@code System.nanoTime} is the host's afternoon, and

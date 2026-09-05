@@ -2,7 +2,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Comparator;
 import losim.cli.Lab;
 import losim.cli.Palette;
 import org.junit.jupiter.api.AfterAll;

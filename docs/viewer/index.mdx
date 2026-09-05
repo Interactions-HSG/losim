@@ -35,15 +35,15 @@ each page that shows you a picture also shows you the run that produced it.
 served by the JDK that is already there, so it is the same in the devcontainer, on a
 laptop and in a Codespace, with no setup step and no first-run download.
 
-`npm` belongs to whoever *changes* the viewer. [Developing it →](/viewer/developing)
+`npm` belongs to whoever *changes* the viewer. [Developing it ->](/viewer/developing)
 </Note>
 
 
-## What is on the screen
+## On screen
 
 The cards below are the *drawings*. Two of them — Spans and Topology — are positions on
 the Film page's own switcher rather than pages in the rail, and the ledger is both a
-panel over the film and the whole Cost page. [Which is where →](/viewer/views)
+panel over the film and the whole Cost page. [Which is where ->](/viewer/views)
 
 <Columns cols={2}>
   <Card title="The film" icon="film">
@@ -77,7 +77,7 @@ panel over the film and the whole Cost page. [Which is where →](/viewer/views)
   </Card>
 </Columns>
 
-[What each one shows, in detail →](/viewer/views)
+[What each one shows, in detail ->](/viewer/views)
 
 ## The clock is in reference milliseconds
 
@@ -96,7 +96,7 @@ ones.
 
 The clock therefore **slows down wherever something quick is happening**, so that
 every leg of every message and every stretch of work is on screen for at least a
-second. The **hold** button cycles `1s → 0.5s → 0.25s → off`.
+second. The **hold** button cycles `1s -> 0.5s -> 0.25s -> off`.
 </Warning>
 
 Nothing but the pace changes, and that is what makes it honest rather than a
@@ -157,15 +157,15 @@ that already exists, and runs it — pressing ▶ moves you straight to Runs, wh
 the trace lands when it is ready. **Overview**, **Film**, **Usage** and **Cost**
 all read a single trace, and all four share one clock, so dragging the bar moves
 every one of them to the same instant. **Spans** and **Topology** are sub-views
-inside Film. [What each one shows →](/viewer/views)
+inside Film. [What each one shows ->](/viewer/views)
 
 Two runs can also be watched **side by side on one clock**: pick a second from
 `compare with…` and both films run against the same instant, with a line underneath
 saying which is ahead on money and by how much.
-[How that works →](/viewer/views#two-runs-on-one-clock)
+[How that works ->](/viewer/views#two-runs-on-one-clock)
 
 
-## Why it is a film after all
+## A film, not a video
 
 An earlier Python prototype rendered a run as a **video file**, and it was measured
 and dropped: a rendered video cannot be hovered, scrubbed or interrogated, and all the
@@ -177,7 +177,7 @@ element is a pure function of the frame it is given — no state, no imperative 
 
 Four of its modules survive as the **reference the port is checked against** — glyph
 path by glyph path, layout by layout. The renderer that produced the video is not one
-of them. [How that is checked →](/viewer/developing)
+of them. [How that is checked ->](/viewer/developing)
 
 <Note>
 So the MP4 the recorder produces is literally the film you watched. And because the
@@ -186,7 +186,7 @@ produces a byte-for-byte identically-timed file to a fast one; it just takes lon
 make.
 </Note>
 
-## What it is built out of
+## The stack
 
 | | |
 |---|---|
@@ -194,8 +194,8 @@ make.
 | **d3 7** | scales, timers, geometry |
 | **mediabunny** | MP4 export through WebCodecs |
 
-Considered and rejected: elkjs, Radix, framer-motion, react-virtual. A viewer with
-fifteen dependencies is a viewer that stops building in two years. Nothing is fetched
+Considered and rejected: elkjs, Radix, framer-motion, react-virtual. Fifteen
+dependencies would mean a viewer that stops building in two years. Nothing is fetched
 at runtime, so nothing depends on the network being there.
 
 <CardGroup cols={2}>

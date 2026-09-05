@@ -186,8 +186,8 @@ public enum Rule {
      * One machine, reaching into another.
      *
      * <p>The sharpest form of the above, and worth saying separately because it is
-     * not a measurement problem but a modelling one: gRPC is the only way machines
-     * talk, and there is no second path. A static handle on another machine's
+     * a modelling problem rather than a measurement one: gRPC is the only way
+     * machines talk, and there is no second path. A static handle on another machine's
      * service is a call that crosses no network, waits out no latency, survives a
      * partition, and keeps working after the machine at the other end is killed.
      */

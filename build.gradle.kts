@@ -6,22 +6,22 @@
 // a package manager resolved, and a Gradle build that fetched grpc from the
 // network would make it depend on exactly that.
 //
-// So this file compiles against the *vendored* jars — the identical files in
-// vendor/jars that build.sh puts on its classpath — and never resolves a compile
+// So this file compiles against the *vendored* jars, the identical files in
+// vendor/jars that build.sh puts on its classpath, and never resolves a compile
 // dependency. What it adds is the one thing a directory of jars cannot have: a
 // coordinate and a version, so that anything outside a lab can depend on losim
 // the ordinary way.
 //
 // **What is and is not claimed about the two jars.** That sentence is about the
-// build's *inputs*. It was once written in a way that read as a claim about the
-// output, and a careful reader took it that way and checked — finding that the
-// two jars were not byte-identical, because this build shipped the price lists
-// as resources and build.sh did not. Both now ship them, and the same manifest,
-// so the two agree on all 144 entries and every one of the 132 classes. They
-// still are not byte-identical and are not meant to be: zip ordering and
-// timestamps differ. What is guaranteed is the thing that matters — the same
-// sources, compiled against the same jars, carrying the same resources, so no
-// program can tell which build made the jar it was handed.
+// build's *inputs*, not its output: compiling the same sources against the same
+// jars does not by itself make the resulting jars byte-identical, so do not read
+// it as a guarantee that it does. Both this build and build.sh ship the price
+// lists as resources, under the same manifest, so the two jars agree on all 144
+// entries and every one of the 132 classes. They are not byte-identical and are
+// not meant to be: zip ordering and timestamps differ. What is guaranteed is the
+// thing that matters: the same sources, compiled against the same jars, carrying
+// the same resources, so no program can tell which build made the jar it was
+// handed.
 //
 // If you add a resource to one, add it to the other. A jar whose behaviour
 // depends on who compiled it is how a billing difference goes unnoticed for a
@@ -51,7 +51,7 @@ description = "A simulator for decentralized systems: real gRPC handlers, simula
 // The vendored toolchain, which is the only classpath this compiles against.
 val vendored = files(fileTree("vendor/jars") { include("*.jar") })
 
-// Declared so that nothing here can fail for want of a repository — POM
+// Declared so that nothing here can fail for want of a repository: POM
 // generation does not resolve anything, but a build that *cannot* resolve is a
 // build that breaks in a confusing way the first time something asks it to.
 // Note what is not affected: the classpath below, which is vendor/jars alone.
@@ -70,7 +70,7 @@ sourceSets {
 }
 
 // The version, as a resource, exactly as build.sh writes it. Same file, same
-// path inside the jar — a jar from either build answers Version.get() the same.
+// path inside the jar, so a jar from either build answers Version.get() the same.
 val stampVersion by tasks.registering {
     val out = layout.buildDirectory.file("version-resource/losim/version")
     inputs.file("VERSION")
@@ -107,7 +107,7 @@ tasks.named<Jar>("jar") {
 }
 
 // What a consumer needs, at the versions vendor/jars holds. Declared for the POM
-// only — see the header, and the parity check below.
+// only: see the header, and the parity check below.
 val grpcVersion = "1.83.1"
 val protobufVersion = "4.36.0"
 val gsonVersion = "2.14.0"
@@ -165,10 +165,10 @@ publishing {
         // The one students resolve from, and the reason it is a directory.
         //
         // GitHub Packages' Maven registry requires a personal access token to
-        // *read*, and — unlike the Container registry — that is true whether the
+        // *read*, and, unlike the Container registry, that is true whether the
         // package is public or private. A hundred first-years each making a
-        // classic PAT before they have written a line contradicts the promise
-        // this course makes in as many words ("nothing to install, nothing to
+        // personal access token before they have written a line contradicts the
+        // promise this course makes in as many words ("nothing to install, nothing to
         // configure"), so that registry cannot be the student-facing transport
         // however public the repository is made.
         //
@@ -189,7 +189,7 @@ publishing {
         }
 
         // Secondary, for maintainers who do have tokens. Never the path a
-        // student's build takes — see above.
+        // student's build takes; see above.
         maven {
             name = "GitHubPackages"
             url = uri(
@@ -209,7 +209,7 @@ publishing {
 
 // The POM above lists versions; vendor/jars *is* the version. A release whose
 // POM promises grpc 1.83.1 while the jar was compiled against 1.84 would be
-// wrong in a way nobody would notice until a student's stub failed to link — so
+// wrong in a way nobody would notice until a student's stub failed to link. So
 // the two are compared, and disagreeing stops the build.
 val checkVendoredVersions by tasks.registering {
     val jars = vendored.files.map { it.name }.sorted()

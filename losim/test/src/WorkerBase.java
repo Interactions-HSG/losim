@@ -6,7 +6,7 @@ import losim.t.Counts;
 import losim.t.WorkerGrpc;
 
 /**
- * The shape a student writes — and the reason it exists.
+ * The shape a student writes, and the reason it exists.
  *
  * grpc-java generates {@code void map(Chunk, StreamObserver<Counts>)}; the
  * value-returning form is client-side only. Twelve lines of adapter turn it into

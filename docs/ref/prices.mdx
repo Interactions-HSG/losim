@@ -76,9 +76,9 @@ free:
 | link | rate | when |
 |---|---|---|
 | same zone | **free** | both machines in `eu-central-1a` |
-| same region | `egress_per_gb` | `eu-central-1a` → `eu-central-1b` |
-| same continent | `egress_cross_region_per_gb` | `eu-central-1a` → `eu-west-1a` |
-| across an ocean | `egress_intercontinental_per_gb` | `eu-central-1a` → `ap-northeast-1a` |
+| same region | `egress_per_gb` | `eu-central-1a` -> `eu-central-1b` |
+| same continent | `egress_cross_region_per_gb` | `eu-central-1a` -> `eu-west-1a` |
+| across an ocean | `egress_intercontinental_per_gb` | `eu-central-1a` -> `ap-northeast-1a` |
 
 A machine's `zone` decides which, and the **region is read off the zone name** —
 `eu-central-1a` is in `eu-central-1`, `switzerlandnorth-1` is in `switzerlandnorth`.
@@ -166,7 +166,7 @@ this release happens to carry.
   simply went away.
 </ParamField>
 
-## Why prices are not in the simulator
+## Kept outside the simulator
 
 <Note>
 So a price list can be updated, or **deliberately distorted for an exercise**,

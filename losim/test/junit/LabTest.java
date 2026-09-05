@@ -107,8 +107,8 @@ class LabTest {
     void ordersRunsTheSameWay() {
         // `Serve`'s run index sorts by this same comparator. A run is named after
         // the scenario it came from, so a tour numbered to be read in order has
-        // to come out in that order on the Runs page too — it did not, and the
-        // sixteen-stop tour listed 1, 10, 11, … 2, 3.
+        // to come out in that order on the Runs page too — a plain string sort
+        // would instead list a sixteen-stop tour as 1, 10, 11, … 2, 3.
         var files = new java.util.ArrayList<>(java.util.List.of(
                 Path.of("10-two-halves.json"), Path.of("2-three-machines.json"),
                 Path.of("1-two-machines.json"), Path.of("16-thirty-runs.json"),
@@ -162,9 +162,9 @@ class LabTest {
         Path trace = lab.trace("main.yaml");
         assertTrue(Files.exists(trace), log::toString);
 
-        // The bug this repeats: `bill()` used to merge stdout and stderr, so "no
-        // price list, using the defaults" landed inside the JSON and nothing
-        // could read it. This is the JSON parsing, not just existing.
+        // `bill()` keeps stdout and stderr apart, so "no price list, using the
+        // defaults" — printed to stderr — can never land inside the JSON. This
+        // checks the JSON actually parses, not just that the file exists.
         Path bill = trace.resolveSibling("main.bill.json");
         assertTrue(Files.exists(bill));
         String text = Files.readString(bill).strip();

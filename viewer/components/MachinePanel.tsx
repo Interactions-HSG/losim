@@ -86,7 +86,7 @@ export function MachinePanel({ trace, m, t, money, pinned, onPin, onClose }: Mac
       </header>
 
       <section>
-        <h2>what it offers</h2>
+        <h2>services offered</h2>
         <div className="chips">
           {m.serves.length ? (
             m.serves.map((s) => (
@@ -101,7 +101,7 @@ export function MachinePanel({ trace, m, t, money, pinned, onPin, onClose }: Mac
       </section>
 
       <section>
-        <h2>what is left</h2>
+        <h2>capacity remaining</h2>
         <Gauge
           name="memory"
           free={m.freeMb}
@@ -127,7 +127,7 @@ export function MachinePanel({ trace, m, t, money, pinned, onPin, onClose }: Mac
       </section>
 
       <section>
-        <h2>what it is doing</h2>
+        <h2>current activity</h2>
         {m.work.length === 0 ? (
           <p className="muted" style={{ margin: 0 }}>
             idle
@@ -185,7 +185,7 @@ export function MachinePanel({ trace, m, t, money, pinned, onPin, onClose }: Mac
 
       {money?.focus && money.focus.name === m.name && (
         <section>
-          <h2>what it has cost</h2>
+          <h2>cost</h2>
           <div className="cost">
             <div>
               <span className="muted">so far</span>
@@ -222,7 +222,7 @@ export function MachinePanel({ trace, m, t, money, pinned, onPin, onClose }: Mac
       )}
 
       <section>
-        <h2>what happened to it</h2>
+        <h2>events</h2>
         {mine.length === 0 ? (
           <p className="muted" style={{ margin: 0 }}>
             nothing — it ran to the end untouched

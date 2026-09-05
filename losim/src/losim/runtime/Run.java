@@ -89,25 +89,23 @@ public final class Run {
     /**
      * Calibrates the clock, and says what it found rather than refusing on it.
      *
-     * <p>This used to refuse a run on two grounds: a calibration that was too
-     * erratic to believe, and one whose level was too high to be a real timer.
-     * Both were real observations — a starved host measured 1.74 to 2.19 where
-     * an idle one measures 1.28, and an x86_64 container under Rosetta measures
-     * 6.58 — and both were the wrong thing to do about them.
+     * <p>A calibration can be erratic — a starved host measured 1.74 to 2.19
+     * where an idle one measures 1.28, and an x86_64 container under Rosetta
+     * measures 6.58 — and its level can sit too high to be a real timer. Neither
+     * is grounds to refuse the run.
      *
-     * <p>What made them wrong was fixing {@link Clock#spend}. A cost is now
-     * parked repeatedly until it is actually paid, so the correction decides how
-     * many parks a cost takes and no longer decides how much time it gets.
-     * Measured across corrections from 1.0 to 20.0, and on a host starved of
-     * every core, five 200 refMs costs take 1000 ms either way. A refusal on
-     * those grounds would now stop runs that would have been right — an
+     * <p>{@link Clock#spend} parks a cost repeatedly until it is actually paid,
+     * so the correction decides how many parks a cost takes, not how much time
+     * it gets. Measured across corrections from 1.0 to 20.0, and on a host
+     * starved of every core, five 200 refMs costs take 1000 ms either way. A
+     * refusal on calibration grounds would stop runs that are right — an
      * instructor's Mac, a 2-core runner, a laptop with a build going — to
      * prevent nothing.
      *
-     * <p>So the figures are written into the trace instead, beside
+     * <p>The figures are written into the trace instead, beside
      * {@code unpaidCosts}, which is the direct measure: how many declared costs
      * ran out of parks with time still owed. That is the thing worth refusing
-     * on, and it is a fact about the run rather than a prediction made before it.
+     * on: a fact about the run rather than a prediction made before it.
      */
     private static Clock.Calibration calibrate() {
         Clock.Calibration c = Clock.calibrate();

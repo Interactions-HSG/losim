@@ -10,14 +10,13 @@ import losim.trace.Values;
  * <p>This design deliberately has no system-level debugger — no stepper, no
  * break-on-invariant, no time travel — because runs are not reproducible and a
  * stepper that stops the clock is lying about a distributed system anyway. What
- * replaces it is this trace, which makes the trace load-bearing rather than
+ * replaces it is this trace, which makes the trace necessary rather than
  * decorative.
  *
  * <p>So the standard is explicit: <i>if the telemetry cannot answer a question a
- * debugger would have answered, that is a bug in the telemetry.</i> Measured
- * against a plain change log, one and a half of the first five were answerable —
- * because a change log is silent exactly when a system is stuck, which is exactly
- * when you want to look at it.
+ * debugger would have answered, that is a bug in the telemetry.</i> A plain
+ * change log answers few of the questions below, because a change log is silent
+ * exactly when a system is stuck, which is exactly when you want to look at it.
  */
 public class Debugger {
 

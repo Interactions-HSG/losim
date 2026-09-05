@@ -7,7 +7,7 @@ import losim.scenario.Yaml;
 import losim.trace.Telemetry;
 
 /**
- * Phase 3 — the scaler engine, which is what losim is for.
+ * Phase 3: the scaler engine, which is what losim is for.
  *
  * <p>Everything before this could be described as a small simulator. This is the
  * part that claims something harder: that a run of eight thousand records can say
@@ -278,8 +278,8 @@ public class Phase3 {
 
         // This is the one test whose subject is the cache, so it is the one test that
         // cannot inherit an empty one from whoever ran it. check.sh clears build/ on
-        // the way in; running this class on its own — which is what you do while you
-        // are working on it — does not, and then the *first* fit is a cache hit and
+        // the way in; running this class on its own (which is what you do while you
+        // are working on it) does not, and then the *first* fit is a cache hit and
         // the assertion below reads as a broken simulator instead of a warm disk.
         clearPlanCache();
 

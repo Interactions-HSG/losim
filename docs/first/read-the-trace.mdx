@@ -53,10 +53,10 @@ viewer reads it, and your own assertions should read it too.
 }
 ```
 
-## Why three telemetry channels and not one
+## Three channels, not one
 
-A change log — one record per state change — is **silent exactly when a system is
-stuck**, which is exactly when you want to look at it. Measured against the
+A change log, one record per state change, is **silent exactly when a system is
+stuck**, which is when you most want to look at it. Measured against the
 questions a debugger answers, one channel answered one and a half out of five.
 
 <Columns cols={3}>
@@ -132,7 +132,7 @@ The real count is *kept plus marker*, never the surviving length. A `Batch` of 2
 frames renders as 12 frames and a marker — do not read that as 12.
 </Warning>
 
-## What `machines` gives you that events do not
+## `machines` says what events do not
 
 The `machines` array is the run's **closing balance**, not a moment: peak retained
 memory, total disk, bytes out and in, cross-zone bytes, calls handled, and the
@@ -162,7 +162,7 @@ java -cp "$CP" losim.cli.Main run thumbs.yaml \
 
 Did the work overlap, did every machine get work, did anything queue or fill up — the
 film answers all three at a glance, and the scrubber puts a marker on every moment
-something went wrong. [The viewer →](/viewer/index)
+something went wrong. [The viewer ->](/viewer/index)
 
 <Card title="Next: break it" icon="arrow-right" href="/first/break-it">
   Kill a machine mid-run and watch how the coordinator finds out.

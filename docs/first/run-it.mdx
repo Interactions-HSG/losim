@@ -51,7 +51,7 @@ screenshot. Stop it with the stop button in your editor.
 want the files. `runAll()` runs every scenario in the project, one after another.
 </Tip>
 
-## What it is doing on your behalf
+## Work done on your behalf
 
 Nothing here is hidden, and none of it is yours to type. Per system: `protoc` with the
 vendored plugin, then `javac` against `lib/losim.jar` and the vendored gRPC, then the
@@ -79,7 +79,7 @@ nothing was read."*
 </Accordion>
 
 
-## What comes out
+## The output
 
 ```
 thumbs.yaml  seed 7  completed in 2416 refMs
@@ -106,7 +106,7 @@ thumbs.yaml  seed 7  did not complete in 6104 refMs
 <ParamField path="--seed <n>" type="long">
   Overrides the scenario's seed, for one run. A **sweep** is not twenty of these —
   it is a loop in Java over `scenario.withSeed(n)`, which never touches the disk.
-  [Sweeps →](/run/sweeps)
+  [Sweeps ->](/run/sweeps)
 
 </ParamField>
 
@@ -118,7 +118,7 @@ thumbs.yaml  seed 7  did not complete in 6104 refMs
 
   Recording runs on the machines' own threads, so what it costs lands on the
   counters being read — which makes "how much" a measurable question rather than
-  a matter of taste. [What losim charges itself →](/engine/self-accounting)
+  a matter of taste. [What losim charges itself ->](/engine/self-accounting)
 </ParamField>
 
 ## Exit codes

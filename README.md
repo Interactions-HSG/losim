@@ -36,7 +36,7 @@ vendored, so the same commands produce the same result on a laptop, in the
 devcontainer and in a Codespace — otherwise a number would depend on where it was
 computed, which is the one thing a simulator cannot afford.
 
-## What a service looks like
+## A service
 
 An ordinary gRPC service, from an ordinary `.proto`, with one losim annotation.
 Twelve lines of adapter turn grpc-java's `void map(Chunk, StreamObserver<Counts>)`
@@ -85,7 +85,7 @@ faults and the retry policy live, and why a channel built by hand is flagged: th
 call would happen at full speed, survive a partition, and leave nothing in the
 trace to say it happened.
 
-## What a scenario looks like
+## A scenario
 
 The fleet, its weather and its bad afternoon are data. Nothing here is computed;
 anything that needs code points at a class, so two designs can be compared by
@@ -231,7 +231,7 @@ iteration order are fine, because runs are not reproducible anyway. Raw threads 
 not banned either: real concurrency inside a machine is a feature. Work outside the
 machine's own pool is merely attributed to nobody, and that is what gets said.
 
-## What it cost
+## The cost
 
 Five buckets, printed apart rather than summed, because they are five different kinds
 of decision. Replication triples capacity and adds to build in order to empty
@@ -297,7 +297,7 @@ happened, what each carried, which machines existed, and what each resource was 
 to be a function of. What is allowed to differ is the measurements, and those are
 printed rather than judged.
 
-## What it does today
+## Status
 
 Phases 1 through 5 are in: the fleet, direct mode, the scaler engine, the trust
 markers and the reference suite. One in-process server per machine, one executor per
@@ -375,5 +375,3 @@ It lives outside [docs/](docs/) deliberately. A non-page file under a Mintlify d
 directory is served as a static asset, and this check's fixtures contain worked
 assignment prose on purpose — so "not in the navigation" would not have been the same
 as "not fetchable". `docs/` holds only what is meant to be published.
-
-- [notes/SPIKES.md](notes/SPIKES.md) — what Phase 0 measured, and where each result now lives

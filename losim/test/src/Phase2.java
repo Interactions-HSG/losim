@@ -9,7 +9,7 @@ import losim.t.*;
 import losim.trace.Telemetry;
 
 /**
- * Phase 2 — direct mode: everything a scenario declares, and everything it is
+ * Phase 2, direct mode: everything a scenario declares, and everything it is
  * refused for declaring.
  *
  * <p>Two halves. The first is that a scenario error reads like a compiler error,
@@ -55,11 +55,11 @@ public class Phase2 {
      * A handler that calls another machine, which is what a coordinator is.
      *
      * <p>Machines are found by what they serve and called over a channel losim made,
-     * so the call is a real one — latency, bytes, a span beneath the handler that
+     * so the call is a real one: latency, bytes, a span beneath the handler that
      * made it, and whatever the scenario is doing to the machine at the other end.
-     * Before this a handler could ask who its peers were and had no way to reach
-     * them, so the only way to fan out was a channel of its own, which is exactly
-     * what the verifier flags.
+     * A handler can ask who its peers are, but reaching them needs exactly this:
+     * without a channel losim made, the only way to fan out would be a channel of
+     * its own, which is exactly what the verifier flags.
      */
     static void forwarding() throws Exception {
         System.out.println("=== a handler calling another machine ===");
@@ -84,7 +84,7 @@ public class Phase2 {
         check(outer.isPresent() && inner.isPresent(),
               "both handlers ran, one on each machine (" + handlers.size() + " spans)");
         // Not directly: between the two handlers is the client span of the call that
-        // carried one to the other. Walking it is the point — that is the distributed
+        // carried one to the other. Walking it is the point: that is the distributed
         // call stack, and it has to survive a hop a handler made rather than the job.
         var byId = new java.util.HashMap<Long, Telemetry.Span>();
         for (var sp : tel.spans()) byId.put(sp.id, sp);

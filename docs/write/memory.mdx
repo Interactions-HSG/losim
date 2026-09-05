@@ -43,7 +43,7 @@ it had already exceeded — the one direction an out-of-memory must never be wro
 in.
 </Note>
 
-## Where the boundary of a machine is
+## The boundary of a machine
 
 The walk starts from the machine's own service instances — whatever your
 `BindableService` objects hold in their fields — and stops at anything that is not
@@ -67,7 +67,7 @@ Losim.current();                      // …no. There is no API for this from a 
 ```
 
 it has to be reachable from a service instance. Put it in a field. A cache in a
-static field is not this machine's — it is *everyone's*, which is a different
+static field is not this machine's; it is *everyone's*, which is a different
 problem and is [flagged](/engine/trust).
 
 ## Making a design fill up on purpose
@@ -92,10 +92,10 @@ one machine is smaller than the others — and whether the rest of the fleet not
 In **scaled mode** you do not write caps at all. The engine solves for them, per
 machine and per resource, so that demand-over-capacity is preserved: a design that
 would exhaust a 16 GiB machine at full scale exhausts its scaled-down counterpart
-here, for the same reason. [How caps are solved →](/engine/solving-caps)
+here, for the same reason. [How caps are solved ->](/engine/solving-caps)
 </Tip>
 
-## What the series shows
+## The series, per tick
 
 Per machine, per tick:
 
@@ -111,29 +111,27 @@ eighth tick rather than every tick. `retainMb` therefore steps rather than glide
 that is the cadence, not your program.
 
 <Note>
-**`allocMb` is a corrected figure, and it only ever rises.** What the meter reads is
-the machine's own threads, losim's bookkeeping included; what the series carries is
-that total with the bookkeeping subtracted, so a machine is not billed for being
-watched.
+**`allocMb` only ever rises.** What the meter reads is the machine's own threads,
+losim's bookkeeping included; the series has that bookkeeping subtracted out, so a
+machine is not billed for being watched.
 
-The raw counter underneath it is not monotonic. `getThreadAllocatedBytes`, asked
-about *another* thread, adds up that thread's retired total and the used part of the
-buffer it is currently allocating out of, and it does not read the two together — so
+The raw counter underneath it is not monotonic. Asked about *another* thread,
+`getThreadAllocatedBytes` adds up that thread's retired total and the used part of
+the buffer it is currently allocating out of, without reading the two together, so
 a sampler that catches a thread swapping buffers sees up to a whole buffer's worth
-disappear. It is measurable: the size of the largest fall is exactly the TLAB size,
-and setting `-XX:-UseTLAB` removes it entirely. A program cannot un-allocate, so this
-is the instrument slipping, not memory coming back. The series therefore reports the
-high-water mark — a counter that goes backwards reads as a broken trace, and this one
-is fitted against by the scale engine.
+disappear. The size of the largest fall matches the TLAB size exactly, and setting
+`-XX:-UseTLAB` removes it entirely. A program's own memory only grows, so the fall
+is the instrument slipping, and the series reports the high-water mark instead: a
+counter that goes backwards would read as a broken trace, and the scale engine
+fits a law against this one.
 
-Your own code is not exposed to this. A thread reading its own counter cannot be
-mid-swap while it asks, and every measurement losim takes inside a handler is a
-thread reading itself.
+A thread reading its own counter cannot be mid-swap while it asks, so every
+measurement losim takes inside a handler is safe from this.
 
-A machine that loses one of its threads — which is what being killed does — can no
-longer be metered at all. That is reported as a `meter_lost` event and the last
-figure it could read is held, rather than reported as zero: nothing allocated and
-nothing knowable must not arrive looking the same.
+A machine that loses a thread, which is what being killed does, can no longer be
+metered at all. losim reports a `meter_lost` event and holds the last figure it
+could read instead of reporting zero, so a reader can tell a machine that
+allocated nothing apart from one that could no longer be read.
 </Note>
 
 ## Keeping a design honest
@@ -155,7 +153,7 @@ nothing knowable must not arrive looking the same.
     function of how many distinct things it saw, not how many records went past —
     and the two grow at different rates. Fitting against the wrong one gives an
     exponent that will not survive a change of input. [Writing to
-    scale →](/write/writing-to-scale)
+    scale ->](/write/writing-to-scale)
   </Accordion>
 </AccordionGroup>
 

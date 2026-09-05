@@ -8,9 +8,9 @@ icon: "hard-drive"
 Losim.current().wroteDisk(bytes);
 ```
 
-That is the whole API. There is no file, no path and no stream — the point is not
-to persist anything, it is to make a design that does not fit on its disks fail
-here for the reason it would fail there.
+That is the whole API. There is no file, no path and no stream. The point is to
+make a design that does not fit on its disks fail here for the reason it would
+fail there, not to persist anything.
 
 ## It throws
 
@@ -44,7 +44,7 @@ capped, and all of them write to the host, outside the one-machine boundary. The
 machine's disk figure becomes a lower bound and the verifier says so beside it.
 </Warning>
 
-## What to declare
+## Declaring the write
 
 Whatever your design would actually have written, in bytes:
 
@@ -90,7 +90,7 @@ machines:
 The catalogue's storage-shaped instance is `i3.large`; everything else has 8–32 GB.
 Choosing an instance family is itself a design decision, and the bill will price it.
 
-## What it shows up in
+## Everywhere it appears
 
 | where | as |
 |---|---|
@@ -105,7 +105,7 @@ reason: code that spills only above a threshold behaves differently small than
 large, so the ladder bends between the low end and the high end. R² over the whole
 ladder still scores about 0.74 — which a merely noisy straight line reaches just as
 easily — so no threshold on R² could separate them. The engine splits the ladder
-instead. [Refusals →](/engine/refusals)
+instead. [Refusals ->](/engine/refusals)
 </Tip>
 
 ## See it

@@ -44,23 +44,23 @@ export interface Room {
 }
 
 /**
- * What the Python renderer used, kept so the parity check has something to check.
+ * What the Python renderer used, kept so the parity check has something fixed
+ * to compare against.
  *
- * The port was proved identical to it over all 81 gallery traces — every machine
- * position, every zone rectangle, every column label — and only then re-tuned.
- * Doing it the other way round would have meant a port whose differences could
- * always be explained away as "the new spacing".
+ * Because it never changes, a divergence found against `LEGACY` is a
+ * difference in the port's own arithmetic, not a difference in taste — a
+ * guarantee `TIGHT`, tuned separately below, cannot offer on its own.
  */
 export const LEGACY: Room = { pad: 0.34, below: [0.95, 0.55], above: [0.52, 0.16], aside: [0.34, 0.22] };
 
 /**
  * What the viewer uses.
  *
- * The original was composed for a film with nothing else on the screen. In an
- * application the picture is one panel among several and has to earn its space:
- * measured against what actually hangs off a machine, the old spacing carried
- * about twice the air its labels need, and every machine in the fleet was drawn a
- * quarter smaller to pay for it.
+ * `LEGACY` was composed for a film with nothing else on the screen; here the
+ * picture is one panel among several and has to earn its space. Measured
+ * against what actually hangs off a machine, `LEGACY`'s spacing carries about
+ * twice the air its labels need, so `TIGHT` draws every machine in the fleet a
+ * quarter smaller and gives back the room that air was spending.
  */
 export const TIGHT: Room = { pad: 0.16, below: [0.72, 0.5], above: [0.34, 0.14], aside: [0.34, 0.22] };
 

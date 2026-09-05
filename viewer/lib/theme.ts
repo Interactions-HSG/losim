@@ -13,7 +13,7 @@
  * like a scan of something rather than a thing that is running.
  *
  * Passed down as plain values rather than read through CSS variables, and that is
- * load-bearing: the recorder serialises the `<svg>` into a standalone image, and
+ * necessary: the recorder serialises the `<svg>` into a standalone image, and
  * a standalone image has no page to inherit `var(--ink)` from. Everything the
  * film draws has to be a literal colour by the time it reaches the DOM.
  */

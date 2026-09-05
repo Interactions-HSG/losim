@@ -251,7 +251,7 @@ export function Overview() {
             </Panel>
           )}
 
-          <Panel title="What has gone wrong" note={`${wrong.length} so far`}>
+          <Panel title="Wrong so far" note={`${wrong.length} so far`}>
             {wrong.length ? (
               <ul className="events">
                 {wrong.slice(-12).reverse().map((e, i) => (

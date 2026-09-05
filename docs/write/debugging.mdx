@@ -6,8 +6,8 @@ icon: "bug"
 
 The two-layer design has a payoff nobody mentions until something breaks:
 **your system runs perfectly well without the simulator.** It is ordinary gRPC. So
-when something is wrong, the first question is not *what is losim doing* — it is
-*which layer is this in*, and the way to answer that is to take layers away.
+when something is wrong, the useful question is *which layer is this in*, not
+*what is losim doing*, and the way to answer it is to take layers away.
 
 <Warning>
 **Do not put a breakpoint in a running simulation as a first move.**
@@ -46,7 +46,7 @@ Step into `thumbnail`. It is your code, called directly, on the test thread.
 <Note>
 `Losim.current()` still resolves here and does nothing: recording calls are silent,
 state calls throw. So a handler that reveals and records is testable as it stands.
-[The full asymmetry →](/write/unit-testing)
+[The full asymmetry ->](/write/unit-testing)
 </Note>
 
 ## Level 2 — two handlers, wired by hand
@@ -150,7 +150,7 @@ it will be walked, and it will be flagged — rightly, because then it could run
 inside a real fleet.
 </Warning>
 
-### What is *not* true at this level
+### Not true at this level
 
 | | |
 |---|---|
@@ -263,7 +263,7 @@ debugger — that is what the three channels are for. Reach for these in order:
   </Accordion>
   <Accordion title="Handlers never overlap — the span tree is a staircase">
     A blocking stub inside the dispatch loop. Use `newFutureStub`, dispatch
-    everything, then collect. [Calling peers →](/write/calling-peers)
+    everything, then collect. [Calling peers ->](/write/calling-peers)
   </Accordion>
   <Accordion title="`Losim.current()` throws inside a handler">
     ```
@@ -271,17 +271,17 @@ debugger — that is what the three channels are for. Reach for these in order:
     ```
     Something is running your work on a thread the machine did not create — a raw
     `Thread`, an `Executors` pool, `CompletableFuture.supplyAsync`, or a
-    `parallelStream`. [Concurrency →](/write/concurrency)
+    `parallelStream`. [Concurrency ->](/write/concurrency)
   </Accordion>
   <Accordion title="It works, but the numbers are implausibly good">
     Read the trust block at the end of the run. A channel built by hand costs no
     bytes and survives partitions; a real file bypasses the disk cap; a static field
     shared between machines makes every per-machine figure meaningless.
-    [Trust markers →](/engine/trust)
+    [Trust markers ->](/engine/trust)
   </Accordion>
   <Accordion title="The scenario is refused and nothing runs">
     Exit code 2, with the file and line. That is the loader, and the message names
-    exactly what is wrong. [Messages →](/ref/messages)
+    exactly what is wrong. [Messages ->](/ref/messages)
   </Accordion>
 </AccordionGroup>
 

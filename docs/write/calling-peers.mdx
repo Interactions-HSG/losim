@@ -13,7 +13,7 @@ Thumbs thumbs = ThumbnailerGrpc.newBlockingStub(to).thumbnail(batch);
 What comes back is an `io.grpc.Channel`. The call site is plain gRPC — the stub is
 the one protoc generated, the argument is your message, the result is your message.
 
-## What rides on that channel
+## Riding on that channel
 
 Every call through a losim channel passes through two interceptors, and this is
 where everything the simulator does actually happens:
@@ -81,8 +81,8 @@ ThumbnailerGrpc.newStub(to).notify(ping, new StreamObserver<Empty>() {
 </CodeGroup>
 
 <Note>
-**Blocking in a loop is the classic first fleet.** Four machines, used strictly one
-at a time, producing the right answer and teaching nothing. The [Spans
+**Blocking in a loop is the most common first fleet.** Four machines, used strictly
+one at a time, producing the right answer and teaching nothing. The [Spans
 view](/viewer/views) shows it as a staircase; concurrency shows as a block.
 
 Where the round-trip latency is paid is worth knowing: the whole round trip is
@@ -112,7 +112,7 @@ The forwarded call gets its own span, opened under this handler's span, so the
 trace shows the hop. And the handler occupies one of this machine's cores while it
 waits — which is real, and is exactly the cost of forwarding.
 
-## What happens when nothing answers
+## Silence, and what the trace knows
 
 ```java
 try {

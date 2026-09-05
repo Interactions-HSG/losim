@@ -12,11 +12,11 @@ import org.junit.jupiter.api.Test;
 /**
  * Every scenario this repository carries still loads.
  *
- * <p>Written after deleting an instance family invalidated nineteen scenarios at
- * once while all three check suites stayed green. A scenario is data rather than
- * code, so nothing compiles it and nothing reads it until somebody opens the one
- * that broke — and a catalogue edit is exactly the kind of change that can
- * orphan one without touching the file.
+ * <p>A scenario is data rather than code, so nothing compiles it and nothing
+ * reads it until somebody opens the one that broke — and a catalogue edit, such
+ * as deleting an instance family, is exactly the kind of change that can orphan
+ * many scenarios at once, without touching a single scenario file, while every
+ * other check suite stays green.
  *
  * <p>Loading only, not running: running them is minutes of fleet time and
  * belongs to whoever regenerates the traces. What this protects is the part that

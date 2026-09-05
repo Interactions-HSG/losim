@@ -8,12 +8,10 @@
  * nothing is looked at: identical path data is identical geometry, and a check
  * that compares pictures is a check somebody has to have an opinion about.
  *
- * The oracle is `fixtures/glyphs.json.gz`, which is what the Python renderer
- * these glyphs were first written in produced, on the day the port was proved
- * against it. The Python is gone — it had one consumer left and its job was
- * done — but deleting it would have taken this check with it, and a port that
- * was once proved and is now unguarded is a port that drifts. So its answer was
- * kept instead of its code.
+ * The oracle is `fixtures/glyphs.json.gz`, frozen output from the Python
+ * renderer these glyphs were ported from. The Python renderer is not part of
+ * this repository — only its answer is, kept here because a port with nothing
+ * to compare against would drift silently and nobody would notice.
  *
  * The grid is chosen for the two things that can actually go wrong. `liquid`'s
  * large-arc flag turns over at exactly half — get it wrong and the fill draws as
@@ -23,8 +21,9 @@
  * exact rounding tie, so the sizes include dyadic rationals that land on one.
  *
  * String equality settles whether the port is *faithful*. Whether the geometry it
- * is faithful to is right is a thing to look at, and that is the page at
- * the glyph sheet the viewer used to ship.
+ * is faithful to is right is a separate, visual question that this check does
+ * not answer — that is a matter of looking at what the viewer actually draws
+ * with these paths.
  */
 import { gunzipSync } from 'node:zlib';
 import { readFileSync } from 'node:fs';

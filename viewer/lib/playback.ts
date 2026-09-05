@@ -19,10 +19,10 @@
  * it really happened. Without that, at `1x`, a three-millisecond call is three
  * thousandths of a second of film and nobody has ever seen one.
  *
- * So `1x` no longer means "one simulated second per real second" — it means the
- * run at its natural pace, with the quick parts held long enough to read. The
- * rate buttons multiply that. `linear()` turns the pacing off for anybody who
- * wants the literal reading, and the transport says which it is in.
+ * So `1x` means the run at its natural pace, with the quick parts held long
+ * enough to read — not literally one simulated second per real second. The rate
+ * buttons multiply that. `linear()` turns the pacing off for anybody who wants
+ * the literal reading, and the transport says which it is in.
  */
 import { timer, type Timer } from 'd3-timer';
 

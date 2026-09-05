@@ -7,7 +7,7 @@ icon: "cloud-bolt"
 losim can stage six kinds of bad afternoon. Each breaks a different assumption, and
 the design that survives all six is not the design that survives any one of them.
 
-## What each one actually breaks
+## The assumption each one breaks
 
 <AccordionGroup>
   <Accordion title="kill — the machine stops answering" icon="skull" defaultOpen>
@@ -34,7 +34,7 @@ the design that survives all six is not the design that survives any one of them
 
     **Breaks:** the assumption that a machine is either working or gone.
 
-    Calls **do not fail** — they wait, on the machine's own threads. From the
+    Calls **do not fail**; they wait, on the machine's own threads. From the
     caller this is indistinguishable from slowness, which is exactly why a freeze
     is harder to diagnose than a crash. A stop-the-world pause, a swapping host, a
     machine that is simply not scheduled.
@@ -146,7 +146,7 @@ System.out.printf("%d of 20 survived%n", ok);
 
 A seed that did not survive prints **why** rather than becoming an indistinguishable
 `false`, and there is no `|| true` to swallow a run that broke for some other reason.
-[The whole file →](/run/sweeps)
+[The whole file ->](/run/sweeps)
 
 
 Twenty seeds turn "it survived an afternoon" into "it survives afternoons", and the

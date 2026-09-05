@@ -12,9 +12,9 @@ what gets slept  =  refMs × (2 ÷ vcpu) × degradeFactor ÷ k_time
 ```
 
 <Note>
-`k_time` is **declared, not chosen**. It has to be global — there is one wall clock,
-and two machines sleeping under different factors would disagree about when *now* is
-— and it has to be the same for the probe grid as for the run it fits, or the fit
+`k_time` is **declared, not chosen**. It has to be global: there is one wall clock,
+and two machines sleeping under different factors would disagree about when *now* is.
+And it has to be the same for the probe grid as for the run it fits, or the fit
 describes a differently-compressed system.
 </Note>
 
@@ -42,7 +42,7 @@ describes a differently-compressed system.
     So `k_time` is **not** capped by timer resolution. What a sub-floor cost loses is
     per-call observability, not aggregate time: ordering survives, placement inside
     the debt window does not, and the trace has to say so.
-    [The sleep debt →](/engine/the-sleep-debt)
+    [The sleep debt ->](/engine/the-sleep-debt)
   </Accordion>
 </AccordionGroup>
 
@@ -59,7 +59,7 @@ reader needs.
 So the clock is zeroed at `fleet.begin()`, and everything before that belongs to no
 scenario.
 
-## What `k_time` touches, and what it does not
+## `k_time`'s reach, and its limits
 
 | | divided by `k_time`? |
 |---|---|

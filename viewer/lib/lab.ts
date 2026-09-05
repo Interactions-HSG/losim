@@ -149,8 +149,9 @@ export interface Region {
  * Everything needed to author a scenario for this lab.
  *
  * The classes are read off the compiled bytecode; the instances and the regions
- * are losim's own catalogues. All three used to be discoverable only by reading
- * losim's source, which is why scenarios have been written by copying one.
+ * are losim's own catalogues. Exposing all three here is what lets a scenario
+ * be composed from scratch rather than by copying one, without reading losim's
+ * source to find out what a pool or a job is called.
  */
 export interface Palette {
   /** Whether it builds. When it does not, `log` is javac's own words. */

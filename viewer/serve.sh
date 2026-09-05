@@ -34,9 +34,8 @@ fi
 ./traces.sh "$@" || true
 echo
 echo "viewer on http://localhost:$PORT/"
-# Served by losim itself. It used to be `python3 -m http.server`, which was a
-# fine static server and one more language in a repository that no longer needs
-# one — and losim already has to be able to serve this, because that is what a
-# student's lab does.
+# Served by losim itself, not by `python3 -m http.server`: that would be one more
+# language in a repository that needs none, and losim already has to be able to
+# serve this, because that is what a student's lab does.
 exec java -cp ../build/losim.jar losim.cli.Main serve \
      --root .. --site build/viewer --runs build/viewer/traces --port "$PORT" --no-open

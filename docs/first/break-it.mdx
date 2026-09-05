@@ -20,7 +20,7 @@ faults:
 
 Run it again.
 
-## What happens, in order
+## The failure, in order
 
 ```
 thumbs.yaml  seed 7  completed in 3980 refMs
@@ -42,8 +42,8 @@ deadline** before it found out. The run went from 2416 refMs to 3980.
 That is the lesson, and it is not a bug in losim. A dead machine, a cut link and a
 lost packet are **one event from the caller**: nothing answers, and you find out by
 running out of time. Modelling any of them as an immediate `UNAVAILABLE` would turn
-the most instructive failure in distributed systems — you cannot tell a slow peer
-from a gone one — into a tidy error code.
+the most instructive failure in distributed systems (you cannot tell a slow peer
+from a gone one) into a tidy error code.
 </Note>
 
 ## The three ways a message never arrives
@@ -75,13 +75,13 @@ trace can tell them apart even though your program could not.
 | | what it does |
 |---|---|
 | `kill: w1` | the machine stops answering. Add `restart_after: 400 refMs` to bring it back. |
-| `freeze: w1` + `for: 300 refMs` | a stop-the-world pause. Calls **do not fail** — they wait, on the machine's own threads, which is why a freeze is so much harder to diagnose than a crash. |
+| `freeze: w1` + `for: 300 refMs` | a stop-the-world pause. Calls **do not fail**; they wait, on the machine's own threads, which is why a freeze is so much harder to diagnose than a crash. |
 | `degrade: w2` + `factor: 4` | every declared cost multiplied. A straggler rather than a casualty. |
 | `spot_reclaim: w0` + `notice: 200 refMs` | the machine tells you it is going, then goes. A design that ignores the warning deserves what happens. |
 | `partition: [a, b]` / `heal: [a, b]` | the link between two machines, cut and restored. |
 | `restart: w1` | back from the dead. What it remembers depends on how it was registered. |
 
-[Every field →](/ref/faults)
+[Every field ->](/ref/faults)
 
 ## Standing chaos, instead of a scripted afternoon
 
@@ -150,8 +150,8 @@ slow part.
 
 ## Now make it survive
 
-The obvious fix is a shorter deadline plus a retry — and here losim will stop you,
-which is the point:
+The obvious fix is a shorter deadline plus a retry, and losim will stop you here.
+That is the point:
 
 ```yaml
 retries:
@@ -160,13 +160,13 @@ retries:
 
 This one is allowed, because `Thumbnail` declared `NO_SIDE_EFFECTS` in the
 `.proto`. Try it on a method that declared nothing and the run refuses at load,
-naming the file and the line. [Why the gate exists →](/write/retries)
+naming the file and the line. [Why the gate exists ->](/write/retries)
 
-Retrying is not free and losim makes that visible: the retry interceptor sits
-**outside** the recording one, so every attempt is a genuinely separate call —
-its own span, its own byte count, its own draw against loss, its own look at
-whether the callee is still alive. A design that retries is more expensive than
-one that does not, and the bill will say so.
+Retrying is not free and losim makes that visible. The retry interceptor sits
+**outside** the recording one, so every attempt is a genuinely separate call,
+with its own span, byte count, draw against loss, and look at whether the callee
+is still alive. A design that retries is more expensive than one that does not,
+and the bill will say so.
 
 The less obvious fix is the better one: **notice sooner**. Your coordinator asked
 every worker for its capacity at the start and never asked again. `cluster.serving

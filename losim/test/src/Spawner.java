@@ -7,7 +7,7 @@ import losim.t.Counts;
  *
  * <p>Which is why the declaration is read and not only the call sites: {@code start()}
  * here compiles to {@code Spawner$Split.start}, a method on a lab class, and matches
- * nothing at all. Only "extends Thread" gives it away — and the work still lands on a
+ * nothing at all. Only "extends Thread" gives it away, and the work still lands on a
  * thread this machine did not create, charged to nobody.
  */
 public final class Spawner extends WorkerBase {

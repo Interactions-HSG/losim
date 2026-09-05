@@ -1,4 +1,3 @@
-import java.io.File;
 import java.io.IOException;
 import java.util.Comparator;
 import java.nio.file.Files;
@@ -74,9 +73,10 @@ final class Fixture {
         }
 
         // Deliberately no price list: `Bills` prints "no price list… using the
-        // built-in defaults" to stderr exactly when one is missing, which is the
-        // one line that turned `.bill.json` into not-JSON before the two streams
-        // were kept apart. A fixture that shipped a price list would never say it.
+        // built-in defaults" to stderr exactly when one is missing, and stdout
+        // and stderr are kept apart precisely so that line can never land inside
+        // `.bill.json` and break its JSON. A fixture that shipped a price list
+        // would never say it.
 
         Files.createDirectories(root.resolve("proto"));
         copy(Path.of("losim/test/proto/lab.proto"), root.resolve("proto/lab.proto"));

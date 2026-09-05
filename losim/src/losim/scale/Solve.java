@@ -8,8 +8,8 @@ import losim.time.Clock;
 /**
  * Choosing the size of the world.
  *
- * <p>What the scale model preserves is not size but <b>ratio</b>: demand over
- * capacity, per machine, per resource. So the caps are solved, not divided — and
+ * <p>What the scale model preserves is <b>ratio</b>: demand over capacity, per
+ * machine, per resource. So the caps are solved, not divided — and
  * each by its own factor, because memory follows distinct keys and disk follows
  * data volume and those grow at different rates. A uniform factor would give both
  * the same shrink and be wrong about at least one.

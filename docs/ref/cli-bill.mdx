@@ -47,7 +47,7 @@ java -cp build/losim.jar losim.cli.Main bill <trace.json> [--prices <file>] [--j
 
 `<name>.bill.json` beside each `<name>.json`, and the page loads it if it is there.
 A trace dragged onto the page has none, and the money is then simply absent rather
-than invented. [Opening a trace →](/viewer/opening-a-trace)
+than invented. [Opening a trace ->](/viewer/opening-a-trace)
 </Note>
 
 Billing is a **pure function of the trace**, so re-billing the same run under a
@@ -106,7 +106,7 @@ is a single fleet line, because at full scale the number of machines is itself
 something the engine had to project.
 </Note>
 
-## What goes into each
+## Inside each bucket
 
 
 <AccordionGroup>
@@ -193,13 +193,13 @@ what it is a model of
 
 Read the two halves against each other:
 
-- **`capacity` is per machine on the left and one line on the right.** What happened
+- `capacity` is per machine on the left and one line on the right. What happened
   is five machines you can name; what it is a model of is a fleet whose size is
   itself a projection.
-- **`consumption` grew** — 0.0001 to 0.0004 GB-month — because storage has a law
+- `consumption` grew — 0.0001 to 0.0004 GB-month — because storage has a law
   fitted to it.
-- **`incidents` did not move.** Those are the observed failures, carried across.
-- **`capacity` contributed `0.0000` to the total** because it was refused, which is
+- `incidents` did not move. Those are the observed failures, carried across.
+- `capacity` contributed `0.0000` to the total because it was refused, which is
   why the total says *of what could be priced* rather than standing as a number.
 
 A line the engine refused is a line nobody can fill in. Capacity is usually the

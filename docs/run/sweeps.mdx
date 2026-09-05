@@ -9,15 +9,15 @@ icon: "dice"
 deliberate refusal to simulate a scheduler. Two runs of one scenario on one machine
 differ in every duration and most byte counts.
 
-That is not a defect to be worked around — it is the property that makes a sweep
-the unit of evidence rather than a run.
+That is the property that makes a sweep the unit of evidence rather than a run,
+not a defect to be worked around.
 </Warning>
 
 ## The shape of a sweep
 
-**losim is a library, so a sweep is a Java program.** Not a shell loop writing twenty
-files for a second script to read back — `Run.of` hands you the result as an object,
-and a sweep is a loop over it.
+**losim is a library, so a sweep is a Java program.** `Run.of` hands you the result
+as an object, so a sweep is a loop over it — not a shell loop writing twenty files
+for a second script to read back.
 
 ```java src/lab/Sweep.java
 package lab;
@@ -107,7 +107,7 @@ the second looks worse on a single run. The second is the one you can put a serv
 level on.
 </Note>
 
-## What a sweep varies
+## The axes a sweep varies
 
 Everything that draws from the seed:
 

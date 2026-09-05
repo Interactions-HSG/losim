@@ -9,7 +9,7 @@ icon: "stopwatch"
 @Override protected Thumbs thumbnail(Batch request) { … }
 ```
 
-## Why this is declared when everything else is measured
+## Time is declared, not measured
 
 losim shrinks the workload **and** the machines by the same factor, so memory and
 bytes survive it honestly: a machine that would exhaust 16 GiB at full scale
@@ -108,9 +108,9 @@ costs 0.5000 refMs, which at that compression is 4x below what the sleep debt ca
 still settle. Lower k_time to 100 or less, or give that cost site more to do.
 ```
 
-[How the sleep debt works →](/engine/the-sleep-debt)
+[How the sleep debt works ->](/engine/the-sleep-debt)
 
-## Where the annotation is looked for
+## Finding the annotation
 
 gRPC knows the method as `lab.Thumbnailer/Thumbnail`. You wrote `Thumbs
 thumbnail(Batch)`. The bridge is grpc-java's own naming rule — an rpc `Thumbnail`

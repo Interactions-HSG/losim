@@ -5,7 +5,7 @@ icon: "signal"
 ---
 
 losim replaces the debugger for anything involving more than one machine, so the
-telemetry is load-bearing: **if it cannot answer a question a debugger would have
+telemetry has to hold up: **if it cannot answer a question a debugger would have
 answered, that is a bug in the telemetry — and if watching changes what it reports,
 that is a worse one.**
 
@@ -73,7 +73,7 @@ names a stretch and does **not** mark the machine busy; `compute` names local wo
 and does. Between them they are what the viewer's columns and chapters are derived
 from.
 
-## What losim records for you
+## Recorded without being asked
 
 You do not have to ask for any of this:
 
@@ -116,7 +116,7 @@ Measured at the extreme — a thousand `reveal` calls per handler, where losim
 charges itself 54 MB and meters 162,000 regions — the *unsubtracted* memory
 exponent moves by 0.026 and the reported one by 0.0004. The law your code is
 projected by does not depend on how much you instrumented it.
-[How that works →](/engine/self-accounting)
+[How that works ->](/engine/self-accounting)
 </Note>
 
 ## Payloads are bounded

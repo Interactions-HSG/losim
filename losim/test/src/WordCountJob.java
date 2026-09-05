@@ -8,7 +8,7 @@ import losim.api.Job;
 import losim.t.*;
 
 /**
- * Map across the fleet, then reduce — and cope with a machine that is not there.
+ * Map across the fleet, then reduce, and cope with a machine that is not there.
  *
  * <p>The map phase uses an async stub and a latch, which is how you would fan out
  * over gRPC without a thread per call. The reduce phase is blocking, because the
@@ -61,7 +61,7 @@ public final class WordCountJob implements Job {
                         .reduce(counts).getCountsMap()
                         .forEach((k, v) -> merged.merge(k, v, Integer::sum));
             } catch (StatusRuntimeException e) {
-                // Not "is it alive?" — there is no such question. It did not answer
+                // Not "is it alive?": there is no such question. It did not answer
                 // in the time this coordinator was willing to wait, so the work is
                 // its own again.
                 cluster.log("reducer " + worker + " did not answer ("

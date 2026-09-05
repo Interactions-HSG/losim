@@ -9,7 +9,7 @@ import losim.trace.Telemetry;
  * One run of a scenario, with every resource the engine needs measured rather
  * than declared.
  *
- * <h2>Where the independent variables come from</h2>
+ * <h2>Sourcing the independent variables</h2>
  * The engine cannot fit a resource until it knows what that resource is a function
  * of, and getting that wrong is the failure mode that makes every projection
  * plausible and wrong. Peak reducer memory is not really a function of records at

@@ -40,10 +40,10 @@ import type { Trace } from './trace.ts';
 /**
  * The four costs, and no revenue.
  *
- * There was a fifth bucket and a profit line once. What a run earns is not a
- * property of the run — it depends on what the service is worth to somebody,
- * which is a business question this course cannot answer and was answering with
- * a number somebody picked. What a design costs is computed from what actually
+ * What a run earns is not a property of the run — it depends on what the
+ * service is worth to somebody, which is a business question this course does
+ * not answer, and a revenue line would have to answer it anyway with a number
+ * somebody merely picked. What a design costs is computed from what actually
  * happened, and that is the number worth arguing about.
  */
 export const BUCKETS = ['build', 'capacity', 'consumption', 'incidents'] as const;

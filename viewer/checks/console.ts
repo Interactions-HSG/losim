@@ -206,11 +206,11 @@ const say = (m: string) => {
  *
  * The console keeps the run and the view in `?run=&view=`, and the film keeps
  * its own moment and framing beside them. They are separate components writing
- * one string, so the only thing stopping them is that they picked different
- * keys — and for one commit they had not: `Film` read and wrote `view` too, so
- * sitting on the film page deleted `?view=film` and a shared link opened the
- * gallery instead. Nothing rendered wrong, which is why every render check
- * above passed through it.
+ * one string, so the only thing stopping a collision is that they pick
+ * different keys: a component below the console that also wrote `view` would
+ * silently win the argument, so sitting on the film page would delete
+ * `?view=film` and a shared link would open the gallery instead. Nothing would
+ * render wrong, which is why no render check above can catch it.
  *
  * This reads the sources rather than a browser, because the invariant is about
  * which literal strings appear in them: no component below the console may

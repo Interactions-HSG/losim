@@ -16,12 +16,12 @@ why — a run that failed is a result, not an absence of one.
 The job runs on the **first machine in the scenario file**, on that machine's own
 threads, so everything it does is attributed to that machine like any other work.
 
-## What `Cluster` gives you, and what it deliberately does not
+## `Cluster`'s surface, and its limits
 
 <AccordionGroup>
   <Accordion title="machines() and serving(service)" icon="magnifying-glass">
     Every machine by name; and the machines serving a named service, live ones
-    only. [Finding peers →](/write/finding-peers)
+    only. [Finding peers ->](/write/finding-peers)
   </Accordion>
   <Accordion title="channelTo(machine)" icon="plug">
     A channel with losim on it. Build whatever stub your `.proto` generated on top.
@@ -54,7 +54,7 @@ threads, so everything it does is attributed to that machine like any other work
     A line of narration, and the job's answer recorded structurally rather than as
     a line of text.
   </Accordion>
-  <Accordion title="What it cannot do" icon="ban">
+  <Accordion title="Its limits" icon="ban">
     It cannot reach into another machine's memory, start a thread nothing accounts
     for, or ask whether a peer is alive. The last one because no real network
     offers it, and a design that depends on knowing is a design that will not

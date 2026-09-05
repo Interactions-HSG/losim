@@ -6,8 +6,8 @@ import losim.t.Ping;
  *
  * <p>Both methods are annotated, and that is not redundant: {@code @Takes} is found
  * by the name grpc-java generates, so an rpc whose Java method is inherited and
- * unannotated costs nothing at all. Which is the right default — an uncosted
- * handler should run at whatever speed it runs — and an easy thing to trip over.
+ * unannotated costs nothing at all. Which is the right default (an uncosted
+ * handler should run at whatever speed it runs) and an easy thing to trip over.
  */
 public final class Slow extends VolleyBase {
 

@@ -22,12 +22,12 @@ public final class InstanceCatalog {
         // `cpuFactor` is 2 ÷ vcpu, so both of these are exactly twice as slow as
         // every 2-vCPU type below them, and they are the only way to write "this
         // machine is half the machine the others are" — a fleet whose shape is the
-        // lesson needs somewhere below 2 to go, and the catalogue had nowhere.
+        // lesson needs somewhere below 2 to go, which is what these two provide.
         //
         // `a1.medium` is deliberately a quarter of `c5.large`: the cheap machine in
-        // a fleet of compute-shaped ones, and now genuinely weaker as well as
-        // cheaper, which is the pairing every "one machine is the problem" example
-        // in the docs is built on.
+        // a fleet of compute-shaped ones, genuinely weaker as well as cheaper,
+        // which is the pairing every "one machine is the problem" example in the
+        // docs is built on.
         add("a1.nano",    "a1", 1, 512,   0.5, 8,  0.0064);
         add("a1.medium",  "a1", 1, 2048,  0.5, 8,  0.0255);
         // balanced

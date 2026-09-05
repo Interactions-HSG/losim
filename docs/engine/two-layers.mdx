@@ -20,17 +20,17 @@ icon: "layer-group"
 ```
 
 <Note>
-No ports. No containers. No simulated scheduler. No virtual clock. The machines run
-on real threads against a real wall clock, and losim shapes what happens through
-**gRPC's own extension points** — one in-process server per machine, one executor per
-machine sized to its vCPUs, and an interceptor on each side of every call.
+There are no ports, no containers, no simulated scheduler, and no virtual clock. The
+machines run on real threads against a real wall clock, and losim shapes what happens
+through **gRPC's own extension points** — one in-process server per machine, one
+executor per machine sized to its vCPUs, and an interceptor on each side of every call.
 </Note>
 
-## What the separation buys
+## The separation's payoff
 
 <Columns cols={2}>
   <Card title="Failures are real" icon="fire">
-    "Runs out of memory" is not accounting fiction. The machine really was made
+    "Runs out of memory" means what it says. The machine really was made
     small, your data structure really did fill it, and the failure happened in your
     code for the reason it would happen at full size.
   </Card>
@@ -70,7 +70,7 @@ A silent `reveal` lets a handler be called directly from a test. A **fabricated*
 empty fleet would let the same test pass while asserting nothing, which is worse than
 failing.
 
-## How the machine gets to your handler
+## Carrying the machine to your handler
 
 Not through a parameter. gRPC's own `Context` is the carrier: the server interceptor
 attaches the machine with `Contexts.interceptCall`, and it is then ambient for
@@ -83,10 +83,10 @@ work loses its machine identity — and is flagged rather than silently attribut
 nobody.
 </Warning>
 
-## Why in-process gRPC
+## The case for in-process gRPC
 
 Because it is real gRPC. Real stubs, real marshalling, real interceptors, real status
-codes, real deadlines, real metadata. What it is not is real *sockets* — and that has
+codes, real deadlines, real metadata. It is missing real *sockets*, and that has
 exactly one consequence you have to know about:
 
 <Note>
@@ -97,7 +97,7 @@ transport. It has to come from marshalling the message explicitly, which is what
 losim does, plus the five bytes of framing gRPC would have put around it.
 </Note>
 
-## Where every piece of losim lives
+## The package map
 
 | | |
 |---|---|

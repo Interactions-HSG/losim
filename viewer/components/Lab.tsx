@@ -7,10 +7,10 @@
  * browser; everything a command line was doing — generate from the schema,
  * compile it, run the scenario, bill the trace — happens behind one arrow.
  *
- * **Pressing it does not stay here.** A build's own output used to stream
- * inline, under the row that started it — but that made "is my scenario
- * right" and "did the last run finish" the same page, and a student watching
- * text scroll is not looking at a fleet. The build itself is followed by the
+ * **Pressing it does not stay here.** Streaming a build's own output inline,
+ * under the row that started it, would conflate "is my scenario right" and
+ * "did the last run finish" into the same page, and a student watching text
+ * scroll is not looking at a fleet. The build itself is followed by the
  * console, not by this component, so it outlives whichever page you are on;
  * this only starts it and moves you to Runs, where the trace lands when it is
  * ready.

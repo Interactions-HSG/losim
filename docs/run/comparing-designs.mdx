@@ -77,16 +77,16 @@ re-run. A design whose ranking flips is a design whose advantage was a price
 assumption.
 </Tip>
 
-## What `losim diff` is for — and is not
+## The purpose of `losim diff` — and its limit
 
 ```bash
 java -cp "$CP" losim.cli.Main diff build/a.json build/b.json
 ```
 
 <Warning>
-`diff` answers **"are these two the same simulator?"**, not "which of these designs
-is better". It is the tool for checking that a laptop, the devcontainer and a
-Codespace produce the same thing — which is exactly what CI uses it for.
+`diff` answers **"are these two the same simulator?"** It does not answer "which of
+these designs is better". It is the tool for checking that a laptop, the devcontainer
+and a Codespace produce the same thing — which is exactly what CI uses it for.
 </Warning>
 
 It splits everything it compares into two kinds:

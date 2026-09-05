@@ -16,7 +16,7 @@ import java.util.concurrent.locks.LockSupport;
  * coarsely and spinning the last couple of milliseconds. That is about three
  * thousand times more accurate at the median.
  *
- * <h2>Two details, both load-bearing</h2>
+ * <h2>Two details, both necessary</h2>
  * The park must be <b>calibrated</b> (D5) or it sails straight past the spin
  * window it was meant to stop short of, which throws away the entire benefit. And
  * the thread wants {@link Thread#MAX_PRIORITY}, because it is competing with

@@ -2,7 +2,7 @@
 # Builds the release: the lib/ directory an assignment carries, as one archive.
 #
 # **Not a student command**, and not a second definition of what lib/ is. It calls
-# `publish.sh --lib-only` — the same code that writes lib/ into an assignment —
+# `publish.sh --lib-only`, the same code that writes lib/ into an assignment,
 # into a staging directory and zips the result. One definition, used by the
 # maintainer refreshing a template and by the release CI both, so a lab that was
 # published cannot differ from a lab that was updated.

@@ -39,8 +39,8 @@ import losim.trace.JsonReader;
  *
  * <ul>
  *   <li><b>the viewer</b>, as the static files it was exported to. No npm, ever
- *       (D10) — and now no Python either, because the JDK the lab already needs
- *       can serve a directory perfectly well;
+ *       (D10), and no Python either — the JDK the lab already needs can serve a
+ *       directory perfectly well;
  *   <li><b>the runs</b>, listed live from {@code build/runs} rather than from a
  *       manifest somebody has to remember to rewrite. A run appears in the picker
  *       because it is on disk, which is the only fact that cannot go stale;

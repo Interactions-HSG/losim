@@ -37,12 +37,12 @@ const TRACES = resolve(ROOT, 'build/gallery/traces');
 /**
  * The clock the Python reckoned by: the job, or the last span to close.
  *
- * `Trace.duration` deliberately no longer means this. The film's clock has to
- * cover every event the trace carries, because the heap walk runs every eighth
- * tick and an out-of-memory therefore lands *after* the job it ended (D12) —
- * clipped at the job's end, the OOM cannot be scrubbed to and never reaches the
- * bill. That is a change to the viewer, not to the layout, so the parity check
- * keeps asking its own question on the old clock.
+ * `Trace.duration` answers a different question: it covers every event the
+ * trace carries, because the heap walk runs every eighth tick and an
+ * out-of-memory therefore lands *after* the job it ended (D12) — clipped at
+ * the job's end, the OOM cannot be scrubbed to and never reaches the bill.
+ * That is a fact about the viewer's clock, not about the layout, so the parity
+ * check keeps asking its own question on this narrower one.
  */
 function pythonDuration(trace: Trace): number {
   let end = Math.max(1.0, Number(trace.meta['durationRefMs'] ?? 0));

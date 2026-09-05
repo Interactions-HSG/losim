@@ -82,12 +82,12 @@ public final class Lab {
     /**
      * The code in this lab: one folder of gRPC jobs.
      *
-     * <p>There is no list of systems here any more, because there never really
-     * were several. {@code 0-tour} was five directories holding one
-     * {@code ping.proto} between them and five scenarios — the same code against
-     * five different afternoons, written out five times so that each could have a
-     * folder to sit in. What varies between those runs is the scenario, so the
-     * scenario is what there are many of.
+     * <p>There is no list of systems here, because a lab is one thing: one folder
+     * of gRPC code, shared by every scenario in it. A tour of five scenarios does
+     * not need five directories each holding a copy of the same {@code ping.proto}
+     * — that would be the same code against five different afternoons, written
+     * out five times so that each could have a folder to sit in. What varies
+     * between runs is the scenario, so the scenario is what there are many of.
      *
      * @param protos  the schema, which may be empty and may be more than one file
      * @param sources every {@code .java} in the lab, wherever the student put it
@@ -343,7 +343,7 @@ public final class Lab {
     /**
      * Where this scenario's run is written.
      *
-     * <p>Named after the scenario, because the scenario is now the thing there are
+     * <p>Named after the scenario, because the scenario is the thing there are
      * many of. `two-machines.yaml` runs into `two-machines.json`, so the picker
      * reads the way the folder does.
      */

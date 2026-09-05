@@ -138,7 +138,7 @@ public final class Shrinker extends ThumbnailerBase {
 }
 ```
 
-## What losim added, and what it did not
+## losim's three lines, and nothing more
 
 <Columns cols={2}>
   <Card title="Not in any signature" icon="check">
@@ -170,15 +170,15 @@ interceptor sleeps `refMs × machineFactor ÷ k_time`. A machine with half the
 reference's vCPUs takes twice as long, and the whole run is compressed by `k_time`.
 
 <Warning>
-Why declare it at all, when everything else is measured? Because at the scale a
-laptop can hold, your handler is genuinely instant — the host's CPU is not shrunk
-along with the workload, so it runs at full speed on a fraction of the data.
+Everything else here is measured; this is declared, because at the scale a laptop
+can hold, your handler is genuinely instant. The host's CPU is not shrunk along
+with the workload, so it runs at full speed on a fraction of the data.
 Without a declared duration there is no queueing, no contention, no deadline
 pressure and no critical path, which is most of what a fleet is interesting for.
 
 Measuring instead does not work: handler durations at probe size sit inside the
 host's own jitter, where the fitted time exponent moves by 0.25 between seed sets
-of an identical workload. [The full argument →](/write/declaring-time)
+of an identical workload. [The full argument ->](/write/declaring-time)
 </Warning>
 
 An unannotated method takes **no time**, deliberately, rather than a made-up
@@ -226,7 +226,7 @@ else, because nothing else is running.
 
 losim is on the classpath because `@Takes` is a compile-time annotation and
 `Losim.current()` has to resolve — but it does nothing here. Recording calls are
-silent; state calls throw. [Why that asymmetry →](/write/unit-testing)
+silent; state calls throw. [Why that asymmetry ->](/write/unit-testing)
 
 <Card title="Next: the job" icon="arrow-right" href="/first/the-job">
   Finding peers, asking them how big they are, and fanning work out.

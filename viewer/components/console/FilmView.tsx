@@ -3,9 +3,9 @@
 /**
  * The film, on the console's clock.
  *
- * The same component that has always drawn it — this page only gives it a
- * definite height and hands it the clock from above instead of letting it make
- * one. That is the whole change, and it is why the cost report two tabs away can
+ * This page renders the same component that draws the film elsewhere, but
+ * gives it a definite height and hands it the clock from above instead of
+ * letting it make its own — which is why the cost report two tabs away can
  * be at the same instant as the picture.
  */
 import { useCallback, useState } from 'react';

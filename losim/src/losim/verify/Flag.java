@@ -12,8 +12,8 @@ import java.util.List;
  * written in whatever the host's afternoon was doing rather than in the compressed
  * clock everything else is written in.
  *
- * <p>So the useful output is not "this code is bad" but "this number is a lower
- * bound", attached to the machine and to the figure it undermines — which is the
+ * <p>So the useful output is "this number is a lower bound" rather than "this code
+ * is bad", attached to the machine and to the figure it undermines — which is the
  * difference between a caveat someone can act on and a warning they scroll past.
  */
 public enum Flag {

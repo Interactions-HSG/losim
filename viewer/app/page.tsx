@@ -36,10 +36,6 @@ function View() {
           there is a lab behind this page at all — and hidden rather than
           unmounted, so a run started here goes on being followed while you look
           at something else. */}
-      {/* Mounted whatever else is on screen, so the console finds out whether
-          there is a lab behind this page at all — and hidden rather than
-          unmounted, so a run started here goes on being followed while you look
-          at something else. */}
       <div className="host" hidden={view !== 'scenarios'}>
         <Scenarios />
       </div>

@@ -64,7 +64,7 @@ looking at should be. A call that failed has no result, so it has to carry *why*
 instead — and that only happens if you put the message on the status.
 </Warning>
 
-## Where the instance lives, and what a restart does to it
+## Instance lifetime, and what a restart does to it
 
 One instance per machine, built when the machine starts serving. Whatever your
 service holds in fields is that machine's data, and it is exactly what the
@@ -98,7 +98,7 @@ machines:
 Both are registered on the same server, share the same thread pool, and are found
 independently by whichever service name each `.proto` declares.
 
-## What a machine may know about itself
+## A machine's knowledge of itself
 
 ```java
 var spec = Losim.current().here();

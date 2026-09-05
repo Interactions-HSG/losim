@@ -15,7 +15,7 @@ import losim.trace.Telemetry;
 import losim.trace.Trace;
 
 /**
- * Phase 1 — the fleet, checked against what it claimed.
+ * Phase 1: the fleet, checked against what it claimed.
  *
  * Four of these are the phase's acceptance criteria and are marked as such. The
  * rest are the mechanisms those four rest on: if the ambient context does not
@@ -76,14 +76,14 @@ public class Phase1 {
     }
 
     /**
-     * How far an exponent moves when nothing has changed — as a noise scale.
+     * How far an exponent moves when nothing has changed, as a noise scale.
      *
      * <p>Deliberately not {@link Fit#wobble}, which is max minus min and is the right
      * statistic where the engine uses it: an error bar should be conservative, and a
      * resource whose exponent lands somewhere else on any one seed set is a resource
      * to refuse. This number has the opposite job. It is the scale a bend is measured
-     * against, so one anomalous set — a heap walk landing badly on one rung, which
-     * D12 says happens — would make the scale a fact about that set rather than about
+     * against, so one anomalous set (a heap walk landing badly on one rung, which
+     * D12 says happens) would make the scale a fact about that set rather than about
      * the noise. Dropping the extreme at each end makes it a fact about the noise,
      * for the same reason the bend beside it is a median and not a mean.
      */
@@ -233,7 +233,7 @@ public class Phase1 {
     static void absentContext() {
         System.out.println("=== a handler called with nothing running ===");
         var handler = new Reporter();
-        // Not the Reporter — it asks for state. A recording-only handler must be
+        // Not the Reporter: it asks for state. A recording-only handler must be
         // callable from a bare test with no simulation at all.
         var counter = new WorkerBase() {
             @Override protected Counts map(Chunk c) {
@@ -563,7 +563,7 @@ public class Phase1 {
         }
     }
 
-    /** The same handler, one keyword different — and that keyword is the bug. */
+    /** The same handler, one keyword different: that keyword is the bug. */
     static final class Boxed extends WorkerBase {
         @Override protected Counts map(Chunk c) {
             for (int i = 0; i < c.getLines(); i++) Losim.current().reveal("n", (Object) (1000 + i));

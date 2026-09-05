@@ -4,14 +4,14 @@ description: "Why the machines are solved for rather than divided by one factor.
 icon: "sliders"
 ---
 
-What the scale model preserves is not size but **ratio**: demand over capacity, per
+The scale model preserves **ratio**, not size: demand over capacity, per
 machine, per resource.
 
 ```
 cap = fixed + declared × (variable at run scale ÷ variable at full scale)
 ```
 
-## Why not one factor for everything
+## Different resources, different ratios
 
 <Warning>
 Memory follows what a machine holds. Disk follows data volume. Those grow at
@@ -22,7 +22,7 @@ The engine therefore solves each resource with its **own** ratio, taken from tha
 resource's own law.
 </Warning>
 
-## Why the fixed term is added back at full size
+## The fixed term stays at full size
 
 A JVM's baseline heap does not shrink because the workload did. Scaling the fixed
 overhead down along with everything else would give a machine less baseline than a
@@ -56,8 +56,8 @@ and the run size is 8,000 records against a full scale of 40,000,000.
 </Steps>
 
 The machine now stands in the same relation to its share of the shrunken workload as
-the full-size machine would to its share of the real one. **That is the property the
-whole model exists to preserve** — and it is why an out-of-memory in a scaled run is
+the full-size machine would to its share of the real one. That is the property the
+model preserves, and it is why an out-of-memory in a scaled run is
 a real finding about the design rather than an artefact of the shrinking.
 
 ## Choosing the run size
@@ -74,7 +74,7 @@ would mean extrapolating the very thing the ladder exists to establish.
 
 If no rung satisfies both, the engine names the resource and stops.
 
-## What your job sees
+## The caps your job sees
 
 ```java
 cluster.records();                       // the size the engine chose
@@ -85,7 +85,7 @@ Losim.current().here().memoryCapMb();    // the cap this machine is under NOW
 `Spec` reports the **scaled** caps, not what the instance type says at full scale. So
 a job that places work by comparing them places it the **same way at either scale**.
 
-That is not a convenience — it is the reason a placement decision measured in a
+It is the reason a placement decision measured in a
 scaled run tells you anything about the real one.
 </Note>
 

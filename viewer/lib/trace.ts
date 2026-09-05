@@ -352,8 +352,8 @@ export class Trace {
    * said to have stopped. Clipped there, the scrubber cannot reach the OOM, `]`
    * cannot jump to it, and the incident never arrives on the bill.
    *
-   * Computed once. It is read per frame, and the spread it used to do over every
-   * span would have thrown on a trace large enough to matter.
+   * Computed once and cached: read per frame, and spreading over every span on
+   * every read would throw on a trace large enough to matter.
    */
   get duration(): number {
     if (this.span === null) {

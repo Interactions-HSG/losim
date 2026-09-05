@@ -16,12 +16,13 @@ import losim.api.Job;
 /**
  * What the lab's code offers a machine.
  *
- * <p>A scenario places <b>classes</b> on machines. Until now the only way to know
- * which classes could be placed was to read the source, get the fully qualified
- * name right by hand, and find out at run time whether it was a service at all —
- * and the error for getting it wrong arrives after a build, a generate and a JVM
- * start. This reads the answer off the compiled classes instead, so a console can
- * offer the list rather than asking somebody to remember it.
+ * <p>A scenario places <b>classes</b> on machines. Without this, the only way to
+ * know which classes could be placed would be to read the source, get the fully
+ * qualified name right by hand, and find out at run time whether it was a
+ * service at all — and the error for getting it wrong would arrive after a
+ * build, a generate and a JVM start. This reads the answer off the compiled
+ * classes instead, so a console can offer the list rather than asking somebody
+ * to remember it.
  *
  * <p><b>Two names, and they are different on purpose.</b> A machine <i>runs</i> a
  * Java class ({@code lab.Shrinker}) and thereby <i>serves</i> the gRPC service

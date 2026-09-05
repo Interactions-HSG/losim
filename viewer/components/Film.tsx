@@ -53,13 +53,13 @@ function fmtFilm(seconds: number): string {
 /**
  * Nothing on screen for less than this, in real seconds.
  *
- * Not a dwell any more, and the difference is the whole fix. Holding a message
- * *in place* after it had arrived made the picture say something false — that
- * the call was still going — and it could not help a call whose entire life was
- * shorter than one frame anyway. What happens now is that **the clock slows
- * down** while anything short is happening (`lib/pace.ts`), so the message
- * really does take a second to cross. Ordering, overlap and every number stay
- * exactly as the trace has them; only the pace of the playhead changes.
+ * There is no dwell. Holding a message *in place* after it had arrived would
+ * make the picture say something false — that the call was still going — and
+ * would not help a call whose entire life is shorter than one frame anyway.
+ * Instead **the clock slows down** while anything short is happening
+ * (`lib/pace.ts`), so the message really does take a second to cross.
+ * Ordering, overlap and every number stay exactly as the trace has them;
+ * only the pace of the playhead changes.
  */
 const HOLDS = [HOLD_SECONDS, 0.5, 0.25, 0] as const;
 
@@ -74,10 +74,10 @@ export function Film({
   /**
    * The console's clock, when there is one.
    *
-   * The film used to own the clock, which is what made it the film's clock —
-   * the ledger could only accrue underneath the film, and no other page had a
-   * cursor on it. Given one from outside, this becomes one drawing of a shared
-   * instant rather than the only place that instant exists.
+   * Without one, the film owns its own clock, and the ledger can only accrue
+   * underneath the film — no other page has a cursor on it. Given one from
+   * outside, this becomes one drawing of a shared instant rather than the
+   * only place that instant exists.
    */
   clock?: Clock;
   /**
@@ -211,9 +211,9 @@ export function Film({
   /**
    * When a machine is too small to wear its labels.
    *
-   * Counting machines was the wrong test and it cost the badges on every fleet
-   * over thirteen — including the sixteen- and twenty-five-machine runs, where
-   * they fit perfectly well. What decides it is how large a machine is actually
+   * Counting machines is the wrong test: it would cost the badges on every
+   * fleet over thirteen — including the sixteen- and twenty-five-machine runs,
+   * where they fit perfectly well. What decides it is how large a machine is actually
    * drawn, which the layout already knows: across the whole gallery that runs
    * from 1.55 at two machines down to 0.47 at twenty-five, so nothing here is
    * cramped and the badges stay on. The floor is there for a fleet larger than

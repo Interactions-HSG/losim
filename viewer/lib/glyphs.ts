@@ -1,12 +1,12 @@
 /**
  * The geometry of the language, as SVG path data.
  *
- * These shapes were authored in SVG's own convention — origin at the glyph's
- * centre, x right, **y down** — because they were always meant for a browser.
- * The Python renderer that came first had to mirror y once to feed them to
- * manim; nothing here does. The path strings cross verbatim, which is why the
- * port can be checked by string equality rather than by looking at two pictures
- * and arguing about them.
+ * These shapes are authored in SVG's own convention — origin at the glyph's
+ * centre, x right, **y down** — matching how a browser draws. Manim, the
+ * renderer these glyphs were ported from, is y-up, so feeding it the same path
+ * data needs a mirror on y first; feeding a browser does not. The path strings
+ * cross verbatim, which is why the port can be checked by string equality
+ * rather than by looking at two pictures and arguing about them.
  */
 import { DOC_FOLD } from './design.ts';
 

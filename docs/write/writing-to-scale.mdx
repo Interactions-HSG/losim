@@ -58,7 +58,7 @@ what multiplying the small run by the size ratio would have got you.
 
 Every numeric `reveal` becomes a candidate variable. The engine fits each resource
 against every candidate and keeps the one that would be **reproduced**, not the one
-with the best R². [How the laws are chosen →](/engine/laws)
+with the best R². [How the laws are chosen ->](/engine/laws)
 </Note>
 
 ## 4. Let the fleet vary independently of the data
@@ -82,7 +82,7 @@ Singleton machines — the coordinator — are left alone when the fleet is resi
 Only pools with `count:` are regenerated, so put your workers in a pool.
 </Tip>
 
-## What a scaled scenario looks like
+## A scaled scenario, in full
 
 ```yaml thumbs-scaled.yaml
 mode: scaled
@@ -112,7 +112,7 @@ Note what is **not** there: no caps, and no shrink factor. The engine solves for
 caps per machine and per resource, and a hand-declared factor would be a third mode
 whose numbers nobody could account for.
 
-## What comes out
+## The output
 
 ```
 thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 records (x5,000), k_time 20
@@ -144,7 +144,7 @@ until the cluster bill arrives.
     across a bend means anything. The engine catches it by splitting the ladder in
     half and comparing the exponents.
 
-    This is not a reason to write worse code. It is a reason to know that *this*
+    This is not a reason to write worse code, but a reason to know that *this*
     resource cannot be projected from *this* probe range, which is a true and
     useful thing to be told.
   </Accordion>
@@ -179,7 +179,7 @@ until the cluster bill arrives.
     what the machines cost.
 
     That is the useful answer. It says where the uncertainty in the cost of a
-    design actually lives.
+    design sits.
   </Accordion>
 </AccordionGroup>
 
@@ -187,7 +187,7 @@ until the cluster bill arrives.
   <Card title="Running scaled mode" icon="play" href="/run/scaled-mode">
     The commands, the plan cache, and reading the output.
   </Card>
-  <Card title="How the engine decides" icon="gears" href="/engine/laws">
+  <Card title="Fitting the law" icon="gears" href="/engine/laws">
     Candidate variables, wobble, and why R² is not the test.
   </Card>
 </CardGroup>

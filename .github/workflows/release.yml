@@ -1,6 +1,6 @@
 # Cutting a release: the lib/ a lab downloads, and the jar a POM points at.
 #
-# Releasing is pushing a tag. There is no button and no version to type twice —
+# Releasing is pushing a tag. There is no button and no version to type twice:
 # ./VERSION is the number, the tag has to agree with it, and the job stops if it
 # does not. A release whose tag says v1.2.0 while its jar says 1.0.1 would be
 # discovered by a student, months later, as a bug that cannot be reproduced.
@@ -10,7 +10,7 @@
 # What it publishes, and who reads it:
 #
 #   losim-lib.zip   `losim update` in a student's lab. This is the one that
-#                   matters — it is the whole of lib/, the same bytes publish.sh
+#                   matters: it is the whole of lib/, the same bytes publish.sh
 #                   writes into an assignment.
 #   VERSION         a one-line asset, so `losim update --check` costs a few bytes
 #                   instead of 22 MB.
@@ -30,8 +30,8 @@
 #   nothing else, and point losim/cli/Update.java's DIST at it.
 #
 #   **GitHub Packages' Maven registry is not an option at all.** It requires a
-#   token to *read*, and — unlike the Container registry, which is the only one
-#   exempt — that is true whether the package is public or private. Making a
+#   token to *read*. Unlike the Container registry, which is the only one
+#   exempt, that is true whether the package is public or private. Making a
 #   repository public does not make its Maven packages anonymously resolvable.
 #   That is why the Maven artifact is published as a plain file tree on the
 #   `maven-repo` branch of this repository, which any public URL serves without
@@ -98,7 +98,7 @@ jobs:
       # Served anonymously, which GitHub Packages' Maven registry cannot be: it
       # wants a token to read even a public package, and a student cannot be
       # asked for one. So the Maven tree is pushed to a branch of *this*
-      # repository, which GITHUB_TOKEN can already write — no second repository,
+      # repository, which GITHUB_TOKEN can already write: no second repository,
       # no extra secret, and nothing for anybody to configure before it works.
       #
       # A lab then resolves from either of these, both anonymous on a public repo:

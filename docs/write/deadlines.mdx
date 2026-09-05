@@ -33,7 +33,7 @@ Paying the network after the fact without this check would let a call succeed th
 the wire had already outrun — so `crossZone: 30 refMs` and
 `withDeadlineAfter(50, MILLISECONDS)` mean exactly what they look like they mean.
 
-## What happens when it expires
+## The caller gets an exception, and the trace records why
 
 The caller gets `StatusRuntimeException` with `DEADLINE_EXCEEDED`, and the trace
 gets an `rpc_timeout` event carrying `why`:

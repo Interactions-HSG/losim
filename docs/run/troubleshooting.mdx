@@ -13,14 +13,14 @@ Exit code **2**, with the file and line. These read like compiler errors on purp
     Every duration is reference-machine time and has to say so: `900 refMs` or
     `2 refSeconds`. A bare number is ambiguous between the simulated world and your
     afternoon, and the two differ by `k_time`, which whoever writes the scenario
-    never sees. [Durations →](/ref/durations)
+    never sees. [Durations ->](/ref/durations)
   </Accordion>
   <Accordion title="unknown key 'zones'; expected one of instance, zone, runs, …">
     A typo in a key. Every block declares exactly what it accepts, so this is caught
     at load rather than discovered as a setting that silently did nothing.
   </Accordion>
   <Accordion title="unknown instance type 'c5.medium'">
-    The message lists the whole catalogue. [Instances →](/ref/instances)
+    The message lists the whole catalogue. [Instances ->](/ref/instances)
   </Accordion>
   <Accordion title="there is no machine called 'w7' in this scenario">
     A fault aimed at a machine that does not exist. The message lists the ones that
@@ -41,7 +41,7 @@ Exit code **2**, with the file and line. These read like compiler errors on purp
   </Accordion>
   <Accordion title="retrying lab.Volley.Hit is refused">
     The `.proto` declares no `idempotency_level`. Declare it, or write
-    `unsafe: true` in the policy if you mean it. [Retries →](/write/retries)
+    `unsafe: true` in the policy if you mean it. [Retries ->](/write/retries)
   </Accordion>
   <Accordion title="retry policy names 'Thumbnial', which no machine in this fleet serves">
     A typo in a policy would otherwise be a policy that silently does nothing.
@@ -86,7 +86,7 @@ Exit code **2**, with the file and line. These read like compiler errors on purp
   </Accordion>
   <Accordion title="'this thread has no machine'">
     Work started on a thread the machine did not create. [Concurrency
-    →](/write/concurrency)
+    ->](/write/concurrency)
   </Accordion>
   <Accordion title="w3 has no disk left: 33.4 MB written against a 32.0 MB volume">
     Working as intended. `wroteDisk` throws when the cap is exceeded, because
@@ -95,7 +95,7 @@ Exit code **2**, with the file and line. These read like compiler errors on purp
   </Accordion>
   <Accordion title="a trust block at the end of the run">
     Nothing was stopped. Each finding is a **wrong number**, not a broken run, and
-    it names the file and line. [Trust markers →](/engine/trust)
+    it names the file and line. [Trust markers ->](/engine/trust)
   </Accordion>
 </AccordionGroup>
 

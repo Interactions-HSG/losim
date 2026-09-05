@@ -23,11 +23,11 @@ Measured: multiplication lands **34% out** on memory for a workload where those
 diverge, and **199% out** on a makespan where replay lands within 2%.
 </Warning>
 
-## What losim does instead
+## losim's answer
 
 <Steps>
   <Step title="Shrink the workload and the machines by the same factor">
-    What the scale model preserves is not size but **ratio**: demand over capacity,
+    The scale model preserves **ratio**, not size: demand over capacity,
     per machine, per resource. A design that would exhaust a 16 GiB machine at full
     scale exhausts a 16 MiB one here — in your own code, for the same reason.
   </Step>
@@ -44,7 +44,7 @@ diverge, and **199% out** on a makespan where replay lands within 2%.
   </Step>
 </Steps>
 
-## What survives shrinking, and what does not
+## Survives the shrink, and what does not
 
 <Columns cols={2}>
   <Card title="Survives honestly" icon="check">

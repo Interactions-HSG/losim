@@ -83,7 +83,7 @@ javac --release 21 -cp "lib/losim.jar:lib/jars/*" -d build/classes \
 ```
 
 
-## What `build/` holds after a run
+## `build/`, after a run
 
 | | |
 |---|---|
@@ -96,13 +96,13 @@ javac --release 21 -cp "lib/losim.jar:lib/jars/*" -d build/classes \
 
 The plan cache is worth knowing about: fitting a scale plan costs a grid of about
 thirty small runs, and it is paid once. Delete `build/.losim-plans` to force a
-refit. [More on that →](/engine/probe-grid)
+refit. [More on that ->](/engine/probe-grid)
 
 ## Seeing a run
 
 You do not have to do anything: the lab server is already showing every trace under
 `build/runs`, and `show()` in `RunExperiments.java` opens the viewer on whatever it
-just ran. [The viewer →](/viewer/index)
+just ran. [The viewer ->](/viewer/index)
 
 
 ## The manual's own check

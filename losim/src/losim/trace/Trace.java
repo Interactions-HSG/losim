@@ -20,9 +20,10 @@ public final class Trace {
     /**
      * Bumped only when a shape changes incompatibly, which is meant never to happen.
      *
-     * <p>3: {@code losimRegions} became {@code losimStops}. "Region" had come to mean
-     * a place — {@code egressMb} is keyed by one — and the same machine object was
-     * carrying both senses of the word.
+     * <p>The machine totals carry {@code losimStops}, not {@code losimRegions}:
+     * {@code egressMb} already keys its entries by region — a place — so a field
+     * on the same object also called "region" would carry two different senses
+     * of the word.
      */
     public static final int SCHEMA_VERSION = 3;
 
@@ -40,11 +41,11 @@ public final class Trace {
      * What each machine consumed, in total, by the time the run ended.
      *
      * <p>A fourth top-level channel rather than a fifth kind of event, for the same
-     * reason spans and series are: these are not moments. They are the run's closing
-     * balance, and everything that reasons about quantities rather than about what
-     * happened — the bill, a ground-truth comparison, a machine's row in the
-     * viewer — needs them without having to reconstruct a peak from a sampled series
-     * that was quantised for scrubbing and may have missed the last walk entirely.
+     * reason spans and series are: these are the run's closing balance, not moments,
+     * and everything that reasons about quantities rather than about what happened —
+     * the bill, a ground-truth comparison, a machine's row in the viewer — needs
+     * them without having to reconstruct a peak from a sampled series that was
+     * quantised for scrubbing and may have missed the last walk entirely.
      */
     public Trace machine(Map<String, Object> totals) { machines.add(totals); return this; }
 

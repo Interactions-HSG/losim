@@ -11,9 +11,9 @@ echo "building losim..."
 # works without a wait later — and deliberately allowed to fail: the docs are not
 # the simulator, and a container whose build depends on a registry being up is a
 # container that sometimes does not build. losim needs none of this.
-# Nothing is fetched here any more. The manual used to need Mintlify's CLI over
-# npm; it is now served by the JDK that is already in this image, so a container
-# that comes up is a container where everything works — no registry involved.
+# Nothing is fetched: the manual is served by the JDK already in this image, not
+# by a CLI pulled over npm, so a container that comes up is a container where
+# everything works — no registry involved.
 
 
 cat <<'TXT'

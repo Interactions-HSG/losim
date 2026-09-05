@@ -8,10 +8,9 @@
  * A kind that losim emits and neither set contains is a moment a reader cannot
  * get to except by dragging the bar and guessing.
  *
- * This checks the general property rather than only the shapes already known,
- * because the failure repeats: an event the manual describes and the viewer
- * does not draw is a moment a reader cannot get to except by dragging the bar
- * and guessing.
+ * This checks the general property rather than only the shapes already known:
+ * the failure repeats whenever the manual describes an event the viewer never
+ * draws.
  *
  *   **heal** missing while **partition** is present would send `]` walking
  *   into a partition and straight past its repair. The repair is the half that
@@ -122,7 +121,7 @@ if (unreachable.size) {
 // The check run backwards. A trace set carrying none of the kinds this was
 // written for would pass no matter what NOTABLE said, and a check that cannot
 // fail is not one — so the absence of the evidence is reported rather than
-// quietly enjoyed.
+// read as a pass.
 //
 // log() is in the default trace set, so its absence is a failure. heal only
 // appears in a run that partitions something, which lives in the gallery — so

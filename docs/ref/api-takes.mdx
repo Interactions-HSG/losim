@@ -27,7 +27,7 @@ unannotated method takes **no time** — deliberately, rather than a made-up amo
   was.
 </ParamField>
 
-## What gets slept
+## The sleep formula
 
 ```
 refMs × (2 ÷ vcpu) × degradeFactor ÷ k_time
@@ -37,7 +37,7 @@ Reference-machine time is two vCPUs running alone. So a 4-vCPU machine takes hal
 long, a machine under `degrade: factor: 4` takes four times as long, and the whole
 run is compressed by `k_time`.
 
-## Why this is declared when everything else is measured
+## Declared, not measured
 
 losim shrinks the workload **and** the machines by the same factor, so memory and
 bytes survive it honestly. Time does not, because the host's CPU is not shrunk — it
@@ -49,7 +49,7 @@ Measuring instead does not work at this scale: handler durations at probe size s
 inside the host's own jitter, where the fitted time exponent moves by 0.25 between
 seed sets of an identical workload.
 
-## Where the annotation is looked for
+## Finding the annotation
 
 gRPC knows the method as `lab.Thumbnailer/Thumbnail`; you wrote `thumbnail`. The
 bridge is grpc-java's own naming rule — an rpc `Thumbnail` becomes a Java method

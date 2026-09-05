@@ -123,7 +123,7 @@ bound"*, attached to the machine and to the figure it undermines.
   </Accordion>
 </AccordionGroup>
 
-## What is deliberately not a rule
+## Not flagged, on purpose
 
 <Note>
 **Nothing is flagged for determinism's sake.** Unseeded `Random`, `Math.random` and
@@ -135,7 +135,7 @@ outside the machine's own pool is merely attributed to nobody, and that is what 
 said.
 </Note>
 
-## What a flag undermines
+## Consequences of each flag
 
 Each rule carries a flag, and each flag names the measured resources it makes
 meaningless:
@@ -158,6 +158,6 @@ protoc's output trips these rules freely — a `*Grpc` class holds six mutable s
 It is recognised by protobuf's own superclass and grpc-java's `@GrpcGenerated`, not
 by a guess about its name.
 
-<Card title="How the verifier reads your code" icon="microscope" href="/engine/trust">
+<Card title="The verifier's read" icon="microscope" href="/engine/trust">
   Including the two things a verifier reading only instructions would miss.
 </Card>

@@ -11,13 +11,13 @@ Losim.current().sleep(200);      // 200 reference milliseconds
 Same unit as everything else, same division by `k_time`. At `kTime: 40` that waits
 five real milliseconds and two hundred simulated ones.
 
-## Why not `@Takes`?
+## `@Takes` is fixed per method
 
 `@Takes` is an annotation, so it is fixed per method. This is for a duration **only
 the running program knows**: a backoff that grows with the attempt, a poll
 interval, a lease held until something else happens.
 
-## Why not `Thread.sleep`?
+## `Thread.sleep` ignores `k_time`
 
 Because `k_time` never touches it. `Thread.sleep(200)` waits two hundred
 milliseconds of *your afternoon*, which at a compression of forty is eight thousand
@@ -78,7 +78,7 @@ while (cluster.clockMs() < cluster.expectedRunMs()) {
 Prefer the scenario's own retry policy to a hand-rolled backoff where you can. It
 is declared data, so it can be diffed and swept, and losim gives every attempt its
 own span and its own byte count. Roll your own when the policy depends on something
-only the program knows. [Retries →](/write/retries)
+only the program knows. [Retries ->](/write/retries)
 </Tip>
 
 ## Blocking on something real is not this
@@ -99,7 +99,7 @@ Thread.sleep(200);                    // flagged: your afternoon, not the run's
 Timeouts on those waits — `future.get(2, SECONDS)`, `latch.await(1, SECONDS)` — are
 real durations that `k_time` does not touch, but they are only *spent* when the
 wait fails, and a static check cannot see which run that is. So they are left
-alone. If a timeout is load-bearing in your design, prefer a gRPC deadline, which
+alone. If a timeout matters to your design, prefer a gRPC deadline, which
 losim does rewrite into reference time.
 </Note>
 

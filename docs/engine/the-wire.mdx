@@ -34,9 +34,10 @@ counts the bytes the caller tried to send, waits out the caller's **own deadline
 and then fails with `DEADLINE_EXCEEDED`.
 
 <Note>
-The caller cannot tell the three apart — which is the point. Modelling any of them as
-an immediate `UNAVAILABLE` would turn the most instructive failure in distributed
-systems into a tidy error code: a socket that refuses is a machine that *answered*.
+The caller cannot tell the three apart, deliberately. Modelling any of them as
+an immediate `UNAVAILABLE` would turn a real distributed-systems failure into one
+tidy error code: a machine that refuses a call has still answered it, and that is
+not the same as a machine that never responds.
 
 A call with no deadline waits five reference seconds, so a scenario that forgot one
 still terminates.
@@ -116,7 +117,7 @@ look cheaper than one that does not.
 ## Byte counting
 
 <Warning>
-gRPC's in-process transport **does not serialize** — it hands the receiver the same
+gRPC's in-process transport **does not serialize**. It hands the receiver the same
 object reference. Protobuf messages are immutable, so that is otherwise harmless, but
 it means a byte count can never be inferred from the transport.
 

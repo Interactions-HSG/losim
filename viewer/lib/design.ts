@@ -178,10 +178,10 @@ export const STROKE_EDGE = 1.6;
 // **Georgia, Times New Roman, Palatino, PT Serif and Baskerville are deliberately
 // absent.** Measured, in the Python renderer: pango collapses their word spaces —
 // "near its cap, queueing" comes out "nearitscap,queueing". The browser does not
-// have that bug, but the list is kept as it was so that a picture rendered from
-// this design system looks the same wherever it is rendered. Charter was cut by
-// Matthew Carter for low-resolution output, which is the register this whole
-// language is in.
+// have that bug, but the list matches the Python renderer's exactly so that a
+// picture rendered from this design system looks the same wherever it is
+// rendered. Charter was cut by Matthew Carter for low-resolution output, which
+// is the register this whole language is in.
 export const SANS = ['Helvetica Neue', 'Inter', 'Helvetica', 'DejaVu Sans', 'Liberation Sans', 'Arial'];
 export const SERIF = ['Charter', 'XCharter', 'Bitstream Charter', 'Source Serif 4', 'DejaVu Serif', 'Liberation Serif', 'Noto Serif'];
 

@@ -3,18 +3,18 @@
 /**
  * The console's own state: which run is open, and what time it is.
  *
- * Everything else in this app is a drawing of `(trace, t)`. What was missing was
- * somewhere for the `t` to live that was not inside one of those drawings. The
- * film owned the clock, so the ledger could only accrue underneath the film, and
- * a question like "what had we paid for by the time the first worker answered"
- * had no page to be asked on.
+ * Everything else in this app is a drawing of `(trace, t)`. The clock has to
+ * live somewhere that is not inside any one of those drawings, because a
+ * question like "what had we paid for by the time the first worker answered"
+ * cuts across all four views at once and needs one shared instant to be asked
+ * against.
  *
- * So the clock moves up here, above the views, and the views become four
- * drawings of one instant: the film, the execution graph, what each machine was
- * doing, and what it had cost by then. Dragging one cursor moves all four,
+ * So the clock lives up here, above the views, and the views become four
+ * drawings of one instant: the film, the execution graph, what each machine is
+ * doing, and what it has cost by then. Dragging one cursor moves all four,
  * because there is only one cursor.
  *
- * ## Why the views are not routes
+ * ## The views are not routes
  *
  * They would read better in the URL, and they cannot be. The viewer is a static
  * export (`next.config.mjs`) served by `python3 -m http.server` out of whatever
@@ -360,9 +360,9 @@ const ZERO = (): number => 0;
  *
  * The clock is the *server* snapshot too, and that is not a detail. A clock is a
  * plain object rather than anything a browser owns, so there is no reason for it
- * to read zero when nobody is looking — and while it did, every view rendered
- * outside a browser was silently drawn at `t = 0`, which made a check that
- * rendered them at six points on the clock a check of one point six times.
+ * to read zero when nobody is looking — if it did, every view rendered outside a
+ * browser would be silently drawn at `t = 0`, and a check that renders them at
+ * six points on the clock would in fact be a check of one point, six times.
  */
 export function useNow(): number {
   const { clock } = useConsole();

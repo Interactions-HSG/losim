@@ -5,10 +5,10 @@ import losim.t.Counts;
 /**
  * A worker whose work happens where the JVM will not say what it cost.
  *
- * <p>Worse than merely unattributed: {@code getThreadAllocatedBytes} returns −1 for a
- * virtual thread, so this is not memory charged to the wrong machine but memory that
- * cannot be read at all. It is the reason a machine's pool is platform threads —
- * a requirement rather than a preference.
+ * <p>Worse than merely unattributed: {@code getThreadAllocatedBytes} returns -1 for a
+ * virtual thread, so this memory cannot be read at all, worse than merely being
+ * charged to the wrong machine. It is the reason a machine's pool is platform
+ * threads: a requirement rather than a preference.
  */
 public final class Threader extends WorkerBase {
 

@@ -11,7 +11,7 @@
  * whole point of the film.
  *
  * So this is a panel and not a tooltip, for the same reason the machine panel is
- * (see `MachinePanel`): the native SVG `<title>` a packet used to carry waits a
+ * (see `MachinePanel`): the native SVG `<title>` a packet carries waits a
  * second to appear, cannot be scrolled, cannot be selected, and truncates the
  * one thing worth reading. A student following a word from a mapper's split
  * into a reducer's total needs to be able to *look* at the list.

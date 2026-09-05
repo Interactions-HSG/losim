@@ -9,7 +9,7 @@ import losim.res.InstanceCatalog;
  * <p>Generic over labs: it reads only the trace, so any gRPC system gets a cost view
  * without anyone writing one for it.
  *
- * <h2>Why there are two bills, and why the second one has holes in it</h2>
+ * <h2>Two bills, and why the second has holes</h2>
  *
  * A scaled run's numbers are a model of something bigger, so the interesting bill is
  * the one for the job that was actually being asked about. But a bill is quantities
@@ -225,9 +225,9 @@ public final class Bill {
      * which region a replica goes in — that this is worth putting on a bill to inform.
      *
      * <p>Reads {@code egressMb} on each machine, which is the same bytes as
-     * {@code crossZoneMb} split by where they went. A trace written before that
-     * existed has no split, so it is billed whole at the same-region rate — the
-     * old behaviour exactly, rather than a guess at a distance nobody recorded.
+     * {@code crossZoneMb} split by where they went. A trace with no split is
+     * billed whole at the same-region rate, rather than a guess at a distance
+     * nobody recorded.
      */
     private static void egress(PnL pnl, List<Map<String, Object>> machines,
                                double crossZoneMb, double growth, PriceList prices) {
