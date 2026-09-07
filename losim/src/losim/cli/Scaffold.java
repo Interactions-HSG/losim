@@ -106,10 +106,15 @@ final class Scaffold {
 
             // A lab's classpath used to be jars committed into the repository, and it
             // is a resolved graph now. Locking is what puts back the guarantee that
-            // cost: run `gradle --write-locks` once and commit `gradle.lockfile`, and
-            // the same build tomorrow resolves the same bytes — so a number a run
-            // produces still does not depend on what a package manager felt like
-            // today. Until that file exists this line only says it should.
+            // cost — but this line on its own only says it should:
+            //
+            //     gradle --write-locks losimToolchain     # then commit gradle.lockfile
+            //
+            // The task has to be named. Gradle writes a lock for the configurations
+            // an invocation actually resolves, and a bare `--write-locks` resolves
+            // none, so it succeeds and writes nothing at all. That one names the
+            // three that decide what a run resolves: the classpath, and the two
+            // compilers.
             dependencyLocking { lockAllConfigurations() }
 
             // ---------------------------------------------------------------- protoc

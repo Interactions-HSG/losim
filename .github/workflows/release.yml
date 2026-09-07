@@ -135,6 +135,37 @@ jobs:
           # lab pinned to an older one has to keep resolving.
           cp -r ../build/maven-repo/* .
           touch .nojekyll
+
+          # ...which is exactly why maven-metadata.xml cannot be copied along with
+          # the rest. Gradle writes it to describe the one version this run
+          # published, so copying it over the branch's own replaced a list of every
+          # release with a list of one — for six releases running. Rebuilt here from
+          # the version directories that are actually on the branch.
+          D=io/github/interactions-hsg/losim
+          ALL="$(ls -d "$D"/*/ | xargs -n1 basename | sort -V)"
+          NEWEST="$(echo "$ALL" | tail -1)"
+          {
+            echo '<?xml version="1.0" encoding="UTF-8"?>'
+            echo '<metadata>'
+            echo '  <groupId>io.github.interactions-hsg</groupId>'
+            echo '  <artifactId>losim</artifactId>'
+            echo '  <versioning>'
+            echo "    <latest>${NEWEST}</latest>"
+            echo "    <release>${NEWEST}</release>"
+            echo '    <versions>'
+            echo "$ALL" | while read -r v; do echo "      <version>${v}</version>"; done
+            echo '    </versions>'
+            echo "    <lastUpdated>$(date -u +%Y%m%d%H%M%S)</lastUpdated>"
+            echo '  </versioning>'
+            echo '</metadata>'
+          } > "$D/maven-metadata.xml"
+          # A checksum of the old file beside the new one is worse than none: a
+          # resolver that checks them treats the mismatch as a corrupt repository.
+          for h in md5 sha1 sha256 sha512; do
+            "${h}sum" "$D/maven-metadata.xml" | cut -d' ' -f1 > "$D/maven-metadata.xml.${h}"
+          done
+          echo "metadata lists: $(echo "$ALL" | tr '\n' ' ')"
+
           git add -A
           git -c user.name=losim-release -c user.email=noreply@github.com \
               commit -m "losim ${V}" || echo "nothing changed"

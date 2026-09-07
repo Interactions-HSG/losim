@@ -55,6 +55,27 @@ a shell reading the `.properties` file with `sed` would get a classpath that is
 subtly not the one Gradle resolved. Java reads the properties; the shell reads the
 line.
 
+## Pinning what it resolved
+
+A lab's classpath used to be jars committed to its repository. It is a resolved
+graph now, and locking is what puts back what that cost — that the same build
+tomorrow resolves the same bytes, and that a number a run produces does not depend
+on what a package manager felt like today.
+
+```bash
+gradle --write-locks losimToolchain     # then commit gradle.lockfile
+```
+
+Once, after the first build. The build file already declares `dependencyLocking`,
+but that line on its own does nothing until the file exists.
+
+<Warning>
+The task has to be named. Gradle locks the configurations an invocation actually
+resolves, and a bare `gradle --write-locks` resolves none — so it succeeds, prints
+nothing, and writes no lockfile. `losimToolchain` resolves the three that decide
+what a run sees: the classpath, `protoc`, and the gRPC plugin.
+</Warning>
+
 ## Taking a newer losim
 
 ```bash

@@ -325,7 +325,8 @@ public final class Adopt {
                 ./losim build          generate, compile, and say what is wrong
                 ./losim check          re-run these findings without running anything
                 ./losim serve          the lab, on :8000
-                gradle --write-locks   once, then commit gradle.lockfile — your
+                gradle --write-locks losimToolchain
+                                       once, then commit gradle.lockfile — your
                                        classpath is resolved now, and this pins it""");
     }
 

@@ -126,8 +126,12 @@ The build `adopt` writes declares `dependencyLocking`. That declaration is inert
 on its own: run it once, and commit what it writes.
 
 ```bash
-gradle --write-locks     # then commit gradle.lockfile
+gradle --write-locks losimToolchain     # then commit gradle.lockfile
 ```
+
+The task has to be named. Gradle locks the configurations an invocation actually
+resolves, so a bare `--write-locks` succeeds and writes nothing; that one covers
+the classpath and both compilers.
 
 A lab also needs the network once, where before it needed it never.
 
