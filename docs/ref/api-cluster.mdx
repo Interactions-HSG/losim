@@ -46,9 +46,10 @@ public final class MyJob implements Job {
 <ResponseField name="records()" type="long">
   How many records this run is to process.
 
-  In direct mode, what the scenario declared. In scaled mode, what the engine chose
-  — a fraction of full scale, picked so that the machines and the workload shrink by
-  the same factor and the ratios a design lives or dies by are preserved.
+  One, unless the scenario declared a [scale](/ref/scale) — then `scale × 8000` in
+  direct mode, and in scaled mode what the engine chose: a fraction of full scale,
+  picked so that the machines and the workload shrink by the same factor and the
+  ratios a design lives or dies by are preserved.
 
   **A job that ignores this cannot be scaled, and the trace will say so.**
 </ResponseField>
@@ -68,20 +69,23 @@ public final class MyJob implements Job {
   Simulated milliseconds since the run began — the clock the scenario is written in.
 </ResponseField>
 
-<ResponseField name="expectedRunMs()" type="double">
-  How long the scenario said this run should take, in reference milliseconds.
+<Warning>
+**There is no `expectedRunMs()`.** There was, and it was a scenario declaring how
+long its own run would take — which nobody can say in advance, and which is the
+whole reason to run a simulator at all. A job whose shape is *keep going until the
+run is over* has to name its own stretch, in its own code, where the decision
+belongs:
 
-  For a job whose shape is *keep going until the run is over* — a load generator, a
-  poller — rather than *do this much work*. Without it such a job has to guess, and
-  a job that guesses short finishes before the scenario's weather has happened to it.
+```java
+while (cluster.clockMs() < 20_000) {
+    fireOneRequest();
+    Losim.current().sleep(50);
+}
+```
 
-  ```java
-  while (cluster.clockMs() < cluster.expectedRunMs()) {
-      fireOneRequest();
-      Losim.current().sleep(50);
-  }
-  ```
-</ResponseField>
+A run still has a backstop — two minutes of real time — but that is a line between
+*slow* and *stuck*, not a prediction, and no job can read it.
+</Warning>
 
 ## Structure
 

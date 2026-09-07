@@ -129,12 +129,12 @@ const DRAFTS: [string, Draft][] = [
     ...base, name: 'lossy',
     net: { sameZoneRefMs: 0, crossZoneRefMs: 0, jitterRefMs: 0, loss: 0.2 },
   }],
-  // kTime is the one field `toYaml` writes conditionally that no other draft
+  // `scale` is the one field `toYaml` writes conditionally that no other draft
   // here exercises: they all sit at 1, which writes no key whether or not the
-  // writer knows the field exists. So a scenario that is actually compressed —
-  // where losing the key on save means the run silently takes twenty times as
-  // long as the author asked for.
-  ['a run compressed twenty times', { ...base, name: 'quick', kTime: 20 }],
+  // writer knows the field exists. So a scenario that is actually a model of
+  // something — where losing the key on save turns a projection of eighty
+  // thousand records into a run of one, silently.
+  ['a model of ten times the run', { ...base, name: 'tenfold', scale: 10 }],
   ['a standing rate of every kind', {
     ...base, name: 'chaotic',
     chaos: [
@@ -189,13 +189,11 @@ const DRAFTS: [string, Draft][] = [
         forRefMs: 0, factor: 1, noticeRefMs: 0, restartAfterRefMs: 0 },
     ],
   }],
-  ['a workload, run directly', {
-    ...base, name: 'sized',
-    workload: { records: 5000, probe: [1000, 2000, 4000, 8000], workers: [2, 3] },
+  ['a size run in full rather than modelled', {
+    ...base, name: 'sized', scale: 4,
   }],
-  ['a workload the engine probes its way up to', {
-    ...base, name: 'projected', mode: 'scaled',
-    workload: { records: 10_000_000, probe: [500, 1000, 2000, 4000, 8000], workers: [2, 4, 6] },
+  ['a size the engine probes its way up to', {
+    ...base, name: 'projected', mode: 'scaled', scale: 1250,
   }],
   // A pool whose machines are named apart from the pool they are in, which every
   // MapReduce scenario in the gallery depends on opening correctly: `mappers`
@@ -263,7 +261,7 @@ const DRAFTS: [string, Draft][] = [
     ...base, name: 'tight', tightMargin: true,
   }],
   ['all of it at once', {
-    ...base, name: 'everything', seed: 9, kTime: 4, expectedRunRefSeconds: 45,
+    ...base, name: 'everything', seed: 9, scale: 32, mode: 'scaled',
     pools: [
       { name: 'master', count: 1, prefix: 'master', instance: 'm5.large', zones: ['eu-central-1a'], runs: [], memoryMb: null, diskMb: null, overrides: [] },
       { name: 'workers', count: 4, prefix: 'workers', instance: 'c5.large',
@@ -271,7 +269,6 @@ const DRAFTS: [string, Draft][] = [
       { name: 'edge', count: 1, prefix: 'edge', instance: 'a1.medium', zones: ['ap-northeast-1a'], runs: ['lab.Combiner'], memoryMb: null, diskMb: null, overrides: [] },
     ],
     net: { sameZoneRefMs: 0.4, crossZoneRefMs: 25, jitterRefMs: 3, loss: 0.005 },
-    workload: { records: 250_000, probe: [1000, 2000, 4000, 8000], workers: [2, 4] },
     faults: [
       { kind: 'kill', atRefMs: 300, target: 'workers1', other: '', forRefMs: 0, factor: 1, noticeRefMs: 0, restartAfterRefMs: 2000 },
       { kind: 'freeze', atRefMs: 600, target: 'workers2', other: '', forRefMs: 400, factor: 1, noticeRefMs: 0, restartAfterRefMs: 0 },
@@ -293,7 +290,8 @@ const REFUSED: [string, string][] = [
   ['a fault aimed at a machine that is not there',
    'job: J\nmachines:\n  a: { instance: m5.large, zone: eu-central-1a }\nfaults:\n  - { at: 1 refMs, kill: ghost }\n'],
   ['a duration that does not say what kind of time it is',
-   'job: J\nexpectedRun: 900\nmachines:\n  a: { instance: m5.large, zone: eu-central-1a }\n'],
+   'job: J\nmachines:\n  a: { instance: m5.large, zone: eu-central-1a }\n'
+   + 'faults:\n  - { at: 900, kill: a }\n'],
   ['a key that is a typo for a real one',
    'job: J\nmachiens:\n  a: { instance: m5.large, zone: eu-central-1a }\n'],
   // The form clamps loss to 0..1, so this is the loader being asked to hold the
@@ -390,7 +388,7 @@ try {
     // The text comparison below cannot do this on its own. It is symmetric — a
     // writer that drops a field drops it on both passes, so the file it wrote
     // and the file it would write again agree perfectly about a value that was
-    // lost on the way. `kTime` is the live example: every draft here but two
+    // lost on the way. `scale` is the live example: every draft here but three
     // sits at the default, which writes no key whether or not the writer has
     // ever heard of the field.
     const off: string[] = [];
@@ -399,18 +397,9 @@ try {
     };
     same('job', draft.job, got.job);
     same('seed', draft.seed, got.seed);
-    same('kTime', draft.kTime, got.kTime);
-    same('expectedRunRefSeconds', draft.expectedRunRefSeconds, got.expectedRunRefSeconds);
+    same('scale', draft.scale, got.scale);
     same('tightMargin', draft.tightMargin, got.tightMargin);
     same('mode', draft.mode, got.mode);
-    // Null and a workload of one record are different scenarios, so the absence
-    // is compared as an absence rather than skipped.
-    same('workload present', draft.workload !== null, got.workload != null);
-    if (draft.workload && got.workload) {
-      same('workload records', draft.workload.records, got.workload.records);
-      same('workload probe', draft.workload.probe.join(','), got.workload.probe.join(','));
-      same('workload workers', draft.workload.workers.join(','), got.workload.workers.join(','));
-    }
     same('net.sameZone', draft.net.sameZoneRefMs, got.net.sameZoneRefMs);
     same('net.crossZone', draft.net.crossZoneRefMs, got.net.crossZoneRefMs);
     same('net.jitter', draft.net.jitterRefMs, got.net.jitterRefMs);

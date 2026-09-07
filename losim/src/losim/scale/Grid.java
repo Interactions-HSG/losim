@@ -40,8 +40,8 @@ public record Grid(List<List<Probe>> dataLadder,
 
     public static Grid run(Scenario s, ClassLoader loader, Telemetry.Level level, int seedCount)
             throws Exception {
-        var sizes = s.workload().probeSizes();
-        var counts = s.workload().workerCounts();
+        var sizes = Scenario.LADDER;
+        var counts = s.workerCounts();
         long[] seeds = seedsFrom(s.seed(), seedCount);
         var notes = new ArrayList<String>();
 

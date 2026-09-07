@@ -70,19 +70,11 @@ Exit code **2**, with the file and line. These read like compiler errors on purp
     timed out rather than the name being genuinely taken.
 
   </Accordion>
-  <Accordion title="the job did not finish within ten times its declared expectedRun">
-    A backstop, not a deadline. Look for a call with no deadline (five reference
-    seconds each), a coordinator waiting on a machine that was killed, or a loop
-    that never terminates because `cluster.records()` was ignored.
-  </Accordion>
-  <Accordion title="an over_horizon event">
-    ```
-    chaos was only drawn out to the horizon, so nothing happened to this fleet
-    after it
-    ```
-    The run overran `expectedRun` by more than a quarter. Past the horizon the
-    sampler thins out and chaos stops firing — a quiet second half that looks
-    exactly like a fleet behaving well. Raise `expectedRun`.
+  <Accordion title="the job was still running after 120 seconds of real time">
+    A backstop, not a deadline, and the line between *slow* and *stuck*. Look for a
+    call with no deadline (five reference seconds each), a coordinator waiting on a
+    machine that was killed, or a loop that never terminates because
+    `cluster.records()` was ignored.
   </Accordion>
   <Accordion title="'this thread has no machine'">
     Work started on a thread the machine did not create. [Concurrency
@@ -107,7 +99,7 @@ Exit code **2**, with the file and line. These read like compiler errors on purp
 | handlers never overlap | a blocking stub inside the dispatch loop |
 | timings are implausibly fast | a handler with no `@Takes` takes no time, deliberately |
 | the per-record cost seems to do nothing | the handler never called `records(n)` |
-| a deadline fires immediately | it is reference time; at `kTime: 40` a 200 refMs deadline is 5 real ms — that part is fine, but check the declared cost it is racing |
+| a deadline fires immediately | it is reference time; at 40× a 200 refMs deadline is 5 real ms — that part is fine, but check the declared cost it is racing |
 | memory is far lower than expected | `memoryMb` is *retained*, not allocated. A streaming design genuinely holds nothing |
 | bytes are zero | the message is not a protobuf `Message`, or the channel was built by hand |
 

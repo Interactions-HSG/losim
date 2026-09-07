@@ -93,9 +93,7 @@ comparing two of these.
 
 ```yaml
 seed: 7
-kTime: 2
 job: WordCountJob
-expectedRun: 2 refSeconds
 
 machines:
   master: { instance: m5.large, zone: eu-central-1a }
@@ -136,9 +134,7 @@ hold, and losim shrinks the workload and the machines by the same factor:
 
 ```yaml
 mode: scaled
-workload:
-  records: 40000000
-  probe: [1000, 2000, 4000, 8000]
+scale: 5000
 ```
 
 ```

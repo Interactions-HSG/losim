@@ -7,8 +7,8 @@ icon: "scale-balanced"
 ## The problem
 
 The clock cannot express a duration finer than about **0.05 ms** of real time. At
-`kTime: 40`, a declared cost of 1 refMs is 25 µs — comfortably below it. At
-`kTime: 100`, so is a cost of 4 refMs.
+40× — the fastest the engine ever runs it — a declared cost of 1 refMs is 25 µs,
+comfortably below it. At 20×, so is a cost of half that.
 
 Rounding those up would make the run slower than it should be. Dropping them would
 make it faster. Both distort exactly the thing the run is measuring.
@@ -64,9 +64,10 @@ The ledger is good for about **fifty times** below the floor. Past that the resi
 stops being absorbed and the run's own timings drift.
 
 ```
-k_time 400 is finer than this workload can express: lab.Thumbnailer.Capacity costs
-0.5000 refMs, which at that compression is 4x below what the sleep debt can still
-settle. Lower k_time to 100 or less, or give that cost site more to do.
+this run is clocked at 40x real time, and lab.Thumbnailer.Capacity costs 0.0004
+refMs — 6x below what the sleep debt can still settle at that compression, so its
+timings would drift rather than be owed. Give that cost site more to do, or lower
+the scale: at scale 1 the clock runs at 20x.
 ```
 
 <Tip>

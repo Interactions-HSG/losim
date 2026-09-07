@@ -60,25 +60,14 @@ thumbs.yaml:33: chaos cannot 'explode'; it can kill, freeze or degrade
 followed by the ordinary `kill`, `freeze` or `degrade` event for that machine — so a
 reader can tell a scripted fault from a drawn one, and both are otherwise identical.
 
-## Chaos stops at the horizon
+## A rate has no horizon
 
-<Warning>
-Draws are generated up to `expectedRun` and no further. If a run overruns it,
-**nothing happens to the fleet after that point** — a quiet second half that looks
-exactly like a fleet behaving well.
-
-The trace says so:
-
-```json
-{ "kind": "over_horizon", "vm": "-", "detail": {
-    "expectedRefMs": 6000, "actualRefMs": 11840,
-    "note": "chaos was only drawn out to the horizon, so nothing happened to this
-             fleet after it" } }
-```
-
-Raise `expectedRun` when you see it. Unsaid, it is a finding; said out loud, it is a
-scenario to fix.
-</Warning>
+<Note>
+Each firing draws the next one, so chaos keeps happening for as long as the run
+does. There is nothing to overrun and no `over_horizon` event: a quiet second half
+that looked exactly like a fleet behaving well used to be possible, and is not any
+more.
+</Note>
 
 ## Sweep it
 

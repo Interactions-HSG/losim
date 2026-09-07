@@ -57,26 +57,6 @@ class DraftTest {
     }
 
     @Test
-    @DisplayName("expectedRun is read in seconds regardless of which unit the file used")
-    void expectedRunInSeconds() {
-        var d = Draft.of("main.yaml", """
-                job: J
-                expectedRun: 20 refSeconds
-                machines:
-                  a: { instance: m5.large, zone: eu-central-1a }
-                """);
-        assertEquals(20.0, d.expectedRunRefSeconds(), 1e-9);
-
-        var e = Draft.of("main.yaml", """
-                job: J
-                expectedRun: 5000 refMs
-                machines:
-                  a: { instance: m5.large, zone: eu-central-1a }
-                """);
-        assertEquals(5.0, e.expectedRunRefSeconds(), 1e-9);
-    }
-
-    @Test
     @DisplayName("a kill fault and its restart, read back in refMs")
     void killFault() {
         var d = Draft.of("main.yaml", """
@@ -240,44 +220,25 @@ class DraftTest {
     }
 
     @Test
-    @DisplayName("a workload, read back with the ladder the loader fills in when the file does not")
-    void workloadReadsBack() {
+    @DisplayName("scale reads back, and defaults to 1 — one run, nothing projected")
+    void scaleReadsBack() {
         var d = Draft.of("main.yaml", """
                 job: J
-                workload: { records: 5000, probe: [500, 1000, 2000, 4000], workers: [2, 4, 6] }
+                scale: 6
                 machines:
                   a: { instance: m5.large, zone: eu-central-1a, runs: [Counter] }
                 """);
         assertEquals("direct", d.mode());
-        assertEquals(5000, d.workload().records());
-        assertEquals(List.of(500, 1000, 2000, 4000), d.workload().probe());
-        assertEquals(List.of(2, 4, 6), d.workload().workers());
+        assertEquals(6.0, d.scale(), 1e-9);
 
-        // A ladder the file leaves out is still the ladder the run climbs, so the
-        // form has to be shown it — an empty box here would write a different
-        // scenario back on the next save.
         var e = Draft.of("main.yaml", """
                 job: J
-                workload: { records: 900 }
                 machines:
                   a: { instance: m5.large, zone: eu-central-1a, runs: [Counter] }
                 """);
-        assertEquals(4, e.workload().probe().size(), "the loader's own default ladder");
-        assertFalse(e.workload().workers().isEmpty());
-    }
-
-    @Test
-    @DisplayName("no workload: at all is null, which is not a workload of one record")
-    void noWorkloadIsNotAWorkloadOfOne() {
-        var d = Draft.of("main.yaml", """
-                job: J
-                machines:
-                  a: { instance: m5.large, zone: eu-central-1a }
-                """);
-        assertNull(d.workload(),
-                "a scenario that never mentions a workload has none; the run gives the job one "
-                + "record, which is a different file from one that says so");
-        assertEquals("direct", d.mode());
+        assertEquals(1.0, e.scale(), 1e-9,
+                "a scenario that never mentions a scale is a run of itself, not a model of "
+                + "something bigger");
     }
 
     @Test
@@ -286,31 +247,12 @@ class DraftTest {
         var d = Draft.of("main.yaml", """
                 job: J
                 mode: scaled
-                workload: { records: 1000000 }
+                scale: 125
                 machines:
                   a: { instance: m5.large, zone: eu-central-1a, runs: [Counter] }
                 """);
         assertEquals("scaled", d.mode());
-        assertEquals(1000000, d.workload().records());
-    }
-
-    @Test
-    @DisplayName("kTime is a plain field, read back exactly, and defaults to 1 when the file omits it")
-    void kTimeRoundTrips() {
-        var d = Draft.of("main.yaml", """
-                job: J
-                kTime: 20
-                machines:
-                  a: { instance: m5.large, zone: eu-central-1a }
-                """);
-        assertEquals(20.0, d.kTime(), 1e-9);
-
-        var e = Draft.of("main.yaml", """
-                job: J
-                machines:
-                  a: { instance: m5.large, zone: eu-central-1a }
-                """);
-        assertEquals(1.0, e.kTime(), 1e-9);
+        assertEquals(125.0, d.scale(), 1e-9);
     }
 
     @Test

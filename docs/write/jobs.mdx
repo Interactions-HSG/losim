@@ -30,17 +30,15 @@ threads, so everything it does is attributed to that machine like any other work
     How much work this run is to do, and the scenario's seed. Both come from the
     scenario, and a job that generates its own input needs both.
   </Accordion>
-  <Accordion title="clockMs() and expectedRunMs()" icon="clock">
-    Simulated milliseconds since the run began, and how long the scenario said the
-    run should take.
+  <Accordion title="clockMs()" icon="clock">
+    Simulated milliseconds since the run began.
 
-    `expectedRunMs()` is for a job whose shape is *keep going until the run is
-    over* — a load generator, a poller — rather than *do this much work*. Without
-    it such a job has to guess, and a job that guesses short finishes before the
-    scenario's weather has happened to it:
+    A job whose shape is *keep going until the run is over* — a load generator, a
+    poller — rather than *do this much work* names its own stretch against it. The
+    scenario cannot name one for you: how long a run takes is what the run is for.
 
     ```java
-    while (cluster.clockMs() < cluster.expectedRunMs()) {
+    while (cluster.clockMs() < 20_000) {
         fireOneRequest();
         Losim.current().sleep(50);
     }
@@ -122,16 +120,16 @@ print([e['detail']['value'] for e in t['events'] if e['kind'] == 'done'])
 
 ## A job that outstays its welcome
 
-If the job has not returned after **ten times** the scenario's `expectedRun`, losim
-stops it:
+If the job has not returned after **two minutes of real time**, losim stops it:
 
 ```
 thumbs.yaml  seed 7  did not complete in 61042 refMs
-  the job did not finish within ten times its declared expectedRun
+  the job was still running after 120 seconds of real time, which is not a slow
+  run — it is a stuck one
 ```
 
-That is a backstop, not a deadline. The thing to notice first is the
-`over_horizon` event you will already have, at 1.25×.
+That is a backstop, not a deadline, and it is in real time on purpose: it is the one
+clock still worth trusting when the simulated one has stopped advancing.
 
 <Card title="Next: declaring time" icon="arrow-right" href="/write/declaring-time">
   Why `@Takes` exists when everything else is measured.

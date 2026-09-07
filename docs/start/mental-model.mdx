@@ -9,9 +9,9 @@ icon: "brain"
 Everything you declare is written in **reference milliseconds** — `refMs` — which
 is time on a *reference machine*: two vCPUs, running alone, nothing else going on.
 
-The run itself is compressed by a factor called **`k_time`**. At `kTime: 40`, a
-duration of 800 refMs takes 20 real milliseconds of your afternoon. A forty-minute
-job lands in tens of seconds.
+The run itself is compressed by a factor called **`k_time`**, which the engine
+picks — 20× ordinarily, 40× for a scaled run. At 40×, a duration of 800 refMs takes
+20 real milliseconds of your afternoon. A forty-minute job lands in tens of seconds.
 
 <Warning>
 `k_time` is the reason a bare number is refused everywhere in a scenario. `900` is

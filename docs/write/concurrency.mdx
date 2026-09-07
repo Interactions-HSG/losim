@@ -129,10 +129,7 @@ Save this as `queueing.yaml`. One two-vCPU machine, eight concurrent calls at 10
 
 ```yaml queueing.yaml
 seed: 1
-kTime: 1
 job: lab.FanOutJob            # dispatches 8 calls with newFutureStub, then collects
-expectedRun: 2 refSeconds
-workload: { records: 8 }
 
 machines:
   coordinator: { instance: m5.large, zone: eu-central-1a }

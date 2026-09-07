@@ -30,9 +30,8 @@ Grouped by when it happens. Scenario errors read like compiler errors on purpose
 | `retry policy names 'Thumbnial', which no machine in this fleet serves` | a typo would otherwise silently do nothing |
 | `retrying lab.Volley.Hit is refused — its .proto declares no idempotency_level …` | declare it, or write `unsafe: true` |
 | `mode is 'direct' or 'scaled', not 'auto'` | |
-| `scaled mode needs a workload: to scale down from` | |
+| `scaled mode measures a small run and projects it up, and at scale 1 there is nothing above the run to project to` | |
 | `a workload has at least one record` | |
-| `a ladder needs at least four rungs …` | `probe:` needs four entries |
 | `no such scenario: thumbs.yaml` | |
 
 ## Wiring up
@@ -58,13 +57,12 @@ Grouped by when it happens. Scenario errors read like compiler errors on purpose
 | `there is no machine called 'w9'; this fleet has …` | `channelTo` with a name that is not in the fleet |
 | `DEADLINE_EXCEEDED: w1 did not answer (unreachable)` | dead, partitioned or lost — `why` says which |
 | `DEADLINE_EXCEEDED: the network outlasted the deadline` | the callee answered, but the round trip took too long |
-| `the job did not finish within ten times its declared expectedRun` | a backstop, not a deadline |
+| `the job was still running after 120 seconds of real time` | a backstop, not a deadline — the line between slow and stuck |
 
 ## At the end
 
 | message | meaning |
 |---|---|
-| `over_horizon` in the trace | the run overran `expectedRun` by more than a quarter; past it the sampler thinned out and chaos stopped firing |
 | `trust: 4 machines report figures that do not mean what they say` | [trust rules](/ref/trust-rules). Nothing was stopped. |
 | `none of the classes this scenario names are on the classpath it was given …` | point `--cp` at a **directory**; a jar is not walked |
 | `ABANDONED — the run ended while this was in flight` | a span that was still open when the run ended. Normal. |
@@ -81,7 +79,7 @@ Grouped by when it happens. Scenario errors read like compiler errors on purpose
 | `nothing measured varied with it, so it has no law here` | the job probably ignores `cluster.records()` |
 | `memoryMb at 8000 records is only 2.4x its own fixed overhead …` | bigger rungs on the ladder |
 | `at 8000 records the fleet would hold 4200 MB, and this host offers 1843 MB …` | more heap, or a smaller rung |
-| `k_time 400 is finer than this workload can express …` | the message computes the largest `k_time` that works |
+| `this run is clocked at 40x real time, and … costs … refMs` | a cost site too fine for the clock; there is no compression to turn down |
 | `no size on the ladder satisfies every resource at once` | |
 
 [Every refusal, in full ->](/run/when-it-refuses)

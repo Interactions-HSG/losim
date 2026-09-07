@@ -65,9 +65,7 @@ public class Phase2 {
         System.out.println("=== a handler calling another machine ===");
         var result = Run.of(Loader.of(Yaml.parse("forward.yaml", """
             seed: 3
-            kTime: 4
             job: ForwardJob
-            expectedRun: 4 refSeconds
             network: { sameZone: 20 refMs }
             machines:
               master: { instance: m5.large, zone: z }
@@ -265,8 +263,6 @@ public class Phase2 {
         Pinger.failFirst = 2;
         var result = Run.of(Loader.of(Yaml.parse("scenario.yaml", """
                 job: RetryJob
-                kTime: 4
-                expectedRun: 2 refSeconds
                 machines:
                   master: { instance: m5.large, zone: z }
                   workers: { count: 1, prefix: w, instance: m5.large, zone: z, runs: [Pinger] }
@@ -306,9 +302,7 @@ public class Phase2 {
         System.out.println("=== every fault lands where the scenario put it ===");
         var result = Run.of(Loader.of(Yaml.parse("scenario.yaml", """
                 job: WaitJob
-                kTime: 2
                 seed: 3
-                expectedRun: 2 refSeconds
                 machines:
                   master: { instance: m5.large, zone: z }
                   workers: { count: 4, prefix: w, instance: m5.large, zone: z, runs: [Pinger] }
@@ -355,9 +349,7 @@ public class Phase2 {
         System.out.println("=== chaos is a rate, not a moment ===");
         String yaml = """
                 job: WaitJob
-                kTime: 20
                 seed: %d
-                expectedRun: 20 refSeconds
                 machines:
                   master: { instance: m5.large, zone: z }
                   workers: { count: 6, prefix: w, instance: m5.large, zone: z, runs: [Pinger] }
@@ -390,8 +382,6 @@ public class Phase2 {
         System.out.println("=== a full disk refuses the write ===");
         var result = Run.of(Loader.of(Yaml.parse("scenario.yaml", """
                 job: WordCountJob
-                kTime: 4
-                expectedRun: 3 refSeconds
                 machines:
                   master: { instance: m5.large, zone: z }
                   workers:

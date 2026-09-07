@@ -60,7 +60,7 @@ public final class Trace {
         t.sampleTimes = tel.sampleTimes();
         t.sampleDtMs = tel.sampleDtMs();
         t.meta.put("schemaVersion", SCHEMA_VERSION);
-        t.meta.put("kTime", tel.kTime());
+        t.meta.put("clockedAt", tel.kTime());
         t.meta.put("telemetry", tel.level().name());
         return t;
     }

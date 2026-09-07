@@ -122,12 +122,11 @@ teaches it to survive *whenever*, which is the harder and more honest thing.
 seed, so they vary the way real bad afternoons do. Only `kill`, `freeze` and
 `degrade` can be rates — the others happen at a moment and belong under `faults:`.
 
-<Warning>
-Chaos is drawn out to `expectedRun` and no further. A run that overruns its horizon
-has a quiet second half that looks exactly like a fleet behaving well — which is
-why the trace carries an `over_horizon` event saying so. Raise `expectedRun` when
-you see it.
-</Warning>
+<Note>
+A rate has no horizon: each firing draws the next one, so it keeps happening for as
+long as the run does. There is nothing to overrun, and no way to end up with a quiet
+second half that looks exactly like a fleet behaving well.
+</Note>
 
 ## One seed is an anecdote
 
@@ -179,10 +178,7 @@ The same fleet, twice: once clean, once with a bad afternoon.
 
 ```yaml weather.yaml
 seed: 7
-kTime: 2
 job: lab.ThumbnailJob
-expectedRun: 6 refSeconds
-workload: { records: 4000 }
 
 machines:
   coordinator: { instance: m5.large, zone: eu-central-1a }

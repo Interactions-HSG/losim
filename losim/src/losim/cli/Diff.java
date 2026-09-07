@@ -40,7 +40,7 @@ public final class Diff {
         var aspects = new ArrayList<Aspect>();
 
         aspects.add(new Aspect("schema", true, left.get("schema"), right.get("schema")));
-        for (String key : List.of("scenario", "job", "seed", "kTime", "telemetry", "mode",
+        for (String key : List.of("scenario", "job", "seed", "scale", "telemetry", "mode",
                                   "schemaVersion", "trusted", "completed"))
             if (meta(left).containsKey(key) || meta(right).containsKey(key))
                 aspects.add(new Aspect("meta." + key, true, meta(left).get(key), meta(right).get(key)));

@@ -123,6 +123,16 @@ public final class Run {
         return c;
     }
 
+    /**
+     * How long a run is given in <b>real</b> seconds before it is called stuck.
+     *
+     * <p>Not a prediction of how long anything takes — nobody can say that in
+     * advance, which is what the run is for. It is the line past which a job is no
+     * longer slow but hung, and it is in real time because that is the only clock
+     * still trustworthy when the simulated one has stopped advancing.
+     */
+    public static final long WATCHDOG_SECONDS = 120;
+
     public static Result of(Scenario s, ClassLoader loader, Telemetry.Level level, Trust trust)
             throws Exception {
         // Before anything: the JVM's first gRPC call costs sixty times what the
@@ -161,7 +171,7 @@ public final class Run {
 
 
             fleet.begin();
-            tel.event("-", "scenario", "file", s.file(), "seed", s.seed(), "kTime", s.kTime(),
+            tel.event("-", "scenario", "file", s.file(), "seed", s.seed(), "scale", s.scale(),
                       "machines", s.machines().size(), "job", s.job(),
                       "tightMargin", s.tightMargin() ? true : null);
 
@@ -169,7 +179,7 @@ public final class Run {
             // figure that is a lower bound should say so beside itself, not in a log.
             trust.recordInto(tel);
 
-            fleet.startSampling(s.expectedRunRefMs());
+            fleet.startSampling();
 
             // Scheduled only now, against a clock that starts at zero, so a fault
             // written at 120 refMs lands at 120 refMs in the trace.
@@ -178,7 +188,7 @@ public final class Run {
             dispatcher.start();
 
             Machine entry = byName.values().iterator().next();
-            var cluster = new Live(fleet, entry, tel, s.expectedRunRefMs(), s.records(), s.seed());
+            var cluster = new Live(fleet, entry, tel, s.records(), s.seed());
             Job job = job(s.job(), loader);
             started = tel.now();
             var span = tel.open(entry.name, "job", s.job());
@@ -186,8 +196,7 @@ public final class Run {
                 entry.submit(() -> {
                     try { job.run(cluster); }
                     catch (Exception e) { throw new CompletionException(e); }
-                }).get((long) Math.max(30_000, s.expectedRunRefMs() / s.kTime() * 10),
-                       TimeUnit.MILLISECONDS);
+                }).get(WATCHDOG_SECONDS, TimeUnit.SECONDS);
                 completed = true;
                 tel.close(span, "OK");
             } catch (ExecutionException e) {
@@ -196,7 +205,8 @@ public final class Run {
                 tel.close(span, "FAILED", "error", failure);
                 tel.event(entry.name, "job_failed", "error", failure);
             } catch (TimeoutException e) {
-                failure = "the job did not finish within ten times its declared expectedRun";
+                failure = "the job was still running after " + WATCHDOG_SECONDS
+                        + " seconds of real time, which is not a slow run — it is a stuck one";
                 tel.close(span, "TIMEOUT", "error", failure);
                 tel.event(entry.name, "job_failed", "error", failure);
             }
@@ -204,27 +214,6 @@ public final class Run {
             dispatcher.close();
             fleet.stopSampling();
             double ended = tel.now();
-
-            // `expectedRun` is a horizon, not a prediction, and this is the line that
-            // keeps it honest. Nobody can say in advance how long a run will take —
-            // that is what the run is for — but two things have to be sized before it
-            // starts: how often to sample, so the trace's size follows duration rather
-            // than busyness (D8), and how far ahead to draw the weather.
-            //
-            // Both are silent when the horizon is short. The sampler simply thins out,
-            // and — worse — chaos stops firing at the horizon, so a run that overran it
-            // had a quiet second half that looks like a fleet behaving well. Said out
-            // loud it is a scenario to fix; unsaid it is a finding.
-            double ran = ended - started;
-            if (ran > s.expectedRunRefMs() * 1.25) {
-                tel.event("-", "over_horizon",
-                          "expectedRefMs", Machine.round(s.expectedRunRefMs()),
-                          "actualRefMs", Machine.round(ran),
-                          "note", s.chaos().isEmpty()
-                                ? "sampling thinned out past the horizon"
-                                : "chaos was only drawn out to the horizon, so nothing "
-                                  + "happened to this fleet after it");
-            }
 
             // A run can end with work still in flight: a handler whose caller gave up
             // and stopped waiting, a machine killed mid-call. Those spans are real and
@@ -249,6 +238,7 @@ public final class Run {
                     .meta("scenario", s.file())
                     .meta("seed", s.seed())
                     .meta("job", s.job())
+                    .meta("scale", s.scale())
                     .meta("completed", completed)
                     .meta("durationRefMs", Math.round(ended - started));
             if (failure != null) trace.meta("failure", failure);
@@ -417,35 +407,44 @@ public final class Run {
 
         // Chaos is a rate, not a moment, so the draws are exponential: the gaps
         // vary the way real bad afternoons do, and a sweep of seeds shows the spread.
-        var rng = new Random(s.seed() * 31 + 7);
+        //
+        // Each firing draws the next one. Drawing the whole series up front would
+        // need a horizon to stop at, and a run that outlived its horizon would have
+        // a quiet second half that reads as a fleet behaving well — the worst kind
+        // of wrong, because it is indistinguishable from a finding. A rate that
+        // reschedules itself has no end to outlive.
+        int rule = 0;
         for (Chaos c : s.chaos()) {
+            var rng = new Random(s.seed() * 31 + 7 + rule++);
             var pool = s.machines().stream()
                     .filter(m -> m.pool().equals(c.among()) || m.name().equals(c.among()))
                     .map(MachineSpec::name).toList();
-            double t = 0;
-            while (true) {
-                t += -Math.log(1 - rng.nextDouble()) * c.everyRefMs();
-                if (t > s.expectedRunRefMs()) break;
-                final double at = t;
+            var next = new Runnable[1];
+            var at = new double[]{0};
+            next[0] = () -> {
+                at[0] += -Math.log(1 - rng.nextDouble()) * c.everyRefMs();
+                final double when = at[0];
                 final long draw = rng.nextLong();
-                d.at(at, () -> {
+                d.at(when, () -> {
+                    next[0].run();                     // the rate outlives every firing
                     var live = pool.stream().map(byName::get)
                             .filter(m -> m != null && m.alive()).toList();
                     if (live.isEmpty()) return;
                     Machine victim = live.get(Math.floorMod(draw, live.size()));
                     tel.event(victim.name, "chaos", "kind", c.kind().name().toLowerCase(),
-                              "among", c.among(), "atRefMs", Machine.round(at));
+                              "among", c.among(), "atRefMs", Machine.round(when));
                     switch (c.kind()) {
                         case KILL    -> victim.kill("chaos");
                         case FREEZE  -> {
                             victim.freeze(c.forRefMs());
-                            d.at(at + c.forRefMs(), victim::thaw);
+                            d.at(when + c.forRefMs(), victim::thaw);
                         }
                         case DEGRADE -> victim.degrade(c.factor());
                         default -> { }
                     }
                 });
-            }
+            };
+            next[0].run();
         }
     }
 
@@ -457,14 +456,12 @@ public final class Run {
         private final Machine here;
         private final Telemetry tel;
 
-        private final double expectedRunMs;
         private final long records;
         private final long seed;
 
-        Live(Fleet fleet, Machine here, Telemetry tel, double expectedRunMs,
-             long records, long seed) {
+        Live(Fleet fleet, Machine here, Telemetry tel, long records, long seed) {
             this.fleet = fleet; this.here = here; this.tel = tel;
-            this.expectedRunMs = expectedRunMs; this.records = records; this.seed = seed;
+            this.records = records; this.seed = seed;
         }
 
         @Override public List<String> machines() { return fleet.names(); }
@@ -476,7 +473,6 @@ public final class Run {
         @Override public Channel channelTo(String machine) { return here.dial(machine); }
 
         @Override public double clockMs() { return tel.now(); }
-        @Override public double expectedRunMs() { return expectedRunMs; }
         @Override public long records() { return records; }
         @Override public long seed() { return seed; }
         @Override public void log(String message) { tel.event(here.name, "log", "message", message); }

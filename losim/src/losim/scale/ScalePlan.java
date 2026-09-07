@@ -15,7 +15,7 @@ import losim.scenario.Scenario;
  * @param caps        per machine, {memoryMb, diskMb}, <b>solved rather than divided</b>
  * @param notes       what the engine could not do, in words, so nothing is silently absent
  */
-public record ScalePlan(long records, long fullRecords, double kTime,
+public record ScalePlan(long records, long fullRecords,
                         Map<String, double[]> caps, Laws laws,
                         int gridRuns, List<String> notes, String infeasible) {
 
@@ -42,7 +42,6 @@ public record ScalePlan(long records, long fullRecords, double kTime,
         m.put("records", records);
         m.put("fullRecords", fullRecords);
         m.put("factor", Math.round(scaleFactor()));
-        m.put("kTime", kTime);
         m.put("gridRuns", gridRuns);
         var laws = new LinkedHashMap<String, Object>();
         this.laws.byResource().forEach((resource, law) -> {
@@ -83,8 +82,8 @@ public record ScalePlan(long records, long fullRecords, double kTime,
 
     private static double round(double x) { return Math.round(x * 1000) / 1000.0; }
 
-    /** The scenario the plan says to run: the chosen size, k_time and every solved cap. */
+    /** The scenario the plan says to run: the chosen size and every solved cap. */
     public Scenario applyTo(Scenario s) {
-        return s.withRecords(records).withKTime(kTime).withCaps(caps);
+        return s.withRecords(records).withCaps(caps);
     }
 }

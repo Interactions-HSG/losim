@@ -5,14 +5,8 @@
 # number stays plausible, nothing looks broken, and only the projection is wrong.
 mode: scaled
 seed: 13
-kTime: 40
 job: Elastic
-expectedRun: 30 refSeconds
-
-workload:
-  records: 48000
-  probe: [1000, 2000, 4000, 8000]
-  workers: [2, 4]
+scale: 6
 
 machines:
   master: { instance: m5.2xlarge, zone: eu-central-1a }

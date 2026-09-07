@@ -44,7 +44,7 @@ public interface Job {
 |---|---|---|
 | `run` returns | `true` | 0 |
 | `run` throws | `false`, with `meta.failure` | 1 |
-| it outstays **ten times** `expectedRun` | `false` | 1 |
+| it is still running after **two minutes of real time** | `false` | 1 |
 
 ```json
 { "kind": "job_failed", "vm": "coordinator",
@@ -52,10 +52,9 @@ public interface Job {
 ```
 
 <Note>
-The ten-times rule is a backstop, not a deadline. Long before it, an
-`over_horizon` event fires at 1.25× — because past the horizon the sampler thins out
-and chaos stops firing, and a quiet second half looks exactly like a fleet behaving
-well.
+Two minutes of **real** time, not reference time. It is the line between a slow run
+and a stuck one, and it is in real time because that is the one clock still worth
+trusting when the simulated one has stopped advancing.
 </Note>
 
 ## Errors at load

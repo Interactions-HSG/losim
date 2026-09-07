@@ -126,7 +126,7 @@ thumbs.yaml  seed 7  did not complete in 6104 refMs
 | | |
 |---|---|
 | `0` | the job completed |
-| `1` | the job did not complete: it threw, or it outstayed ten times its `expectedRun` |
+| `1` | the job did not complete: it threw, or it was still running after two minutes of real time |
 | `2` | the scenario is wrong. Nothing ran, and the message reads like a compiler error. |
 | `3` | something went wrong inside losim |
 

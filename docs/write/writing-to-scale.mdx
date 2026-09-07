@@ -87,14 +87,9 @@ Only pools with `count:` are regenerated, so put your workers in a pool.
 ```yaml thumbs-scaled.yaml
 mode: scaled
 seed: 5
-kTime: 20
 job: lab.ThumbnailJob
-expectedRun: 30 refSeconds
 
-workload:
-  records: 40000000            # forty million frames, which is the design's problem
-  probe: [1000, 2000, 4000, 8000]
-  workers: [2, 4]
+scale: 5000
 
 machines:
   coordinator:
@@ -115,7 +110,7 @@ whose numbers nobody could account for.
 ## The output
 
 ```
-thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 records (x5,000), k_time 20
+thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 records (x5,000)
                                               [plan fitted from 30 probe runs in 41.2s]
 
   memoryMb   = 0.0597 + 0.00187 * revealed.distinctItems^1.013  (R2 1.0000, wobble 0.000)

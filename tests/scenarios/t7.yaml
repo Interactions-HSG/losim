@@ -2,9 +2,7 @@
 # is exposed to a standing rate of failure rather than one scripted moment. The job
 # is expected to finish with the right answer anyway — that is the exercise.
 seed: 5
-kTime: 20
 job: WordCount
-expectedRun: 12 refSeconds
 tightMargin: true
 
 machines:

@@ -35,53 +35,44 @@ public final class Loader {
      * where they happened to put their whitespace.
      *
      * <p><b>The overlay may only change the weather.</b> Faults, chaos, retries,
-     * the network, the seed and the clock are replaceable; the fleet, the job and
-     * the workload are not. That is the line that keeps the result meaningful: a
+     * the network and the seed are replaceable; the fleet, the job and the scale
+     * are not. That is the line that keeps the result meaningful: a
      * scenario whose machines had been swapped out underneath it is no longer a
      * run of their design, and an examiner would be asking them about somebody
      * else's system.
      */
     public static Scenario overlay(Scenario base, Path file) throws IOException {
         Node over = Yaml.parse(file);
-        over.onlyAllows("seed", "kTime", "expectedRun", "network", "faults", "chaos",
-                        "retries", "tightMargin");
+        over.onlyAllows("seed", "network", "faults", "chaos", "retries", "tightMargin");
         var names = new LinkedHashSet<String>();
         for (MachineSpec m : base.machines()) names.add(m.name());
-
-        // The same check the scenario itself gets. An overlay is a scenario file
-        // by another name, and a `kTime: 0` that `of` rejects with a line number
-        // must not get in through here — it reaches the clock as an infinite debt
-        // on the first cost, and the run stops in a sleep that never returns.
-        double kTime = over.opt("kTime").present() ? over.at("kTime").num(base.kTime()) : base.kTime();
-        if (kTime <= 0) throw over.at("kTime").fail("k_time must be positive");
 
         return new Scenario(
                 base.file(),
                 over.opt("seed").present() ? (long) over.at("seed").num(base.seed()) : base.seed(),
-                kTime,
                 base.job(),
-                over.opt("expectedRun").present()
-                        ? over.at("expectedRun").refMs(base.expectedRunRefMs()) : base.expectedRunRefMs(),
+                base.scale(),
+                base.records(),
                 base.machines(),
                 over.opt("network").present() ? network(over.opt("network")) : base.net(),
                 over.opt("faults").present() ? faults(over.opt("faults"), names, over) : base.faults(),
                 over.opt("chaos").present() ? chaos(over.opt("chaos"), base.machines()) : base.chaos(),
                 over.opt("retries").present() ? retries(over.opt("retries")) : base.retries(),
                 over.opt("tightMargin").present() ? over.at("tightMargin").bool(false) : base.tightMargin(),
-                base.mode(),
-                base.workload());
+                base.mode());
     }
 
     public static Scenario of(Node root) {
-        root.onlyAllows("seed", "kTime", "job", "expectedRun", "machines",
-                        "network", "faults", "chaos", "retries", "tightMargin",
-                        "mode", "workload");
+        root.onlyAllows("seed", "job", "scale", "machines",
+                        "network", "faults", "chaos", "retries", "tightMargin", "mode");
 
         long seed = (long) root.opt("seed").num(1);
-        double kTime = root.opt("kTime").num(1);
-        if (kTime <= 0) throw root.at("kTime").fail("k_time must be positive");
         String job = root.at("job").str();
-        double expected = root.opt("expectedRun").refMs(10_000);
+        double scale = root.opt("scale").num(1);
+        if (scale < 1) throw root.at("scale").fail(
+                "scale is how many times bigger the design is than the run measuring it, so it"
+                + " starts at 1. A scale below one would be a design smaller than the thing"
+                + " already being run, which is the run itself.");
 
         var machines = machines(root.at("machines"));
         var names = new LinkedHashSet<String>();
@@ -95,14 +86,15 @@ public final class Loader {
         var retries = retries(root.opt("retries"));
 
         var mode = mode(root.opt("mode"));
-        var workload = workload(root.opt("workload"), machines);
-        if (mode == Scenario.Mode.SCALED && workload == null)
-            throw root.at("mode").fail("scaled mode needs a workload: to scale down from. "
-                    + "Write 'workload: { records: <full scale> }'.");
+        if (mode == Scenario.Mode.SCALED && scale <= 1)
+            throw root.at("mode").fail("scaled mode measures a small run and projects it up, and"
+                    + " at scale 1 there is nothing above the run to project to. Raise the scale,"
+                    + " or run it directly.");
 
-        return new Scenario(root.where().split(":")[0], seed, kTime, job, expected,
-                machines, net, faults, chaos, retries, root.opt("tightMargin").bool(false),
-                mode, workload);
+        var s = new Scenario(root.where().split(":")[0], seed, job, scale,
+                0, machines, net, faults, chaos, retries,
+                root.opt("tightMargin").bool(false), mode);
+        return s.withRecords(s.fullRecords());
     }
 
     private static Scenario.Mode mode(Node node) {
@@ -114,28 +106,6 @@ public final class Loader {
                     + " only two: scaled mode always uses the engine, because a hand-declared"
                     + " shrink factor would be a third mode whose numbers nobody could account for.");
         }
-    }
-
-    private static Scenario.Workload workload(Node node, List<MachineSpec> machines) {
-        if (!node.present()) return null;
-        node.onlyAllows("records", "probe", "workers");
-        long records = (long) node.at("records").num();
-        if (records < 1) throw node.at("records").fail("a workload has at least one record");
-        var probe = new ArrayList<Integer>();
-        for (Node n : node.opt("probe").list()) probe.add(n.integer());
-        if (probe.isEmpty()) probe.addAll(List.of(1000, 2000, 4000, 8000));
-        if (probe.size() < 4)
-            throw node.at("probe").fail("a ladder needs at least four rungs: three cannot show"
-                    + " whether the law bends, and a law that bends must be refused rather"
-                    + " than extrapolated across");
-        var workers = new ArrayList<Integer>();
-        for (Node n : node.opt("workers").list()) workers.add(n.integer());
-        if (workers.isEmpty()) {
-            int declared = (int) machines.stream().filter(m -> !m.runs().isEmpty()).count();
-            workers.addAll(List.of(Math.max(2, declared / 2), Math.max(3, declared)));
-        }
-        return new Scenario.Workload(records, List.copyOf(probe), List.copyOf(workers),
-                                     node.where());
     }
 
     // ----------------------------------------------------------------- machines

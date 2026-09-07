@@ -27,8 +27,8 @@ import { Head, Panel } from './Shell.tsx';
 import { useConsole } from '../../lib/console.tsx';
 import { Lab } from '../Lab.tsx';
 import {
-  distances, expand, firstDraft, linkOf, perHour, toYaml, unplaced,
-  FAULT_KINDS, PAIRED,
+  distances, expand, firstDraft, perHour, toYaml, unplaced,
+  BASE_RECORDS, FAULT_KINDS, PAIRED,
   type Chaos, type Draft, type Fault, type Pool,
 } from '../../lib/author.ts';
 import {
@@ -137,12 +137,18 @@ export function Scenarios() {
     setMode('edit');
   }, []);
 
-  /** Write the file back, through the same loader a run uses — and no run this time. */
+  /**
+   * Write it back, through the same loader a run uses — and no run this time.
+   *
+   * To whatever the name box says, not to the file it was opened from: renaming
+   * it there is how a variant of an existing scenario gets written, and the
+   * original is left exactly as it was.
+   */
   const saveEdit = useCallback(async () => {
     if (!draft || !editing) return;
     setSaying('saving…');
     setRefused(null);
-    const wrote = await saveScenario(editing.name, yaml);
+    const wrote = await saveScenario(draft.name, yaml);
     if (wrote.error) {
       setRefused(wrote.error);
       setSaying(null);
@@ -152,7 +158,8 @@ export function Scenarios() {
     setEditing(null);
     setMode('list');
     // The list shows names and paths, not content, so nothing there is stale —
-    // but a scenario just replaced is worth the same nudge a new one gets.
+    // but a scenario just replaced, or one just written beside it, is worth the
+    // same nudge a new one gets.
     nudge();
   }, [draft, editing, yaml, nudge]);
 
@@ -255,11 +262,10 @@ export function Scenarios() {
       {((mode === 'new' && canAuthor) || mode === 'edit') && !busy && palette && draft && (
         <div className="two">
           <div className="col">
-            <Machines draft={draft} palette={palette} edit={edit} />
-            <Placing draft={draft} palette={palette} edit={edit} />
+            <Machines draft={draft} palette={palette} machines={machines} edit={edit} />
+            <Scale draft={draft} edit={edit} />
             <Network draft={draft} palette={palette} edit={edit} />
-            <Weather draft={draft} palette={palette} machines={machines} edit={edit} />
-            <Scale draft={draft} machines={machines} edit={edit} />
+            <Retries draft={draft} palette={palette} edit={edit} />
           </div>
 
           <div className="col sticky">
@@ -311,30 +317,38 @@ export function Scenarios() {
             )}
 
             <Panel>
+              {/* Editable in both modes. Opening one scenario and saving it under
+                  another name is how a second design gets written — the first
+                  one, changed in one place — and a disabled box made that the one
+                  thing the form could not do. */}
               <div className="field">
                 <label htmlFor="scname">Save as</label>
-                {editing ? (
-                  <input id="scname" value={editing.name} disabled />
-                ) : (
-                  <input
-                    id="scname"
-                    value={draft.name}
-                    onChange={(e) => edit((d) => { d.name = e.target.value; })}
-                  />
-                )}
+                <input
+                  id="scname"
+                  value={draft.name}
+                  onChange={(e) => edit((d) => { d.name = e.target.value; })}
+                />
                 <span className="hint">
-                  {editing ? (
-                    <>Written to <code>scenarios/{editing.name}</code></>
-                  ) : (
-                    <>
-                      Written to <code>scenarios/{draft.name}.yaml</code>
-                      {palette.scenarios.includes(`${draft.name}.yaml`) && (
-                        <> — <strong>which already exists and will be replaced</strong></>
-                      )}
-                    </>
-                  )}
+                  Written to <code>scenarios/{draft.name}.yaml</code>
+                  {editing && draft.name !== editing.name.replace(/\.ya?ml$/, '') ? (
+                    <> — a new file. <code>{editing.name}</code> is left as it was.</>
+                  ) : palette.scenarios.includes(`${draft.name}.yaml`) ? (
+                    <> — <strong>which already exists and will be replaced</strong></>
+                  ) : null}
                 </span>
               </div>
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={draft.tightMargin}
+                  onChange={(e) => edit((d) => { d.tightMargin = e.target.checked; })}
+                />
+                <span>this one is meant to be thin</span>
+              </label>
+              <span className="hint">
+                A note in the trace and nothing else — nothing in the run reads it. For
+                exercises where the gap between working and not working is meant to be narrow.
+              </span>
               <button
                 className="btn primary wide"
                 onClick={() => void (editing ? saveEdit() : create())}
@@ -376,7 +390,14 @@ export function Scenarios() {
         .btn.wide { width: 100%; justify-content: center; margin-top: 12px; }
         .field { display: flex; flex-direction: column; gap: 5px; }
         .field label { font-size: 12.5px; color: var(--text-2); }
-        .field .hint { font-size: 11.5px; color: var(--text-3); }
+        .field input {
+          height: 32px; padding: 0 10px; font: inherit; font-size: 13px;
+          font-family: var(--mono);
+          color: var(--text); background: var(--surface);
+          border: 1px solid var(--border); border-radius: var(--r-sm);
+        }
+        .hint, .field .hint { font-size: 11.5px; color: var(--text-3); }
+        .check { display: flex; align-items: center; gap: 7px; margin-top: 14px; font-size: 12.5px; }
       `}</style>
 
       {/* Always mounted, whichever mode the page is in: this is what tells the
@@ -396,173 +417,114 @@ export function Scenarios() {
 
 /* ------------------------------------------------------------------ the scale
  *
- * Two questions, and the second only exists because of the first. **How much
- * work is there** at the size this design is meant to handle, and **do we run
- * that or measure our way to it**.
+ * One number, and it is the only one anybody could honestly supply.
  *
- * Direct mode runs whatever `records` says, so a big number is a long
- * afternoon. Scaled mode runs a ladder of small sizes instead, fits a law to
- * each resource, and projects to `records` — and refuses to project the ones
- * whose law does not hold, which is the honest half of it. Neither is the
- * advanced option: a scenario says nothing here and gets one record in direct
- * mode, which is exactly right until the question is how a design behaves at a
- * size nobody can afford to run.
+ * **How many times bigger is the design than the run measuring it.** Nobody
+ * knows what a probe ladder should be, how many workers to vary, or how fast the
+ * clock can be run before its own timings drift — those are properties of the
+ * run, which is the thing that has not happened yet. Asking for them was asking
+ * for guesses, and a simulator you have to predict before using is not one.
+ *
+ * At 1 there is no model: the run is the thing, and every number on screen is
+ * what happened. Above it the engine climbs its own ladder, fits a law per
+ * resource and projects — and refuses the ones whose law does not hold, which is
+ * the honest half of it.
  */
-function Scale({
-  draft, machines, edit,
-}: {
-  draft: Draft;
-  machines: { name: string; pool: string }[];
-  edit: (f: (d: Draft) => void) => void;
-}) {
-  const w = draft.workload;
-  /** What the loader would fill in if a `workload:` said only `records:`. */
-  const declared = machines.filter((m) => m.pool).length;
-  const start = () => ({
-    records: 100_000,
-    probe: [1000, 2000, 4000, 8000],
-    workers: [Math.max(2, Math.round(declared / 2)), Math.max(3, declared)],
-  });
-
-  /** One list of positive integers, typed as text so a half-typed comma survives. */
-  const list = (xs: number[]) => xs.join(', ');
-  const parse = (text: string) =>
-    text.split(',').map((x) => Math.round(Number(x.trim()))).filter((n) => Number.isFinite(n) && n > 0);
-
+function Scale({ draft, edit }: { draft: Draft; edit: (f: (d: Draft) => void) => void }) {
+  const modelled = draft.scale > 1;
   return (
-    <Panel title="Scale" note={w ? `${w.records.toLocaleString()} records` : 'one record, run directly'}>
+    <Panel
+      title="Scale"
+      note={modelled
+        ? `a model of ${(draft.scale * BASE_RECORDS).toLocaleString()} records`
+        : 'one run, nothing projected'}
+    >
       <p className="lead">
-        How much work there is at the size this design is <em>for</em> — which is not always a
-        size you can afford to run.
+        How much bigger is this design than the run you can afford to watch?
       </p>
 
-      {!w && (
-        <>
-          <p className="none">
-            No <code>workload:</code>. The job gets one record and the run is whatever your code
-            does with it.
-          </p>
-          <button className="btn" onClick={() => edit((d) => { d.workload = start(); })}>
-            + Workload
-          </button>
-        </>
-      )}
-
-      {w && (
-        <>
-          <div className="jobs">
-            <div className="field">
-              <label htmlFor="records">Records</label>
-              <input
-                id="records"
-                type="number"
-                min={1}
-                value={w.records}
-                onChange={(e) => edit((d) => {
-                  if (d.workload) d.workload.records = Math.max(1, Math.round(Number(e.target.value) || 1));
-                })}
-              />
-              <span className="hint">The size the design is meant to handle.</span>
-            </div>
-            <div className="field">
-              <label htmlFor="mode">Mode</label>
-              <select
-                id="mode"
-                value={draft.mode}
-                onChange={(e) => edit((d) => { d.mode = e.target.value as Draft['mode']; })}
-              >
-                <option value="direct">direct — run all of it</option>
-                <option value="scaled">scaled — probe and project</option>
-              </select>
-              <span className="hint">
-                {draft.mode === 'direct'
-                  ? 'Every record actually runs. Honest, and slow at a real size.'
-                  : 'The ladder below runs; the engine fits a law and projects to Records.'}
-              </span>
-            </div>
+      <div className="row">
+        <div className="field">
+          <label htmlFor="scale">Scale</label>
+          <div className="mult">
+            <input
+              id="scale"
+              type="number"
+              min={1}
+              step={1}
+              value={draft.scale}
+              onChange={(e) => edit((d) => {
+                d.scale = Math.max(1, Math.round(Number(e.target.value) || 1));
+                if (d.scale <= 1) d.mode = 'direct';
+              })}
+            />
+            <span className="x">×</span>
           </div>
+          <span className="hint">
+            {modelled
+              ? `${draft.scale}× the biggest run the engine can measure — ${(draft.scale * BASE_RECORDS).toLocaleString()} records.`
+              : 'One run of itself. Nothing is projected, so nothing can be projected wrongly.'}
+          </span>
+        </div>
+        <div className="quick">
+          {[1, 10, 100, 1000].map((n) => (
+            <button
+              key={n}
+              className={`chip${draft.scale === n ? ' on' : ''}`}
+              onClick={() => edit((d) => {
+                d.scale = n;
+                if (n <= 1) d.mode = 'direct';
+              })}
+            >
+              {n === 1 ? 'just run it' : `${n}×`}
+            </button>
+          ))}
+        </div>
+      </div>
 
-          {draft.mode === 'scaled' && (
-            <div className="jobs">
-              <div className="field grow">
-                <label htmlFor="probe">Probe ladder</label>
-                <input
-                  id="probe"
-                  value={list(w.probe)}
-                  onChange={(e) => edit((d) => { if (d.workload) d.workload.probe = parse(e.target.value); })}
-                />
-                <span className={w.probe.length < 4 ? 'hint warn' : 'hint'}>
-                  {w.probe.length < 4
-                    ? `${w.probe.length} rung${w.probe.length === 1 ? '' : 's'} — the loader `
-                      + 'wants at least four: three cannot show whether a law bends, and one '
-                      + 'that bends has to be refused rather than extrapolated across.'
-                    : `${w.probe.length} rungs, each run in full.`}
-                </span>
-              </div>
-              <div className="field grow">
-                <label htmlFor="workers">Fleet sizes</label>
-                <input
-                  id="workers"
-                  value={list(w.workers)}
-                  onChange={(e) => edit((d) => { if (d.workload) d.workload.workers = parse(e.target.value); })}
-                />
-                <span className="hint">
-                  How many machines to put in each multi-machine pool, varied on its own so a
-                  cost can be attributed to the right variable rather than to whichever one
-                  happened to move with it.
-                </span>
-              </div>
-            </div>
-          )}
-
-          {draft.mode === 'scaled' && (
-            <div className="flag">
-              <span>·</span>
-              <span>
-                {w.probe.length * Math.max(1, w.workers.length)} runs, not one — every rung at
-                every fleet size. What comes back is a projection with an error bar, and any
-                resource whose law does not hold is <strong>refused</strong> rather than
-                extrapolated.
-              </span>
-            </div>
-          )}
-
-          <button
-            className="btn"
-            onClick={() => edit((d) => { d.workload = null; d.mode = 'direct'; })}
+      {modelled && (
+        <div className="field">
+          <label htmlFor="mode">And at that size</label>
+          <select
+            id="mode"
+            value={draft.mode}
+            onChange={(e) => edit((d) => { d.mode = e.target.value as Draft['mode']; })}
           >
-            Remove workload
-          </button>
-          {draft.mode === 'scaled' && (
-            <p className="note">
-              Removing it puts the run back to direct: scaled mode has nothing to scale down
-              from without a workload, and the loader says so rather than guessing one.
-            </p>
-          )}
-        </>
+            <option value="scaled">measure a small run and project to it</option>
+            <option value="direct">actually run all of it</option>
+          </select>
+          <span className="hint">
+            {draft.mode === 'scaled'
+              ? 'The engine picks the ladder, the fleet sizes and the clock. What comes back '
+                + 'is a projection with an error bar, and any resource whose law does not hold '
+                + 'is refused rather than extrapolated.'
+              : 'Every record runs. Honest, and a long afternoon at a real size — which is '
+                + 'what the other option exists to avoid.'}
+          </span>
+        </div>
       )}
 
       <style>{`
         .lead { font-size: 13px; margin: 0 0 14px; }
-        .none { font-size: 12.5px; color: var(--text-3); margin: 0 0 12px; }
-        .jobs { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
-        .field { display: flex; flex-direction: column; gap: 4px; min-width: 150px; flex: 1; }
-        .field.grow { flex: 2; min-width: 220px; }
+        .row { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 14px; }
+        .field { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
         .field label { font-size: 11.5px; color: var(--text-3); }
+        .mult { display: flex; align-items: center; gap: 6px; }
+        .mult .x { font-size: 14px; color: var(--text-3); }
         .field input, .field select {
           height: 32px; padding: 0 10px; font: inherit; font-size: 13px;
           color: var(--text); background: var(--surface);
           border: 1px solid var(--border); border-radius: var(--r-sm);
         }
-        .field input { font-family: var(--mono); }
-        .hint { font-size: 11px; color: var(--text-3); }
-        .hint.warn { color: var(--warn); }
-        .note { font-size: 11.5px; color: var(--text-3); margin: 10px 0 0; }
-        .flag {
-          display: flex; gap: 10px; align-items: flex-start; margin: 0 0 14px;
-          padding: 11px 14px; border-radius: var(--r-sm); font-size: 12.5px;
-          background: var(--accent-soft); color: var(--text-2);
+        .field input { font-family: var(--mono); width: 110px; }
+        .hint { font-size: 11px; color: var(--text-3); max-width: 46ch; }
+        .quick { display: flex; gap: 6px; align-items: center; height: 32px; margin-top: 17px; }
+        .chip {
+          height: 26px; padding: 0 11px; font: inherit; font-size: 11.5px; cursor: pointer;
+          color: var(--text-3); background: var(--surface);
+          border: 1px solid var(--border); border-radius: 999px;
         }
+        .chip.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
       `}</style>
     </Panel>
   );
@@ -575,13 +537,15 @@ function Scale({
  * count starts at 1 and there is no separate kind of thing for it.
  */
 function Machines({
-  draft, palette, edit,
+  draft, palette, machines, edit,
 }: {
   draft: Draft;
   palette: Palette;
+  machines: { name: string; pool: string }[];
   edit: (f: (d: Draft) => void) => void;
 }) {
   const ms = expand(draft);
+  const orphans = unplaced(draft, palette);
   return (
     <Panel
       title="Machines"
@@ -611,8 +575,8 @@ function Machines({
     >
       <p className="lead">
         Each block is a <strong>pool</strong>: machines that grow and shrink together, dealt
-        round-robin over the zones you give it. A pool of one keeps its own name — which is what
-        a fault has to be aimed at.
+        round-robin over the zones you give it. What it runs, where it sits and what happens to
+        it are all on the block, because they are all facts about the same machines.
       </p>
 
       <div className="pools">
@@ -621,7 +585,9 @@ function Machines({
             key={i}
             p={p}
             i={i}
+            draft={draft}
             palette={palette}
+            machines={machines}
             only={draft.pools.length === 1}
             first={i === 0}
             edit={edit}
@@ -629,13 +595,18 @@ function Machines({
         ))}
       </div>
 
-      <div className="flag">
-        <span>ⓘ</span>
-        <span>
-          The job runs on the <strong>first machine in the file</strong> —{' '}
-          <code>{ms[0]?.name ?? '—'}</code>. Move a pool to the top to move it.
-        </span>
-      </div>
+      {orphans.length > 0 && (
+        <div className="flag warn">
+          <span>⚠</span>
+          <span>
+            <strong>
+              {orphans.length} service{orphans.length === 1 ? '' : 's'} on no machine
+            </strong>{' '}
+            — {orphans.map((o) => o.cls).join(', ')}. The scenario will still run; nothing will
+            ever call them.
+          </span>
+        </div>
+      )}
 
       <style>{`
         .lead { font-size: 13px; margin: 0 0 14px; }
@@ -645,29 +616,32 @@ function Machines({
           padding: 11px 14px; border-radius: var(--r-sm);
           background: var(--accent-soft); color: var(--text-2); font-size: 12.5px;
         }
+        .flag.warn { background: #fff8e8; color: #6b4d09; }
+        @media (prefers-color-scheme: dark) { .flag.warn { background: #2a2211; color: #e6c684; } }
       `}</style>
     </Panel>
   );
 }
 
 function PoolCard({
-  p, i, palette, only, first, edit,
+  p, i, draft, palette, machines, only, first, edit,
 }: {
   p: Pool;
   i: number;
+  draft: Draft;
   palette: Palette;
+  machines: { name: string; pool: string }[];
   only: boolean;
   first: boolean;
   edit: (f: (d: Draft) => void) => void;
 }) {
   const inst = palette.instances.find((x) => x.name === p.instance);
-  const region = palette.regions.find((r) => p.zones.some((z) => r.zones.includes(z)))
-    ?? palette.regions[0];
   // The names the loader will give this pool's machines, which is what an
   // exception has to be keyed by and what a fault has to point at.
   const count = Math.max(1, Math.round(p.count));
   const numbered = count > 1 || p.prefix !== p.name;
   const names = Array.from({ length: count }, (_, k) => (numbered ? `${p.prefix}${k}` : p.name));
+  const mine = new Set(names);
   return (
     <div className="pool">
       <header>
@@ -760,22 +734,58 @@ function PoolCard({
             </span>
           )}
         </div>
-        <div className="field grow">
-          <label>Region</label>
-          <select
-            value={region?.name ?? ''}
-            onChange={(e) => edit((d) => {
-              const r = palette.regions.find((x) => x.name === e.target.value);
-              if (r) d.pools[i].zones = [r.zones[0]];
+      </div>
+
+      {/* What this pool runs, and whether the job starts on it. Both are the same
+          question — what code is on this machine — so they are the same control.
+          The list is read off the compiled classes, so nothing here can name a
+          service that is not there. */}
+      <div className="serves">
+        <span className="lbl">Runs</span>
+        {palette.services.map((sv) => {
+          const on = p.runs.includes(sv.cls);
+          const unsafe = sv.methods.filter((m) => !m.idempotent).map((m) => m.name);
+          return (
+            <button
+              key={sv.cls}
+              className={`svc${on ? ' on' : ''}`}
+              title={`serves ${sv.qualified} — ${sv.methods.map((m) => m.name).join(', ')}`
+                     + (unsafe.length ? `\nnot declared idempotent: ${unsafe.join(', ')}` : '')}
+              onClick={() => edit((d) => {
+                const runs = d.pools[i].runs;
+                const at = runs.indexOf(sv.cls);
+                if (at >= 0) runs.splice(at, 1); else runs.push(sv.cls);
+              })}
+            >
+              {sv.cls}
+            </button>
+          );
+        })}
+        {palette.jobs.map((j) => (
+          <button
+            key={j}
+            className={`svc job${draft.job === j && first ? ' on' : ''}`}
+            title="the job drives the run, and losim starts it on the first machine in the file"
+            onClick={() => edit((d) => {
+              d.job = j;
+              // The job is not placed — it runs on the first machine there is. So
+              // saying "it starts here" is saying "this pool is first", and the
+              // form moves it rather than writing a key the loader does not have.
+              if (i > 0) {
+                const [moved] = d.pools.splice(i, 1);
+                d.pools.unshift(moved);
+              }
             })}
           >
-            {palette.regions.map((r) => (
-              <option key={r.name} value={r.name}>
-                {r.name} — {r.where}
-              </option>
-            ))}
-          </select>
-        </div>
+            ▶ {j}
+          </button>
+        ))}
+        {!palette.services.length && !palette.jobs.length && (
+          <span className="hint">
+            Nothing here extends a generated <code>ImplBase</code> or implements{' '}
+            <code>losim.api.Job</code>, so there is nothing a machine can be given.
+          </span>
+        )}
       </div>
 
       {/* Caps, and the third state. An empty box is not zero: it is whatever the
@@ -913,28 +923,40 @@ function PoolCard({
         </div>
       )}
 
+      {/* Every zone there is, not just the ones near the first. A pool dealt over
+          two continents is a legal scenario and an instructive one, and the form
+          used to make it unreachable by filtering this list to one region. */}
       <div className="zones">
         <span className="lbl">Zones</span>
-        {(region?.zones ?? []).map((z) => (
-          <button
-            key={z}
-            className={`zone${p.zones.includes(z) ? ' on' : ''}`}
-            onClick={() => edit((d) => {
-              const zs = d.pools[i].zones;
-              const at = zs.indexOf(z);
-              if (at >= 0) { if (zs.length > 1) zs.splice(at, 1); }
-              else zs.push(z);
-            })}
-          >
-            {z}
-          </button>
+        {palette.regions.map((r) => (
+          <span className="reg" key={r.name}>
+            <span className="rn" title={r.where}>{r.name}</span>
+            {r.zones.map((z) => (
+              <button
+                key={z}
+                className={`zone${p.zones.includes(z) ? ' on' : ''}`}
+                onClick={() => edit((d) => {
+                  const zs = d.pools[i].zones;
+                  const at = zs.indexOf(z);
+                  if (at >= 0) { if (zs.length > 1) zs.splice(at, 1); }
+                  else zs.push(z);
+                })}
+              >
+                {z.replace(r.name, '') || z}
+              </button>
+            ))}
+          </span>
         ))}
         <span className="hint">
           {p.zones.length > 1
-            ? `dealt round-robin over ${p.zones.length} zones — the pool survives one of them going`
+            ? `dealt round-robin over ${p.zones.length} zones — the pool survives one of them `
+              + 'going, and every call between two of them is charged as one that crossed'
             : 'all in one zone, where talking is free and a zone failure takes the pool'}
         </span>
       </div>
+
+      <Weather p={p} i={i} draft={draft} palette={palette} machines={machines}
+               names={names} mine={mine} edit={edit} />
 
       <style>{`
         .pool {
@@ -975,226 +997,21 @@ function PoolCard({
         .exc input { width: 100px; font-family: var(--mono); }
         .exc .btn { height: 26px; width: 26px; padding: 0; justify-content: center; }
         .exc .hint { flex-basis: 100%; }
-        .zones { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        .zones .lbl { font-size: 11.5px; color: var(--text-3); }
-        .zone {
+        .serves, .zones { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .serves .lbl, .zones .lbl { font-size: 11.5px; color: var(--text-3); min-width: 40px; }
+        .svc, .zone {
           height: 26px; padding: 0 11px; font: inherit; font-size: 11.5px;
           font-family: var(--mono); cursor: pointer;
           color: var(--text-3); background: var(--surface);
           border: 1px solid var(--border); border-radius: 999px;
         }
-        .zone.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+        .svc.on, .zone.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+        .svc.job.on { color: var(--ok, #1a7f37); border-color: currentColor; background: transparent; }
+        .reg { display: inline-flex; align-items: center; gap: 4px; }
+        .reg .rn { font-size: 10.5px; color: var(--text-3); font-family: var(--mono); }
+        .reg .zone { padding: 0 8px; }
       `}</style>
     </div>
-  );
-}
-
-/* ------------------------------------------------------- placing the services
- *
- * The two-names problem, made visible. A machine *runs* a Java class and
- * thereby *serves* the gRPC service that class implements; a scenario names the
- * first and a job finds its peers by the second. Both are on every row here, so
- * nobody has to hold the pair in their head — and neither can be typed wrongly,
- * because both were read off the compiled classes.
- */
-function Placing({
-  draft, palette, edit,
-}: {
-  draft: Draft;
-  palette: Palette;
-  edit: (f: (d: Draft) => void) => void;
-}) {
-  const orphans = unplaced(draft, palette);
-  return (
-    <Panel
-      title="Services"
-      note={`${palette.services.length}`}
-    >
-      <p className="lead">
-        What your code offers a machine, read off the classes it compiles to. Tick a pool to put
-        a service on it — a service can be on several, and that is how a fleet of workers is
-        made.
-      </p>
-
-      <div className="scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Runs · Java class</th>
-              <th>Serves · .proto</th>
-              <th>Methods</th>
-              {draft.pools.map((p, i) => (
-                <th key={i} className="on">{p.name}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {palette.services.map((s) => (
-              <tr key={s.cls}>
-                <td className="id">
-                  {s.cls}
-                  {s.source && <div className="src">{s.source}</div>}
-                </td>
-                <td className="id">{s.qualified}</td>
-                <td className="dim">
-                  {s.methods.map((m) => (
-                    <span key={m.name} className={m.idempotent ? 'm' : 'm unsafe'}
-                          title={m.idempotent
-                            ? 'the .proto declares it idempotent, so it is safe to retry'
-                            : 'no idempotency_level in the .proto — retrying it is refused'}>
-                      {m.name}
-                    </span>
-                  ))}
-                </td>
-                {draft.pools.map((p, i) => (
-                  <td key={i} className="on">
-                    <input
-                      type="checkbox"
-                      checked={p.runs.includes(s.cls)}
-                      aria-label={`run ${s.cls} on ${p.name}`}
-                      onChange={(e) => edit((d) => {
-                        const runs = d.pools[i].runs;
-                        if (e.target.checked) runs.push(s.cls);
-                        else runs.splice(runs.indexOf(s.cls), 1);
-                      })}
-                    />
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {!palette.services.length && (
-        <p className="muted">
-          Nothing here extends a generated <code>ImplBase</code>, so no machine can be given
-          anything. {palette.other} other classes compiled — a service is one that implements a
-          service from your <code>.proto</code>.
-        </p>
-      )}
-
-      {orphans.length > 0 && (
-        <div className="flag warn">
-          <span>⚠</span>
-          <span>
-            <strong>
-              {orphans.length} service{orphans.length === 1 ? '' : 's'} on no machine
-            </strong>{' '}
-            — {orphans.map((o) => o.cls).join(', ')}. The scenario will still run; nothing will
-            ever call them.
-          </span>
-        </div>
-      )}
-
-      <div className="jobs">
-        <div className="field">
-          <label htmlFor="job">Job</label>
-          <select
-            id="job"
-            value={draft.job}
-            onChange={(e) => edit((d) => { d.job = e.target.value; })}
-          >
-            {!palette.jobs.length && <option value="">nothing implements losim.api.Job</option>}
-            {palette.jobs.map((j) => (
-              <option key={j} value={j}>{j}</option>
-            ))}
-          </select>
-          <span className="hint">
-            The one class that drives the run. It is not placed on a machine — it runs on the
-            first one.
-          </span>
-        </div>
-        <div className="field">
-          <label htmlFor="seed">Seed</label>
-          <input
-            id="seed"
-            type="number"
-            value={draft.seed}
-            onChange={(e) => edit((d) => { d.seed = Number(e.target.value) || 1; })}
-          />
-          <span className="hint">Same seed, same weather.</span>
-        </div>
-        <div className="field">
-          <label htmlFor="ktime">k_time</label>
-          <input
-            id="ktime"
-            type="number"
-            min={1}
-            step="any"
-            value={draft.kTime}
-            onChange={(e) => edit((d) => {
-              d.kTime = Math.max(0.001, Number(e.target.value) || 1);
-            })}
-          />
-          <span className="hint">
-            Higher runs faster, coarser — 1 is real time, good for watching; 2–10 is a normal
-            scenario; 20+ is a sweep.
-          </span>
-        </div>
-        <div className="field">
-          <label htmlFor="exp">Expected run</label>
-          <input
-            id="exp"
-            type="number"
-            value={draft.expectedRunRefSeconds}
-            onChange={(e) => edit((d) => {
-              d.expectedRunRefSeconds = Math.max(1, Number(e.target.value) || 1);
-            })}
-          />
-          <span className="hint">In reference seconds — the clock the scenario is written in.</span>
-        </div>
-        <div className="field">
-          <label htmlFor="tight">Tight margin</label>
-          <label className="check">
-            <input
-              id="tight"
-              type="checkbox"
-              checked={draft.tightMargin}
-              onChange={(e) => edit((d) => { d.tightMargin = e.target.checked; })}
-            />
-            <span>mark this one as thin</span>
-          </label>
-          <span className="hint">
-            A note in the trace and nothing else — nothing in the run reads it. For exercises
-            where the gap between working and not working is meant to be narrow.
-          </span>
-        </div>
-      </div>
-
-      <style>{`
-        .lead { font-size: 13px; margin: 0 0 14px; }
-        .scroll { overflow-x: auto; margin: 0 -20px; padding: 0 20px; }
-        td.id, .id { font-family: var(--mono); font-size: 12.5px; }
-        .src { font-size: 11px; color: var(--text-3); margin-top: 2px; }
-        th.on, td.on { text-align: center; width: 84px; }
-        .m {
-          display: inline-block; margin-right: 6px; padding: 1px 7px;
-          font-family: var(--mono); font-size: 11px; border-radius: 999px;
-          background: var(--surface-2); border: 1px solid var(--border);
-        }
-        .m.unsafe { color: var(--warn); border-color: currentColor; }
-        .flag {
-          display: flex; gap: 10px; align-items: flex-start; margin-top: 14px;
-          padding: 11px 14px; border-radius: var(--r-sm); font-size: 12.5px;
-          background: var(--accent-soft); color: var(--text-2);
-        }
-        .flag.warn { background: #fff8e8; color: #6b4d09; }
-        @media (prefers-color-scheme: dark) { .flag.warn { background: #2a2211; color: #e6c684; } }
-        .jobs { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 18px;
-                padding-top: 16px; border-top: 1px solid var(--border); }
-        .check { display: flex; align-items: center; gap: 7px; height: 32px; font-size: 13px; }
-        .check input { height: auto; }
-        .field { display: flex; flex-direction: column; gap: 4px; min-width: 150px; flex: 1; }
-        .field label { font-size: 11.5px; color: var(--text-3); }
-        .field input, .field select {
-          height: 32px; padding: 0 10px; font: inherit; font-size: 13px;
-          color: var(--text); background: var(--surface);
-          border: 1px solid var(--border); border-radius: var(--r-sm);
-        }
-        .hint { font-size: 11px; color: var(--text-3); }
-      `}</style>
-    </Panel>
   );
 }
 
@@ -1332,321 +1149,368 @@ function Network({
  *
  * A design tested on a day nothing went wrong is a design nobody has tested.
  *
- * Three kinds, and the difference between the first two is the whole point: a
- * fault at 300 refMs teaches a fleet to survive 300 refMs, and a *rate* teaches
- * it to survive whenever — which is the harder and more honest thing, and the
- * reason a sweep is twenty seeds rather than one lucky afternoon.
+ * It sits on the machine it happens to, not in a panel of its own. A fault is a
+ * fact about a machine in the same way its instance type is, and a form that put
+ * them on opposite ends of the page made you hold a name in your head to connect
+ * them — which is exactly the mistake a scenario aimed at a machine that is not
+ * there is made of.
+ *
+ * Two kinds, and the difference between them is the whole point: a fault at 300
+ * refMs teaches a fleet to survive 300 refMs, and a *rate* teaches it to survive
+ * whenever — which is the harder and more honest thing, and the reason a sweep
+ * is twenty seeds rather than one lucky afternoon.
  */
 function Weather({
-  draft, palette, machines, edit,
+  p, i, draft, machines, names, mine, edit,
 }: {
+  p: Pool;
+  i: number;
   draft: Draft;
   palette: Palette;
   machines: { name: string; pool: string }[];
+  names: string[];
+  mine: Set<string>;
   edit: (f: (d: Draft) => void) => void;
 }) {
-  const pools = [...new Set(draft.pools.map((p) => p.name))];
-  const rpcs = palette.services.flatMap((s) =>
-    s.methods.map((m) => ({
-      method: `${s.qualified}.${m.name}`,
-      idempotent: m.idempotent,
-    })),
+  // Filed under the machine it happens to. A pair fault is filed under the end
+  // it is written from, because that is the one the file names first.
+  const faults = draft.faults
+    .map((f, k) => ({ f, k }))
+    .filter(({ f }) => mine.has(f.target));
+  const rates = draft.chaos
+    .map((c, k) => ({ c, k }))
+    .filter(({ c }) => c.among === p.name || mine.has(c.among));
+  const here = names[0] ?? '';
+
+  return (
+    <div className="wx">
+      <div className="wxhead">
+        <span className="lbl">Weather</span>
+        <button
+          className="btn"
+          disabled={!here}
+          onClick={() => edit((d) => {
+            d.faults.push({
+              kind: 'kill', atRefMs: 300,
+              target: here,
+              // A pair fault needs two, and two that differ: `partition: [a, a]`
+              // is a machine cut off from itself. Prefilled so switching kind
+              // never lands on one.
+              other: machines.find((m) => m.name !== here)?.name ?? here,
+              forRefMs: 500, factor: 3, noticeRefMs: 200, restartAfterRefMs: 2000,
+            });
+          })}
+        >
+          + At a moment
+        </button>
+        <button
+          className="btn"
+          onClick={() => edit((d) => {
+            d.chaos.push({ kind: 'freeze', everyRefMs: 700, among: p.name, forRefMs: 150, factor: 2 });
+          })}
+        >
+          + At a rate
+        </button>
+      </div>
+
+      {!faults.length && !rates.length && (
+        <span className="hint">
+          Nothing happens to {count(names)}. Every run of this will be the good afternoon.
+        </span>
+      )}
+
+      {faults.map(({ f, k }) => (
+        <div className="rule" key={`f${k}`}>
+          <span>at</span>
+          <input type="number" value={f.atRefMs}
+                 onChange={(e) => edit((d) => { d.faults[k].atRefMs = Number(e.target.value) || 0; })} />
+          <span>refMs,</span>
+          {/* The kind decides which control follows it, because each kind obeys
+              a different one — and the values behind the others are kept, so
+              changing your mind twice does not lose what you typed. */}
+          <select value={f.kind}
+                  onChange={(e) => edit((d) => { d.faults[k].kind = e.target.value as Fault['kind']; })}>
+            {FAULT_KINDS.map((kind) => (
+              <option key={kind} value={kind}>{kind}</option>
+            ))}
+          </select>
+          <select value={f.target}
+                  onChange={(e) => edit((d) => { d.faults[k].target = e.target.value; })}>
+            {names.map((nm) => <option key={nm} value={nm}>{nm}</option>)}
+          </select>
+          {/* The second machine, and only these two have one. It is a pair of
+              machines that stops reaching each other, not a machine that
+              stops — so the other end may be anywhere in the fleet. */}
+          {PAIRED.includes(f.kind) && (
+            <>
+              <span>{f.kind === 'heal' ? 'and' : 'from'}</span>
+              <select value={f.other}
+                      onChange={(e) => edit((d) => { d.faults[k].other = e.target.value; })}>
+                {machines.map((m) => (
+                  <option key={m.name} value={m.name}>{m.name}</option>
+                ))}
+              </select>
+            </>
+          )}
+          {f.kind === 'kill' && (
+            <>
+              <span>and bring it back after</span>
+              <input type="number" value={f.restartAfterRefMs}
+                     onChange={(e) => edit((d) => {
+                       d.faults[k].restartAfterRefMs = Math.max(0, Number(e.target.value) || 0);
+                     })} />
+              <span>refMs</span>
+            </>
+          )}
+          {f.kind === 'freeze' && (
+            <>
+              <span>for</span>
+              <input type="number" value={f.forRefMs}
+                     onChange={(e) => edit((d) => {
+                       d.faults[k].forRefMs = Math.max(0, Number(e.target.value) || 0);
+                     })} />
+              <span>refMs</span>
+            </>
+          )}
+          {f.kind === 'degrade' && (
+            <>
+              <span>×</span>
+              <input type="number" value={f.factor}
+                     onChange={(e) => edit((d) => {
+                       d.faults[k].factor = Math.max(1, Number(e.target.value) || 1);
+                     })} />
+              <span>slower</span>
+            </>
+          )}
+          {f.kind === 'spot_reclaim' && (
+            <>
+              <span>after warning it for</span>
+              <input type="number" value={f.noticeRefMs}
+                     onChange={(e) => edit((d) => {
+                       d.faults[k].noticeRefMs = Math.max(0, Number(e.target.value) || 0);
+                     })} />
+              <span>refMs</span>
+            </>
+          )}
+          <button className="btn" onClick={() => edit((d) => { d.faults.splice(k, 1); })}>×</button>
+          {f.kind === 'kill' && f.restartAfterRefMs === 0 && (
+            <span className="aside">0 — it never comes back, which is a different exercise</span>
+          )}
+          {f.kind === 'freeze' && (
+            <span className="aside">
+              it stops answering and then thaws — the calls that were waiting find out late,
+              which is the whole difference from a kill
+            </span>
+          )}
+          {f.kind === 'degrade' && (
+            <span className="aside">
+              a one-time degrade has no end: it stays this slow for the rest of the run
+            </span>
+          )}
+          {f.kind === 'restart' && (
+            <span className="aside">
+              it goes and comes straight back, with a fresh instance of every service it
+              serves — which is where a design that kept state in a field finds out
+            </span>
+          )}
+          {f.kind === 'spot_reclaim' && (
+            <span className="aside">
+              the warning is the whole lesson: it is announced, then taken away that long
+              after. A design that ignores the notice deserves what happens.
+            </span>
+          )}
+          {f.kind === 'partition' && (
+            <span className="aside">
+              {f.target === f.other
+                ? 'both ends are the same machine — a machine cannot be cut off from itself'
+                : 'both stay alive and keep serving everybody else; these two stop reaching '
+                  + 'each other. Nothing heals it — write a heal: at a later instant.'}
+            </span>
+          )}
+          {f.kind === 'heal' && (
+            <span className="aside">
+              the other half of a partition. On its own it does nothing, because there is
+              nothing to mend.
+            </span>
+          )}
+        </div>
+      ))}
+
+      {rates.map(({ c, k }) => (
+        <div className="rule" key={`c${k}`}>
+          <select value={c.kind}
+                  onChange={(e) => edit((d) => { d.chaos[k].kind = e.target.value as Chaos['kind']; })}>
+            <option value="freeze">freeze</option>
+            <option value="kill">kill</option>
+            <option value="degrade">degrade</option>
+          </select>
+          <span>one of</span>
+          <select value={c.among}
+                  onChange={(e) => edit((d) => { d.chaos[k].among = e.target.value; })}>
+            <option value={p.name}>{p.name} — any of them</option>
+            {names.map((nm) => <option key={nm} value={nm}>{nm}</option>)}
+          </select>
+          <span>every</span>
+          <input type="number" value={c.everyRefMs}
+                 onChange={(e) => edit((d) => {
+                   d.chaos[k].everyRefMs = Math.max(1, Number(e.target.value) || 1);
+                 })} />
+          <span>refMs</span>
+          {c.kind !== 'kill' && (
+            <>
+              <span>for</span>
+              <input type="number" value={c.forRefMs}
+                     onChange={(e) => edit((d) => {
+                       d.chaos[k].forRefMs = Math.max(0, Number(e.target.value) || 0);
+                     })} />
+              <span>refMs</span>
+            </>
+          )}
+          {c.kind === 'degrade' && (
+            <>
+              <span>×</span>
+              <input type="number" value={c.factor}
+                     onChange={(e) => edit((d) => {
+                       d.chaos[k].factor = Math.max(1, Number(e.target.value) || 1);
+                     })} />
+              <span>slower</span>
+            </>
+          )}
+          <button className="btn" onClick={() => edit((d) => { d.chaos.splice(k, 1); })}>×</button>
+          <span className="aside">
+            a rate, not a moment: it keeps happening for as long as the run does, and a sweep
+            of seeds shows the spread rather than one lucky afternoon
+          </span>
+        </div>
+      ))}
+
+      <style>{`
+        .wx { display: flex; flex-direction: column; gap: 6px;
+              padding-top: 11px; border-top: 1px solid var(--border); }
+        .wxhead { display: flex; align-items: center; gap: 8px; }
+        .wxhead .lbl { font-size: 11.5px; color: var(--text-3); }
+        .wxhead .btn { height: 26px; }
+        .wxhead .btn:first-of-type { margin-left: auto; }
+        .rule {
+          display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+          font-size: 12.5px; color: var(--text-2); padding: 6px 0;
+        }
+        .rule + .rule { border-top: 1px solid var(--border); }
+        .rule input, .rule select {
+          height: 28px; padding: 0 8px; font: inherit; font-size: 12.5px;
+          color: var(--text); background: var(--surface);
+          border: 1px solid var(--border); border-radius: var(--r-sm);
+        }
+        .rule input[type=number] { width: 74px; font-family: var(--mono); }
+        .rule .btn { height: 26px; width: 26px; padding: 0; justify-content: center; margin-left: 4px; }
+        .aside { flex-basis: 100%; font-size: 11px; color: var(--text-3); }
+      `}</style>
+    </div>
   );
+}
+
+/** "w0" for one machine, "any of w0…w3" for a pool. */
+function count(names: string[]): string {
+  return names.length === 1
+    ? names[0]
+    : `any of ${names[0]}…${names[names.length - 1]}`;
+}
+
+/* --------------------------------------------------------------- the retries
+ *
+ * Not weather: a property of every caller in the fleet, keyed by the gRPC method
+ * rather than by a machine. So it stays a panel of its own, and says which of
+ * the two it is.
+ */
+function Retries({
+  draft, palette, edit,
+}: {
+  draft: Draft;
+  palette: Palette;
+  edit: (f: (d: Draft) => void) => void;
+}) {
+  const rpcs = palette.services.flatMap((s) =>
+    s.methods.map((m) => ({ method: `${s.qualified}.${m.name}`, idempotent: m.idempotent })));
   const seen = new Set<string>();
   const methods = rpcs.filter((r) => (seen.has(r.method) ? false : seen.add(r.method)));
 
   return (
-    <Panel title="Weather" note="optional, and the reason to have run this twice">
-      <section>
-        <header>
-          <h3>Something happens to a machine, at a moment</h3>
-          <button
-            className="btn"
-            disabled={!machines.length}
-            onClick={() => edit((d) => {
-              d.faults.push({
-                kind: 'kill', atRefMs: 300,
-                target: machines[0]?.name ?? '',
-                // A pair fault needs two, and two that differ: `partition: [a, a]`
-                // is a machine cut off from itself. Prefilled so switching kind
-                // never lands on one.
-                other: machines[1]?.name ?? machines[0]?.name ?? '',
-                forRefMs: 500, factor: 3, noticeRefMs: 200, restartAfterRefMs: 2000,
-              });
-            })}
-          >
-            + Fault
-          </button>
-        </header>
-        {!draft.faults.length && (
-          <p className="none">Nothing happens. Every run of this will be the good afternoon.</p>
-        )}
-        {draft.faults.map((f, i) => (
+    <Panel
+      title="Retries"
+      note="every caller, by method"
+      actions={
+        <button
+          className="btn"
+          disabled={!methods.length}
+          onClick={() => edit((d) => {
+            const safe = methods.find((m) => m.idempotent) ?? methods[0];
+            d.retries.push({
+              method: safe.method, attempts: 3, backoffRefMs: 40, multiplier: 1,
+              unsafe: !safe.idempotent,
+            });
+          })}
+        >
+          + Retry
+        </button>
+      }
+    >
+      {!draft.retries.length && (
+        <p className="none">
+          Nothing is retried. A call that fails, fails — which is what makes a fault visible in
+          the first place.
+        </p>
+      )}
+      {draft.retries.map((r, i) => {
+        const safe = methods.find((m) => m.method === r.method)?.idempotent ?? false;
+        return (
           <div className="rule" key={i}>
-            <span>at</span>
-            <input type="number" value={f.atRefMs}
-                   onChange={(e) => edit((d) => { d.faults[i].atRefMs = Number(e.target.value) || 0; })} />
-            <span>refMs,</span>
-            {/* The kind decides which control follows it, because each kind obeys
-                a different one — and the values behind the others are kept, so
-                changing your mind twice does not lose what you typed. */}
-            <select value={f.kind}
-                    onChange={(e) => edit((d) => { d.faults[i].kind = e.target.value as Fault['kind']; })}>
-              {FAULT_KINDS.map((k) => (
-                <option key={k} value={k}>{k}</option>
+            <select
+              value={r.method}
+              onChange={(e) => edit((d) => {
+                d.retries[i].method = e.target.value;
+                d.retries[i].unsafe = !(methods.find((m) => m.method === e.target.value)?.idempotent);
+              })}
+            >
+              {methods.map((m) => (
+                <option key={m.method} value={m.method}>
+                  {m.method}{m.idempotent ? '' : ' — not declared idempotent'}
+                </option>
               ))}
             </select>
-            <select value={f.target}
-                    onChange={(e) => edit((d) => { d.faults[i].target = e.target.value; })}>
-              {machines.map((m) => (
-                <option key={m.name} value={m.name}>{m.name}</option>
-              ))}
-            </select>
-            {/* The second machine, and only these two have one. It is a pair of
-                machines that stops reaching each other, not a machine that
-                stops. */}
-            {PAIRED.includes(f.kind) && (
-              <>
-                <span>{f.kind === 'heal' ? 'and' : 'from'}</span>
-                <select value={f.other}
-                        onChange={(e) => edit((d) => { d.faults[i].other = e.target.value; })}>
-                  {machines.map((m) => (
-                    <option key={m.name} value={m.name}>{m.name}</option>
-                  ))}
-                </select>
-              </>
-            )}
-            {f.kind === 'kill' && (
-              <>
-                <span>and bring it back after</span>
-                <input type="number" value={f.restartAfterRefMs}
-                       onChange={(e) => edit((d) => {
-                         d.faults[i].restartAfterRefMs = Math.max(0, Number(e.target.value) || 0);
-                       })} />
-                <span>refMs</span>
-              </>
-            )}
-            {f.kind === 'freeze' && (
-              <>
-                <span>for</span>
-                <input type="number" value={f.forRefMs}
-                       onChange={(e) => edit((d) => {
-                         d.faults[i].forRefMs = Math.max(0, Number(e.target.value) || 0);
-                       })} />
-                <span>refMs</span>
-              </>
-            )}
-            {f.kind === 'degrade' && (
-              <>
-                <span>×</span>
-                <input type="number" value={f.factor}
-                       onChange={(e) => edit((d) => {
-                         d.faults[i].factor = Math.max(1, Number(e.target.value) || 1);
-                       })} />
-                <span>slower</span>
-              </>
-            )}
-            {f.kind === 'spot_reclaim' && (
-              <>
-                <span>after warning it for</span>
-                <input type="number" value={f.noticeRefMs}
-                       onChange={(e) => edit((d) => {
-                         d.faults[i].noticeRefMs = Math.max(0, Number(e.target.value) || 0);
-                       })} />
-                <span>refMs</span>
-              </>
-            )}
-            <button className="btn" onClick={() => edit((d) => { d.faults.splice(i, 1); })}>×</button>
-            {f.kind === 'kill' && f.restartAfterRefMs === 0 && (
-              <span className="aside">0 — it never comes back, which is a different exercise</span>
-            )}
-            {f.kind === 'freeze' && (
-              <span className="aside">
-                it stops answering and then thaws — the calls that were waiting find out late,
-                which is the whole difference from a kill
-              </span>
-            )}
-            {f.kind === 'degrade' && (
-              <span className="aside">
-                a one-time degrade has no end: it stays this slow for the rest of the run
-              </span>
-            )}
-            {f.kind === 'restart' && (
-              <span className="aside">
-                it goes and comes straight back, with a fresh instance of every service it
-                serves — which is where a design that kept state in a field finds out
-              </span>
-            )}
-            {f.kind === 'spot_reclaim' && (
-              <span className="aside">
-                the warning is the whole lesson: it is announced, then taken away that long
-                after. A design that ignores the notice deserves what happens.
-              </span>
-            )}
-            {f.kind === 'partition' && (
-              <span className="aside">
-                {f.target === f.other
-                  ? 'both ends are the same machine — a machine cannot be cut off from itself'
-                  : 'both stay alive and keep serving everybody else; these two stop reaching '
-                    + 'each other. Nothing heals it — write a heal: at a later instant.'}
-              </span>
-            )}
-            {f.kind === 'heal' && (
-              <span className="aside">
-                the other half of a partition. On its own it does nothing, because there is
-                nothing to mend.
-              </span>
-            )}
-          </div>
-        ))}
-      </section>
-
-      <section>
-        <header>
-          <h3>A standing rate of failure</h3>
-          <button
-            className="btn"
-            onClick={() => edit((d) => {
-              d.chaos.push({ kind: 'freeze', everyRefMs: 700, among: pools[0] ?? '', forRefMs: 150, factor: 2 });
-            })}
-          >
-            + Chaos
-          </button>
-        </header>
-        {!draft.chaos.length && (
-          <p className="none">
-            No standing weather. A scripted fault teaches a fleet to survive one instant; a rate
-            teaches it to survive whenever.
-          </p>
-        )}
-        {draft.chaos.map((c, i) => (
-          <div className="rule" key={i}>
-            <select value={c.kind}
-                    onChange={(e) => edit((d) => { d.chaos[i].kind = e.target.value as Chaos['kind']; })}>
-              <option value="freeze">freeze</option>
-              <option value="kill">kill</option>
-              <option value="degrade">degrade</option>
-            </select>
-            <span>one of</span>
-            <select value={c.among}
-                    onChange={(e) => edit((d) => { d.chaos[i].among = e.target.value; })}>
-              {pools.map((p) => <option key={p} value={p}>{p}</option>)}
-              {machines.map((m) => <option key={m.name} value={m.name}>{m.name}</option>)}
-            </select>
-            <span>every</span>
-            <input type="number" value={c.everyRefMs}
+            <span>up to</span>
+            <input type="number" value={r.attempts}
                    onChange={(e) => edit((d) => {
-                     d.chaos[i].everyRefMs = Math.max(1, Number(e.target.value) || 1);
+                     d.retries[i].attempts = Math.max(1, Number(e.target.value) || 1);
                    })} />
-            <span>refMs</span>
-            {c.kind !== 'kill' && (
-              <>
-                <span>for</span>
-                <input type="number" value={c.forRefMs}
-                       onChange={(e) => edit((d) => {
-                         d.chaos[i].forRefMs = Math.max(0, Number(e.target.value) || 0);
-                       })} />
-                <span>refMs</span>
-              </>
+            <span>times, backing off</span>
+            <input type="number" value={r.backoffRefMs}
+                   onChange={(e) => edit((d) => {
+                     d.retries[i].backoffRefMs = Math.max(0, Number(e.target.value) || 0);
+                   })} />
+            <span>refMs, ×</span>
+            <input type="number" min={1} step="any" value={r.multiplier}
+                   onChange={(e) => edit((d) => {
+                     d.retries[i].multiplier = Math.max(1, Number(e.target.value) || 1);
+                   })} />
+            <span>each time</span>
+            <button className="btn" onClick={() => edit((d) => { d.retries.splice(i, 1); })}>×</button>
+            {r.multiplier === 1 && r.attempts > 2 && (
+              <span className="aside">
+                flat: every attempt waits the same. A fleet that does not ease off a
+                struggling machine is how one slow machine becomes an outage.
+              </span>
             )}
-            {c.kind === 'degrade' && (
-              <>
-                <span>×</span>
-                <input type="number" value={c.factor}
-                       onChange={(e) => edit((d) => {
-                         d.chaos[i].factor = Math.max(1, Number(e.target.value) || 1);
-                       })} />
-                <span>slower</span>
-              </>
+            {!safe && (
+              <span className="aside warn">
+                its <code>.proto</code> declares no <code>idempotency_level</code>, so this is
+                written <code>unsafe: true</code> — running it twice is not known to be safe
+              </span>
             )}
-            <button className="btn" onClick={() => edit((d) => { d.chaos.splice(i, 1); })}>×</button>
           </div>
-        ))}
-      </section>
-
-      <section>
-        <header>
-          <h3>Retry a method</h3>
-          <button
-            className="btn"
-            disabled={!methods.length}
-            onClick={() => edit((d) => {
-              const safe = methods.find((m) => m.idempotent) ?? methods[0];
-              d.retries.push({
-                method: safe.method, attempts: 3, backoffRefMs: 40, multiplier: 1,
-                unsafe: !safe.idempotent,
-              });
-            })}
-          >
-            + Retry
-          </button>
-        </header>
-        {!draft.retries.length && (
-          <p className="none">
-            Nothing is retried. A call that fails, fails — which is what makes a fault visible in
-            the first place.
-          </p>
-        )}
-        {draft.retries.map((r, i) => {
-          const safe = methods.find((m) => m.method === r.method)?.idempotent ?? false;
-          return (
-            <div className="rule" key={i}>
-              <select
-                value={r.method}
-                onChange={(e) => edit((d) => {
-                  d.retries[i].method = e.target.value;
-                  d.retries[i].unsafe = !(methods.find((m) => m.method === e.target.value)?.idempotent);
-                })}
-              >
-                {methods.map((m) => (
-                  <option key={m.method} value={m.method}>
-                    {m.method}{m.idempotent ? '' : ' — not declared idempotent'}
-                  </option>
-                ))}
-              </select>
-              <span>up to</span>
-              <input type="number" value={r.attempts}
-                     onChange={(e) => edit((d) => {
-                       d.retries[i].attempts = Math.max(1, Number(e.target.value) || 1);
-                     })} />
-              <span>times, backing off</span>
-              <input type="number" value={r.backoffRefMs}
-                     onChange={(e) => edit((d) => {
-                       d.retries[i].backoffRefMs = Math.max(0, Number(e.target.value) || 0);
-                     })} />
-              <span>refMs, ×</span>
-              <input type="number" min={1} step="any" value={r.multiplier}
-                     onChange={(e) => edit((d) => {
-                       d.retries[i].multiplier = Math.max(1, Number(e.target.value) || 1);
-                     })} />
-              <span>each time</span>
-              <button className="btn" onClick={() => edit((d) => { d.retries.splice(i, 1); })}>×</button>
-              {r.multiplier === 1 && r.attempts > 2 && (
-                <span className="aside">
-                  flat: every attempt waits the same. A fleet that does not ease off a
-                  struggling machine is how one slow machine becomes an outage.
-                </span>
-              )}
-              {!safe && (
-                <span className="aside warn">
-                  its <code>.proto</code> declares no <code>idempotency_level</code>, so this is
-                  written <code>unsafe: true</code> — running it twice is not known to be safe
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </section>
+        );
+      })}
 
       <style>{`
-        section { padding-top: 16px; }
-        section + section { border-top: 1px solid var(--border); margin-top: 4px; }
-        section > header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
-        section h3 {
-          margin: 0; font-size: 13.5px; font-weight: 500; color: var(--text);
-          text-transform: none; letter-spacing: 0;
-        }
-        section > header .btn { margin-left: auto; }
         .none { font-size: 12.5px; color: var(--text-3); margin: 0; }
         .rule {
           display: flex; align-items: center; gap: 7px; flex-wrap: wrap;

@@ -5,12 +5,8 @@
 # happened, which is the only thing a projection can honestly be checked against.
 mode: direct
 seed: 7
-kTime: 40
 job: Elastic
-expectedRun: 30 refSeconds
-
-workload:
-  records: 48000
+scale: 6
 
 machines:
   master: { instance: m5.2xlarge, zone: eu-central-1a }

@@ -175,9 +175,7 @@ public class Phase4 {
     static String fleet(String w0, String w1) {
         return """
             seed: 4
-            kTime: 4
             job: WordCountJob
-            expectedRun: 4 refSeconds
             machines:
               master: { instance: m5.large, zone: z }
               w0: { instance: m5.large, zone: z, runs: [%s] }
@@ -244,9 +242,7 @@ public class Phase4 {
         // lands on and whose figures it can spoil.
         var byJob = Loader.of(Yaml.parse("trust.yaml", """
             seed: 4
-            kTime: 4
             job: ClockingJob
-            expectedRun: 2 refSeconds
             machines:
               master: { instance: m5.large, zone: z }
               w0: { instance: m5.large, zone: z, runs: [Counter] }

@@ -172,7 +172,6 @@ debugger — that is what the three channels are for. Reach for these in order:
 <Steps>
   <Step title="Shrink the fleet and stop compressing time">
     ```yaml
-    kTime: 1                 # no compression: refMs are real ms, and easier to reason about
     machines:
       coordinator: { instance: m5.large, zone: eu-central-1a }
       w0:          { instance: m5.large, zone: eu-central-1a, runs: [lab.Shrinker] }
@@ -236,8 +235,8 @@ debugger — that is what the three channels are for. Reach for these in order:
   </Step>
 
   <Step title="Only then, a breakpoint">
-    If you must: use **one worker**, `kTime: 1`, no faults, no chaos, a generous
-    `expectedRun`, and no deadline on the call you are stopping inside. Accept that
+    If you must: use **one worker**, no faults, no chaos, and no deadline on the
+    call you are stopping inside. Accept that
     every number in the resulting trace is fiction — you are looking at control
     flow, not at measurements.
   </Step>

@@ -28,17 +28,12 @@ public class Phase3 {
 
     static ClassLoader loader() { return Phase3.class.getClassLoader(); }
 
-    static String fleet(String service, long records, String probe) {
+    static String fleet(String service, double scale) {
         return """
             mode: scaled
             seed: 9
-            kTime: 40
             job: ScalableWordCount
-            expectedRun: 20 refSeconds
-            workload:
-              records: %d
-              probe: %s
-              workers: [2, 4]
+            scale: %s
             machines:
               master: { instance: m5.2xlarge, zone: z }
               workers:
@@ -47,7 +42,12 @@ public class Phase3 {
                 instance: r5.large
                 zone: z
                 runs: [%s]
-            """.formatted(records, probe, service);
+            """.formatted(trim(scale), service);
+    }
+
+    /** A scale that reads as `6` rather than `6.0` in a file a person has to read. */
+    static String trim(double scale) {
+        return scale == Math.rint(scale) ? String.valueOf((long) scale) : String.valueOf(scale);
     }
 
     public static void main(String[] args) throws Exception {
@@ -69,8 +69,11 @@ public class Phase3 {
      */
     static void groundTruth() throws Exception {
         System.out.println("=== against ground truth, and against the obvious alternative ===");
-        final int TRUTH = 16000;
-        var s = Loader.of(Yaml.parse("truth.yaml", fleet("Accumulator", TRUTH, "[1000, 2000, 3000, 4000]")));
+        // Four times the top of the engine's ladder: far enough that multiplying the
+        // small run is visibly the wrong answer, near enough that the host can still
+        // hold the run this is checked against.
+        var s = Loader.of(Yaml.parse("truth.yaml", fleet("Accumulator", 4)));
+        final long TRUTH = s.fullRecords();
 
         var grid = Grid.run(s, loader(), Telemetry.Level.FULL, Scaled.SEEDS);
         var rungs = grid.dataLadder().stream().map(Probe::medianOf).toList();
@@ -124,7 +127,7 @@ public class Phase3 {
     static void refusal() throws Exception {
         System.out.println("=== a workload that changes its mind halfway up the ladder ===");
         Spiller.keepInMemory = 2200;
-        var s = Loader.of(Yaml.parse("spill.yaml", fleet("Spiller", 4000000, "[1000, 2000, 4000, 8000]")));
+        var s = Loader.of(Yaml.parse("spill.yaml", fleet("Spiller", 500)));
         var grid = Grid.run(s, loader(), Telemetry.Level.FULL, 4);
         Spiller.keepInMemory = Integer.MAX_VALUE;
 
@@ -167,7 +170,7 @@ public class Phase3 {
 
     static void transparency() throws Exception {
         System.out.println("=== does how closely it is watched change what it projects? ===");
-        var s = Loader.of(Yaml.parse("t.yaml", fleet("Accumulator", 4000000, "[1000, 2000, 4000, 8000]")));
+        var s = Loader.of(Yaml.parse("t.yaml", fleet("Accumulator", 500)));
         var exponents = new LinkedHashMap<Telemetry.Level, Double>();
         for (var level : List.of(Telemetry.Level.NO_PAYLOAD, Telemetry.Level.FULL)) {
             var grid = Grid.run(s, loader(), level, 2);
@@ -194,18 +197,17 @@ public class Phase3 {
     /**
      * The case a uniform factor gets wrong: a fleet with spare cores.
      *
-     * <p>Four calls into eight cores take one wave. Sixteen take two. Multiplying
-     * the first run by four says eight, and would tell a student their design is
-     * four times slower than it is.
+     * <p>Eight calls into eight cores take one wave. Thirty-two take four.
+     * Multiplying the first run by four says four waves' worth of time for what is
+     * one wave repeated, and would tell a student their design is four times
+     * slower than it is.
      */
     static void reconstruction() throws Exception {
         System.out.println("=== the timeline is reconstructed, not multiplied ===");
         String yaml = """
             seed: 4
-            kTime: 20
             job: BatchJob
-            expectedRun: 6 refSeconds
-            workload: { records: %d, probe: [4, 8, 12, 16], workers: [4] }
+            scale: %d
             machines:
               master: { instance: m5.2xlarge, zone: z }
               workers:
@@ -215,9 +217,9 @@ public class Phase3 {
                 zone: z
                 runs: [Slow]
             """;
-        // Four 2-vCPU machines: eight cores. Observed under-saturated, projected saturated.
-        var small = Loader.of(Yaml.parse("sched.yaml", yaml.formatted(4)));
-        var big = Loader.of(Yaml.parse("sched.yaml", yaml.formatted(32)));
+        // Four 2-vCPU machines: eight cores. Observed at one wave, projected at four.
+        var small = Loader.of(Yaml.parse("sched.yaml", yaml.formatted(1)));
+        var big = Loader.of(Yaml.parse("sched.yaml", yaml.formatted(4)));
 
         var observed = losim.runtime.Run.of(small, loader(), Telemetry.Level.NO_PAYLOAD);
         var truth = losim.runtime.Run.of(big, loader(), Telemetry.Level.NO_PAYLOAD);
@@ -233,15 +235,15 @@ public class Phase3 {
         for (var m : big.machines()) vcpus.put(m.name(), 2);
         // Replay the observed graph at the size being asked about: the same shape,
         // eight times as many calls, dealt the same way round the same fleet.
-        for (int repeat = 0; repeat < 8; repeat++)
+        for (int repeat = 0; repeat < 4; repeat++)
             for (var t : perCall)
                 tasks.add(new Schedule.Task(t.id() + repeat * 10_000L, t.parent(), t.machine(),
                         t.projectedMs(), t.observedStart() + repeat * 1e-6, List.of()));
 
         var replay = Schedule.replay(tasks, vcpus);
-        double multiplied = Schedule.multiplied(observed.durationRefMs(), 8);
+        double multiplied = Schedule.multiplied(observed.durationRefMs(), 4);
 
-        System.out.printf("  4 calls over 8 cores took %.0f refMs; 32 calls actually took %.0f%n",
+        System.out.printf("  8 calls over 8 cores took %.0f refMs; 32 calls actually took %.0f%n",
                 observed.durationRefMs(), truth.durationRefMs());
         System.out.printf("  reconstructed %.0f refMs (%s)%n", replay.makespanRefMs(), replay.note());
         System.out.printf("  multiplied    %.0f refMs%n", multiplied);
@@ -274,7 +276,7 @@ public class Phase3 {
 
     static void planTravels() throws Exception {
         System.out.println("=== the plan travels, and does not have to be paid for twice ===");
-        var s = Loader.of(Yaml.parse("plan.yaml", fleet("Accumulator", 4000000, "[1000, 2000, 4000, 8000]")));
+        var s = Loader.of(Yaml.parse("plan.yaml", fleet("Accumulator", 500)));
 
         // This is the one test whose subject is the cache, so it is the one test that
         // cannot inherit an empty one from whoever ran it. check.sh clears build/ on

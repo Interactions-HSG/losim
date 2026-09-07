@@ -44,15 +44,15 @@ public final class Solve {
             infeasible = why;
         }
         if (chosen == null)
-            return new ScalePlan(0, full, s.kTime(), Map.of(), laws, grid.runs(), notes,
+            return new ScalePlan(0, full, Map.of(), laws, grid.runs(), notes,
                     infeasible != null ? infeasible
                             : "no size on the probe ladder satisfies every resource at once");
 
         long n = chosen;
         var caps = solveCaps(s, laws, n, full);
-        String tooFine = kTimeTooFine(s, laws, n);
+        String tooFine = tooFineToExpress(s, laws, n);
         if (tooFine != null)
-            return new ScalePlan(0, full, s.kTime(), Map.of(), laws, grid.runs(), notes, tooFine);
+            return new ScalePlan(0, full, Map.of(), laws, grid.runs(), notes, tooFine);
 
         if (laws.byResource().isEmpty())
             notes.add("no resource could be fitted at all, so this plan shrinks the world"
@@ -60,7 +60,7 @@ public final class Solve {
         for (var e : laws.refused().entrySet())
             notes.add(e.getKey() + " is not projected: " + e.getValue());
 
-        return new ScalePlan(n, full, s.kTime(), caps, laws, grid.runs(), notes, null);
+        return new ScalePlan(n, full, caps, laws, grid.runs(), notes, null);
     }
 
     /**
@@ -130,19 +130,21 @@ public final class Solve {
     }
 
     /**
-     * Whether the scenario's compression can still express its own costs.
+     * Whether the clock the engine is running can still express this run's costs.
      *
-     * <p>k_time is <b>declared, not chosen</b>. It has to be global — there is one
-     * wall clock, and two machines sleeping under different factors would disagree
-     * about when now is — and it has to be the same for the probe grid as for the run
-     * it fits, or the fit describes a differently-compressed system. So the engine
-     * checks it rather than picking one after the grid has already been climbed.
+     * <p>The compression follows the scale (see {@code Scenario.kTime}), and it has
+     * to be global — there is one wall clock, and two machines sleeping under
+     * different factors would disagree about when now is — and the same for the
+     * probe grid as for the run it fits, or the fit describes a differently
+     * compressed system. So it is fixed before anything runs and checked after.
      *
      * <p>What it checks: a cost below the timer floor is owed rather than lost, and
      * that ledger is good for about fifty times below the floor. Past that the
-     * residual stops being absorbed and the run's own timings drift.
+     * residual stops being absorbed and the run's own timings drift. The remedy is
+     * not a smaller number somewhere — there is no such number to write any more —
+     * it is a cost site with enough to do to be timed at all.
      */
-    private static String kTimeTooFine(Scenario s, Laws laws, long n) {
+    private static String tooFineToExpress(Scenario s, Laws laws, long n) {
         double finest = Double.MAX_VALUE;
         String site = null;
         for (var e : laws.byCostSite().entrySet()) {
@@ -152,9 +154,10 @@ public final class Solve {
         if (site == null) return null;
         double usable = finest / (Clock.FLOOR_MS / 50);
         if (s.kTime() <= usable) return null;
-        return String.format("k_time %.0f is finer than this workload can express: %s costs"
-                + " %.4f refMs, which at that compression is %.0fx below what the sleep debt can"
-                + " still settle. Lower k_time to %.0f or less, or give that cost site more to do.",
-                s.kTime(), site, finest, s.kTime() / usable, Math.max(1, Math.floor(usable)));
+        return String.format("this run is clocked at %.0fx real time, and %s costs %.4f refMs —"
+                + " %.0fx below what the sleep debt can still settle at that compression, so its"
+                + " timings would drift rather than be owed. Give that cost site more to do, or"
+                + " lower the scale: at scale 1 the clock runs at %.0fx.",
+                s.kTime(), site, finest, s.kTime() / usable, Scenario.BASE_COMPRESSION);
     }
 }

@@ -80,17 +80,18 @@ public final class Shrinker extends ThumbnailerBase {
 | stretches on a slow machine? | **yes** | no |
 | occupies a vCPU? | **yes** | no |
 
-Measured at `k_time` 100 on a machine at half speed: `@Takes(500)` takes 1019 refMs
+Measured at 40× on a machine at half speed: `@Takes(500)` takes 1019 refMs
 and `sleep(500)` takes 596.
 
 ## The floor
 
 The clock cannot express a duration finer than about **0.05 ms** of real time. Below
 that a cost is *owed* rather than slept, and the ledger settles it later — good for
-about fifty times below the floor. Past that the engine refuses the `k_time`:
+about fifty times below the floor. Past that the engine refuses to project from it:
 
 ```
-k_time 400 is finer than this workload can express: lab.Thumbnailer.Capacity costs
-0.5000 refMs, which at that compression is 4x below what the sleep debt can still
-settle. Lower k_time to 100 or less, or give that cost site more to do.
+this run is clocked at 40x real time, and lab.Thumbnailer.Capacity costs 0.0004
+refMs — 6x below what the sleep debt can still settle at that compression, so its
+timings would drift rather than be owed. Give that cost site more to do, or lower
+the scale: at scale 1 the clock runs at 20x.
 ```

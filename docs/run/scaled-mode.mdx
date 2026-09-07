@@ -6,10 +6,7 @@ icon: "up-right-and-down-left-from-center"
 
 ```yaml
 mode: scaled
-workload:
-  records: 40000000
-  probe: [1000, 2000, 4000, 8000]
-  workers: [2, 4]
+scale: 5000
 ```
 
 There are exactly **two** modes and no third. Direct mode runs what it declares and
@@ -30,7 +27,7 @@ java -Xmx3g -cp "${CP}build/losim.jar:build/classes" \
 The first run is slow, and here is where the time goes:
 
 ```
-thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 records (x5,000), k_time 20
+thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 records (x5,000)
                                               [plan fitted from 30 probe runs in 41.2s]
 ```
 

@@ -108,26 +108,6 @@ export interface Fault {
 }
 
 /**
- * How much work there is at full scale, and the grid the engine probes with.
- *
- * `null` on a draft means no `workload:` key at all. That is a different
- * scenario from one declaring a single record, and `mode: scaled` needs a
- * workload to scale down from.
- */
-export interface Workload {
-  /** The size the design is meant to handle. At least 1. */
-  records: number;
-  /**
-   * The ladder the engine climbs to fit its laws. At least four rungs — three
-   * cannot show whether a law bends, and one that bends has to be refused
-   * rather than extrapolated across.
-   */
-  probe: number[];
-  /** How many machines to put in each multi-machine pool, varied independently. */
-  workers: number[];
-}
-
-/**
  * The medium the fleet talks over.
  *
  * All four zero is the same file as no `network:` key at all, which is what
@@ -172,27 +152,32 @@ export interface RetryRule {
   unsafe: boolean;
 }
 
+/** The biggest run the engine can measure — the top of its own probe ladder. */
+export const BASE_RECORDS = 8000;
+
 export interface Draft {
   name: string;
   job: string;
   seed: number;
   /**
-   * How much real time this run costs you, independent of what its durations
-   * mean — every declared `refMs` is divided by this before it is slept. 1 is
-   * no compression, real milliseconds; a normal teaching scenario is 2–10.
+   * How many times bigger the design is than the run measuring it.
+   *
+   * 1 is not a scale model at all — it is the run itself, whatever the job does
+   * with the one record it is given. Above 1 the scenario is a model of
+   * `scale × BASE_RECORDS`, and everything the engine needs to build that model —
+   * the probe ladder, the fleet sizes, how fast the clock runs — follows from it
+   * rather than being asked of the person writing the scenario. None of those is
+   * knowable in advance by anybody, which is the whole reason to run a simulator.
    */
-  kTime: number;
-  expectedRunRefSeconds: number;
+  scale: number;
   /**
    * A marker, and only a marker: it is recorded in the trace's `meta` and
    * nothing in the run reads it. For exercises where the gap between a design
    * working and not working is deliberately thin.
    */
   tightMargin: boolean;
-  /** `direct` runs what the workload says; `scaled` probes and projects to it. */
+  /** `direct` runs the whole thing; `scaled` probes small and projects up. */
   mode: 'direct' | 'scaled';
-  /** `null` writes no `workload:` at all. Scaled mode requires one. */
-  workload: Workload | null;
   net: Net;
   pools: Pool[];
   faults: Fault[];
@@ -315,27 +300,14 @@ export function toYaml(draft: Draft): string {
   const L: string[] = [];
   L.push(`# ${draft.name}.yaml — written by the lab console`);
   L.push(`seed: ${Math.round(draft.seed)}`);
-  // Omitted at 1: the loader defaults to the same value, so an explicit
-  // `kTime: 1` and no key at all mean the same thing, and writing the
-  // default on every save would be noise on every scenario that never
-  // touched it.
-  if (draft.kTime !== 1) L.push(`kTime: ${draft.kTime}`);
   L.push(`job: ${q(draft.job)}`);
-  L.push(`expectedRun: ${draft.expectedRunRefSeconds} refSeconds`);
+  // Omitted at 1, which is what a scenario gets by saying nothing: one run of
+  // itself, and nothing projected from it.
+  if (draft.scale > 1) L.push(`scale: ${draft.scale}`);
   // Omitted at `direct`, which is what a scenario gets by saying nothing.
   if (draft.mode === 'scaled') L.push('mode: scaled');
   // False is what a scenario gets by saying nothing, so it says nothing.
   if (draft.tightMargin) L.push('tightMargin: true');
-  // Written in full whenever there is one, ladder and all. The loader fills a
-  // ladder the file leaves out, so omitting it here would mean the form showing
-  // rungs the file does not contain — and the file is the thing a classmate
-  // reads. Every number on screen is a number in the file.
-  if (draft.workload) {
-    const w = draft.workload;
-    L.push(`workload: { records: ${Math.round(w.records)}, `
-           + `probe: [${w.probe.map(Math.round).join(', ')}], `
-           + `workers: [${w.workers.map(Math.round).join(', ')}] }`);
-  }
   // Only the numbers that are actually set, and no key at all when none is:
   // every one of these defaults to 0, so `network: { loss: 0 }` and silence are
   // the same scenario, and writing the silent ones out on every save would put
@@ -455,13 +427,11 @@ export function firstDraft(palette: Palette): Draft {
     name: 'authored',
     job: palette.jobs[0] ?? '',
     seed: 1,
-    kTime: 1,
-    expectedRunRefSeconds: 20,
-    // Direct, and no workload: what a scenario gets by saying nothing, and the
-    // only pair of the two that needs no numbers decided for the student.
+    // One run of itself: what a scenario gets by saying nothing, and the only
+    // starting point that promises nothing the engine has not measured.
+    scale: 1,
     tightMargin: false,
     mode: 'direct',
-    workload: null,
     // Instant and lossless, which is what a scenario that says nothing gets.
     net: { sameZoneRefMs: 0, crossZoneRefMs: 0, jitterRefMs: 0, loss: 0 },
     pools: [

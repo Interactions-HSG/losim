@@ -122,6 +122,11 @@ public final class Telemetry {
         public double at(int i)     { return i < n ? v[i] : Double.NaN; }
         public int size()           { return n; }
         public double[] values()    { return Arrays.copyOf(v, n); }
+        /** Every other value, in place — the other half of doubling the cadence. */
+        void thin() {
+            for (int i = 0, j = 0; i < n; i += 2) v[j++] = v[i];
+            n = (n + 1) / 2;
+        }
     }
 
     /** Anything that can describe itself on every tick. */
@@ -218,33 +223,60 @@ public final class Telemetry {
     public void register(Sampled s) { sampled.add(s); }
 
     /**
-     * Starts the sampler.
+     * The finest the sampler will ever tick, in <b>real</b> milliseconds.
      *
-     * <p>The cadence is derived from how long the run is expected to take, so a
-     * run of any length yields a bounded number of ticks. The trace's size then
-     * follows the run's <i>duration</i> rather than its busyness, which is the
-     * whole point: a stuck system produces as much evidence as a busy one.
+     * <p>Real, not reference: the floor is a property of the machine doing the
+     * sampling, not of the scenario being sampled. What it costs must not land on
+     * the counters it is reading (D13), and a sampler woken faster than this spends
+     * more of a core than the fleet it is watching.
+     */
+    public static final double FINEST_REAL_MS = 0.5;
+
+    /**
+     * How many ticks a trace holds before the cadence halves.
+     *
+     * <p>Nobody knows how long a run will take — that is what the run is for — so
+     * the sampler cannot size its cadence in advance. It starts at the floor and
+     * thins as it goes: every time the trace is full, half the samples are dropped
+     * and the interval doubles. The trace's size then follows the run's
+     * <i>duration</i> rather than its busyness, which is the whole point — a stuck
+     * system produces as much evidence as a busy one — and it does so without
+     * anybody having declared a horizon for the run to overrun quietly.
+     */
+    public static final int MAX_TICKS = 1000;
+
+    /**
+     * Starts the sampler.
      *
      * <p>This thread is not one of the machines' pool threads, deliberately: what
      * it costs must not land on the counters it is reading (D13).
      */
-    public void startSampling(double expectedRunMs, int maxTicks) {
+    public void startSampling() {
         if (level == Level.OFF) return;
-        sampleDtMs = Math.max(1.0, expectedRunMs / maxTicks);
+        sampleDtMs = FINEST_REAL_MS * clock.kTime();
         sampler = new Thread(() -> {
             var scratch = new LinkedHashMap<String, Double>();
-            long tickNs = (long) (sampleDtMs * 1e6 / clock.kTime());
+            long tickNs = (long) (FINEST_REAL_MS * 1e6);
             long next = System.nanoTime();
+            long tick = 0;
+            long stride = 1;
             while (!Thread.currentThread().isInterrupted()) {
                 next += tickNs;
-                sampleTimes.add(now());
-                for (Sampled s : sampled) {
-                    scratch.clear();
-                    try { s.sample(scratch); } catch (RuntimeException ignored) { }
-                    for (var e : scratch.entrySet())
-                        series.computeIfAbsent(s.vmName() + "." + e.getKey(),
-                                        k -> new Series(s.vmName(), e.getKey()))
-                              .push(quantise(e.getKey(), e.getValue()));
+                if (tick++ % stride == 0) {
+                    if (sampleTimes.size() >= MAX_TICKS) {
+                        thin();
+                        stride *= 2;
+                        sampleDtMs *= 2;
+                    }
+                    sampleTimes.add(now());
+                    for (Sampled s : sampled) {
+                        scratch.clear();
+                        try { s.sample(scratch); } catch (RuntimeException ignored) { }
+                        for (var e : scratch.entrySet())
+                            series.computeIfAbsent(s.vmName() + "." + e.getKey(),
+                                            k -> new Series(s.vmName(), e.getKey()))
+                                  .push(quantise(e.getKey(), e.getValue()));
+                    }
                 }
                 long sleep = next - System.nanoTime();
                 if (sleep > 0) clock.parkRealNanos(sleep);
@@ -253,6 +285,23 @@ public final class Telemetry {
         }, "losim-sampler");
         sampler.setDaemon(true);
         sampler.start();
+    }
+
+    /**
+     * Half the samples, dropped in lockstep.
+     *
+     * <p>Every series and the tick times have to lose the same indices or a value
+     * would end up filed under somebody else's instant. Only the sampler thread
+     * writes any of this, so there is nobody to race with.
+     */
+    private void thin() {
+        synchronized (sampleTimes) {
+            for (int i = 0, j = 0; i < sampleTimes.size(); i += 2)
+                sampleTimes.set(j++, sampleTimes.get(i));
+            for (int i = sampleTimes.size() - 1; i >= (sampleTimes.size() + 1) / 2; i--)
+                sampleTimes.remove(i);
+        }
+        for (Series s : series.values()) s.thin();
     }
 
     public void stopSampling() {

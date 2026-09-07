@@ -8,7 +8,7 @@ icon: "hourglass-half"
 Losim.current().sleep(200);      // 200 reference milliseconds
 ```
 
-Same unit as everything else, same division by `k_time`. At `kTime: 40` that waits
+Same unit as everything else, same division by `k_time`. At 40× that waits
 five real milliseconds and two hundred simulated ones.
 
 ## `@Takes` is fixed per method
@@ -33,7 +33,7 @@ flags it in favour of.
     declared wait is not multiplied by `machineFactor` or by a degrade factor,
     where `@Takes` is.
 
-    Measured, at `k_time` 100 on a machine at half speed: `@Takes(500)` takes 1019
+    Measured, at 40× on a machine at half speed: `@Takes(500)` takes 1019
     refMs and `sleep(500)` takes 596.
   </Card>
   <Card title="It does not mark the machine busy" icon="bed">
@@ -67,7 +67,7 @@ while (!done()) {
 
 ```java a load generator
 var cluster = …;
-while (cluster.clockMs() < cluster.expectedRunMs()) {
+while (cluster.clockMs() < 20_000) {
     fireOneRequest();
     Losim.current().sleep(1000.0 / requestsPerSecond);
 }

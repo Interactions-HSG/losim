@@ -3,9 +3,7 @@
 # scenario where nothing goes wrong tests nothing worth testing.
 
 seed: 7
-kTime: 2                       # compressed, but not so far that starting up dominates the timeline
 job: WordCountJob
-expectedRun: 2 refSeconds
 
 machines:
   master:

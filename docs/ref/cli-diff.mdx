@@ -32,7 +32,7 @@ simulator.
 | | |
 |---|---|
 | `schema` | the trace schema version |
-| `meta.scenario`, `job`, `seed`, `kTime`, `telemetry`, `mode`, `schemaVersion`, `trusted`, `completed` | |
+| `meta.scenario`, `job`, `seed`, `scale`, `telemetry`, `mode`, `schemaVersion`, `trusted`, `completed` | |
 | what each **event kind carries** | the keys each kind's `detail` holds |
 | what each **span kind is labelled** | |
 | sampled channels | which `<vm>.<metric>` channels exist |
@@ -64,7 +64,7 @@ build/parity/traces-codespace/t10.json
 
   same    schema
   same    meta.scenario
-  same    meta.kTime
+  same    meta.scale
   same    what each event kind carries
   same    what each span kind is labelled
   same    sampled channels

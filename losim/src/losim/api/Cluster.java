@@ -56,16 +56,6 @@ public interface Cluster {
     /** Simulated milliseconds since the run began — the clock the scenario is written in. */
     double clockMs();
 
-    /**
-     * How long the scenario said this run should take, in reference milliseconds.
-     *
-     * <p>For a job whose shape is "keep going until the run is over" — a load
-     * generator, a poller — rather than "do this much work". Without it such a job
-     * has to guess, and a job that guesses short finishes before the scenario's
-     * weather has happened to it.
-     */
-    double expectedRunMs();
-
     /** A line of narration in the trace. */
     void log(String message);
 

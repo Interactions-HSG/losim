@@ -522,22 +522,9 @@ public final class Serve {
         draft.put("name", d.name());
         draft.put("job", d.job());
         draft.put("seed", d.seed());
-        draft.put("kTime", d.kTime());
-        draft.put("expectedRunRefSeconds", d.expectedRunRefSeconds());
+        draft.put("scale", d.scale());
         draft.put("tightMargin", d.tightMargin());
         draft.put("mode", d.mode());
-        if (d.workload() == null) {
-            // No `workload:` at all is a different scenario from one declaring a
-            // single record, and the form's control has to open in the same state
-            // the file is in.
-            draft.put("workload", null);
-        } else {
-            Map<String, Object> w = new LinkedHashMap<>();
-            w.put("records", d.workload().records());
-            w.put("probe", d.workload().probe());
-            w.put("workers", d.workload().workers());
-            draft.put("workload", w);
-        }
         Map<String, Object> net = new LinkedHashMap<>();
         net.put("sameZoneRefMs", d.net().sameZoneRefMs());
         net.put("crossZoneRefMs", d.net().crossZoneRefMs());

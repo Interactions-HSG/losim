@@ -44,8 +44,8 @@ public final class Scaled {
 
     public static Result of(Scenario s, ClassLoader loader, Telemetry.Level level,
                             List<Path> code) throws Exception {
-        if (s.workload() == null)
-            throw new IllegalArgumentException("scaled mode needs a workload: to scale down from");
+        if (s.scale() <= 1)
+            throw new IllegalArgumentException("scaled mode needs a scale above 1 to project to");
 
         // Once, for the whole of scaled mode: the probe grid runs these same classes
         // thirty times over, and the answer does not change between them.

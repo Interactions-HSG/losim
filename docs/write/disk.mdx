@@ -114,10 +114,8 @@ A volume too small for what the design writes to it:
 
 ```yaml spill.yaml
 seed: 1
-kTime: 2
 job: lab.SpillJob
-expectedRun: 4 refSeconds
-workload: { records: 50000 }
+scale: 6
 
 machines:
   coordinator: { instance: m5.large, zone: eu-central-1a }

@@ -6,10 +6,10 @@ import losim.runtime.Retry;
 /**
  * A fleet, its weather and its bad afternoon — as data.
  *
- * <p>Nothing here is computed. Anything that needs code points at a class by name,
- * so the file stays diffable, sweepable and readable by someone who did not write
- * it. That matters more than it sounds: comparing two designs means comparing two
- * of these, and a scenario that hides a decision in a script cannot be compared at
+ * <p>Nothing here is authored that the run could find out for itself. Anything that
+ * needs code points at a class by name, so the file stays diffable, sweepable and
+ * readable by someone who did not write it. That matters more than it sounds:
+ * comparing two designs means comparing two of these, and a scenario that hides a decision in a script cannot be compared at
  * all.
  *
  * <p>Every duration is reference-machine time (D3), which is why they are
@@ -18,49 +18,91 @@ import losim.runtime.Retry;
 public record Scenario(
         String file,
         long seed,
-        double kTime,
         String job,
-        double expectedRunRefMs,
+        double scale,
+        long records,
         List<MachineSpec> machines,
         NetSpec net,
         List<Fault> faults,
         List<Chaos> chaos,
         List<Retry> retries,
         boolean tightMargin,
-        Mode mode,
-        Workload workload) {
+        Mode mode) {
 
     /**
-     * Whether the workload fits.
+     * The ladder the engine climbs, and the run it climbs to.
+     *
+     * <p>Fixed, and not a knob. Four rungs is the fewest that can show whether a law
+     * bends, and a law that bends has to be refused rather than extrapolated across.
+     * Which four is the engine's business: a scenario that could pick its own would
+     * be a scenario that could pick a ladder its design happens to look linear on.
+     */
+    public static final List<Integer> LADDER = List.of(1000, 2000, 4000, 8000);
+
+    /** The biggest run the engine can actually measure — the top of the ladder. */
+    public static final long BASE = LADDER.get(LADDER.size() - 1);
+
+    /** The compression a scenario gets when it asks for no scale at all. */
+    public static final double BASE_COMPRESSION = 20;
+
+    /** As fast as the clock is ever run, however large the scale. */
+    public static final double MAX_COMPRESSION = 40;
+
+    /**
+     * Whether the run is the thing, or a measurement of it.
      *
      * <p>There are exactly two, and no third. In {@link #DIRECT} nothing is scaled
      * and nothing is inferred: every number on screen is what happened. In
-     * {@link #SCALED} the scaler engine decides the run size, the fleet, k_time and
-     * every cap, and projects the results back with error bars. A scenario cannot
+     * {@link #SCALED} the scaler engine decides the run size, the fleet and every
+     * cap, and projects the results back with error bars. A scenario cannot
      * hand-declare a shrink factor and bypass the engine — that would be a third
      * mode whose numbers nobody could account for.
      */
     public enum Mode { DIRECT, SCALED }
 
     /**
-     * How much work there is, at full scale.
+     * How fast the clock is run, in reference milliseconds per real millisecond.
      *
-     * @param records     the size the design is meant to handle. In direct mode this
-     *                    is simply what runs; in scaled mode it is what gets projected to.
-     * @param probeSizes  the ladder the engine climbs to fit its laws. Four points is
-     *                    the fewest that can show a bend.
-     * @param workerCounts  how many machines to put in each multi-machine pool, varied
-     *                      independently of the data so that a resource can be attributed
-     *                      to the right variable rather than to whichever one happened to
-     *                      move with it. Not a count of machines in the fleet: a scenario
-     *                      with a coordinator and a pool of four, probed at 2, runs three
-     *                      machines.
+     * <p><b>Derived, never declared.</b> Nobody authoring a system knows what
+     * compression it can express — that is a property of the smallest cost in it,
+     * which is a thing the run finds out. So it follows the one number a student
+     * does know: how much bigger the design is meant to be than the run measuring
+     * it. More work per instant is more for a coarse clock to absorb, and the
+     * engine stops raising it at {@link #MAX_COMPRESSION} because past that the
+     * sleep debt stops settling and the run's own timings drift.
      */
-    public record Workload(long records, List<Integer> probeSizes, List<Integer> workerCounts,
-                           String where) {}
+    public double kTime() {
+        return Math.min(MAX_COMPRESSION, BASE_COMPRESSION * Math.max(1, scale));
+    }
 
-    /** The declared full-scale size, or one if the scenario never said. */
-    public long records() { return workload == null ? 1 : workload.records(); }
+    /**
+     * The size this design is meant to handle.
+     *
+     * <p>Scale 1 is not a scale model of anything — it is the run itself, and the
+     * run is whatever the job does with the one record it is given. That is what a
+     * scenario saying nothing about scale has always got, and it stays that way.
+     *
+     * <p>Above 1 the scenario is a model of something bigger, and then the size is
+     * {@code scale} times {@link #BASE} — the biggest run the engine can actually
+     * measure. The step between the two is a step between kinds, not a slider: a
+     * run and a model of a run are different claims, and only the second one has
+     * error bars.
+     */
+    public long fullRecords() { return scale <= 1 ? 1 : Math.round(scale * BASE); }
+
+    /**
+     * How many machines to put in each multi-machine pool, varied on its own.
+     *
+     * <p>Derived from the fleet that was drawn, because that is the fleet the
+     * question is about: probing a design at two workers when it is written for
+     * eight extrapolates across the very thing being measured. Varied independently
+     * of the data so a resource can be attributed to the right variable rather than
+     * to whichever one happened to move with it.
+     */
+    public List<Integer> workerCounts() {
+        int declared = (int) machines.stream().filter(m -> !m.runs().isEmpty()).count();
+        return List.of(Math.max(2, declared / 2), Math.max(3, declared));
+    }
 
     // ------------------------------------------------------------------ variants
     //
@@ -69,37 +111,25 @@ public record Scenario(
     // system is — in one place, and makes the grid's axes explicit.
 
     public Scenario withSeed(long seed) {
-        return new Scenario(file, seed, kTime, job, expectedRunRefMs, machines, net,
-                faults, chaos, retries, tightMargin, mode, workload);
+        return new Scenario(file, seed, job, scale, records, machines, net,
+                faults, chaos, retries, tightMargin, mode);
     }
 
-    public Scenario withKTime(double k) {
-        return new Scenario(file, seed, k, job, expectedRunRefMs, machines, net,
-                faults, chaos, retries, tightMargin, mode, workload);
-    }
-
+    /** The run size the engine solved for, replacing the full-scale one. */
     public Scenario withRecords(long n) {
-        var w = workload == null
-                ? new Workload(n, List.of(1000, 2000, 4000, 8000), List.of(2, 4), file)
-                : new Workload(n, workload.probeSizes(), workload.workerCounts(), workload.where());
-        return new Scenario(file, seed, kTime, job, expectedRunRefMs, machines, net,
-                faults, chaos, retries, tightMargin, mode, w);
+        return new Scenario(file, seed, job, scale, n, machines, net,
+                faults, chaos, retries, tightMargin, mode);
     }
 
     public Scenario withMode(Mode m) {
-        return new Scenario(file, seed, kTime, job, expectedRunRefMs, machines, net,
-                faults, chaos, retries, tightMargin, m, workload);
+        return new Scenario(file, seed, job, scale, records, machines, net,
+                faults, chaos, retries, tightMargin, m);
     }
 
     /** The same scenario with no weather at all — the clean column of the grid. */
     public Scenario withoutWeather() {
-        return new Scenario(file, seed, kTime, job, expectedRunRefMs, machines, net,
-                List.of(), List.of(), retries, tightMargin, mode, workload);
-    }
-
-    public Scenario withExpectedRun(double refMs) {
-        return new Scenario(file, seed, kTime, job, refMs, machines, net,
-                faults, chaos, retries, tightMargin, mode, workload);
+        return new Scenario(file, seed, job, scale, records, machines, net,
+                List.of(), List.of(), retries, tightMargin, mode);
     }
 
     /**
@@ -130,8 +160,8 @@ public record Scenario(
         var stillThere = faults.stream()
                 .filter(f -> kept.contains(f.target()) && (f.other() == null || kept.contains(f.other())))
                 .toList();
-        return new Scenario(file, seed, kTime, job, expectedRunRefMs, out, net,
-                stillThere, chaos, retries, tightMargin, mode, workload);
+        return new Scenario(file, seed, job, scale, records, out, net,
+                stillThere, chaos, retries, tightMargin, mode);
     }
 
     /** The same fleet with caps the engine solved for, per machine, per resource. */
@@ -142,8 +172,8 @@ public record Scenario(
             out.add(caps == null ? m : new MachineSpec(m.name(), m.pool(), m.instance(),
                     m.zone(), m.runs(), caps[0], caps[1], m.where()));
         }
-        return new Scenario(file, seed, kTime, job, expectedRunRefMs, out, net,
-                faults, chaos, retries, tightMargin, mode, workload);
+        return new Scenario(file, seed, job, scale, records, out, net,
+                faults, chaos, retries, tightMargin, mode);
     }
 
     /**

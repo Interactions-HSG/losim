@@ -14,7 +14,7 @@ You write it in milliseconds because that is gRPC's API. losim reads it as
 time by `k_time` before handing it to gRPC's own deadline machinery.
 
 <Note>
-Left alone, an 800 refMs deadline at `kTime: 80` would fire eighty times too early
+Left alone, an 800 refMs deadline at 40× would fire forty times too early
 against a cost that had itself been compressed — so every timing lesson in the
 course would depend on which laptop it ran on. The rewrite happens in the client
 interceptor, at the one place where your intent is still visible.
@@ -103,10 +103,7 @@ The same call, run twice, against a deadline that is and is not enough:
 
 ```yaml patience.yaml
 seed: 3
-kTime: 1
 job: lab.ThumbnailJob
-expectedRun: 3 refSeconds
-workload: { records: 400 }
 
 machines:
   coordinator: { instance: m5.large, zone: eu-central-1a }

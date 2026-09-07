@@ -8,14 +8,8 @@
 # rather than fitting the index and calling it a law.
 mode: scaled
 seed: 12
-kTime: 40
 job: Elastic
-expectedRun: 30 refSeconds
-
-workload:
-  records: 48000
-  probe: [1000, 2000, 4000, 8000]
-  workers: [2, 4]
+scale: 6
 
 machines:
   master: { instance: m5.2xlarge, zone: eu-central-1a }

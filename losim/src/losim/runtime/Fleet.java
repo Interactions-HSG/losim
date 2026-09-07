@@ -164,8 +164,8 @@ public final class Fleet implements AutoCloseable {
         return this;
     }
 
-    /** Starts the sampler. The cadence follows the run's expected duration, not its busyness. */
-    public void startSampling(double expectedRunMs) { tel.startSampling(expectedRunMs, 1000); }
+    /** Starts the sampler. It thins as the run goes on rather than being sized in advance. */
+    public void startSampling() { tel.startSampling(); }
 
     public void stopSampling() { tel.stopSampling(); }
 

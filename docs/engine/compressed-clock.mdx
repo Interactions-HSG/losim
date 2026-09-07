@@ -1,6 +1,6 @@
 ---
 title: "The compressed clock"
-description: "One wall clock, running k_time faster, calibrated per host."
+description: "One wall clock, run faster than it says, calibrated per host."
 icon: "gauge-high"
 ---
 
@@ -12,10 +12,16 @@ what gets slept  =  refMs × (2 ÷ vcpu) × degradeFactor ÷ k_time
 ```
 
 <Note>
-`k_time` is **declared, not chosen**. It has to be global: there is one wall clock,
-and two machines sleeping under different factors would disagree about when *now* is.
-And it has to be the same for the probe grid as for the run it fits, or the fit
-describes a differently-compressed system.
+`k_time` is **derived, and there is nowhere to write it**. Nobody authoring a system
+knows what compression it can express — that is a property of the smallest cost in
+it, which is a thing the run finds out. So it follows the one number you do know:
+[the scale](/ref/scale). 20× at scale 1, rising to a ceiling of 40×.
+
+It has to be global — there is one wall clock, and two machines sleeping under
+different factors would disagree about when *now* is — and the same for the probe
+grid as for the run it fits, or the fit describes a differently-compressed system.
+That is why it is fixed before anything runs and checked afterwards, rather than
+chosen once the grid has been climbed.
 </Note>
 
 ## Two facts about the host decide how this is built
@@ -48,7 +54,7 @@ describes a differently-compressed system.
 
 ## The clock starts after the fleet is built
 
-Building six in-process servers costs real milliseconds, and at `kTime: 10` that is
+Building six in-process servers costs real milliseconds, and at 20× that is
 hundreds of reference milliseconds of a run that has not begun.
 
 Left alone it would put every fault written for an early instant **in the past**, so
@@ -73,22 +79,30 @@ scenario.
 
 That last row is the whole reason `Thread.sleep` is flagged.
 
-## Choosing a value
+## What it is set to
 
 | | |
 |---|---|
-| `kTime: 1` | no compression. Best for debugging: refMs are real milliseconds. |
-| `kTime: 2 – 10` | a normal teaching scenario. Fast enough to iterate, slow enough that setup does not dominate. |
-| `kTime: 20 – 100` | a scaled run, where the point is to fit thirty probe runs into a coffee break. |
+| scale 1 | **20×**. A run of itself, fast enough to iterate on. |
+| scale above 1 | **40×**, the ceiling. More work per instant is more for a coarse clock to absorb, and the point of a probe grid is to fit thirty runs into a coffee break. |
 
-The ceiling is set by your smallest declared cost. If you go past it, the engine says
-so and computes the largest value that works:
+The ceiling exists because of the floor below: past about fifty times under the timer
+floor the sleep debt stops settling and the run's own timings drift. If your smallest
+declared cost is finer than the clock can express, the engine says so — after the
+grid, where it can name the cost site and the number:
 
 ```
-k_time 400 is finer than this workload can express: lab.Thumbnailer.Capacity costs
-0.5000 refMs, which at that compression is 4x below what the sleep debt can still
-settle. Lower k_time to 100 or less, or give that cost site more to do.
+this run is clocked at 40x real time, and lab.Thumbnailer.Capacity costs 0.0004
+refMs — 6x below what the sleep debt can still settle at that compression, so its
+timings would drift rather than be owed. Give that cost site more to do, or lower
+the scale: at scale 1 the clock runs at 20x.
 ```
+
+<Note>
+Notice what the remedy is not. There is no number to turn down: the compression is
+the engine's, and the thing that is wrong is a cost site too small to be timed. That
+is a fact about the design, and it was one before losim said so.
+</Note>
 
 ## Runs are not reproducible, and that is deliberate
 

@@ -97,12 +97,11 @@ chaos:
 `among:` is a pool name — `workers` — or one machine's name. The gaps are drawn
 exponentially from the seed, so they vary the way real bad afternoons do.
 
-<Warning>
-Chaos is only drawn out to `expectedRun`. If your run overruns the horizon,
-nothing happens to the fleet after it — a quiet second half that looks exactly
-like a fleet behaving well. The trace says so with an `over_horizon` event, and
-this is why that event exists.
-</Warning>
+<Note>
+A rate has no end: each firing draws the next one, so it keeps happening for as long
+as the run does. Nothing you write here can leave the fleet a quiet second half by
+accident.
+</Note>
 
 **One seed is an anecdote.** A sweep is not a shell loop — losim is a library, so
 write it in the language you are already in:

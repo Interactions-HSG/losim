@@ -105,7 +105,7 @@ this message exists for.
 
 ## Faults are scheduled against a clock that starts at zero
 
-Building in-process servers costs real milliseconds, and at `kTime: 10` that would
+Building in-process servers costs real milliseconds, and at 20× that would
 be hundreds of reference milliseconds of a run that has not begun — putting every
 early fault in the past, so they would all fire at once during setup. The clock is
 zeroed after the fleet is built, so a fault written at 120 refMs lands at 120 refMs

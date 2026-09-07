@@ -94,7 +94,7 @@
               "ref/faults",
               "ref/chaos",
               "ref/retries",
-              "ref/workload"
+              "ref/scale"
             ]
           },
           {

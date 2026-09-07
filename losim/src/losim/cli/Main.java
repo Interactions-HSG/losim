@@ -242,9 +242,9 @@ public final class Main {
             return 1;
         }
 
-        System.out.printf("%s  seed %d  scaled %,d -> %,d records (x%,.0f), k_time %.0f%s%n",
+        System.out.printf("%s  seed %d  scaled %,d -> %,d records (x%,.0f)%s%n",
                 s.file(), s.seed(), plan.records(), plan.fullRecords(), plan.scaleFactor(),
-                plan.kTime(), scaled.planWasCached() ? "  [plan cached]"
+                scaled.planWasCached() ? "  [plan cached]"
                         : String.format("  [plan fitted from %d probe runs in %.1fs]",
                                 plan.gridRuns(), (System.nanoTime() - began) / 1e9));
         System.out.println();
@@ -285,9 +285,7 @@ public final class Main {
     }
 
     private static Scenario withSeed(Scenario s, long seed) {
-        return new Scenario(s.file(), seed, s.kTime(), s.job(), s.expectedRunRefMs(),
-                s.machines(), s.net(), s.faults(), s.chaos(), s.retries(), s.tightMargin(),
-                s.mode(), s.workload());
+        return s.withSeed(seed);
     }
 
     private static List<Path> paths(String cp) {

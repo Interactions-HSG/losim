@@ -29,8 +29,10 @@ A change log is **silent exactly when a system is stuck**, which is exactly when
 want to look at it. Series make the trace's size follow the run's **duration** rather
 than its busyness, so a frozen fleet produces as much evidence as a working one.
 
-The cadence is derived from `expectedRun` divided by 1000, floored at 1 ms — so a run
-of any length yields a bounded number of ticks.
+The sampler starts at its finest — half a real millisecond — and **thins as it
+goes**: every time the trace fills up, half the samples are dropped and the interval
+doubles. So a run of any length yields a bounded number of ticks, without anyone
+having declared in advance how long the run would be.
 </Note>
 
 The sampler runs on **its own thread**, not one of the machines' pool threads,

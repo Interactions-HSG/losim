@@ -513,7 +513,7 @@ public class Phase1 {
         try (var fleet = fleet(200, Telemetry.Level.FULL)) {
             var c = fleet.machine("c", "m5.large", "z");
             fleet.machine("s", "m5.large", "z").serving(new Costed());
-            fleet.startSampling(2000);
+            fleet.startSampling();
             ManagedChannel ch = c.channelTo("s");
             var stub = WorkerGrpc.newBlockingStub(ch);
             for (int i = 0; i < 4; i++)

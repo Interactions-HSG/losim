@@ -25,7 +25,6 @@ final class Fixture {
     static final String SCENARIO = """
             seed: 1
             job: WordCountJob
-            expectedRun: 20 refSeconds
 
             machines:
               coordinator:

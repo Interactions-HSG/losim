@@ -1,9 +1,7 @@
 # The same fleet, with a retry policy on a method whose schema does not declare it
 # safe to run twice. This scenario must be refused before anything runs.
 seed: 5
-kTime: 20
 job: WordCount
-expectedRun: 4 refSeconds
 
 machines:
   master:  { instance: m5.large, zone: eu-central-1a }

@@ -1,0 +1,114 @@
+---
+title: "scale"
+description: "How much bigger the design is than the run measuring it."
+icon: "chart-line"
+---
+
+```yaml
+scale: 5000
+mode: scaled
+```
+
+One number, because one number is all anybody can honestly supply. Everything
+else the engine needs — the probe ladder, the fleet sizes, how fast the clock is
+run — it works out for itself. None of those is knowable before the run, and a
+simulator you have to predict before using is not one.
+
+<ParamField path="scale" type="number" default="1">
+  How many times bigger the design is than the biggest run the engine can measure.
+
+  At **1** there is no model at all: the run is the thing, the job gets one record,
+  and every number on screen is what happened. That is what a scenario saying
+  nothing about scale has always got.
+
+  Above 1 the scenario is a model of `scale × 8000` records — eight thousand being
+  the top of the engine's own ladder. `scale: 5000` is a design for forty million.
+
+  <Warning>
+  The step from 1 to anything above it is a step between kinds, not a slider. A run
+  and a model of a run are different claims, and only the second one has error bars.
+  </Warning>
+</ParamField>
+
+<ParamField path="mode" type="direct | scaled" default="direct">
+  `scaled` measures a small run and projects to `scale`; `direct` actually runs all
+  of it.
+
+  Scaled mode at `scale: 1` is refused — there is nothing above the run to project
+  to. Direct mode at a large scale is legal and slow: it is how a projection gets
+  checked against the truth.
+</ParamField>
+
+## What the engine picks, and why it is not yours to pick
+
+<ParamField path="the probe ladder" type="1000, 2000, 4000, 8000">
+  Four rungs, because three cannot show whether a law bends and a law that bends
+  must be refused rather than extrapolated across. Which four is the engine's
+  business: a scenario that could choose its own could choose a ladder its design
+  happens to look linear on.
+</ParamField>
+
+<ParamField path="the fleet sizes" type="max(2, declared/2), max(3, declared)">
+  Derived from the fleet you drew, because that is the fleet the question is about.
+  Probing a design at two workers when it is written for eight extrapolates across
+  the very thing being measured.
+</ParamField>
+
+<ParamField path="the clock" type="20× at scale 1, up to 40×">
+  See [the compressed clock](/engine/compressed-clock). More work per instant is
+  more for a coarse clock to absorb, so it follows the scale — and stops at 40×,
+  past which the sleep debt stops settling and the run's own timings drift.
+</ParamField>
+
+## Two ladders, not one
+
+<Warning>
+A resource that grows with the **data** and a resource that grows with the **fleet**
+look identical if the two only ever move together — and an engine that folds one
+into the other produces projections that are plausible and wrong, which is the
+failure mode hardest to notice because nothing looks broken.
+
+So the grid varies them on separate axes: the data ladder is climbed on the fleet
+that will actually run, and the fleet ladder holds the data still.
+</Warning>
+
+## The grid
+
+```
+   data ladder    1k 2k 4k 8k    ×  6 seeds   on the scenario's own fleet, weather off
+   fleet ladder   derived        ×  2 seeds   at the middle data size,   weather off
+   fault column   the top size   ×  2 seeds   the scenario's own weather
+```
+
+About thirty runs. Six seeds on the data ladder because the law is fitted on the
+median of all of them and its reproducibility is measured by refitting **independent
+sets of two** the same way — three sets is the fewest from which a spread means
+anything.
+
+The fleet ladder and the fault column are cross-checks rather than sources of an
+error bar, so they run at fewer seeds.
+
+<Note>
+**When the ladder crosses a threshold in your code.** If it spills, switches
+algorithm, or stops fitting in a cache somewhere between one and eight thousand
+records, the engine will see the law bend and refuse it — correctly. The remedy is
+in the design, not in the ladder: move the threshold, or accept that the resource
+is not projectable across it.
+</Note>
+
+## The fault column
+
+If the scenario declares any `faults:` or `chaos:`, the grid runs a weathered column
+and folds the result in as an **amplification** term. A killed machine's work is
+redone elsewhere, so a survivor absorbs its share — measured, that roughly doubles
+peak memory on a machine that accumulates.
+
+With no weather declared, you get a note instead:
+
+```
+note: this scenario declares no faults, so the model carries no amplification term
+      — a projection from it describes a fleet where nothing goes wrong
+```
+
+A model fitted only on clean runs under-predicts by that much, and it under-predicts
+**optimistically**.

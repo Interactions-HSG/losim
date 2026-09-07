@@ -61,7 +61,7 @@ Knowing what happens when explains most of the error messages:
   </Step>
   <Step title="The clock is zeroed and the fleet is announced">
     Everything before this is setup and belongs to no scenario. Building six
-    in-process servers costs real milliseconds, and at `kTime: 10` that would be
+    in-process servers costs real milliseconds, and at 20× that would be
     hundreds of reference milliseconds of a run that has not begun — putting every
     early fault in the past, so they would all fire at once during setup.
   </Step>
@@ -80,7 +80,7 @@ Knowing what happens when explains most of the error messages:
 | | |
 |---|---|
 | `0` | the job completed |
-| `1` | the job did not complete — it threw, or it outstayed **ten times** its `expectedRun` |
+| `1` | the job did not complete — it threw, or it was still running after **two minutes of real time** |
 | `2` | the scenario is wrong. Nothing ran. |
 | `3` | something went wrong inside losim. Re-run with `LOSIM_DEBUG=1` for the stack. |
 

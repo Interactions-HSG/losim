@@ -163,10 +163,8 @@ One machine deliberately too small for what it is asked to hold:
 
 ```yaml filling-up.yaml
 seed: 1
-kTime: 2
 job: lab.AccumulateJob
-expectedRun: 4 refSeconds
-workload: { records: 20000 }
+scale: 2
 
 machines:
   coordinator: { instance: m5.large, zone: eu-central-1a }

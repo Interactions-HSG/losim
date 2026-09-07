@@ -42,15 +42,13 @@ public final class Plans {
         var sb = new StringBuilder();
         sb.append(level).append('|').append(s.job()).append('|').append(s.records())
           .append('|').append(s.seed())
-          .append('|').append(s.kTime()).append('|').append(s.expectedRunRefMs());
+          .append('|').append(s.scale());
         for (var m : s.machines())
             sb.append('|').append(m.name()).append(':').append(m.instance())
               .append(':').append(m.zone()).append(':').append(m.runs());
         sb.append('|').append(s.net()).append('|').append(s.faults()).append('|').append(s.chaos())
           .append('|').append(s.retries());
-        if (s.workload() != null)
-            sb.append('|').append(s.workload().probeSizes())
-              .append('|').append(s.workload().workerCounts());
+        sb.append('|').append(s.workerCounts());
         for (Path p : code) sb.append('|').append(fingerprint(p));
         return sha(sb.toString());
     }
@@ -106,7 +104,6 @@ public final class Plans {
     static ScalePlan fromMap(Map<String, Object> m) {
         long records = ((Number) m.get("records")).longValue();
         long full = ((Number) m.get("fullRecords")).longValue();
-        double kTime = ((Number) m.get("kTime")).doubleValue();
         int runs = m.containsKey("gridRuns") ? ((Number) m.get("gridRuns")).intValue() : 0;
 
         var byResource = new TreeMap<String, Fit.Law>();
@@ -141,7 +138,7 @@ public final class Plans {
         var notes = new ArrayList<String>();
         for (Object n : (List<Object>) m.getOrDefault("notes", List.of())) notes.add(String.valueOf(n));
 
-        return new ScalePlan(records, full, kTime, caps,
+        return new ScalePlan(records, full, caps,
                 new Laws(byResource, errorBars, refused, new TreeMap<>(), amplification, byVariable),
                 runs, notes, (String) m.get("infeasible"));
     }

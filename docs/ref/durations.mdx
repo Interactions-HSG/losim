@@ -7,7 +7,6 @@ icon: "clock"
 Every duration in a scenario is **reference-machine time** and has to say so.
 
 ```yaml
-expectedRun: 6 refSeconds
 at:          900 refMs
 backoff:     50 refMs
 crossZone:   3 refMs
@@ -42,7 +41,7 @@ k_time.
 **Why this is worth refusing.** A run is compressed by `k_time`, which is a global
 factor whoever writes the scenario never sees at the point of writing a duration. A
 bare `900` could mean 900 milliseconds of the simulated world or 900 of your
-afternoon, and at `kTime: 40` those differ by a factor of forty.
+afternoon, and at 40× those differ by a factor of forty.
 
 Writing `refMs` costs five characters and removes the whole class of question.
 </Note>

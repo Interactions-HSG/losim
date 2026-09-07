@@ -83,7 +83,7 @@ every measurement. [Scaled mode ->](/run/scaled-mode)
 | | |
 |---|---|
 | `0` | the job completed |
-| `1` | the job did not complete — it threw, or outstayed **ten times** its `expectedRun`; or scaled mode found no feasible size |
+| `1` | the job did not complete — it threw, or was still running after two minutes of real time; or scaled mode found no feasible size |
 | `2` | the scenario is wrong. Nothing ran. |
 | `3` | something went wrong inside losim |
 

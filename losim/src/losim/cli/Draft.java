@@ -89,8 +89,6 @@ public final class Draft {
      * out. Null when the file has no {@code workload:} at all. That is different
      * from one that declares a single record.
      */
-    public record Workload(long records, List<Integer> probe, List<Integer> workers) {}
-
     public record Chaos(String kind, double everyRefMs, String among, double forRefMs, double factor) {}
     /**
      * @param multiplier what the wait is multiplied by after each attempt. 1 is a
@@ -104,8 +102,8 @@ public final class Draft {
     /** The medium, in the same four numbers {@code network:} is written in. All zero is no key at all. */
     public record Net(double sameZoneRefMs, double crossZoneRefMs, double jitterRefMs, double loss) {}
 
-    public record Of(String name, String job, long seed, double kTime, double expectedRunRefSeconds,
-                      boolean tightMargin, String mode, Workload workload,
+    public record Of(String name, String job, long seed, double scale,
+                      boolean tightMargin, String mode,
                       Net net, List<Pool> pools, List<Fault> faults, List<Chaos> chaos,
                       List<Retry> retries) {}
 
@@ -261,16 +259,8 @@ public final class Draft {
         var net = new Net(sc.net().sameZoneRefMs(), sc.net().crossZoneRefMs(),
                 sc.net().jitterRefMs(), sc.net().loss());
 
-        // Null when the file has no `workload:`; otherwise the loader's own
-        // resolved answer, defaults filled — a probe ladder the file left unsaid
-        // is still the ladder the run climbs, and the form has to show it rather
-        // than an empty box that would write a different scenario back.
-        var w = sc.workload();
-        var workload = w == null ? null
-                : new Workload(w.records(), List.copyOf(w.probeSizes()), List.copyOf(w.workerCounts()));
-
-        return new Of(name.replaceAll("\\.ya?ml$", ""), sc.job(), sc.seed(), sc.kTime(),
-                sc.expectedRunRefMs() / 1000, sc.tightMargin(), sc.mode().name().toLowerCase(), workload,
+        return new Of(name.replaceAll("\\.ya?ml$", ""), sc.job(), sc.seed(), sc.scale(),
+                sc.tightMargin(), sc.mode().name().toLowerCase(),
                 net, List.copyOf(pools), List.copyOf(faults),
                 List.copyOf(chaos), List.copyOf(retries));
     }

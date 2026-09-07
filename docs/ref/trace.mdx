@@ -38,7 +38,7 @@ happen. It is currently **2**.
 ```json
 "meta": {
   "schemaVersion": 2,
-  "kTime": 4.0,
+  "scale": 1.0, "clockedAt": 20.0,
   "telemetry": "FULL",
   "scenario": "thumbs.yaml",
   "seed": 7,
@@ -51,7 +51,7 @@ happen. It is currently **2**.
 
 | key | |
 |---|---|
-| `schemaVersion`, `kTime`, `telemetry` | written by the recorder |
+| `schemaVersion`, `clockedAt`, `telemetry` | written by the recorder |
 | `scenario`, `seed`, `job` | what was asked for |
 | `completed` | whether the job returned normally |
 | `failure` | present only when it did not, naming the cause |
