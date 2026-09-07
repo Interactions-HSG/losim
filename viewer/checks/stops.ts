@@ -72,7 +72,7 @@ try {
     .map((f) => f.replace(/\.json$/, ''))
     .sort();
 } catch {
-  console.error(`no traces in ${TRACES} — run ./viewer/traces.sh first`);
+  console.error(`no traces in ${TRACES} — run `losim dev viewer traces` first`);
   process.exit(1);
 }
 
@@ -132,7 +132,7 @@ if (withLog === 0) {
 }
 if (withHeal === 0) {
   console.log('  note: no trace here partitions anything, so heal is unexercised —');
-  console.log('        ./viewer/traces.sh --gallery brings in a run that does');
+  console.log('        `losim dev viewer traces --gallery` brings in a run that does');
 }
 
 if (failed === 0) console.log('  every kind a trace carries is reachable');

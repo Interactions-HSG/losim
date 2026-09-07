@@ -653,7 +653,16 @@ public final class Serve {
      */
     private final Map<String, Map<String, Object>> summaries = new java.util.concurrent.ConcurrentHashMap<>();
 
-    private byte[] index() {
+    private byte[] index() { return index(runs, summaries); }
+
+    /**
+     * The same, for whoever is writing the file rather than answering a request.
+     *
+     * <p>A static server cannot list a directory, so a viewer served by anything
+     * but losim needs the index written down — and it has to be this index, or
+     * the picker a maintainer checks against is not the picker a student sees.
+     */
+    public static byte[] index(Path runs, Map<String, Map<String, Object>> cache) {
         List<Object> out = new ArrayList<>();
         if (Files.isDirectory(runs)) {
             try (var s = Files.list(runs)) {
@@ -667,7 +676,7 @@ public final class Serve {
                         // reads a numbered tour out in the wrong sequence.
                         .sorted(Lab::byName).toList();
                 Map<String, String> origins = origins(runs);
-                for (Path p : files) out.add(summary(p, origins));
+                for (Path p : files) out.add(summary(p, origins, cache));
             } catch (IOException ignored) { /* an unreadable runs dir is an empty picker */ }
         }
         return Json.write(Map.of("runs", out)).getBytes(StandardCharsets.UTF_8);
@@ -676,12 +685,12 @@ public final class Serve {
     /**
      * Whose run each trace is, when somebody has written it down.
      *
-     * `viewer/traces.sh` leaves a `.origins` file beside the traces it sweeps,
-     * because a student's own first run must not appear as one line among a
+     * `losim dev viewer traces` leaves a `.origins` file beside the traces it
+     * sweeps, because a student's own first run must not appear as one line among a
      * hundred worked examples. Absent — the ordinary case, a lab serving the
      * runs it just made — everything here is yours, which it is.
      */
-    private Map<String, String> origins(Path runs) {
+    private static Map<String, String> origins(Path runs) {
         Map<String, String> out = new LinkedHashMap<>();
         Path marks = runs.resolve(".origins");
         if (!Files.isReadable(marks)) return out;
@@ -704,7 +713,8 @@ public final class Serve {
      * of the trace and the bill beside it — nothing here is computed, because a
      * second place that prices a run is a second accountant.
      */
-    private Map<String, Object> summary(Path p, Map<String, String> origins) {
+    private static Map<String, Object> summary(Path p, Map<String, String> origins,
+                                               Map<String, Map<String, Object>> summaries) {
         String name = p.getFileName().toString().replaceAll("\\.json$", "");
         Path billed = p.resolveSibling(name + ".bill.json");
         String key;

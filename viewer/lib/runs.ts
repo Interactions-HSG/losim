@@ -35,7 +35,7 @@ export interface RunRef {
   /** Absent unless the run did not finish. */
   completed?: boolean;
   /**
-   * What `losim bill` said, copied into the index by `traces.sh`.
+   * What `losim bill` said, copied into the index by the sweep.
    *
    * Here so the gallery and the cost report can put a hundred runs beside each
    * other without fetching a hundred bills — and never computed in this app,

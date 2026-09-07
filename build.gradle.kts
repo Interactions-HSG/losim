@@ -23,6 +23,7 @@
 // devcontainer image both bring their own Gradle, so nothing here depends on a
 // binary blob nobody can read.
 
+import java.util.Properties
 import java.util.zip.ZipFile
 
 plugins {
@@ -50,7 +51,7 @@ sourceSets {
         compileClasspath = vendored
         runtimeClasspath = output + vendored
     }
-    // losim's own tests run under ./check.sh, against the jar, with their own
+    // losim's own tests run under `losim dev test`, against the jar, with their own
     // generated protobuf. Gradle is not asked to reproduce that, so this source
     // set stays empty rather than being pointed at losim/test.
 }
@@ -142,10 +143,19 @@ tasks.named<Jar>("jar") {
 
 // What a consumer needs, at the versions vendor/jars holds. Declared for the POM
 // only: see the header, and the parity check below.
-val grpcVersion = "1.83.1"
-val protobufVersion = "4.36.0"
-val gsonVersion = "2.14.0"
-val guavaVersion = "33.6.0-jre"
+//
+// Read from the file `losim dev vendor` downloads by, so there is one pinning
+// rather than two that agree until somebody bumps one of them.
+val pinned = Properties().apply {
+    file("vendor/versions.properties").inputStream().use { load(it) }
+}
+fun pin(name: String) = pinned.getProperty(name)
+    ?: throw GradleException("vendor/versions.properties pins no `$name`")
+
+val grpcVersion = pin("grpc")
+val protobufVersion = pin("protobuf")
+val gsonVersion = pin("gson")
+val guavaVersion = pin("guava")
 
 dependencies {
     // `api`, not `implementation`: a lab's own handlers import grpc and protobuf
@@ -164,7 +174,7 @@ dependencies {
     api("com.google.code.gson:gson:$gsonVersion")
     api("com.google.guava:guava:$guavaVersion")
     // What protoc-gen-grpc-java writes into every generated stub.
-    api("com.google.android:annotations:4.1.1.4")
+    api("com.google.android:annotations:${pin("android-annotations")}")
 }
 
 publishing {

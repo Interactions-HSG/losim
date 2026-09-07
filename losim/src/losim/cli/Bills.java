@@ -36,34 +36,13 @@ public final class Bills {
      */
     public static int run(Path trace, String priceFile, boolean asJson) throws Exception {
         if (!Files.exists(trace)) throw new IllegalArgumentException("no such trace: " + trace);
-        Path list = Path.of(priceFile);
-        PriceList prices;
-        PriceList bundled;
-        if (Files.exists(list)) {
-            prices = PriceList.load(list);
-        } else if ((bundled = PriceList.bundled(list.getFileName().toString())) != null) {
-            // No file, but this is a region losim ships. A lab that resolves losim
-            // from Maven has no lib/prices/ to read, and billing it at the defaults
-            // because of that would answer a question about Frankfurt when somebody
-            // asked about Tokyo.
-            prices = bundled;
-        } else {
-            prices = PriceList.defaults();
-            // On stderr: a note printed onto stdout would be the first line of what
-            // is supposed to be a JSON document.
-            System.err.println("no price list at " + priceFile
-                    + " and none of that name inside losim; using the built-in defaults");
-        }
+        PriceList prices = pricesFor(priceFile);
 
         var t = JsonReader.readObject(Files.readString(trace));
         var both = Bill.of(t, prices);
 
         if (asJson) {
-            var out = new java.util.LinkedHashMap<String, Object>();
-            out.put("trace", trace.toString());
-            out.put("rates", prices.asMap());
-            out.putAll(both.asMap());
-            System.out.println(Json.write(out));
+            System.out.println(asJson(trace, prices, both));
             return 0;
         }
 
@@ -87,6 +66,45 @@ public final class Bills {
         for (String bucket : Account.BUCKETS)
             System.out.printf("  %-12s %s%n", bucket, wrap(Account.EXPLANATIONS.get(bucket)));
         return 0;
+    }
+
+    /** The price list named, the one losim ships under that name, or the defaults. */
+    private static PriceList pricesFor(String priceFile) throws Exception {
+        Path list = Path.of(priceFile);
+        if (Files.exists(list)) return PriceList.load(list);
+        // No file, but this may be a region losim ships. A lab that resolves losim
+        // from Maven has no lib/prices/ to read, and billing it at the defaults
+        // because of that would answer a question about Frankfurt when somebody
+        // asked about Tokyo.
+        PriceList bundled = PriceList.bundled(list.getFileName().toString());
+        if (bundled != null) return bundled;
+        // On stderr: a note printed onto stdout would be the first line of what
+        // is supposed to be a JSON document.
+        System.err.println("no price list at " + priceFile
+                + " and none of that name inside losim; using the built-in defaults");
+        return PriceList.defaults();
+    }
+
+    /**
+     * The same document {@code --json} prints, for a caller that wants it rather
+     * than a terminal.
+     *
+     * <p>So that sweeping a hundred traces into the viewer is a hundred reads
+     * instead of a hundred JVMs — and so there is one bill, not a printed one and
+     * a written one that can come to disagree.
+     */
+    public static String json(Path trace, String priceFile) throws Exception {
+        PriceList prices = pricesFor(priceFile);
+        var t = JsonReader.readObject(Files.readString(trace));
+        return asJson(trace, prices, Bill.of(t, prices));
+    }
+
+    private static String asJson(Path trace, PriceList prices, Bill.Both both) {
+        var out = new java.util.LinkedHashMap<String, Object>();
+        out.put("trace", trace.toString());
+        out.put("rates", prices.asMap());
+        out.putAll(both.asMap());
+        return Json.write(out);
     }
 
     /** Wrapped to the width of the rest of the output, indented under its bucket. */

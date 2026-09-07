@@ -9,8 +9,7 @@ icon: "laptop"
 | | |
 |---|---|
 | **A JDK, 21 or newer** | losim compiles at `--release 21`. The container ships 25. |
-| **bash** | the scripts are bash, not POSIX sh. |
-| **python3** | used by a couple of run scripts to summarise traces, and to serve the viewer. |
+| **Gradle** | the build, and what `bin/losim` runs before it starts a JVM. The container ships one. |
 | **git** | for the vendored jars, which are committed. |
 
 Nothing else. There is no package manager step, no lockfile, and no download.
@@ -18,15 +17,17 @@ Nothing else. There is no package manager step, no lockfile, and no download.
 ## Build and check
 
 ```bash
-gradle jar          # -> build/losim.jar
-./check.sh          # losim's own acceptance criteria, plus one plain JUnit test
-tests/run.sh        # the reference suite
+bin/losim dev test    # losim's own acceptance criteria, plus one plain JUnit test
+bin/losim dev suite   # the reference suite
 ```
+
+Both build `build/losim.jar` first, because `bin/losim` is `gradle jar` followed
+by a JVM — which is also why nothing here has a build step of its own to skip.
 
 ## Supported platforms for `protoc`
 
 `gradle jar` needs no `protoc` — it only compiles the simulator. Everything that
-compiles a `.proto` (`check.sh`, `tests/run.sh`, your own build) picks a vendored
+compiles a `.proto` (`dev test`, `dev suite`, your own build) picks a vendored
 binary from `vendor/bin/`:
 
 | host | binary |
@@ -35,7 +36,7 @@ binary from `vendor/bin/`:
 | Linux, x86-64 | `protoc-linux-x86_64` |
 
 <Warning>
-On anything else — Linux on ARM, Windows, an Intel Mac — the scripts stop with
+On anything else — Linux on ARM, Windows, an Intel Mac — those stop with
 `no vendored protoc for <uname>`. Use the devcontainer; that is what it is for.
 Adding a third binary means committing it, because fetching one at build time is
 exactly what the vendoring rule exists to prevent.

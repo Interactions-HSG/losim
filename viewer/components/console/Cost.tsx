@@ -161,7 +161,7 @@ export function Cost() {
           <p className="muted">
             There is no bill beside <code>{run.name}</code>, so there is nothing to report. Bills
             are written by <code>losim bill --json</code> next to the trace, and{' '}
-            <code>./viewer/traces.sh</code> writes one for every run it sweeps.
+            <code>losim dev viewer traces</code> writes one for every run it sweeps.
           </p>
         </Panel>
       </>

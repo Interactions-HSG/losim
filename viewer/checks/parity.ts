@@ -161,7 +161,7 @@ try {
     .filter((n) => !filter || n.includes(filter))
     .sort();
 } catch {
-  console.error(`no traces in ${TRACES} — run ./gallery/run.sh first`);
+  console.error(`no traces in ${TRACES} — run \`losim dev viewer traces\` first`);
   process.exit(1);
 }
 

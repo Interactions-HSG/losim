@@ -28,20 +28,30 @@ jobs:
         with: { distribution: temurin, java-version: '25' }
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '9.2.0' }
-      - run: gradle -q jar
-      - run: ./check.sh
+      - run: bin/losim dev test
 
   # The manual, checked for the one thing a manual can get catastrophically wrong
   # here: containing an assignment the students are meant to write themselves. The
   # rules live in docs-check/, and the check tests itself before it scans — every
   # rule has a sample it must catch and a nearby sample it must not, so a regex
   # with a typo fails the build instead of silently passing everything.
+  #
+  # It scans the copy inside losim.jar as well as docs/, which is why this job now
+  # builds: `processResources` copies a directory, and a directory that grew a
+  # `fixtures/` would ship every phrase these rules exist to catch.
   docs:
     name: the manual gives nothing away
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: docs-check/check.sh
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '25' }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '9.2.0' }
+      # node, for the structure check: it walks docs.json and every link in it.
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - run: bin/losim dev docs check
 
   # The product surface: gRPC systems compiled against the jar alone, run through the
   # command line a student types, asserted against the trace on disk.
@@ -60,8 +70,7 @@ jobs:
         with: { distribution: temurin, java-version: '25' }
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '9.2.0' }
-      - run: gradle -q jar
-      - run: tests/run.sh
+      - run: bin/losim dev suite
       # One direct trace and one scaled one. The direct trace carries every event
       # kind, span kind and sampled channel the fleet produces; the scaled one
       # carries what each resource was found to be a function of, which is a fact
@@ -83,8 +92,7 @@ jobs:
     container: mcr.microsoft.com/devcontainers/java:25-bookworm
     steps:
       - uses: actions/checkout@v4
-      - run: gradle -q jar
-      - run: tests/run.sh
+      - run: bin/losim dev suite
       - uses: actions/upload-artifact@v4
         with:
           name: traces-codespace
@@ -103,7 +111,6 @@ jobs:
         with: { distribution: temurin, java-version: '25' }
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '9.2.0' }
-      - run: gradle -q jar
       - uses: actions/download-artifact@v4
         with: { path: build/parity }
       - name: compare the traces
@@ -111,7 +118,6 @@ jobs:
           set -e
           for trace in t6 t10; do
             echo "=== $trace ==="
-            java -cp build/losim.jar losim.cli.Main diff \
-                 "build/parity/traces-runner/$trace.json" \
-                 "build/parity/traces-codespace/$trace.json"
+            bin/losim diff "build/parity/traces-runner/$trace.json" \
+                           "build/parity/traces-codespace/$trace.json"
           done

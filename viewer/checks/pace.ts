@@ -42,7 +42,7 @@ try {
     .map((f) => f.replace(/\.json$/, ''))
     .sort();
 } catch {
-  console.error(`no traces in ${TRACES} — run ./viewer/traces.sh first`);
+  console.error(`no traces in ${TRACES} — run `losim dev viewer traces` first`);
   process.exit(1);
 }
 

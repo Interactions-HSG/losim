@@ -10,15 +10,15 @@ icon: "cloud"
   <Tab title="GitHub Codespaces">
     From the repository page: **Code -> Codespaces -> Create codespace**.
 
-    The container builds, `.devcontainer/setup.sh` runs, and when the terminal
-    appears `build/losim.jar` already exists. Nothing else to install.
+    The container builds, `gradle jar` runs, and when the terminal appears
+    `build/losim.jar` already exists. Nothing else to install.
   </Tab>
   <Tab title="VS Code, locally">
     With Docker running and the **Dev Containers** extension installed, open the
     repository and accept **Reopen in Container**.
 
-    Same image, same setup script, same result as a Codespace. That is the
-    point, and it is checked in CI rather than assumed.
+    Same image, same commands, same result as a Codespace. That is the point,
+    and it is checked in CI rather than assumed.
   </Tab>
 </Tabs>
 
@@ -44,11 +44,16 @@ There are three ways to read it and none can take out another: this port, the
 published site, and the `.mdx` files under `docs/` in the editor you are already in.
 </Note>
 
-## Inside `setup.sh`
+## What the container runs
 
 ```bash
-gradle jar                     # the simulator -> build/losim.jar
+gradle jar                                          # on create:  the simulator
+bin/losim serve --detach && bin/losim serve docs --detach   # on attach: both ports
 ```
+
+`--detach` probes the port before it starts anything, so re-attaching to a
+container that has been up for a week leaves the two processes it already has
+rather than adding two more.
 
 <Note>
 **Nothing is fetched.** The manual is rendered by the JDK already in the image, not
@@ -62,10 +67,13 @@ package it needs was unpublished from under it.
 
 <CodeGroup>
 ```bash losim
-gradle jar          # the simulator, into build/losim.jar
-./check.sh          # losim's own acceptance criteria
-tests/run.sh        # the reference suite: gRPC systems, end to end
+bin/losim dev test        # losim's own acceptance criteria
+bin/losim dev suite       # the reference suite: gRPC systems, end to end
+bin/losim dev docs check  # that this manual gives no assignment away
 ```
+
+Each of those builds the simulator first — `bin/losim` is `gradle jar` and then a
+JVM — so there is no separate build step to have forgotten.
 
 ```bash your work
 J="java -cp lib/losim.jar losim.cli.Main"       # in a lab; see Quickstart
@@ -83,10 +91,6 @@ java -cp lib/losim.jar losim.cli.Main serve docs    # the manual -> :3000
 
 ```
 
-
-```bash the manual's check
-docs-check/check.sh       # that it gives no assignment away
-```
 
 </CodeGroup>
 

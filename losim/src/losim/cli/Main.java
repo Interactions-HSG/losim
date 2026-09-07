@@ -43,6 +43,11 @@ public final class Main {
                              flag(args, "--json"));
         }
         if (args.length > 0 && args[0].equals("serve")) {
+            // A container's attach hook cannot wait for a process whose whole
+            // point is not to end, so it asks for the server to be left running
+            // behind it. Handled here rather than inside Serve because it is
+            // about how this command was invoked, not about what it serves.
+            if (flag(args, "--detach")) return detach(args);
             // Two things can be served and they are deliberately two processes.
             //
             //   losim serve        the lab: the viewer, your runs, and a button
@@ -80,6 +85,20 @@ public final class Main {
                               option(args, "--to", null),
                               flag(args, "--check"));
         }
+        if (args.length > 0 && args[0].equals("build")) {
+            // Generate, compile, and say what is wrong — without running
+            // anything. What the arrow in the lab does before it starts a run,
+            // as a command, for whoever wants the compiler's answer and no more.
+            Path base = Path.of(option(args, "--root", ".")).toAbsolutePath().normalize();
+            Path classes = new Lab(base, base.resolve("lib")).compile(System.out::print);
+            if (classes == null) return 1;
+            System.out.println("compiled -> " + base.relativize(classes));
+            return 0;
+        }
+        // Not in the usage text, and it refuses anywhere but here. See Dev.
+        if (args.length > 0 && args[0].equals("dev")) {
+            return Dev.main(args);
+        }
         if (args.length > 0 && args[0].equals("diff")) {
             List<String> two = positionals(args);
             if (two.size() < 2) throw new IllegalArgumentException("diff needs two traces");
@@ -115,6 +134,12 @@ public final class Main {
                   The manual, as a process of its own. Separate from the lab on
                   purpose: the manual is where you look when something will not
                   start, so it must not be served by the thing that will not start.
+
+                       losim build [--root .]
+
+                  Generate from the schema and compile, and stop there. The arrow
+                  in the lab does this before every run; this is the same thing
+                  when what you want is the compiler's answer rather than a run.
 
                        losim diff <a.json> <b.json>
 
@@ -447,7 +472,7 @@ public final class Main {
                 ? String.format("%.0f", d) : String.format("%.1f", d);
     }
 
-    private static boolean flag(String[] args, String name) {
+    static boolean flag(String[] args, String name) {
         return List.of(args).contains(name);
     }
 
@@ -458,6 +483,53 @@ public final class Main {
      * loopback interface has nothing listening on the one the browser reaches.
      * Every server this CLI starts asks this rather than writing an address down.
      */
+    /**
+     * The same command again, in a process this one does not wait for.
+     *
+     * <p>The port is probed first. Attaching to a container that is already up
+     * must not start a second copy: the second would print "already running" and
+     * then park, leaving a JVM behind for every attach, and after a morning of
+     * reattaching that is a machine with no memory left and nothing to blame.
+     *
+     * <p>Everything it says goes to a file rather than nowhere, because the one
+     * question worth asking about a detached process is why it is not there.
+     */
+    private static int detach(String[] args) throws Exception {
+        int port = Integer.parseInt(option(args, "--port", "8000"));
+        if (listening(port)) {
+            System.out.printf("  :%d  already up%n", port);
+            return 0;
+        }
+        boolean docs = args.length > 1 && (args[1].equals("docs") || args[1].equals("manual"));
+        Path log = Path.of(option(args, "--root", ".")).resolve("build")
+                .resolve((docs ? "manual" : "serve") + ".log");
+        Files.createDirectories(log.getParent());
+
+        List<String> argv = new ArrayList<>(List.of(
+                Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+                "-cp", System.getProperty("java.class.path"), "losim.cli.Main"));
+        for (String a : args) if (!a.equals("--detach")) argv.add(a);
+        // Nothing to open: there is no terminal waiting to be handed a browser,
+        // and a detached process opening one is a window from nowhere.
+        if (!docs && !flag(args, "--no-open")) argv.add("--no-open");
+        new ProcessBuilder(argv)
+                .redirectErrorStream(true)
+                .redirectOutput(ProcessBuilder.Redirect.to(log.toFile()))
+                .start();
+        System.out.printf("  :%d  starting  (%s)%n", port, log);
+        return 0;
+    }
+
+    /** Whether something already holds the port, asked the cheapest way there is. */
+    private static boolean listening(int port) {
+        try (var s = new java.net.Socket()) {
+            s.connect(new java.net.InetSocketAddress("127.0.0.1", port), 250);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     static String host() { return contained() ? "0.0.0.0" : "127.0.0.1"; }
 
     /** Inside a container, where there is no browser and the port is forwarded out. */
@@ -487,7 +559,7 @@ public final class Main {
         catch (ReflectiveOperationException e) { return true; }
     }
 
-    private static String option(String[] args, String name, String fallback) {
+    static String option(String[] args, String name, String fallback) {
         List<String> a = List.of(args);
         int i = a.indexOf(name);
         if (i < 0) return fallback;

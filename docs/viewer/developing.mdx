@@ -6,34 +6,33 @@ icon: "code"
 
 <Note>
 **Students never run any of this.** The built page is committed, so
-[`./viewer/serve.sh`](/viewer/opening-a-trace) is `python3 -m http.server` and nothing
-else. Everything here is for whoever *changes* the viewer.
+[opening a trace](/viewer/opening-a-trace) is a static server and nothing else.
+Everything here is for whoever *changes* the viewer.
 </Note>
 
 ## The loop
 
 ```bash
-cd viewer
-npm install          # once
+cd viewer && npm install && cd ..    # once
 
-./serve.sh --dev     # the Next dev server on :8000, with hot reload
-./check.sh           # everything a machine can decide
-./export.sh          # build the static export into viewer/out
+bin/losim dev viewer dev      # the Next dev server on :8000, with hot reload
+bin/losim dev viewer check    # everything a machine can decide
+bin/losim dev viewer build    # the static export into viewer/out
 ```
 
-`export.sh` is the one that matters, and it is one line:
+`build` is the one that matters, and it is one line of npm:
 
 ```bash
 npx next build
 ```
 
-Next writes `viewer/out`, and that is where everything reads it: `serve.sh`, the
-devcontainer, and `losim serve` in any project that has a `viewer/`. Nothing copies
-it anywhere first.
+Next writes `viewer/out`, and that is where everything reads it: `dev viewer serve`,
+the devcontainer, and `losim serve` in any project that has a `viewer/`. Nothing
+copies it anywhere first.
 
 <Note>
-**The export ships with no traces in it** — an empty index, and `serve.sh` fills it in
-at serve time. So what is committed is the application, about 1.4 MB, and never
+**The export ships with no traces in it** — an empty index, and the sweep fills it
+in at serve time. So what is committed is the application, about 1.4 MB, and never
 somebody else's runs.
 </Note>
 
@@ -55,21 +54,21 @@ viewer/
   lib/            trace, frame, layout, spans, design, glyphs, theme,
                   playback, record, ledger, runs
   checks/         the checks, and the Python they are checked against
-  export.sh       build -> viewer/out                (developers)
-  serve.sh        serve the export, or --dev        (everyone)
-  check.sh        every check below                 (developers)
-  traces.sh       traces + bills + index.json       (called by the others)
   out/            the committed static export
-build/served/     what `serve.sh` points the picker at — the last sweep, and nothing else
+build/served/     what the sweep writes and the picker reads — the last sweep, and nothing else
 build/runs/       where a lab's runs land, and what the lab server serves
-build/traces/     this repo's own scratch directory, for `traces.sh` below
+build/traces/     this repo's own scratch directory, for the sweep below
 
 ```
 
-## `./viewer/check.sh`
+Every command is a verb of the CLI — `losim dev viewer build`, `serve`, `dev`,
+`check`, `traces` — because four shell scripts that each knew a little about where
+the export goes is how the export and the thing serving it drift apart.
+
+## `losim dev viewer check`
 
 Everything about the viewer that **a machine can decide**, in one command. It needs
-`./viewer/traces.sh` to have run, because these check against runs that actually
+`losim dev viewer traces` to have run, because these check against runs that actually
 happened rather than against fixtures that agree with them by construction.
 
 | | |
@@ -94,7 +93,7 @@ view/losim_view/trace.py      335         imported by viewer/checks/layout_ref.p
 ```
 
 Those two reference scripts put `view/` on `sys.path` and import them directly, so
-deleting any of the four breaks `./viewer/check.sh`.
+deleting any of the four breaks `losim dev viewer check`.
 
 `view/losim_view/film.py`, `view/dataflow.py` and `view/sheet.py` are the manim
 sidecar. Nothing imports the last two, `film.py` is imported only by them, and `manim`
@@ -106,7 +105,7 @@ This is why the glyph paths were authored in SVG's own convention and compared b
 
 What is left over is what a *browser* has to answer — does the MP4 play in a slide
 deck, is a 25-machine fleet legible, does the export serve with no npm. A browser is
-where those are answered: `./viewer/serve.sh`, then look.
+where those are answered: `losim dev viewer serve`, then look.
 
 ## Four decisions in the code worth knowing before you change it
 
@@ -175,8 +174,8 @@ where those are answered: `./viewer/serve.sh`, then look.
 
 | | |
 |---|---|
-| `output: 'export'` | a static site. There is no server, because a student runs `python3 -m http.server`. |
-| `trailingSlash: true` | `/index.html`, not a path without one — `http.server` has never heard of Next and will not try `.html` for a bare path. Without this the exported app 404s on exactly the setup it exists to support. |
+| `output: 'export'` | a static site. There is no server of its own, because whatever serves it is a plain static one — `losim serve`, or anything else. |
+| `trailingSlash: true` | `/index.html`, not a path without one — a static server has never heard of Next and will not try `.html` for a bare path. Without this the exported app 404s on exactly the setup it exists to support. |
 | `turbopack.root` | pinned, because a `package.json` somewhere up the tree would otherwise decide where the project root is — a stray directory on a laptop, somewhere else entirely in a Codespace. |
 
 ## Two numbers in `lib/trace.ts` that are not the same
@@ -195,27 +194,28 @@ Use `jobRefMs` for anything that must agree with `losim bill`, and `duration` fo
 anything that must be able to *show* the whole run.
 </Warning>
 
-## `traces.sh`
+## `losim dev viewer traces`
 
 Writes what a static page cannot discover for itself:
 
 ```bash
-./viewer/traces.sh                    # build/traces — your runs, and nothing else
-./viewer/traces.sh build/mine         # one directory, or one file, anywhere on disk
-./viewer/traces.sh --suite            # ...and the reference suite's
+bin/losim dev viewer traces                 # build/traces — your runs, and nothing else
+bin/losim dev viewer traces build/mine      # one directory, or one file, anywhere on disk
+bin/losim dev viewer traces --suite         # ...and the reference suite's
 ```
 
 **Only `build/traces` by default.** The collections have to be asked for, so what a
-student sees is their own work. For each trace it copies the file, runs
-`losim bill --json` beside it as `<name>.bill.json` when losim is built and the bill is
-missing or stale, and rewrites `index.json`. A listed directory that exists but yields
-nothing says so — a silent fall-through is exactly how twenty-two suite traces once
-went missing from the picker.
+student sees is their own work. For each trace it copies the file, prices it beside
+itself as `<name>.bill.json` when the bill is missing or stale, and rewrites
+`index.json` — with the same code that answers `/traces/index.json` when losim is the
+server, so a static picker and a served one cannot come apart. A listed directory that
+exists but yields nothing says so: a silent fall-through is exactly how twenty-two
+suite traces once went missing from the picker.
 
 Each run is tagged with where it came from, and the picker groups on that tag with
-yours first. `serve.sh` forwards its own arguments here, so `./viewer/serve.sh
-~/my-project/runs` works — which is the case that matters, because losim is a library
-and your traces live in your project, not in this tree.
+yours first. `dev viewer serve` forwards its own arguments here, so
+`bin/losim dev viewer serve ~/my-project/runs` works — which is the case that matters,
+because losim is a library and your traces live in your project, not in this tree.
 
 <Warning>
 `build/served` is a **mirror of the last sweep**: anything not swept this time

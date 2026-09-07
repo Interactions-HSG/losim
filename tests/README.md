@@ -5,9 +5,9 @@ engine rather than the systems. Each runs through the command line a student typ
 and is asserted against the trace it wrote.
 
 ```bash
-tests/run.sh            # all of them, about five minutes
-tests/run.sh t5 t8      # one or two
-tests/run.sh t10        # the engine against ground truth
+bin/losim dev suite            # all of them, about five minutes
+bin/losim dev suite t5 t8      # one or two
+bin/losim dev suite t10        # the engine against ground truth
 ```
 
 The nine systems take under a minute between them. The four engine cases take the
@@ -15,7 +15,7 @@ rest: each scaled run fits its plan from a grid of about thirty small runs, and 
 are thirteen scaled runs across t10 to t13. That is the price of checking the one
 thing losim claims that a smaller simulator does not.
 
-**This is not `./check.sh`.** That one is losim's own acceptance criteria, calling
+**This is not `losim dev test`.** That one is losim's own acceptance criteria, calling
 into losim's classes. This one is the product surface, and the difference is the
 point:
 
@@ -25,7 +25,7 @@ point:
   grammar, the class loading and the exit codes are exercised rather than bypassed;
 - every assertion reads the **trace JSON off disk**. The trace is the interchange
   format (D9), and a build whose trace was unreadable would pass every check in
-  `./check.sh`;
+  `losim dev test`;
 - **one JVM per case.** A suite whose cases share a JVM has an order, and an order
   is a thing that breaks when somebody adds a case in the middle.
 

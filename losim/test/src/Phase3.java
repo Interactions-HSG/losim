@@ -282,7 +282,7 @@ public class Phase3 {
         var s = Loader.of(Yaml.parse("plan.yaml", fleet("Accumulator", 500)));
 
         // This is the one test whose subject is the cache, so it is the one test that
-        // cannot inherit an empty one from whoever ran it. check.sh clears build/ on
+        // cannot inherit an empty one from whoever ran it. `dev test` clears build/ on
         // the way in; running this class on its own (which is what you do while you
         // are working on it) does not, and then the *first* fit is a cache hit and
         // the assertion below reads as a broken simulator instead of a warm disk.

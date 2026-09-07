@@ -9,7 +9,7 @@
  * and cost 1.53 — and a comparison needs the two numbers on the same screen,
  * not one at a time behind a dropdown.
  *
- * So the cards carry what `traces.sh` copied out of the trace and the bill: how
+ * So the cards carry what the sweep copied out of the trace and the bill: how
  * many machines, how far apart they were, how long it took, what it cost, and
  * whether it finished. None of it is computed here. The viewer inventing its own
  * prices would be a second accountant, and two accountants disagree.

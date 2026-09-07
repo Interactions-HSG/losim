@@ -1,0 +1,24 @@
+#!/usr/bin/env sh
+# The CLI, in losim's own repository. `bin/losim dev test`, `bin/losim serve`.
+#
+# Everything it does needs a current `build/losim.jar`, and building that is this
+# file's job rather than any verb's: the commands under `losim dev` run *out of*
+# that jar, and a Gradle jar task truncates its output in place — so a verb that
+# rebuilt the jar it was executing would be reading a file being rewritten under
+# it. Building before the JVM starts makes that impossible rather than unlikely.
+#
+# `bin/` rather than the root, for the one reason that the source lives in
+# `losim/` and a file cannot be a directory. What `losim adopt` writes into a
+# lab is this file at `./losim`, where nothing is in the way.
+set -e
+cd "$(dirname "$0")/.."
+
+G=./gradlew
+[ -x "$G" ] || G="$(command -v gradle || true)"
+[ -n "$G" ] || {
+  echo "no gradle on this machine — the devcontainer has one, or: brew install gradle" >&2
+  exit 1
+}
+
+"$G" -q jar
+exec java -cp build/losim.jar losim.cli.Main "$@"

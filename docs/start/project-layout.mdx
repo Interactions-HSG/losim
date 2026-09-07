@@ -41,8 +41,9 @@ Only if you are working on losim itself. Nothing below is in a lab:
 
 ```
 build.gradle.kts         the simulator -> build/losim.jar
-check.sh                 losim's own acceptance criteria
-tests/run.sh             the reference suite, run end to end
+bin/losim                the CLI: build, then run it. Every command here is one of its verbs
+losim/test/              losim's own acceptance criteria     (`losim dev test`)
+tests/                   the reference suite, run end to end (`losim dev suite`)
 docs/                    this manual
 viewer/                  the viewer's source — npm lives here and nowhere else
 prices/                  course data: what egress costs, what being late costs
@@ -107,7 +108,7 @@ just ran. [The viewer ->](/viewer/index)
 ## The manual's own check
 
 ```bash
-docs-check/check.sh
+bin/losim dev docs check
 ```
 
 This repository ships worked solutions to the coursework. The manual must not

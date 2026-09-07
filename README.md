@@ -21,14 +21,13 @@ scale exhausts a 16 MiB one here — for the same reason, in the student's own c
 ## Try it
 
 ```bash
-gradle jar          # the simulator -> build/losim.jar
-./check.sh          # losim's own checks: every phase's acceptance criteria
-tests/run.sh        # the reference suite: gRPC systems, run the way a student runs them
+bin/losim dev test    # losim's own checks: every phase's acceptance criteria
+bin/losim dev suite   # the reference suite: gRPC systems, run the way a student runs them
 
-java -cp build/losim.jar losim.cli.Main run losim/test/scenarios/wordcount.yaml \
-     --cp build/test-classes --out build/wordcount.json
-java -cp build/losim.jar losim.cli.Main bill build/wordcount.json
-java -cp build/losim.jar losim.cli.Main diff build/a.json build/b.json
+bin/losim run losim/test/scenarios/wordcount.yaml \
+              --cp build/test-classes --out build/wordcount.json
+bin/losim bill build/wordcount.json
+bin/losim diff build/a.json build/b.json
 ```
 
 Nothing is downloaded and nothing is generated at build time. The toolchain is
@@ -266,7 +265,7 @@ course makes.
 
 Thirteen cases in [tests/](tests/), plus the bill, each a gRPC system run through the
 command line a student types and asserted against the trace it wrote. **Deliberately
-not `./check.sh`**: the systems compile against `build/losim.jar` and the vendored gRPC
+not `losim dev test`**: the systems compile against `build/losim.jar` and the vendored gRPC
 alone, and every assertion reads the trace JSON off disk — because the trace is the
 interchange format, and a build whose trace was unreadable would pass every check
 losim makes of itself.
@@ -335,8 +334,9 @@ losim/src/losim/scenario/  a fleet and its weather, as data
 losim/src/losim/verify/    what makes a number stop meaning what it says
 losim/src/losim/price/     five buckets, and what cannot be put in them
 losim/src/losim/cli/       losim run | bill | diff
-losim/test/                every phase's acceptance criteria, run by ./check.sh
-tests/                     the reference suite: gRPC systems, run by tests/run.sh
+losim/test/                every phase's acceptance criteria, run by `losim dev test`
+tests/                     the reference suite: gRPC systems, run by `losim dev suite`
+bin/losim                  the CLI: build the simulator, then run it
 prices/                    course data — what egress costs, what being late costs
 vendor/                    grpc 1.83.1, protobuf 4.36.0, protoc for two platforms
 ```
@@ -354,11 +354,11 @@ The manual is a Mintlify site in [docs/](docs/) — 80 pages, from a quickstart 
 scenario grammar, the trace format, the scale engine, the bill and the viewer.
 
 ```bash
-docs-check/dev.sh      # preview at http://localhost:3000
-docs-check/check.sh    # the manual's own check
+bin/losim serve docs        # preview at http://localhost:3000
+bin/losim dev docs check    # the manual's own check
 ```
 
-`docs-check/check.sh` is the one worth knowing about. This repository ships worked
+`losim dev docs check` is the one worth knowing about. This repository ships worked
 solutions to the coursework, and the manual must not contain them — so every page is
 scanned against a rule set in [docs-check/](docs-check/), and **the check tests itself
 before it scans**: every rule has a sample it must catch and a nearby sample it must

@@ -8,7 +8,7 @@
 # contains it has handed in their answer for them.
 #
 # To retire a rule, delete the line and delete its fixture. To add one, add the
-# line and add a fixture that only the new rule catches; check.sh refuses to run
+# line and add a fixture that only the new rule catches; the check refuses to run
 # with a rule that nothing proves works.
 
 # ── the batch-processing assignment ──────────────────────────────────────────
