@@ -146,6 +146,14 @@ const DRAFTS: [string, Draft][] = [
   // something — where losing the key on save turns a projection of eighty
   // thousand records into a run of one, silently.
   ['a model of ten times the run', { ...base, name: 'tenfold', scale: 10 }],
+  // The form has no control for `input:` yet, which is exactly why this is
+  // here: the round trip below is what stops a save from quietly dropping a
+  // block nobody drew — and a workload size that vanishes on save is a run of
+  // one item that reads as a run of two hundred and forty.
+  ['an input sized by the file rather than by the Java', {
+    ...base, name: 'input-sized',
+    input: [{ name: 'items', n: 240 }, { name: 'valueBytes', n: 65536 }],
+  }],
   ['a standing rate of every kind', {
     ...base, name: 'chaotic',
     chaos: [

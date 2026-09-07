@@ -169,6 +169,18 @@ export interface CostRule {
   refNsPerUnit: number;
 }
 
+/**
+ * One part of the input, at full size.
+ *
+ * The name is the job's, not losim's — a store writes `items`, a join writes
+ * `orders` and `customers` — so the form can only carry these, never invent
+ * them.
+ */
+export interface InputPart {
+  name: string;
+  n: number;
+}
+
 /** The biggest run the engine can measure — the top of its own probe ladder. */
 export const BASE_UNITS = 8000;
 
@@ -209,6 +221,14 @@ export interface Draft {
    * of these runs, and every call in it is instant.
    */
   takes: CostRule[];
+  /**
+   * How big each part of the job's input is, at full scale.
+   *
+   * Empty for a job that takes none. A job implementing `losim.api.Scalable`
+   * declares what its input is made of and this says how much of each, so no
+   * workload size is a constant in anybody's Java.
+   */
+  input: InputPart[];
 }
 
 /** One machine, once the pools have been dealt out. */
@@ -386,6 +406,16 @@ export function toYaml(draft: Draft): string {
       }
     }
   }
+  if (draft.input.length) {
+    L.push('');
+    L.push('input:');
+    // Widest name first, so the numbers line up and a part that is out of
+    // proportion with the others is visible rather than something to work out.
+    const wide = Math.max(...draft.input.map((p) => p.name.length));
+    for (const p of draft.input) {
+      L.push(`  ${(p.name + ':').padEnd(wide + 1)} ${Math.round(p.n)}`);
+    }
+  }
   if (draft.faults.length) {
     L.push('');
     L.push('faults:');
@@ -508,5 +538,9 @@ export function firstDraft(palette: Palette): Draft {
     takes: (worker?.methods ?? []).map((m) => ({
       runs: worker!.cls, rpc: m.name, refMs: 0, refNsPerUnit: 0,
     })),
+    // Nothing, because the palette does not yet say what any job's input is made
+    // of. A job that has one is refused at the run with the parts it wanted,
+    // which is a better first failure than a form guessing at names.
+    input: [],
   };
 }

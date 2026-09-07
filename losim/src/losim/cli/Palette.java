@@ -12,6 +12,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 import losim.api.Job;
+import losim.api.Scalable;
 
 /**
  * What the lab's code offers a machine.
@@ -72,7 +73,8 @@ public final class Palette {
     /**
      * Everything in the lab that a scenario could point at.
      *
-     * @param jobs     classes implementing {@link Job}. A scenario names exactly one
+     * @param jobs     classes implementing {@link Job}, or {@link Scalable} if their input
+     *                 has a size. A scenario names exactly one
      * @param services classes a machine can be given
      * @param other    how many other classes there are, so a student can tell the
      *                 difference between "nothing here is a service" and "nothing
@@ -125,7 +127,9 @@ public final class Palette {
                         || Modifier.isAbstract(type.getModifiers())) {
                     continue;
                 }
-                if (Job.class.isAssignableFrom(type)) { jobs.add(name); continue; }
+                if (Job.class.isAssignableFrom(type) || Scalable.class.isAssignableFrom(type)) {
+                    jobs.add(name); continue;
+                }
                 if (!bindable.isAssignableFrom(type)) { other++; continue; }
                 Object d = describe(type);
                 if (d == null) { other++; continue; }

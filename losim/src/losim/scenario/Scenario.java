@@ -21,8 +21,25 @@ public record Scenario(
         String file,
         long seed,
         String job,
+        /**
+         * Where {@code job:} was written, for the refusals that are about the class
+         * rather than the line — that it is not {@link losim.api.Scalable} when the
+         * scenario asks for a model, that its input has a part this file never
+         * sized. The loader never loads a class, so those questions are asked once
+         * the run has one, and they still have to read like every other refusal in
+         * the file.
+         */
+        String jobWhere,
         double scale,
         long units,
+        /**
+         * How big each part of the input is, in the order the file names them.
+         *
+         * <p>The job says what its input is made of; this says how much. Checked
+         * against the job's own {@code shape()} at load, so a part named here that
+         * the job does not consume is refused with its line rather than ignored.
+         */
+        List<InputSize> input,
         List<MachineSpec> machines,
         NetSpec net,
         List<Fault> faults,
@@ -124,24 +141,24 @@ public record Scenario(
     // system is — in one place, and makes the grid's axes explicit.
 
     public Scenario withSeed(long seed) {
-        return new Scenario(file, seed, job, scale, units, machines, net,
+        return new Scenario(file, seed, job, jobWhere, scale, units, input, machines, net,
                 faults, chaos, retries, takes, tightMargin, mode);
     }
 
     /** The run size the engine solved for, replacing the full-scale one. */
     public Scenario withUnits(long n) {
-        return new Scenario(file, seed, job, scale, n, machines, net,
+        return new Scenario(file, seed, job, jobWhere, scale, n, input, machines, net,
                 faults, chaos, retries, takes, tightMargin, mode);
     }
 
     public Scenario withMode(Mode m) {
-        return new Scenario(file, seed, job, scale, units, machines, net,
+        return new Scenario(file, seed, job, jobWhere, scale, units, input, machines, net,
                 faults, chaos, retries, takes, tightMargin, m);
     }
 
     /** The same scenario with no weather at all — the clean column of the grid. */
     public Scenario withoutWeather() {
-        return new Scenario(file, seed, job, scale, units, machines, net,
+        return new Scenario(file, seed, job, jobWhere, scale, units, input, machines, net,
                 List.of(), List.of(), retries, takes, tightMargin, mode);
     }
 
@@ -173,7 +190,7 @@ public record Scenario(
         var stillThere = faults.stream()
                 .filter(f -> kept.contains(f.target()) && (f.other() == null || kept.contains(f.other())))
                 .toList();
-        return new Scenario(file, seed, job, scale, units, out, net,
+        return new Scenario(file, seed, job, jobWhere, scale, units, input, out, net,
                 stillThere, chaos, retries, takes, tightMargin, mode);
     }
 
@@ -185,7 +202,7 @@ public record Scenario(
             out.add(caps == null ? m : new MachineSpec(m.name(), m.pool(), m.instance(),
                     m.zone(), m.runs(), caps[0], caps[1], m.where()));
         }
-        return new Scenario(file, seed, job, scale, units, out, net,
+        return new Scenario(file, seed, job, jobWhere, scale, units, input, out, net,
                 faults, chaos, retries, takes, tightMargin, mode);
     }
 

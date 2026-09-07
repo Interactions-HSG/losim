@@ -6,8 +6,11 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Supplier;
 import losim.api.Cluster;
+import losim.api.Input;
 import losim.api.Job;
+import losim.api.Scalable;
 import losim.res.InstanceCatalog;
+import losim.scenario.InputSize;
 import losim.scenario.Scenario;
 import losim.scenario.Scenario.*;
 import losim.time.Clock;
@@ -193,12 +196,20 @@ public final class Run {
 
             Machine entry = byName.values().iterator().next();
             var cluster = new Live(fleet, entry, tel, s.units(), s.seed());
-            Job job = job(s.job(), loader);
+            Object job = job(s.job(), loader);
+            // Resolved before the span opens, because an input the scenario did not
+            // describe is a line to fix rather than a run that failed: inside the
+            // span it would come out as a job that threw, which is what a design
+            // falling over looks like.
+            Input input = sized(s, job);
             started = tel.now();
             var span = tel.open(entry.name, "job", s.job());
             try {
                 entry.submit(() -> {
-                    try { job.run(cluster); }
+                    try {
+                        if (job instanceof Scalable scalable) scalable.run(cluster, input);
+                        else ((Job) job).run(cluster);
+                    }
                     catch (Exception e) { throw new CompletionException(e); }
                 }).get(WATCHDOG_SECONDS, TimeUnit.SECONDS);
                 completed = true;
@@ -352,20 +363,67 @@ public final class Run {
         };
     }
 
-    private static Job job(String className, ClassLoader loader) {
+    /** The job, which is a {@link Job} or a {@link Scalable} and nothing else. */
+    private static Object job(String className, ClassLoader loader) {
         try {
             Class<?> type = Class.forName(className, true, loader);
-            if (!Job.class.isAssignableFrom(type))
+            if (!Job.class.isAssignableFrom(type) && !Scalable.class.isAssignableFrom(type))
                 throw new IllegalArgumentException("'" + className + "' is named as the job, so it"
-                        + " has to implement losim.api.Job");
+                        + " has to implement losim.api.Job, or losim.api.Scalable if its input has"
+                        + " a size");
             var c = type.getDeclaredConstructor();
             c.setAccessible(true);
-            return (Job) c.newInstance();
+            return c.newInstance();
         } catch (ClassNotFoundException e) {
             throw new IllegalArgumentException("no class called '" + className + "' is on the"
                     + " classpath to run as the job");
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("could not build the job '" + className + "'", e);
+        }
+    }
+
+    /**
+     * The input this run is to process, or {@code null} for a job that takes none.
+     *
+     * <p>Where the scenario and the job are held against each other. The loader
+     * never loads a class, so it cannot know whether {@code items:} is a part of
+     * anything; by here the job exists and can be asked, and every answer is refused
+     * with the line somebody wrote — the same discipline {@link Fleet#costing} uses
+     * for a {@code takes:} key naming an rpc that is not served.
+     *
+     * <p>The scenario's sizes are the input at <i>full</i> scale. What this run does
+     * is that times {@code units / fullUnits}: 1 for a direct run, and the rung the
+     * engine picked otherwise. Every count moves by the same factor, so a rung is
+     * the same design at a smaller size rather than a different one.
+     */
+    private static Input sized(Scenario s, Object job) {
+        if (!(job instanceof Scalable scalable)) {
+            if (!s.input().isEmpty()) throw new IllegalArgumentException(s.input().get(0).where()
+                    + ": this scenario sizes an input and '" + s.job() + "' is a plain"
+                    + " losim.api.Job, which is never given one. Implement losim.api.Scalable, or"
+                    + " delete the input: block.");
+            return null;
+        }
+        Input.Shape shape = scalable.shape();
+        var declared = new LinkedHashMap<String, Long>();
+        for (InputSize size : s.input()) {
+            if (shape.part(size.name()) == null) throw new IllegalArgumentException(size.where()
+                    + ": '" + s.job() + "' consumes no part called '" + size.name() + "'. Its"
+                    + " shape() declares " + shape + ".");
+            declared.put(size.name(), size.n());
+        }
+        for (String part : shape.names())
+            if (!declared.containsKey(part)) throw new IllegalArgumentException(s.jobWhere()
+                    + ": '" + s.job() + "' consumes '" + part + "' and this scenario does not say"
+                    + " how much. Every part of an input is sized under input:, because a size"
+                    + " that is not in the file is a size no sweep can vary.");
+        try {
+            return Input.of(shape, declared, s.units() / (double) s.fullUnits());
+        } catch (IllegalArgumentException e) {
+            // Input.of guards itself for anyone building one by hand; reached from a
+            // file, it has already been checked against the shape, so what is left is
+            // the run size against the sizes — and that is the scenario's line too.
+            throw new IllegalArgumentException(s.jobWhere() + ": " + e.getMessage());
         }
     }
 

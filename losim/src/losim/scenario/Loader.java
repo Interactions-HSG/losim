@@ -54,8 +54,10 @@ public final class Loader {
                 base.file(),
                 over.opt("seed").present() ? (long) over.at("seed").num(base.seed()) : base.seed(),
                 base.job(),
+                base.jobWhere(),
                 base.scale(),
                 base.units(),
+                base.input(),
                 base.machines(),
                 over.opt("network").present() ? network(over.opt("network")) : base.net(),
                 over.opt("faults").present() ? faults(over.opt("faults"), names, over) : base.faults(),
@@ -67,7 +69,7 @@ public final class Loader {
     }
 
     public static Scenario of(Node root) {
-        root.onlyAllows("seed", "job", "scale", "machines",
+        root.onlyAllows("seed", "job", "scale", "machines", "input",
                         "network", "faults", "chaos", "retries", "takes", "tightMargin", "mode");
 
         long seed = (long) root.opt("seed").num(1);
@@ -89,6 +91,7 @@ public final class Loader {
         var chaos = chaos(root.opt("chaos"), machines);
         var retries = retries(root.opt("retries"));
         var takes = takes(root.opt("takes"));
+        var input = input(root.opt("input"));
 
         var mode = mode(root.opt("mode"));
         if (mode == Scenario.Mode.SCALED && scale <= 1)
@@ -96,8 +99,8 @@ public final class Loader {
                     + " at scale 1 there is nothing above the run to project to. Raise the scale,"
                     + " or run it directly.");
 
-        var s = new Scenario(root.where().split(":")[0], seed, job, scale,
-                0, machines, net, faults, chaos, retries, takes,
+        var s = new Scenario(root.where().split(":")[0], seed, job, root.at("job").where(), scale,
+                0, input, machines, net, faults, chaos, retries, takes,
                 root.opt("tightMargin").bool(false), mode);
         return s.withUnits(s.fullUnits());
     }
@@ -255,6 +258,51 @@ public final class Loader {
                 out.add(new Chaos(kind, body.at("every").refMs(), among,
                         body.opt("factor").num(2), body.opt("for").refMs(1000), body.where()));
             }
+        }
+        return out;
+    }
+
+    // -------------------------------------------------------------------- input
+
+    /**
+     * How big each part of the input is.
+     *
+     * <pre>
+     * input:
+     *   items:      240
+     *   valueBytes: 65536
+     * </pre>
+     *
+     * <p>The names are the job's, not losim's: a {@code Scalable} job declares what
+     * its input is made of and this file says how much of each. So a store reads
+     * {@code items}, a join reads {@code orders} and {@code customers}, and nothing
+     * anywhere has to pretend a blob has records.
+     *
+     * <p>Plain numbers, with the unit in the name — the same rule {@code memoryMb}
+     * follows, and the reason {@code takes:} writes bare numbers under keys that
+     * say what they are.
+     *
+     * <p>Nothing is checked here beyond the shape and the sign. Whether the job
+     * consumes a part called {@code items} is a question about a class the loader
+     * has not loaded — it never loads one — so it is asked by
+     * {@link losim.runtime.Run} once the job is built, and refused there with the
+     * line each size was written on.
+     */
+    private static List<InputSize> input(Node node) {
+        var out = new ArrayList<InputSize>();
+        if (!node.present()) return out;
+        var seen = new LinkedHashSet<String>();
+        for (var part : node.map().entrySet()) {
+            String name = part.getKey().trim();
+            Node body = part.getValue();
+            if (!seen.add(name)) throw body.fail("'" + name + "' is sized twice");
+            double n = body.num();
+            if (n != Math.rint(n)) throw body.fail("'" + name + "' is " + n + ". An input is"
+                    + " counted in whole things, and a constant that is not whole is one whose"
+                    + " unit is wrong — say what it is in, and put that in the name.");
+            if (n < 1) throw body.fail("'" + name + "' is " + (long) n + ", which is not a"
+                    + " smaller run — it is no run. Remove the part, or give it a size.");
+            out.add(new InputSize(name, (long) n, body.where()));
         }
         return out;
     }

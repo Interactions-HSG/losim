@@ -112,10 +112,19 @@ public final class Draft {
      */
     public record Takes(String runs, String rpc, double refMs, double refNsPerUnit) {}
 
+    /**
+     * One part of the input, at full size.
+     *
+     * <p>The names are the job's own, so the form cannot offer a fixed list of
+     * them: {@code items}, {@code orders}, {@code valueBytes}. What it can do is
+     * refuse to lose one, which is why this is here rather than only in the file.
+     */
+    public record Part(String name, long n) {}
+
     public record Of(String name, String job, long seed, double scale,
                       boolean tightMargin, String mode,
                       Net net, List<Pool> pools, List<Fault> faults, List<Chaos> chaos,
-                      List<Retry> retries, List<Takes> takes) {}
+                      List<Retry> retries, List<Takes> takes, List<Part> input) {}
 
     /**
      * Every fault kind, and for each the keys it does not obey.
@@ -278,12 +287,16 @@ public final class Draft {
             }
         }
 
+        // Straight off the loader's answer, which has already checked the shape and
+        // the sign; there is nothing here the form could ask a better question about.
+        var input = sc.input().stream().map(i -> new Part(i.name(), i.n())).toList();
+
         var net = new Net(sc.net().sameZoneRefMs(), sc.net().crossZoneRefMs(),
                 sc.net().jitterRefMs(), sc.net().loss());
 
         return new Of(name.replaceAll("\\.ya?ml$", ""), sc.job(), sc.seed(), sc.scale(),
                 sc.tightMargin(), sc.mode().name().toLowerCase(),
                 net, List.copyOf(pools), List.copyOf(faults),
-                List.copyOf(chaos), List.copyOf(retries), List.copyOf(takes));
+                List.copyOf(chaos), List.copyOf(retries), List.copyOf(takes), input);
     }
 }

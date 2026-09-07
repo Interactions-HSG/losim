@@ -54,6 +54,7 @@ public class Phase3 {
 
     public static void main(String[] args) throws Exception {
         System.out.println("Phase 3 — projecting from what actually happened\n");
+        declaredInput();
         groundTruth();
         refusal();
         transparency();
@@ -61,6 +62,117 @@ public class Phase3 {
         reconstruction();
         System.out.printf("%n%d passed, %d failed%n", pass, fail);
         System.exit(fail == 0 ? 0 : 1);
+    }
+
+    // ------------------------------------------ where the workload size lives
+
+    /**
+     * The size of the input is in the file, and there is nowhere else to put it.
+     *
+     * <p>A job that hard-codes how much work it does cannot be swept, cannot be
+     * overlaid, and — worse — does a different amount of work in a direct run from
+     * the one the scale engine models. So the job declares what its input is made of
+     * and the scenario says how much of each, and every way of getting that wrong is
+     * refused with the line somebody wrote.
+     *
+     * <p>Each refusal is run backwards. One that has never fired has proven nothing.
+     */
+    static void declaredInput() throws Exception {
+        System.out.println("=== the job declares the parts, the scenario declares the sizes ===");
+
+        String fleet = """
+            seed: 1
+            job: Sizer
+            machines:
+              master: { instance: m5.large, zone: z }
+            """;
+        var s = Loader.of(Yaml.parse("sized.yaml", fleet + """
+            input:
+              items:      240
+              valueBytes: 65536
+            """));
+        var said = ran(s);
+        check(said.equals("items=240 valueBytes=65536 units=240"),
+              "a direct run does 240 items because the file says 240, not because the Java does");
+
+        // The same job, told to do a fraction of it: what the scale engine does on
+        // every rung of the ladder. Both parts are named in the same block and only
+        // one of them moves.
+        said = ran(Loader.of(Yaml.parse("sized.yaml", fleet + """
+            scale: 6
+            input:
+              items:      240
+              valueBytes: 65536
+            """)).withUnits(1000));
+        check(said.equals("items=5 valueBytes=65536 units=5"),
+              "at a forty-eighth of full size it does five items — and still 65536 byte values, "
+              + "because a constant is shape rather than size");
+
+        check(refusedBy(Loader.of(Yaml.parse("sized.yaml", fleet)), ":2:")
+                .contains("consumes 'items' and this scenario does not say how much"),
+              "backwards: a job whose input is not sized is refused, at the job: line");
+
+        check(refusedBy(Loader.of(Yaml.parse("sized.yaml", fleet + """
+            input:
+              items:      240
+              valueBytes: 65536
+              chunks:     4
+            """)), ":8:").contains("consumes no part called 'chunks'"),
+              "backwards: a part the job does not consume is refused, at its own line");
+
+        check(refusedBy(Loader.of(Yaml.parse("sized.yaml", """
+            seed: 1
+            job: NoopJob
+            machines:
+              master: { instance: m5.large, zone: z }
+            input:
+              items: 240
+            """)), ":6:").contains("is a plain losim.api.Job, which is never given one"),
+              "backwards: sizing an input for a job that takes none is refused");
+
+        check(refusedBy(Loader.of(Yaml.parse("sized.yaml", fleet + """
+            scale: 6
+            input:
+              items:      20
+              valueBytes: 65536
+            """)).withUnits(1000), ":2:").contains("shrinks to none at all"),
+              "backwards: a count too small to survive the rung is refused rather than rounded "
+              + "up, which would quietly change the design's ratios");
+
+        try {
+            Loader.of(Yaml.parse("sized.yaml", fleet + """
+                input:
+                  items: 0
+                """));
+            check(false, "backwards: a part sized zero is refused at load");
+        } catch (IllegalArgumentException e) {
+            check(e.getMessage().contains("which is not a smaller run — it is no run"),
+                  "backwards: a part sized zero is refused at load: " + e.getMessage());
+        }
+        System.out.println();
+    }
+
+    /** What the job logged, which is the only thing {@link Sizer} does. */
+    static String ran(Scenario s) throws Exception {
+        var result = losim.runtime.Run.of(s, loader());
+        if (!result.completed()) throw new IllegalStateException("the run did not finish");
+        return result.telemetry().events().stream()
+                .filter(e -> e.kind().equals("log"))
+                .map(e -> String.valueOf(e.detail().get("message")))
+                .findFirst().orElse("nothing was logged");
+    }
+
+    /** The refusal a scenario earns, checked to carry the line it is about. */
+    static String refusedBy(Scenario s, String line) throws Exception {
+        try {
+            losim.runtime.Run.of(s, loader());
+        } catch (IllegalArgumentException e) {
+            String said = e.getMessage();
+            System.out.println("    " + said);
+            return said.contains(line) ? said
+                    : "the refusal does not name " + line + ": " + said;
+        }
+        return "it was not refused at all";
     }
 
     // ------------------------------------------------------- does it get it right

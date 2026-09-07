@@ -539,6 +539,14 @@ public final class Serve {
             takes.add(row);
         }
 
+        List<Object> input = new ArrayList<>();
+        for (Draft.Part part : d.input()) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("name", part.name());
+            row.put("n", part.n());
+            input.add(row);
+        }
+
         Map<String, Object> draft = new LinkedHashMap<>();
         draft.put("name", d.name());
         draft.put("job", d.job());
@@ -553,6 +561,7 @@ public final class Serve {
         net.put("loss", d.net().loss());
         draft.put("net", net);
         draft.put("pools", pools);
+        draft.put("input", input);
         draft.put("takes", takes);
         draft.put("faults", faults);
         draft.put("chaos", chaos);
