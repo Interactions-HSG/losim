@@ -27,7 +27,7 @@ import { SpanTree } from '../lib/spans.ts';
 import { Trace } from '../lib/trace.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const TRACES = resolve(HERE, '../../build/viewer/traces');
+const TRACES = resolve(HERE, '../../build/served');
 
 const BUDGET = 1000 / 30; // one frame at 30 fps
 

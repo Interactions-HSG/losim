@@ -50,7 +50,7 @@ import type { ConsoleState, View } from '../lib/console.tsx';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
-const TRACES = resolve(HERE, '../../build/viewer/traces');
+const TRACES = resolve(HERE, '../../build/served');
 const arg = process.argv[2] ?? '';
 /** Every trace, rather than a sample of the gallery. Two seconds against a minute. */
 const all = arg === '--all';

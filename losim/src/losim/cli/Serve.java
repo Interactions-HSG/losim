@@ -78,15 +78,25 @@ public final class Serve {
     /**
      * Where the exported viewer is, in whichever kind of project this is.
      *
-     * <p>A lab carries it at {@code viewer/}, committed, because a student must
-     * never need npm. The simulator's own repository builds it into
-     * {@code build/viewer}. Looking for both means neither has to say so.
+     * <p>Three places, in the order that lets each kind of project win without any
+     * of them having to say which it is. A lab that carries a committed
+     * {@code viewer/} keeps working. The simulator's own repository is found at
+     * {@code viewer/out}, where npm writes the export — reading it there is what
+     * removed the script that used to copy it somewhere else first. And a project
+     * with neither gets the one inside the jar, which is every project that has
+     * done nothing but depend on losim.
      */
     public static Path siteIn(Path base, String named) {
         if (named != null) return base.resolve(named).normalize();
-        Path lab = base.resolve("viewer");
-        if (Files.isRegularFile(lab.resolve("index.html"))) return lab;
-        return base.resolve("build/viewer").normalize();
+        for (String at : new String[]{"viewer", "viewer/out"}) {
+            Path here = base.resolve(at).normalize();
+            if (Files.isRegularFile(here.resolve("index.html"))) return here;
+        }
+        Path bundled = Bundled.dir("viewer", "index.html");
+        if (bundled != null) return bundled;
+        // Nothing anywhere. Hand back the path the failure should name, so
+        // `asset` can still say where it looked.
+        return base.resolve("viewer").normalize();
     }
 
     /**

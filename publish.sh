@@ -62,15 +62,6 @@ TARGET="$(cd "$TARGET" && pwd)"
 echo "Building the simulator…"
 gradle -q jar
 
-if [ "$LIB_ONLY" -eq 0 ]; then
-  # From the committed export, always — not from whatever build/viewer happens to
-  # hold, and never by running npm. Publishing a template is a thing a maintainer
-  # does on their own machine and a thing CI does on a tag, and only one of those
-  # has node installed.
-  echo "Staging the viewer…"
-  ./viewer/stage.sh
-fi
-
 # The two architectures a container is. Not the mac binaries: students open this
 # in a devcontainer or a Codespace, both of which are Linux, and 36 MB of
 # binaries nothing in the container can execute is 36 MB in every fork.
@@ -100,7 +91,7 @@ tr -d "[:space:]" < VERSION > "$TARGET/lib/version"
 if [ "$LIB_ONLY" -eq 0 ]; then
   # The application, and nothing that was ever run through it.
   mkdir -p "$TARGET/viewer"
-  ( cd build/viewer && tar -c --exclude traces . ) | ( cd "$TARGET/viewer" && tar -x )
+  ( cd viewer/out && tar -c . ) | ( cd "$TARGET/viewer" && tar -x )
 
   cp -r docs "$TARGET/docs"
 

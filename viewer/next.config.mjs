@@ -4,7 +4,7 @@
  * D10 says the toolchain must be identical in the devcontainer, on a laptop and
  * in a Codespace, with no setup step and no first-run download. A student
  * therefore never runs `npm` — the built page is committed the way the generated
- * protobuf sources are, and serving it is `python3 -m http.server -d build/viewer`.
+ * protobuf sources are, and serving it is `python3 -m http.server -d viewer/out`.
  * `npm install` happens here, and only for whoever changes the viewer.
  *
  * Everything the page needs is bundled: d3, the encoder, and a font stack of

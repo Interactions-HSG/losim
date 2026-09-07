@@ -34,7 +34,7 @@ import { RunIndex } from '../lib/frame.ts';
 import { Trace } from '../lib/trace.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const TRACES = resolve(HERE, '../../build/viewer/traces');
+const TRACES = resolve(HERE, '../../build/served');
 
 /**
  * Kinds that are deliberately not stops, and why.

@@ -18,18 +18,18 @@ npm install          # once
 
 ./serve.sh --dev     # the Next dev server on :8000, with hot reload
 ./check.sh           # everything a machine can decide
-./export.sh          # build and copy to build/viewer
+./export.sh          # build the static export into viewer/out
 ```
 
-`export.sh` is the one that matters:
+`export.sh` is the one that matters, and it is one line:
 
 ```bash
 npx next build
-rm -rf ../build/viewer
-cp -r out ../build/viewer
-mkdir -p ../build/viewer/traces
-echo '{"runs": []}' > ../build/viewer/traces/index.json
 ```
+
+Next writes `viewer/out`, and that is where everything reads it: `serve.sh`, the
+devcontainer, and `losim serve` in any project that has a `viewer/`. Nothing copies
+it anywhere first.
 
 <Note>
 **The export ships with no traces in it** — an empty index, and `serve.sh` fills it in
@@ -39,7 +39,7 @@ somebody else's runs.
 
 
 <Warning>
-**Commit `build/viewer` with your change.** It is committed the way the generated
+**Commit `viewer/out` with your change.** It is committed the way the generated
 protobuf sources are, for the same reason: a student must never need npm, and must
 never wait for a first-run download. A viewer change that is not exported is a viewer
 change nobody else can see.
@@ -55,11 +55,12 @@ viewer/
   lib/            trace, frame, layout, spans, design, glyphs, theme,
                   playback, record, ledger, runs
   checks/         the checks, and the Python they are checked against
-  export.sh       build -> ../build/viewer          (developers)
+  export.sh       build -> viewer/out                (developers)
   serve.sh        serve the export, or --dev        (everyone)
   check.sh        every check below                 (developers)
   traces.sh       traces + bills + index.json       (called by the others)
-build/viewer/     the committed static export
+  out/            the committed static export
+build/served/     what `serve.sh` points the picker at — the last sweep, and nothing else
 build/runs/       where a lab's runs land, and what the lab server serves
 build/traces/     this repo's own scratch directory, for `traces.sh` below
 
@@ -217,7 +218,7 @@ yours first. `serve.sh` forwards its own arguments here, so `./viewer/serve.sh
 and your traces live in your project, not in this tree.
 
 <Warning>
-`build/viewer/traces` is a **mirror of the last sweep**: anything not swept this time
+`build/served` is a **mirror of the last sweep**: anything not swept this time
 is deleted from it. That is what makes a collection un-askable-for once asked for,
 rather than something that accumulates forever.
 </Warning>

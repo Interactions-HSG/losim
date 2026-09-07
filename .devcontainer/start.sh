@@ -15,13 +15,6 @@ mkdir -p build
 
 [ -f build/losim.jar ] || gradle -q jar
 
-# The viewer, from the committed export rather than from npm. It is committed
-# like the generated protobuf sources are (D10), so putting it where the server
-# looks for it is a copy and never a build.
-if [ ! -f build/viewer/index.html ]; then
-  ./viewer/stage.sh
-fi
-
 # bash's own /dev/tcp, so this needs nothing installed. Attaching to a container
 # that is already up must not start a second copy: losim would print "already
 # running" and then park, leaving a JVM behind for every attach.

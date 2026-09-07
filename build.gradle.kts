@@ -23,6 +23,8 @@
 // devcontainer image both bring their own Gradle, so nothing here depends on a
 // binary blob nobody can read.
 
+import java.util.zip.ZipFile
+
 plugins {
     `java-library`
     `maven-publish`
@@ -72,7 +74,49 @@ tasks.named<ProcessResources>("processResources") {
     // bills with. A lab still reads lib/prices/ from disk; this is for everyone
     // who has a jar and no lib/.
     from("prices") { include("*.yaml"); into("losim/prices") }
+
+    // The console and the manual, so that depending on losim is the whole of
+    // getting losim. A lab used to carry both as committed directories, put there
+    // by a maintainer running a script over its repository; now they ride in the
+    // jar and `losim serve` finds them there when there is nothing on disk.
+    //
+    // Wholesale, both of them. The manual's pages link images and a favicon, and
+    // Mintlify's docs.json names every page — a filtered copy would ship a sidebar
+    // whose entries 404. About 1.7 MB uncompressed between them.
+    from("viewer/out") { into("losim/viewer") }
+    from("docs") { into("losim/docs") }
 }
+
+// A jar that shipped the sidebar but not the pages would render a manual of dead
+// links, and `Manual` would not complain: it falls back to a flat listing when
+// docs.json cannot be read, so a *missing* nav is loud and a nav pointing at
+// nothing is silent. This is the check that keeps it loud.
+val docsBundled by tasks.registering {
+    dependsOn(tasks.named("jar"))
+    doLast {
+        val built = tasks.named<Jar>("jar").get().archiveFile.get().asFile
+        val zip = ZipFile(built)
+        try {
+            val nav = zip.getEntry("losim/docs/docs.json")
+                ?: error("the jar carries no losim/docs/docs.json, so it has no manual")
+            if (zip.getEntry("losim/viewer/index.html") == null)
+                error("the jar carries no losim/viewer/index.html, so `losim serve` has no console")
+
+            val text = zip.getInputStream(nav).readBytes().decodeToString()
+            val pages = Regex("\"([a-z0-9-]+/[a-z0-9-]+)\"").findAll(text)
+                .map { it.groupValues[1] }.distinct().toList()
+            val missing = pages.filter { zip.getEntry("losim/docs/" + it + ".mdx") == null }
+            if (missing.isNotEmpty())
+                error("docs.json names " + missing.size + " page(s) the jar does not carry, so "
+                      + "the manual would render dead links: " + missing.take(5).joinToString(", "))
+            logger.lifecycle("the jar carries the console and " + pages.size + " manual pages")
+        } finally {
+            zip.close()
+        }
+    }
+}
+
+tasks.named("check") { dependsOn(docsBundled) }
 
 tasks.withType<JavaCompile>().configureEach {
     options.release.set(21)

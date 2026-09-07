@@ -33,7 +33,7 @@ import { HOLD_SECONDS, NORMAL, Pace } from '../lib/pace.ts';
 import { Trace } from '../lib/trace.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const TRACES = resolve(HERE, '../../build/viewer/traces');
+const TRACES = resolve(HERE, '../../build/served');
 
 let names: string[];
 try {

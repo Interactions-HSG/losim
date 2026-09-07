@@ -54,7 +54,7 @@ public final class Main {
             // start. A student whose lab is broken can still read how to fix it.
             boolean docs = args.length > 1 && (args[1].equals("docs") || args[1].equals("manual"));
             if (docs) {
-                return Manual.main(Path.of(option(args, "--docs", "docs")),
+                return Manual.main(Manual.find(option(args, "--docs", "docs")),
                                    Integer.parseInt(option(args, "--port", "3000")),
                                    option(args, "--host", host()));
             }
@@ -70,7 +70,7 @@ public final class Main {
         // did not start would fail in exactly the way the manual exists to
         // prevent, so this alias must not fall through to the usage text below.
         if (args.length > 0 && args[0].equals("manual")) {
-            return Manual.main(Path.of(option(args, "--docs", "docs")),
+            return Manual.main(Manual.find(option(args, "--docs", "docs")),
                                Integer.parseInt(option(args, "--port", "3000")),
                                option(args, "--host", host()));
         }

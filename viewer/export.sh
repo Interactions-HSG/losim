@@ -14,9 +14,4 @@ set -euo pipefail
 cd "$(dirname "$0")"
 npx next build
 
-# Where the build lands is `stage.sh`'s business, not this file's: a served
-# viewer and a published one have to be the same directory, and that is only
-# true if one script writes it.
-./stage.sh
-
-echo "exported -> build/viewer  (no traces in it; ./viewer/serve.sh adds them)"
+echo "exported -> viewer/out  (no traces in it; ./viewer/serve.sh adds them)"

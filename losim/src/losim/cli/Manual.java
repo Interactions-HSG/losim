@@ -744,7 +744,12 @@ public final class Manual {
             Path candidate = at.resolve(named);
             if (Files.isRegularFile(candidate.resolve("docs.json"))) return candidate;
         }
-        // Nothing found: hand back what was asked for, so the message names the
+        // Nothing on disk. The manual travels in the jar, so a project that has
+        // only ever depended on losim has one anyway — and this is the ordinary
+        // case now rather than the fallback.
+        Path bundled = Bundled.dir("docs", "docs.json");
+        if (bundled != null) return bundled;
+        // Not even that: hand back what was asked for, so the message names the
         // path somebody wrote rather than one this method invented.
         return here.resolve(named);
     }

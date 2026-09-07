@@ -41,7 +41,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-INTO=build/viewer/traces
+INTO=build/served
 mkdir -p "$INTO" build/traces
 
 # Each source, with the heading its runs appear under. A bare path is yours —

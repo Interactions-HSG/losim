@@ -26,7 +26,7 @@ import { LedgerModel, type BillJson } from '../lib/ledger.ts';
 import { Trace } from '../lib/trace.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const TRACES = resolve(HERE, '../../build/viewer/traces');
+const TRACES = resolve(HERE, '../../build/served');
 
 /** The rappen, which is what "to the rappen" has to mean to be checkable. */
 const RAPPEN = 0.005;

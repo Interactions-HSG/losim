@@ -47,7 +47,7 @@ docs/                    this manual
 viewer/                  the viewer's source — npm lives here and nowhere else
 prices/                  course data: what egress costs, what being late costs
 vendor/                  grpc 1.83.1, protobuf 4.36.0, protoc for two platforms
-build/                   generated. Except build/viewer, which is committed.
+build/                   generated, all of it. The viewer's committed export is viewer/out.
 
 
 losim/src/losim/api/     what a handler may say to losim — and all it can reach
@@ -92,7 +92,6 @@ javac --release 21 -cp "lib/losim.jar:lib/jars/*" -d build/classes \
 | `build/<scenario>.json` | the trace, unless `--out` said otherwise |
 | `build/runs/` | **where to point `--out`** — the viewer picks up whatever is here |
 | `build/.losim-plans/` | cached scale plans, keyed on the scenario, the code and the telemetry level |
-| `build/viewer/` | the viewer's static export. **Committed**, like the generated protobuf sources, so a student never needs npm. |
 
 The plan cache is worth knowing about: fitting a scale plan costs a grid of about
 thirty small runs, and it is paid once. Delete `build/.losim-plans` to force a

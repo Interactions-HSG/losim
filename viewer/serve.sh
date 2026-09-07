@@ -24,7 +24,7 @@ if [ "${1:-}" = "--dev" ]; then
   exec npx next dev --port "$PORT"
 fi
 
-if [ ! -d ../build/viewer ]; then
+if [ ! -f out/index.html ]; then
   echo "no export yet — run ./viewer/export.sh (needs npm, once)" >&2
   exit 1
 fi
@@ -38,4 +38,4 @@ echo "viewer on http://localhost:$PORT/"
 # language in a repository that needs none, and losim already has to be able to
 # serve this, because that is what a student's lab does.
 exec java -cp ../build/losim.jar losim.cli.Main serve \
-     --root .. --site build/viewer --runs build/viewer/traces --port "$PORT" --no-open
+     --root .. --site viewer/out --runs build/served --port "$PORT" --no-open
