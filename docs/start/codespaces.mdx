@@ -77,7 +77,7 @@ JVM — so there is no separate build step to have forgotten.
 
 ```bash your work
 J="java -cp lib/losim.jar losim.cli.Main"       # in a lab; see Quickstart
-$J run  mine.yaml --cp build/classes --out build/runs/mine.json
+$J run  mine.yaml --cp build/losim/classes --out build/runs/mine.json
 $J bill build/runs/mine.json
 $J diff build/runs/a.json build/runs/b.json
 ```

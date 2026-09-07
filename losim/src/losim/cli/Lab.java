@@ -109,12 +109,18 @@ public final class Lab {
      *
      * <pre>
      * val losimToolchain by tasks.registering {
-     *     val cp = sourceSets.main.get().runtimeClasspath
+     *     val cp = configurations.named("runtimeClasspath")
      *     val out = layout.buildDirectory.file("losim-toolchain.properties")
      *     inputs.files(cp); outputs.file(out)
-     *     doLast { out.get().asFile.writeText("classpath=${cp.asPath}\n") }
+     *     doLast { out.get().asFile.writeText("classpath=${cp.get().asPath}\n") }
      * }
      * </pre>
+     *
+     * <p>The <b>configuration</b>, not {@code sourceSets.main.runtimeClasspath} —
+     * that includes the source set's own {@code output}, so the task depends on
+     * {@code compileJava}, which needs {@code gen/}, which losim generates by
+     * reading this file. A recipe that cannot run until it has already run is
+     * worse than none, and this is the only recipe anybody copies.
      *
      * <p>Under {@code build/} on purpose: it names absolute paths on one machine,
      * so it is generated rather than committed, and {@code build/} is already
@@ -506,9 +512,17 @@ public final class Lab {
      * a system whose only scenario was `slow.yaml` wrote `id-slow.json` while both
      * endpoints looked for `id.json` and the finished run never appeared.
      */
-    /** Where the lab's compiled classes go, whether or not they are there yet. */
+    /**
+     * Where the lab's compiled classes go, whether or not they are there yet.
+     *
+     * <p>Under {@code build/losim/}, not {@code build/classes}, because Gradle's
+     * java plugin writes {@code build/classes/java/main} and {@link #compile}
+     * wipes what it is about to fill. A lab that resolves losim from Maven is a
+     * Gradle project, so the older path meant losim deleting Gradle's output — and
+     * the editor's — on every press of the run button.
+     */
     public Path classes() {
-        return root.resolve("build").resolve("classes");
+        return root.resolve("build").resolve("losim").resolve("classes");
     }
 
     /**

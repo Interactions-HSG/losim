@@ -7,19 +7,23 @@ icon: "folder-tree"
 ## Your project
 
 ```
-RunExperiments.java      press the ▶ — builds, runs, opens the viewer
-DisplayDocs.java         press the ▶ — the manual, on port 3000
-
 proto/                   your schema
 src/                     your Java
 gen/                     generated from the schema. Gitignored, never edited.
 scenarios/*.yaml         the worlds it runs in — as many as you like
 
-lib/                     losim.jar, the gRPC jars, protoc, the price list
-docs/                    this manual
-viewer/                  the viewer, committed as a static export
+build.gradle.kts         losim, protoc, and the toolchain task
+losim                    the launcher: `./losim run`, `./losim serve`
+AGENTS.md                what `losim adopt` left for you, if it left anything
 build/runs/              your traces, and a bill beside each
 ```
+
+<Note>
+**No `lib/`, no `docs/`, no `viewer/`.** losim is one dependency, and the manual
+and the console travel inside its jar — `./losim serve` and `./losim serve docs`
+find them there. A project that carries committed copies of them still works; they
+simply win over the jar's.
+</Note>
 
 <Note>
 **Nothing is declared.** There is no manifest listing what to build. Your code is
@@ -30,6 +34,10 @@ class can be placed on any machine. Add a file and it is in the next run.
 is almost never the code; it is the fleet, the distances and what goes wrong. So those
 are what there are many of. Write a scenario in the console's **Scenarios** page and it
 lands in `scenarios/` beside the others.
+
+**Your Java names losim nowhere.** Delete the dependency and everything under `src/`
+still compiles: what a call costs, what a machine is and what goes wrong are all in
+the scenario. [How a project gets this shape ->](/start/adopt)
 
 `build/` and `gen/` are gitignored. Your traces are yours and are not handed in — the
 examiner re-runs your code rather than reading a picture you exported.
@@ -79,7 +87,7 @@ only run inside the simulator, which is the opposite of the point.
 In a lab this is what the ▶ compiles with, and you never type it:
 
 ```bash
-javac --release 21 -cp "lib/losim.jar:lib/jars/*" -d build/classes \
+javac --release 21 -cp "lib/losim.jar:lib/jars/*" -d build/losim/classes \
       $(find gen src -name '*.java')
 ```
 
@@ -89,7 +97,7 @@ javac --release 21 -cp "lib/losim.jar:lib/jars/*" -d build/classes \
 | | |
 |---|---|
 | `build/losim.jar` | the simulator |
-| `build/classes/` | your compiled system — this is what `--cp` points at |
+| `build/losim/classes/` | your compiled system — this is what `--cp` points at |
 | `build/<scenario>.json` | the trace, unless `--out` said otherwise |
 | `build/runs/` | **where to point `--out`** — the viewer picks up whatever is here |
 | `build/.losim-plans/` | cached scale plans, keyed on the scenario, the code and the telemetry level |

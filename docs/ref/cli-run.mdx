@@ -12,8 +12,8 @@ In practice the classpath needs the vendored jars and your classes too:
 
 ```bash
 CP=$(ls vendor/jars/*.jar | tr '\n' ':')
-java -Xmx3g -cp "${CP}build/losim.jar:build/classes" \
-     losim.cli.Main run thumbs.yaml --cp build/classes --out build/thumbs.json
+java -Xmx3g -cp "${CP}build/losim.jar:build/losim/classes" \
+     losim.cli.Main run thumbs.yaml --cp build/losim/classes --out build/thumbs.json
 ```
 
 ## Options

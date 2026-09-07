@@ -86,6 +86,10 @@ tasks.named<ProcessResources>("processResources") {
     // whose entries 404. About 1.7 MB uncompressed between them.
     from("viewer/out") { into("losim/viewer") }
     from("docs") { into("losim/docs") }
+
+    // What `losim adopt` writes into the project it adopts. A resource rather than
+    // a string constant, so it is written and reviewed as prose.
+    from("losim/agents") { include("AGENTS.md"); into("losim") }
 }
 
 // A jar that shipped the sidebar but not the pages would render a manual of dead

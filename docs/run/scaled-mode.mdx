@@ -19,9 +19,9 @@ third mode whose numbers nobody could account for.
 The same command. losim notices the mode:
 
 ```bash
-java -Xmx3g -cp "${CP}build/losim.jar:build/classes" \
+java -Xmx3g -cp "${CP}build/losim.jar:build/losim/classes" \
      losim.cli.Main run thumbs-scaled.yaml \
-     --cp build/classes --out build/scaled.json
+     --cp build/losim/classes --out build/scaled.json
 ```
 
 The first run is slow, and here is where the time goes:

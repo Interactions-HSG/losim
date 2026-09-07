@@ -226,7 +226,7 @@ debugger — that is what the three channels are for. Reach for these in order:
 
   <Step title="Ask losim for its own stack">
     ```bash
-    LOSIM_DEBUG=1 java -cp "$CP" losim.cli.Main run mine.yaml --cp build/classes
+    LOSIM_DEBUG=1 java -cp "$CP" losim.cli.Main run mine.yaml --cp build/losim/classes
     ```
 
     Exit code 3 means something went wrong **inside losim**, and one line of it is

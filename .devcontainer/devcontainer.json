@@ -38,7 +38,7 @@
       "settings": {
         "java.configuration.updateBuildConfiguration": "automatic",
         "java.project.referencedLibraries": ["vendor/jars/*.jar"],
-        "files.exclude": { "**/build/classes": true }
+        "files.exclude": { "**/build/losim/classes": true }
       }
     }
   }

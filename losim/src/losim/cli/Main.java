@@ -85,6 +85,14 @@ public final class Main {
                               option(args, "--to", null),
                               flag(args, "--check"));
         }
+        if (args.length > 0 && args[0].equals("adopt")) {
+            return Adopt.main(args);
+        }
+        if (args.length > 0 && args[0].equals("check")) {
+            // The same detector `adopt` printed from, so "what is left" is a
+            // command rather than a memory of a terminal that has scrolled away.
+            return Check.main(args);
+        }
         if (args.length > 0 && args[0].equals("build")) {
             // Generate, compile, and say what is wrong — without running
             // anything. What the arrow in the lab does before it starts a run,
@@ -134,6 +142,18 @@ public final class Main {
                   The manual, as a process of its own. Separate from the lab on
                   purpose: the manual is where you look when something will not
                   start, so it must not be served by the thing that will not start.
+
+                       losim adopt [<dir>] [--force] [--dirty]
+
+                  Put losim under a gRPC project that already works. Moves files,
+                  writes a build, a launcher and a first scenario — and never
+                  touches a .java, because guessing what a program means produces a
+                  system its author did not write. It prints what is left, with a
+                  line number for each, and writes the same list into AGENTS.md.
+
+                       losim check [--root .]
+
+                  Re-run those findings, without running the system.
 
                        losim build [--root .]
 
@@ -329,7 +349,8 @@ public final class Main {
     }
 
     /** Flags that stand alone; everything else beginning with `--` takes a value. */
-    private static final List<String> BARE = List.of("--no-view", "--view", "--json", "--check");
+    private static final List<String> BARE = List.of("--no-view", "--view", "--json",
+            "--check", "--force", "--dirty", "--detach", "--no-open");
 
     /**
      * Every argument that is not a flag or a flag's value, in order.
@@ -350,6 +371,12 @@ public final class Main {
             if (!BARE.contains(a)) i++;
         }
         return out;
+    }
+
+    /** The first bare argument, or a fallback — for a verb whose subject is optional. */
+    static String positionalOr(String[] args, String verb, String fallback) {
+        List<String> found = positionals(args);
+        return found.isEmpty() ? fallback : found.get(0);
     }
 
     private static String positional(String[] args, String what) {

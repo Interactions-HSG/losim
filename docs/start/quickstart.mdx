@@ -71,36 +71,32 @@ files under `docs/` in the editor you are already sitting in.
 
 ## The command line, if you want it
 
-**You never need it, and no page in this manual asks you to.** Every shell script left
-in these repositories — `publish.sh`, `losim dev vendor` — is a maintainer
-tool for whoever works on losim itself.
+**You never need it, and no page in this manual asks you to** — the lab console has
+a button for everything below. Everything under `losim dev` is a maintainer verb for
+whoever works on losim itself.
 
 It is there, though, and it is what the button calls:
 
 
 
 <Note>
-**There is no `losim` command.** `losim` is written here as shorthand for the
-simulator's command line; what you actually type is a JVM invocation, and where the
-jar lives depends on which repository you are in:
+**`losim` is a command.** `losim adopt` writes `./losim` into your project — a
+launcher, the way `gradlew` is one. It runs the build and then the simulator, so
+there is no separate build step and no classpath to get right:
 
 ```bash
-# in a lab — losim is committed under lib/
-java -cp lib/losim.jar losim.cli.Main run …
-
-# in the losim repository itself — it is built, not committed
-CP="$(ls vendor/jars/*.jar | tr '\n' ':')build/losim.jar"
-java -cp "$CP" losim.cli.Main run …
+./losim run thumbs.yaml
 ```
 
-Later pages use the second form, because they are as much for whoever is building
-losim as for whoever is using it. It is the same program either way.
+In losim's own repository the same launcher is `bin/losim`, because the source
+lives in `losim/` and a file cannot be a directory. Some pages here write
+`bin/losim` for that reason; it is the same program.
 </Note>
 
 
 
 ```bash
-losim run thumbs.yaml --cp build/classes --out build/runs/thumbs.json
+losim run thumbs.yaml --cp build/losim/classes --out build/runs/thumbs.json
 ```
 
 At a terminal this **opens the viewer on what it just ran** and keeps it open. It

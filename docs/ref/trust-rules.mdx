@@ -152,6 +152,36 @@ In scaled mode the caveat is printed **beside the projection it undermines** —
 an error bar says how well a law was fitted, and says nothing about whether what it
 was fitted to meant anything.
 
+## A nested class is walked with the class enclosing it
+
+The rules are applied to a class **and every class it is declared inside**. So a
+service written as a nested class carries whatever its enclosing class does.
+
+This is the finding most likely to surprise somebody who has just adopted an
+existing project, because the grpc-java quickstart puts the handler exactly there:
+
+```java
+public class HelloWorldServer {                     // a server, a logger, a pool
+  static class GreeterImpl extends GreeterGrpc.GreeterImplBase { … }
+}
+```
+
+Placed as it stands, every run reports
+
+```
+srv  built its own channel or server, which no interceptor is attached to
+```
+
+— and the machine's wire figures are marked, though the handler itself does
+nothing wrong. **Move the service to a file of its own.** That is edit one on the
+[adoption page](/start/adopt), and it is the whole of the fix.
+
+<Note>
+Walking the enclosing class is not an over-approximation to be tuned away. A
+handler that reaches an enclosing class's static field really is sharing state
+across machines, and the walk is what sees it.
+</Note>
+
 ## Generated code is skipped
 
 protoc's output trips these rules freely — a `*Grpc` class holds six mutable statics.

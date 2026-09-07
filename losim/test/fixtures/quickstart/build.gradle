@@ -1,0 +1,21 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'com.google.protobuf' version '0.9.4'
+}
+
+repositories { mavenCentral() }
+
+def grpcVersion = '1.83.1'
+def protobufVersion = '3.25.9'
+
+dependencies {
+    implementation "io.grpc:grpc-protobuf:${grpcVersion}"
+    implementation "io.grpc:grpc-stub:${grpcVersion}"
+    runtimeOnly "io.grpc:grpc-netty-shaded:${grpcVersion}"
+    implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
+}
+
+application {
+    mainClass = 'io.grpc.examples.helloworld.HelloWorldServer'
+}

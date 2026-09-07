@@ -126,11 +126,11 @@ runs it on a separate classpath:
 CP=$(ls vendor/jars/*.jar | tr '\n' ':')
 TCP=$(ls vendor/test-jars/*.jar | tr '\n' ':')
 
-javac -nowarn --release 21 -cp "${CP}${TCP}build/losim.jar:build/classes" \
+javac -nowarn --release 21 -cp "${CP}${TCP}build/losim.jar:build/losim/classes" \
       -d build/test-classes $(find test -name '*.java')
 
 java -jar vendor/test-jars/junit-platform-console-standalone-*.jar execute \
-     --class-path "${CP}build/losim.jar:build/classes:build/test-classes" \
+     --class-path "${CP}build/losim.jar:build/losim/classes:build/test-classes" \
      --scan-class-path build/test-classes --details=tree
 ```
 

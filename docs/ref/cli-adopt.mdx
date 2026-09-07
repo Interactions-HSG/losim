@@ -1,0 +1,78 @@
+---
+title: "losim adopt / check"
+description: "Put losim under a project that already works, and ask what is left."
+icon: "arrow-right-to-bracket"
+---
+
+```bash
+java -jar losim.jar adopt [<dir>] [--force] [--dirty]
+./losim check [--root .]
+```
+
+The migration page has the whole story: [adopting a gRPC system ->](/start/adopt).
+This is the surface.
+
+## `adopt`
+
+| | |
+|---|---|
+| `<dir>` | the project to adopt. Default `.` |
+| `--force` | overwrite files it wrote before. Without it, a file that is already there is left alone and said so |
+| `--dirty` | adopt a tree with uncommitted changes. Without it, that is a refusal — the moves are `git mv`, and a move you cannot read as a diff is a move you cannot undo |
+
+**It never edits a `.java`.** It moves `src/main/proto` to `proto/` and
+`src/main/java` to `src/`, writes `build.gradle.kts`, `./losim`, `AGENTS.md`,
+`scenarios/1-one-call.yaml` and two lines of `.gitignore`, moves `build.gradle`
+aside to `build.gradle.bak`, and prints what is left.
+
+<Note>
+The scenario it writes names the classes it expects **after** you split the
+handler out — so it fails at load with a message naming the class, which is a
+better first failure than one that silently runs against
+`HelloWorldServer$GreeterImpl` and marks every number untrustworthy.
+</Note>
+
+### Exit codes
+
+| | |
+|---|---|
+| `0` | adopted |
+| `2` | it refused: a `pom.xml`, a multi-module build, nothing that looks like gRPC, or a dirty tree |
+
+## `check`
+
+The same detector, run again, on a project that has already been adopted.
+
+```
+1 service, 1 rpc, 2 source files
+
+  runs, and a number comes out wrong
+   1  GreeterImpl is nested inside another class
+      src/io/grpc/examples/helloworld/HelloWorldServer.java:53
+      the trust verifier walks a nested class together with the class
+      enclosing it, so everything the enclosing bootstrap does — its own
+      server, its channel, its statics — is read as this service's.
+
+  dead rather than wrong, and no run will ever say so
+      src/io/grpc/examples/helloworld/HelloWorldServer.java
+       :48    main(String[]) and its arguments  a machine has no command line
+       :26    addShutdownHook                   a machine is killed by a fault, not by SIGTERM
+```
+
+It compiles nothing and runs nothing, which is the point: it answers before the
+first build, when a compiler has nothing useful to say yet.
+
+**It exits 0 whether or not it found anything.** A project part-way through a
+migration is the ordinary state of a project part-way through a migration, and a
+check that fails for it becomes a check people pass `--no-verify` to.
+
+## What it reads
+
+Text, never bytecode — `adopt` runs from `java -jar losim.jar` with nothing else
+on the classpath, which is the bootstrap. So: the `.proto` (services, rpcs,
+`stream`, `idempotency_level`), each `.java` (what extends a protoc `ImplBase` and
+at what nesting level, who builds a server or a channel, what is dead), and the
+build file (its gRPC and protobuf versions, by coordinate or by variable).
+
+It skips `build/`, `gen/`, `out/`, `target/` and anything hidden: a report that
+sent you to edit a generated `ImplBase` would be worse than no report.

@@ -19,6 +19,7 @@
             "pages": [
               "index",
               "start/quickstart",
+              "start/adopt",
               "start/mental-model",
               "start/codespaces",
               "start/laptop",
@@ -81,7 +82,8 @@
             "pages": [
               "ref/cli-run",
               "ref/cli-bill",
-              "ref/cli-diff"
+              "ref/cli-diff",
+              "ref/cli-adopt"
             ]
           },
           {
