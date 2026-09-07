@@ -1,0 +1,95 @@
+---
+title: "./losim and losim version"
+description: "The launcher a lab commits, the file it reads to find the toolchain, and how to take a newer losim."
+icon: "terminal"
+---
+
+```bash
+./losim <verb> [...]          # anything below, in this project
+./losim version [--check]
+```
+
+`losim adopt` writes `./losim` into a project and you commit it, the way `gradlew`
+is committed. This is the whole of it, minus the two error messages:
+
+```sh
+G=./gradlew
+[ -x "$G" ] || G="$(command -v gradle || true)"
+"$G" -q losimToolchain
+CP="$(cat build/losim/classpath)"
+exec java -cp "$CP" losim.cli.Main "$@"
+```
+
+**It builds before it runs**, so there is no separate step to have forgotten and
+no stale classpath to explain. There is also no path to a `losim.jar` anywhere in
+it — the jar is wherever Gradle put it, which is a package cache under a name the
+build chose.
+
+## The toolchain file
+
+`losimToolchain` is a task in the `build.gradle.kts` that `adopt` wrote. It writes
+`build/losim-toolchain.properties`:
+
+```
+losim=1.5.0
+classpath=/…/losim-1.5.0.jar:/…/grpc-api-1.83.1.jar:…
+protoc=/…/build/losim/bin/protoc
+protoc-gen-grpc-java=/…/build/losim/bin/protoc-gen-grpc-java
+```
+
+That file **is** what losim knows about this project. There is no `lib/` to look
+in and nothing to configure: a directory is a lab if a build here declared a
+classpath, and it is that classpath that gets compiled and run against.
+
+<Warning>
+It names absolute paths on one machine, so it is generated and never committed —
+`build/` is gitignored. Copy a working directory to another machine (which is what
+marking a submission is) and the file arrives naming a laptop that is not there.
+losim disregards it and says so, rather than reporting the code as broken; the fix
+is to run `./losim`, which rewrites it first.
+</Warning>
+
+The task also writes `build/losim/classpath`, the same list as one plain line, for
+the launcher to read. `java.util.Properties` escapes `:` and `\` on the way out, so
+a shell reading the `.properties` file with `sed` would get a classpath that is
+subtly not the one Gradle resolved. Java reads the properties; the shell reads the
+line.
+
+## Taking a newer losim
+
+```bash
+./losim version --check
+```
+
+One `HEAD` on the releases page, which redirects to the newest release and so puts
+the tag in a header. No token, no rate limit, and nothing downloaded.
+
+```
+1.4.0
+1.5.0 is released.
+
+  Change losimVersion in build.gradle.kts to 1.5.0 and run ./losim.
+  Nothing else moves: the viewer and the manual are inside the jar,
+  and your scenarios, schema and Java are untouched by a version.
+```
+
+Updating is that one line. Before 1.5.0 a lab carried the simulator as committed
+jars and `losim update` fetched and replaced them; there is nothing to replace now,
+which is why that command is gone.
+
+<Note>
+`--check` is the only thing in losim that touches the network, and only when you
+type it. A lab builds and runs against what its build already resolved, so a
+machine with no network is a machine that still works.
+</Note>
+
+## Without a `./losim` yet
+
+The release carries one asset, so that the first command has something to be:
+
+```bash
+curl -sSLo losim.jar https://github.com/Interactions-HSG/losim/releases/latest/download/losim.jar
+java -jar losim.jar adopt .
+```
+
+After that, `./losim`.

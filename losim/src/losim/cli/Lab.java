@@ -41,11 +41,10 @@ public final class Lab {
     public static final String RUNS = "build/runs";
 
     private final Path root;
-    private final Path lib;
     private final Path runs;
 
-    public Lab(Path root, Path lib) {
-        this(root, lib, root.resolve(RUNS));
+    public Lab(Path root) {
+        this(root, root.resolve(RUNS));
     }
 
     /**
@@ -56,9 +55,8 @@ public final class Lab {
      * own run never appeared in. So the directory is the lab's, not the server's,
      * and there is one of it.
      */
-    public Lab(Path root, Path lib, Path runs) {
+    public Lab(Path root, Path runs) {
         this.root = root.toAbsolutePath().normalize();
-        this.lib = lib.toAbsolutePath().normalize();
         this.runs = runs.toAbsolutePath().normalize();
     }
 
@@ -70,15 +68,18 @@ public final class Lab {
     /**
      * Whether this directory is a lab at all.
      *
-     * <p>The test is that losim is here <i>as a library</i> — which is what a lab
-     * is, and what the simulator's own repository is not. Without it, pointing
-     * the server at the wrong directory lists that directory's furniture as
-     * things to run: the simulator's own sources came back as a "system" whose
-     * run button compiled sixty files. Better to say "this is not a lab" once
-     * than to offer somebody thirteen buttons, none of them theirs.
+     * <p>The test is that a build here resolved losim — which is what a lab is,
+     * and what the simulator's own repository is not. Without it, pointing the
+     * server at the wrong directory lists that directory's furniture as things
+     * to run: the simulator's own sources came back as a "system" whose run
+     * button compiled sixty files. Better to say "this is not a lab" once than
+     * to offer somebody thirteen buttons, none of them theirs.
+     *
+     * <p>The classpath has to name something that exists here, or a working
+     * directory copied off somebody else's laptop — which is what marking a
+     * submission is — would answer yes on the strength of their paths.
      */
     public boolean isLab() {
-        if (Files.isRegularFile(lib.resolve("losim.jar"))) return true;
         String said = declared("classpath");
         return !said.isEmpty() && here(said);
     }
@@ -86,17 +87,15 @@ public final class Lab {
     // ------------------------------------------------------- a declared toolchain
 
     /**
-     * Where a build may state the toolchain instead of losim finding it.
+     * Where the build states the toolchain, which is the only way losim learns it.
      *
-     * <p>A lab that resolves losim with Gradle has no {@code lib/} and cannot
-     * sensibly be given one: its jars are in a package cache under names and
-     * versions the build chose, not in a directory anybody can copy. Without a
-     * way to say so, such a lab has to keep an otherwise pointless {@code lib/}
-     * beside it purely so that {@link #isLab} and {@link #cp} have something to
-     * look at — a directory that exists to be found, holding a second copy of
-     * what the build already resolved, and free to disagree with it.
+     * <p>A lab resolves losim with Gradle, so its jars are in a package cache
+     * under names and versions the build chose, not in a directory anybody can
+     * copy. There is nowhere for losim to go looking, and a lab that carried a
+     * second copy of what the build had already resolved would be carrying
+     * something free to disagree with it.
      *
-     * <p>So the build can write this file instead, and losim reads what it says:
+     * <p>So the build writes this file, and losim reads what it says:
      *
      * <pre>
      * classpath=/…/losim-1.1.0.jar:/…/grpc-api-1.83.1.jar:…
@@ -124,9 +123,9 @@ public final class Lab {
      *
      * <p>Under {@code build/} on purpose: it names absolute paths on one machine,
      * so it is generated rather than committed, and {@code build/} is already
-     * both gitignored and {@link #NOT_CODE}. A key that is absent falls back to
-     * {@code lib/}, so a lab may declare its classpath and still take the
-     * vendored compilers, which is exactly what a Gradle lab in a container wants.
+     * both gitignored and {@link #NOT_CODE}. Regenerated rather than trusted —
+     * {@code ./losim} runs the task before it starts a JVM, and {@link #declared}
+     * reads the file again on every call.
      */
     public static final String TOOLCHAIN = "build/losim-toolchain.properties";
 
@@ -144,31 +143,31 @@ public final class Lab {
         try (var in = Files.newInputStream(file)) {
             props.load(in);
         } catch (IOException e) {
-            // An unreadable toolchain is not an answer, and lib/ may well be one.
+            // An unreadable toolchain is no answer, and this must not throw out of
+            // isLab(): a directory where the file should be is a lab that is not one.
             return "";
         }
         return props.getProperty(key, "").trim();
     }
 
     /**
-     * A tool the build declared, or the vendored one for this platform.
+     * A tool the build declared and this machine can run, or null.
      *
      * <p>A declaration is a claim about this machine, and it can be false. The file
      * lives under {@code build/} and is never committed, but it does not have to be
      * committed to travel: copy a working directory that has run Gradle — which is
      * what marking a submission is — and it arrives holding absolute paths from
-     * somebody else's laptop. Honouring those gave a Linux container
-     * "No protobuf compiler for linux-aarch_64 at /Users/…/protoc-osx-aarch_64",
-     * which reads as the submission failing to build while the right binary sits
-     * unused in {@code lib/bin}.
+     * somebody else's laptop.
      *
-     * <p>So a declared tool that cannot be executed here is not used here.
+     * <p>So a declared tool that cannot be executed here is not used here, and
+     * {@link #noProtoc} says the build has to run rather than naming a binary from
+     * a machine this is not.
      */
     private Path tool(String name) {
         String said = declared(name);
-        if (said.isEmpty()) return lib.resolve("bin").resolve(name + "-" + platform());
+        if (said.isEmpty()) return null;
         Path stated = Path.of(said);
-        return Files.isExecutable(stated) ? stated : lib.resolve("bin").resolve(name + "-" + platform());
+        return Files.isExecutable(stated) ? stated : null;
     }
 
     /**
@@ -204,7 +203,7 @@ public final class Lab {
      * names, and several of them are words a package may perfectly well use.
      */
     private static final List<String> NOT_CODE =
-            List.of("build", "lib", "docs", "viewer", "node_modules", "presentation",
+            List.of("build", "docs", "viewer", "node_modules", "presentation",
                     "gen", "out", "classes", "input", "corpus", "scenarios");
 
     /**
@@ -258,33 +257,33 @@ public final class Lab {
     /**
      * What was declared and disregarded, or {@code ""} when nothing was.
      *
-     * <p>Falling back to {@code lib/} silently is right for the run and wrong for
-     * the person. The case it costs is the one that is hardest to diagnose anyway:
-     * two machines disagreeing about the same lab, where the difference is a file
-     * one of them is carrying. Silence makes the working machine and the machine
-     * that would have failed produce identical output, so there is nothing to
-     * compare — where a failure at least announced itself.
+     * <p>The case this exists for is the one that is hardest to diagnose: two
+     * machines disagreeing about the same lab, where the difference is a file one
+     * of them is carrying. A working directory that has run Gradle — which is what
+     * marking a submission is — travels holding absolute paths from a laptop, and
+     * without this the container reports the candidate's code as broken.
      *
-     * <p>So the fallback says what it ignored. "It worked" is a worse answer than
-     * "it worked, and here is what it disregarded".
+     * <p>So what was disregarded is named, and so is the one command that rewrites
+     * it. Nothing is guessed at instead: there is no second toolchain to fall back
+     * to, and a run against a classpath from another machine would fail later and
+     * further from the reason.
      */
     public String toolchainNote() {
         if (!Files.isRegularFile(root.resolve(TOOLCHAIN))) return "";
         var sb = new StringBuilder();
         String said = declared("classpath");
         if (!said.isEmpty() && !here(said)) {
-            sb.append("Ignoring the classpath declared in ").append(TOOLCHAIN)
-              .append(": nothing on it exists here, so it is another machine's.\n")
-              .append("  Using lib/ instead. Delete that file if it arrived with a copied directory.\n");
+            sb.append("The classpath in ").append(TOOLCHAIN)
+              .append(" is another machine's: nothing on it exists here.\n");
         }
         for (String key : List.of("protoc", "protoc-gen-grpc-java")) {
             String stated = declared(key);
             if (!stated.isEmpty() && !Files.isExecutable(Path.of(stated))) {
-                sb.append("Ignoring the ").append(key).append(" declared in ").append(TOOLCHAIN)
-                  .append(": ").append(stated).append(" will not run here.\n")
-                  .append("  Using the one in lib/bin for ").append(platform()).append(".\n");
+                sb.append("The ").append(key).append(" in ").append(TOOLCHAIN)
+                  .append(" will not run here: ").append(stated).append("\n");
             }
         }
+        if (!sb.isEmpty()) sb.append("  Run ./losim, which rewrites that file before it starts anything.\n");
         return sb.toString();
     }
 
@@ -637,22 +636,25 @@ public final class Lab {
     }
 
     /**
-     * Why this platform cannot run {@code protoc}, or null if it can.
+     * Why this lab cannot run {@code protoc}, or null if it can.
      *
      * <p>Its own method because the answer is needed twice and in two places
      * that must not disagree: here, where the binaries are about to be used,
      * and before {@link #compile} and {@link #run} delete {@code gen/}. A build
      * that is going to fail on the toolchain has to fail before it destroys the
-     * output of the last one that worked — a published lab on a platform with no
-     * binary in {@code lib/bin} would otherwise lose every generated type on the
-     * first press, and unresolve them in the editor, while reporting something
-     * about protoc rather than about the imports that just broke.
+     * output of the last one that worked — otherwise a lab loses every generated
+     * type on the first press, and unresolves them in the editor, while reporting
+     * something about protoc rather than about the imports that just broke.
      */
     private String noProtoc() {
-        Path protoc = tool("protoc");
-        Path plugin = tool("protoc-gen-grpc-java");
-        if (Files.isExecutable(protoc) && Files.isExecutable(plugin)) return null;
-        return "No protobuf compiler for " + platform() + " at " + protoc + ".\n";
+        if (tool("protoc") != null && tool("protoc-gen-grpc-java") != null) return null;
+        return """
+                No protobuf compiler here. The build fetches one and writes where it \
+                is into %s, so either that task has not run, or the file it wrote \
+                came from a machine this is not.
+
+                  Run ./losim, which runs the task first.
+                """.formatted(TOOLCHAIN);
     }
 
     private int generate(List<Path> protos, Path gen, Consumer<String> log) throws IOException, InterruptedException {
@@ -691,8 +693,9 @@ public final class Lab {
         StringBuilder json = new StringBuilder();
         List<String> argv = new ArrayList<>(List.of(java(), "-cp", cp(),
                 "losim.cli.Main", "bill", trace.toString(), "--json"));
-        Path prices = lib.resolve("prices/eu-central-1.yaml");
-        if (!Files.exists(prices)) prices = root.resolve("prices/eu-central-1.yaml");
+        // The lab's own list if it has one; otherwise none is named and `bill`
+        // reads the one losim ships under that name from inside the jar.
+        Path prices = root.resolve("prices/eu-central-1.yaml");
         if (Files.exists(prices)) { argv.add("--prices"); argv.add(prices.toString()); }
         // The two streams kept apart, which every other call here merges on
         // purpose. `--json` writes JSON on stdout and says everything else on
@@ -747,17 +750,17 @@ public final class Lab {
 
     // ------------------------------------------------------------- the toolchain
 
-    /** The classpath a lab compiles and runs against: the simulator and gRPC. */
+    /**
+     * The classpath a lab compiles and runs against: the simulator and gRPC.
+     *
+     * <p>Whole, exactly as the build resolved it — never filtered down to the
+     * entries that happen to exist. A classpath part-way through a build is still
+     * the build's business, and losim second-guessing it would produce a compile
+     * error about a class the build knows perfectly well where to find.
+     */
     public String cp() {
         String said = declared("classpath");
-        if (!said.isEmpty() && here(said)) return said;
-        StringBuilder sb = new StringBuilder();
-        Path jars = lib.resolve("jars");
-        for (Path p : children(jars)) {
-            if (p.getFileName().toString().endsWith(".jar")) sb.append(p).append(java.io.File.pathSeparator);
-        }
-        sb.append(lib.resolve("losim.jar"));
-        return sb.toString();
+        return here(said) ? said : "";
     }
 
     /**
@@ -770,6 +773,7 @@ public final class Lab {
      * second-guessing a classpath that mostly resolves would be worse than useless.
      */
     private static boolean here(String classpath) {
+        if (classpath.isEmpty()) return false;
         for (String entry : classpath.split(java.io.File.pathSeparator)) {
             if (!entry.isBlank() && Files.exists(Path.of(entry))) return true;
         }

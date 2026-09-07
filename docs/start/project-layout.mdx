@@ -87,7 +87,7 @@ only run inside the simulator, which is the opposite of the point.
 In a lab this is what the ▶ compiles with, and you never type it:
 
 ```bash
-javac --release 21 -cp "lib/losim.jar:lib/jars/*" -d build/losim/classes \
+javac --release 21 -cp "$(cat build/losim/classpath)" -d build/losim/classes \
       $(find gen src -name '*.java')
 ```
 

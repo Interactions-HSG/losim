@@ -19,7 +19,7 @@
  * a file the run would then reject has moved the error somewhere worse.
  */
 import { spawn } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -36,14 +36,15 @@ const JAR = join(ROOT, 'build/losim.jar');
  * A lab with nothing in it but a name.
  *
  * Writing a scenario needs no compiled code — the loader reads a file, and what
- * it checks is the file. So the fixture is a jar and a folder, and this check
- * costs a second rather than a protoc run.
+ * it checks is the file. So the fixture is a declared classpath and a folder, and
+ * this check costs a second rather than a protoc run.
  */
 function lab(): string {
   const dir = mkdtempSync(join(tmpdir(), 'losim-author-'));
-  mkdirSync(join(dir, 'lib'), { recursive: true });
+  mkdirSync(join(dir, 'build'), { recursive: true });
   mkdirSync(join(dir, 'sys/scenarios'), { recursive: true });
-  copyFileSync(JAR, join(dir, 'lib/losim.jar'));
+  // What a lab's build writes, and all losim reads to know it is one.
+  writeFileSync(join(dir, 'build/losim-toolchain.properties'), `classpath=${JAR}\n`);
   writeFileSync(join(dir, 'sys/scenarios/main.yaml'),
     'job: Nothing\nmachines:\n  only: { instance: m5.large, zone: eu-central-1a }\n');
   return dir;

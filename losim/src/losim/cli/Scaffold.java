@@ -104,10 +104,12 @@ final class Scaffold {
                 }
             }
 
-            // A lab's classpath used to be jars committed into the repository. It is
-            // a resolved graph now, so it is locked: the same build tomorrow resolves
-            // the same bytes, and a number a run produces still does not depend on
-            // what a package manager felt like today.
+            // A lab's classpath used to be jars committed into the repository, and it
+            // is a resolved graph now. Locking is what puts back the guarantee that
+            // cost: run `gradle --write-locks` once and commit `gradle.lockfile`, and
+            // the same build tomorrow resolves the same bytes — so a number a run
+            // produces still does not depend on what a package manager felt like
+            // today. Until that file exists this line only says it should.
             dependencyLocking { lockAllConfigurations() }
 
             // ---------------------------------------------------------------- protoc

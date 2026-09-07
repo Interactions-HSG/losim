@@ -76,18 +76,17 @@ Each of those builds the simulator first — `bin/losim` is `gradle jar` and the
 JVM — so there is no separate build step to have forgotten.
 
 ```bash your work
-J="java -cp lib/losim.jar losim.cli.Main"       # in a lab; see Quickstart
-$J run  mine.yaml --cp build/losim/classes --out build/runs/mine.json
-$J bill build/runs/mine.json
-$J diff build/runs/a.json build/runs/b.json
+./losim run  mine.yaml --cp build/losim/classes --out build/runs/mine.json
+./losim bill build/runs/mine.json
+./losim diff build/runs/a.json build/runs/b.json
 ```
 
 
 
 ```bash the servers
 # started for you on attach; this is what runs
-java -cp lib/losim.jar losim.cli.Main serve         # the lab    -> :8000
-java -cp lib/losim.jar losim.cli.Main serve docs    # the manual -> :3000
+./losim serve         # the lab    -> :8000
+./losim serve docs    # the manual -> :3000
 
 ```
 

@@ -173,7 +173,7 @@ public final class Serve {
         // button writes into it, and `--runs` has to move both or neither.
         Path where = runs == null ? base.resolve(Lab.RUNS)
                                   : Path.of(runs).toAbsolutePath().normalize();
-        Serve s = new Serve(new Lab(base, base.resolve("lib"), where), siteIn(base, site), where);
+        Serve s = new Serve(new Lab(base, where), siteIn(base, site), where);
 
         HttpServer http;
         try {
@@ -207,8 +207,9 @@ public final class Serve {
 
         java.lang.System.out.printf("losim is running on http://localhost:%d%n", port);
         if (!s.lab.isLab()) {
-            java.lang.System.out.println("  systems  none — " + base + " has no lib/losim.jar,");
-            java.lang.System.out.println("           so it is not a lab. Point --root at one.");
+            java.lang.System.out.println("  systems  none — no build here has resolved losim,");
+            java.lang.System.out.println("           so " + base + " is not a lab. Run ./losim, or");
+            java.lang.System.out.println("           point --root at a lab.");
         } else {
             java.lang.System.out.printf("  scenarios  %d in %s%n", s.lab.scenarios().size(), base);
         }

@@ -27,7 +27,7 @@ class LabTest {
     @BeforeAll
     static void build() throws Exception {
         root = Fixture.build();
-        lab = new Lab(root, root.resolve("lib"));
+        lab = new Lab(root);
     }
 
     @AfterAll
@@ -36,7 +36,7 @@ class LabTest {
     }
 
     @Test
-    @DisplayName("a lab is a directory with losim.jar in it, and nothing else makes one")
+    @DisplayName("a lab is a directory whose build resolved losim, and nothing else makes one")
     void isALab() throws Exception {
         assertTrue(lab.isLab());
 
@@ -45,7 +45,7 @@ class LabTest {
             // The comment on isLab() is explicit about why this matters: without
             // it, pointing the server at the wrong directory lists that
             // directory's own furniture as things to run.
-            assertFalse(new Lab(empty, empty.resolve("lib")).isLab());
+            assertFalse(new Lab(empty).isLab());
         } finally {
             Fixture.delete(empty);
         }
@@ -57,10 +57,11 @@ class LabTest {
         Lab.Code c = lab.code();
         assertTrue(c.started());
         assertEquals(1, c.protos().size(), "exactly lab.proto");
-        // Counter, WorkerBase, WordCountJob, NoisyJob — never lib/, scenarios/,
-        // or anything gen/ has not been asked to produce yet.
+        // Counter, WorkerBase, WordCountJob, NoisyJob — and nothing gen/ has not
+        // been asked to produce yet. Which directories the walk declines to enter
+        // is LabWalkTest's question, and it is asked there against a lab that has
+        // Java in them; a count here would pass whatever the walk did.
         assertEquals(4, c.sources().size());
-        assertTrue(c.sources().stream().noneMatch(p -> p.toString().contains("lib" + java.io.File.separator)));
     }
 
     @Test

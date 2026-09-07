@@ -28,7 +28,7 @@ class PaletteTest {
     @BeforeAll
     static void build() throws Exception {
         root = Fixture.build();
-        lab = new Lab(root, root.resolve("lib"));
+        lab = new Lab(root);
         StringBuilder log = new StringBuilder();
         Path classes = lab.compile(log::append);
         assertNotNull(classes, log::toString);

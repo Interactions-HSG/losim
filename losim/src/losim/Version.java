@@ -6,10 +6,9 @@ import java.nio.charset.StandardCharsets;
 /**
  * Which losim this is.
  *
- * <p>This exists because {@code losim update} can replace a lab's {@code lib/}
- * with a newer one: a student who runs it has to be told what they had and
- * what they now have, and a bug report from a fork made in March has to be
- * answerable without asking somebody to describe a jar.
+ * <p>This exists so that a bug report from a fork made in March is answerable
+ * without asking somebody to describe a jar. {@code losim version} prints it,
+ * and with {@code --check} compares it against the newest release.
  *
  * <p>The number lives in one file — {@code VERSION} at the root of the
  * simulator's repository — and the build copies it into the jar as a resource.

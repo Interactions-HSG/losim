@@ -40,7 +40,7 @@ public final class Experiments {
     private int failed;
 
     private Experiments(Path root) {
-        this.lab = new Lab(root, root.resolve("lib"));
+        this.lab = new Lab(root);
     }
 
     /** The project this file is in. */

@@ -72,10 +72,10 @@ public final class Bills {
     private static PriceList pricesFor(String priceFile) throws Exception {
         Path list = Path.of(priceFile);
         if (Files.exists(list)) return PriceList.load(list);
-        // No file, but this may be a region losim ships. A lab that resolves losim
-        // from Maven has no lib/prices/ to read, and billing it at the defaults
-        // because of that would answer a question about Frankfurt when somebody
-        // asked about Tokyo.
+        // No file, but this may be a region losim ships. A lab carries no copy of
+        // the price lists — it resolves losim from Maven — and billing it at the
+        // defaults because of that would answer a question about Frankfurt when
+        // somebody asked about Tokyo.
         PriceList bundled = PriceList.bundled(list.getFileName().toString());
         if (bundled != null) return bundled;
         // On stderr: a note printed onto stdout would be the first line of what

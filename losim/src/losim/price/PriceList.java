@@ -87,11 +87,11 @@ public final class PriceList {
      * The list of this name that ships inside the jar, or null if there is none.
      *
      * <p>Every list in {@code prices/} is a resource of the jar as well as a file
-     * on disk, and a lab that resolves losim from Maven has only the first: there
-     * is no {@code lib/prices/} because there is no {@code lib/}. Before this, such
-     * a lab silently billed at the built-in defaults and said so in one line on
-     * stderr — correct for Frankfurt, which is what the defaults are, and quietly
-     * wrong for anyone who asked for a different region.
+     * in this repository, and a lab has only the first — it resolves losim from
+     * Maven and carries no copy of anything losim ships. Before this, such a lab
+     * silently billed at the built-in defaults and said so in one line on stderr —
+     * correct for Frankfurt, which is what the defaults are, and quietly wrong for
+     * anyone who asked for a different region.
      *
      * <p>Looked up by name rather than by path so that {@code --prices} keeps
      * naming a file first: a list somebody wrote and put on disk is theirs, and a

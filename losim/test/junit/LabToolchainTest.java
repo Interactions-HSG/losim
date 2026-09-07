@@ -8,14 +8,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * A lab whose build declares the toolchain, rather than one losim goes looking for.
+ * A lab is a directory whose build declared what it resolved, and nothing else.
  *
- * <p>A lab that resolves losim with Gradle has no {@code lib/} and cannot sensibly
- * be given one: its jars sit in a package cache, under names the build chose. Until
- * {@link Lab#TOOLCHAIN} existed such a lab had to keep an otherwise empty
- * {@code lib/} beside it purely so that {@code isLab} and {@code cp} had something
- * to look at — a directory that existed to be found, holding a second copy of what
- * the build had already resolved and free to disagree with it.
+ * <p>A lab resolves losim with Gradle, so its jars sit in a package cache under
+ * names and versions the build chose. There is nowhere for losim to go looking,
+ * and the alternative — a committed directory of jars beside the build, holding a
+ * second copy of what the build had already resolved and free to disagree with it
+ * — is the thing {@link Lab#TOOLCHAIN} replaced.
  *
  * <p>What is asserted here is the seam itself, because the failure it prevents is
  * silent: a lab losim declines to recognise shows a student an empty console with
@@ -24,7 +23,7 @@ import org.junit.jupiter.api.io.TempDir;
 class LabToolchainTest {
 
     private static Lab at(Path root) {
-        return new Lab(root, root.resolve("lib"), root.resolve("runs"));
+        return new Lab(root, root.resolve("runs"));
     }
 
     private static void declare(Path root, String body) throws Exception {
@@ -36,7 +35,7 @@ class LabToolchainTest {
     /**
      * A path that exists, so that a declaration is one this machine could use.
      *
-     * <p>Every classpath here would otherwise name nothing real, which losim now
+     * <p>Every classpath here would otherwise name nothing real, which losim
      * reads — correctly — as a declaration copied in from somewhere else.
      */
     private static String jar(Path root, String name) throws Exception {
@@ -46,29 +45,19 @@ class LabToolchainTest {
     }
 
     @Test
-    @DisplayName("no lib/ and nothing declared is not a lab")
-    void neither(@TempDir Path root) {
+    @DisplayName("nothing declared is not a lab")
+    void nothing(@TempDir Path root) {
         assertFalse(at(root).isLab());
+        assertEquals("", at(root).cp());
     }
 
     @Test
-    @DisplayName("a declared classpath is a lab, with no lib/ anywhere")
+    @DisplayName("a declared classpath is a lab, and it is the classpath")
     void declaredIsALab(@TempDir Path root) throws Exception {
         String cp = jar(root, "losim.jar") + java.io.File.pathSeparator + jar(root, "grpc.jar");
         declare(root, "classpath=" + cp + "\n");
         assertTrue(at(root).isLab());
         assertEquals(cp, at(root).cp());
-    }
-
-    @Test
-    @DisplayName("a key left out falls back to lib/, so a container keeps its compilers")
-    void partial(@TempDir Path root) throws Exception {
-        // The case a Gradle lab in a devcontainer is actually in: the build knows
-        // the classpath, and the vendored protoc is still the right protoc.
-        String cp = jar(root, "losim.jar");
-        declare(root, "classpath=" + cp + "\n");
-        assertEquals(cp, at(root).cp());
-        assertTrue(at(root).isLab());
     }
 
     @Test
@@ -93,16 +82,11 @@ class LabToolchainTest {
         // Marking a submission means copying a working directory that has run
         // Gradle, and the file travels with it holding absolute paths from a
         // laptop. Honouring those in a container reported the candidate's code as
-        // broken while the right jars sat in lib/.
+        // broken, against jars the container had resolved perfectly well itself.
         declare(root, "classpath=/Users/someone/build/losim.jar:/Users/someone/.gradle/grpc.jar\n");
         Lab lab = at(root);
         assertFalse(lab.isLab(), "nothing on that classpath exists here");
-
-        // lib/ is what such a directory should fall back to, and does.
-        Files.createDirectories(root.resolve("lib"));
-        Files.writeString(root.resolve("lib/losim.jar"), "present");
-        assertTrue(lab.isLab());
-        assertTrue(lab.cp().contains("lib"), () -> "expected the fallback, got " + lab.cp());
+        assertEquals("", lab.cp(), "and it is not offered to javac either");
     }
 
     @Test
@@ -117,7 +101,7 @@ class LabToolchainTest {
     }
 
     @Test
-    @DisplayName("the fallback says what it disregarded, rather than working silently")
+    @DisplayName("what was disregarded is named, and so is the command that rewrites it")
     void saysWhatItIgnored(@TempDir Path root) throws Exception {
         // Two machines disagreeing about one lab, where the difference is a file one
         // of them carries, is the case silence costs: the working machine and the
@@ -126,7 +110,7 @@ class LabToolchainTest {
         String note = at(root).toolchainNote();
         assertTrue(note.contains("classpath"), () -> "the classpath is not named: " + note);
         assertTrue(note.contains("protoc"), () -> "the compiler is not named: " + note);
-        assertTrue(note.contains("lib/"), () -> "what it used instead is not named: " + note);
+        assertTrue(note.contains("./losim"), () -> "what to do about it is not named: " + note);
     }
 
     @Test
@@ -141,15 +125,13 @@ class LabToolchainTest {
     }
 
     @Test
-    @DisplayName("an unreadable toolchain is not an answer, and lib/ may still be one")
+    @DisplayName("an unreadable toolchain is not an answer, and is not an exception either")
     void unreadable(@TempDir Path root) throws Exception {
-        // A directory where the file should be: load() fails, and the fallback has
-        // to be the vendored lib/ rather than an exception out of isLab().
+        // A directory where the file should be: load() fails, and what comes back
+        // has to be "this is not a lab" rather than a stack trace out of isLab().
         Files.createDirectories(root.resolve(Lab.TOOLCHAIN));
         Lab lab = at(root);
         assertFalse(lab.isLab());
-        Files.createDirectories(root.resolve("lib"));
-        Files.writeString(root.resolve("lib/losim.jar"), "not really a jar, but present");
-        assertTrue(lab.isLab());
+        assertEquals("", lab.cp());
     }
 }

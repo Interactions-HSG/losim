@@ -1,35 +1,25 @@
-# Cutting a release: the lib/ a lab downloads, and the jar a POM points at.
+# Cutting a release: the jar a POM points at, and the jar `losim adopt` bootstraps from.
 #
 # Releasing is pushing a tag. There is no button and no version to type twice:
 # ./VERSION is the number, the tag has to agree with it, and the job stops if it
-# does not. A release whose tag says v1.2.0 while its jar says 1.0.1 would be
+# does not. A release whose tag says v1.5.0 while its jar says 1.0.1 would be
 # discovered by a student, months later, as a bug that cannot be reproduced.
 #
-#   git tag v1.2.0 && git push origin v1.2.0
+#   git tag v1.5.0 && git push origin v1.5.0
 #
 # What it publishes, and who reads it:
 #
-#   losim-lib.zip   `losim update` in a student's lab. This is the one that
-#                   matters: it is the whole of lib/, the same bytes publish.sh
-#                   writes into an assignment.
-#   losim-viewer.zip  and
-#   losim-docs.zip  the other two directories a lab carries from losim, which go
-#                   stale exactly as the jar does — a viewer fix reaches nobody
-#                   if lib/ is the only thing that can be replaced. Separate
-#                   assets because several labs can share one viewer and one
-#                   manual by symlink, so a lab must be able to take a new
-#                   simulator without rewriting its neighbours' directories.
-#                   Small, too: 320 KB and 210 KB against 23 MB.
-#   losim-tools-*   the protobuf compiler for a platform the template does not
-#                   carry. lib/ ships Linux only so a fork is not 36 MB heavier
-#                   for binaries no container can run, which left a Mac outside
-#                   a container with no compiler at all. `losim update` fetches
-#                   one of these only on a host that needs it.
-#   VERSION         a one-line asset, so `losim update --check` costs a few bytes
-#                   instead of 22 MB.
-#   the Maven tree  what a lab resolves with Gradle, pushed to the dist
-#                   repository's Pages site and attached here as
-#                   losim-maven-repo.zip.
+#   losim.jar       one asset, and the only one. A lab resolves losim from Maven
+#                   and never touches this; it is what somebody with no ./losim
+#                   yet downloads to run `java -jar losim.jar adopt .` once. The
+#                   viewer and the manual are inside it, so there is nothing
+#                   beside it to keep in step.
+#   the Maven tree  what a lab actually resolves, pushed to the maven-repo branch
+#                   and attached here as losim-maven-repo.zip.
+#
+# The tag itself is the version check: `losim version --check` does one HEAD on
+# /releases/latest and reads the tag out of the Location header. Nothing has to
+# be published for that to work, which is why no VERSION asset is cut any more.
 #
 # ## Everything here has to be readable without a token
 #
@@ -40,7 +30,7 @@
 #   **Release assets** are served anonymously only for *public* repositories. So
 #   the repository these releases land in must be public. If the simulator's own
 #   repository is not, publish to a small public one that holds releases and
-#   nothing else, and point losim/cli/Update.java's DIST at it.
+#   nothing else, and point losim/cli/Released.java's DIST at it.
 #
 #   **GitHub Packages' Maven registry is not an option at all.** It requires a
 #   token to *read*. Unlike the Container registry, which is the only one
@@ -96,8 +86,11 @@ jobs:
       # fact about the tag rather than about a branch it was once on.
       - run: bin/losim dev test
 
-      - name: build the archive
-        run: ./dist.sh
+      # The one asset. `bin/losim dev test` above has already built it; this is
+      # here so that a change to where the jar lands fails the release rather
+      # than publishing whatever was in build/ from something else.
+      - name: the jar exists
+        run: test -f build/losim.jar
 
       # The Maven layout, as files. This is the artifact students resolve, and it
       # is built before anything is pushed anywhere so a broken build file fails
@@ -167,13 +160,9 @@ jobs:
           # Re-running a release must not fail on "already exists": the assets are
           # replaced, so a botched release can be fixed by re-running the job.
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" build/losim-lib.zip build/losim-viewer.zip \
-                              build/losim-docs.zip build/losim-tools-*.zip \
-                              build/VERSION build/losim-maven-repo.zip --clobber
+            gh release upload "$TAG" build/losim.jar build/losim-maven-repo.zip --clobber
           else
-            gh release create "$TAG" build/losim-lib.zip build/losim-viewer.zip \
-              build/losim-docs.zip build/losim-tools-*.zip \
-              build/VERSION build/losim-maven-repo.zip \
+            gh release create "$TAG" build/losim.jar build/losim-maven-repo.zip \
               --title "losim $V" \
-              --notes "\`losim update\` in any lab picks this up: lib/, and viewer/ and docs/ where the lab owns them."
+              --notes "A lab takes this by changing losimVersion in its build.gradle.kts to $V. With no losim yet: download losim.jar and run \`java -jar losim.jar adopt .\`"
           fi

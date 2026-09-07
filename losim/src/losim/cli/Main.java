@@ -79,11 +79,8 @@ public final class Main {
                                Integer.parseInt(option(args, "--port", "3000")),
                                option(args, "--host", host()));
         }
-        if (args.length > 0 && args[0].equals("update")) {
-            return Update.run(Path.of(option(args, "--root", ".")),
-                              option(args, "--from", null),
-                              option(args, "--to", null),
-                              flag(args, "--check"));
+        if (args.length > 0 && args[0].equals("version")) {
+            return Released.main(args);
         }
         if (args.length > 0 && args[0].equals("adopt")) {
             return Adopt.main(args);
@@ -98,7 +95,7 @@ public final class Main {
             // anything. What the arrow in the lab does before it starts a run,
             // as a command, for whoever wants the compiler's answer and no more.
             Path base = Path.of(option(args, "--root", ".")).toAbsolutePath().normalize();
-            Path classes = new Lab(base, base.resolve("lib")).compile(System.out::print);
+            Path classes = new Lab(base).compile(System.out::print);
             if (classes == null) return 1;
             System.out.println("compiled -> " + base.relativize(classes));
             return 0;
@@ -167,12 +164,12 @@ public final class Main {
                   have to agree; measurements are printed rather than judged, because
                   runs are not reproducible and hosts are not identical.
 
-                       losim update [--check] [--root .]
+                       losim version [--check]
 
-                  Replace this lab's lib/ with the newest one the course published.
-                  The only command here that touches the network, and it only does so
-                  when you type it — lib/ is committed, so a lab that is never updated
-                  keeps working exactly as it did. Commit what it writes.
+                  Which losim this is. With --check, whether a newer one has been
+                  released — the only command here that touches the network, and it
+                  only does so when you type it. Updating is then one line in
+                  build.gradle.kts, because that is where the version lives.
 
                        losim bill <trace.json> [--prices <file>] [--json]
 

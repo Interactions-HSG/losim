@@ -2,10 +2,134 @@
 
 What changed between releases, for somebody deciding whether to take one.
 
-A version is what `losim update` compares against and what a lab resolves from
-Gradle, so it is a fact about a jar rather than about a branch. Every release is
-cut from a tag whose name and `./VERSION` are checked against each other before
-anything is built.
+A version is what a lab resolves from Gradle, so it is a fact about a jar rather
+than about a branch. Every release is cut from a tag whose name and `./VERSION`
+are checked against each other before anything is built.
+
+## 1.5.0
+
+**Every lab with a committed `lib/` breaks, and this is how to fix one.** losim is
+a Maven artifact and a CLI now. The jars, the trace viewer and this manual are one
+dependency, and nothing is copied into a repository any more.
+
+```kotlin
+repositories {
+    mavenCentral()
+    maven { url = uri("https://raw.githubusercontent.com/Interactions-HSG/losim/maven-repo/") }
+}
+dependencies { implementation("io.github.interactions-hsg:losim:1.5.0") }
+```
+
+### Convert a lab
+
+```bash
+java -jar losim.jar adopt .     # losim.jar from the release below
+```
+
+It writes `build.gradle.kts`, `./losim` and `AGENTS.md`, appends three lines to
+`.gitignore`, and takes `lib/`, `viewer/` and `docs/` out of the index with
+`git rm --cached` — **out of the index, not off the disk**. Every byte is still
+there afterwards, so the conversion is one commit to revert.
+
+By hand it is the block above plus the `losimToolchain` task, which is twenty
+lines: [./losim and the toolchain file ->](/ref/cli-losim).
+
+Then one edit to your Java, and it is a deletion: **every `@Takes` comes off, and
+its numbers go into the scenario** — see below. Nothing else in a `.java` moves,
+no `.proto` changes, and no scenario is rewritten apart from gaining that block.
+The scenario grammar, the trace format, the Java API and every number a run
+produces are what they were.
+
+### Where the viewer and the manual went
+
+Into the jar. `losim serve` and `losim serve docs` serve them from the classpath, so
+a lab with nothing in it but a `build.gradle.kts` and a `src/` still opens both. A
+`viewer/` on disk still wins if there is one, which is how this repository serves
+its own.
+
+That is also why there is no more `losim update`. It existed to replace three
+directories a lab carried; a lab carries none of them.
+
+```bash
+./losim version --check     # is there a newer one?
+```
+
+One `HEAD` on the releases page and no token. Updating is then `losimVersion` in
+`build.gradle.kts`, and nothing else moves.
+
+### `@Takes` is gone, and its numbers are in the scenario
+
+The annotation was the last losim symbol in a student's Java. Delete losim from the
+classpath now and **nothing** stops compiling — which is the promise to make to
+somebody who arrives with a working gRPC system.
+
+```yaml
+takes:
+  Mapper:  { Map: { refMs: 20 }, Note: { refMs: 1 } }
+  Reducer: { Map: { refMs: 8 } }
+```
+
+Keyed by the class `runs:` names rather than by the rpc, because two implementations
+of one rpc in one fleet must be able to cost different amounts — comparing two
+implementations is what the course is for. A key naming a method no placed service
+serves is refused with the line it is on, so a renamed rpc stops the scenario
+loading instead of silently costing nothing.
+
+Every scenario in this repository carries the block, generated from the annotations
+by reflection rather than transcribed, and the reference suite's numbers did not
+move.
+
+**In an existing lab this is the one thing you have to do by hand.** `losim.api.Takes`
+no longer exists, so a handler that imports it does not compile: delete the import
+and every `@Takes`, and put the same numbers under the class that serves the rpc in
+each scenario that places it. A fleet that declares no cost anywhere is not refused
+— it gets a note saying it is instant, which is what an unannotated handler always
+was.
+
+### A scenario that used to load can now be refused
+
+One change here can refuse a scenario that worked before, and it is deliberate.
+
+A **streaming** rpc, and an rpc whose marshaller is not protobuf, are refused when
+the fleet starts, naming the method and the line the `runs:` was written on. Both
+produce a number that looks right and is wrong: the per-record cost is slept once
+per response message rather than once, and `Wire.sizeOf` returns 0 for a
+non-`Message`, so every call is free on the wire and the bill silently undercounts
+to zero. A wrong number that looks right is the one thing losim exists not to
+produce.
+
+Nothing in this repository declared a `stream`, so nothing here changed.
+
+### What else went
+
+| gone | what does it now |
+|---|---|
+| `losim update` | `./losim version --check`, then one line in the build file |
+| `publish.sh`, `dist.sh` | a Maven coordinate |
+| `lib/`, and `Lab`'s fallback to it | `build/losim-toolchain.properties`, which the build writes |
+| `build.sh` and ten more scripts | `losim` verbs; `losim dev …` for the maintainer ones |
+| the release zips | one asset, `losim.jar`, for the `adopt` bootstrap |
+
+`build/classes` moved to `build/losim/classes`. Gradle's java plugin writes
+`build/classes/java/main`, and losim wiped that directory before every run — so a
+lab that is a Gradle project was deleting its own build output, and its editor's,
+on every press of the arrow.
+
+### D10, for a lab
+
+A lab's classpath used to be jars committed to its repository, and now it is a
+resolved graph. losim's own build still resolves nothing to compile the simulator,
+so the rule survives where it was written — but a lab's classpath does not, and
+that is worth saying rather than discovering.
+
+The build `adopt` writes declares `dependencyLocking`. That declaration is inert
+on its own: run it once, and commit what it writes.
+
+```bash
+gradle --write-locks     # then commit gradle.lockfile
+```
+
+A lab also needs the network once, where before it needed it never.
 
 ## 1.2.0
 

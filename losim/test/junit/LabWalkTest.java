@@ -25,16 +25,16 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class LabWalkTest {
 
-    /** A lab, by declaring a toolchain — no lib/ needed to answer this question. */
+    /** A lab, which is to say a directory whose build declared what it resolved. */
     private static Lab labAt(Path root) throws Exception {
         Path toolchain = root.resolve(Lab.TOOLCHAIN);
         Files.createDirectories(toolchain.getParent());
         // A real file: a declared classpath none of whose entries exist here is
-        // somebody else's, and losim now falls back to lib/ rather than honouring it.
+        // somebody else's, and such a directory is not a lab at all.
         Path jar = root.resolve("fake-losim.jar");
         Files.writeString(jar, "stands in for the jar");
         Files.writeString(toolchain, "classpath=" + jar + "\n");
-        return new Lab(root, root.resolve("lib"), root.resolve("runs"));
+        return new Lab(root, root.resolve("runs"));
     }
 
     private static void java(Path root, String rel) throws Exception {

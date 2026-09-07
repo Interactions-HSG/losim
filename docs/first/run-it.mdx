@@ -54,8 +54,8 @@ want the files. `runAll()` runs every scenario in the project, one after another
 ## Work done on your behalf
 
 Nothing here is hidden, and none of it is yours to type. Per system: `protoc` with the
-vendored plugin, then `javac` against `lib/losim.jar` and the vendored gRPC, then the
-run itself in **its own JVM**, then the bill.
+gRPC plugin, then `javac` against the classpath your build resolved, then the run
+itself in **its own JVM**, then the bill.
 
 Generated code lands in `<system>/gen/` — inside the system rather than under
 `build/`, so your editor resolves it and completion works with nothing configured. It

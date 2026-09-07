@@ -34,6 +34,20 @@ import java.util.Map;
  * account of every Java edit still needed. The account is not advice:
  * {@code losim check} re-runs the same detector, so what is left is a command
  * rather than a memory of a terminal that has scrolled away.
+ *
+ * <h2>The other shape: a lab with a committed {@code lib/}</h2>
+ *
+ * <p>Labs from before 1.5.0 carry the simulator as jars in {@code lib/}, and the
+ * viewer and the manual as directories beside them. Those are the same 23 MB the
+ * jar now holds, and losim no longer reads any of it. Such a repository is already
+ * the right shape — {@code proto/}, {@code src/}, {@code scenarios/} — so nothing
+ * moves and no scenario is rewritten: the build file is written, and {@code lib/},
+ * {@code viewer/} and {@code docs/} are untracked and ignored.
+ *
+ * <p><b>Untracked, not deleted.</b> {@code git rm --cached} takes them out of the
+ * index and leaves every byte on disk, so the conversion is one commit to revert
+ * and nothing of anybody's is destroyed by a command they ran to find out what it
+ * would do.
  */
 public final class Adopt {
     private Adopt() {}
@@ -50,6 +64,11 @@ public final class Adopt {
         }
         System.out.println("losim adopt — reading " + short_(root, root) + " as a gRPC project");
         System.out.println();
+
+        // A lab from before 1.5.0: the simulator committed as jars. It is already
+        // the shape losim runs, so this converts what it carries rather than where
+        // its code is.
+        boolean vendored = Files.isRegularFile(root.resolve("lib/losim.jar"));
 
         Shape shape = Shape.of(root);
         if (shape.protos().isEmpty() && shape.services().isEmpty()) {
@@ -85,8 +104,8 @@ public final class Adopt {
             return 2;
         }
 
-        found(shape, root);
-        Plan plan = plan(shape, root, force);
+        found(shape, root, vendored);
+        Plan plan = plan(shape, root, vendored);
         plan.print(root);
         plan.apply(root);
 
@@ -94,14 +113,14 @@ public final class Adopt {
         // `src/main/java/…` after `src/main/java/` is gone sends somebody to a path
         // that no longer exists, and AGENTS.md would keep sending them there.
         Shape moved = Shape.of(root);
-        write(moved, root, force);
-        report(moved, root);
+        write(moved, root, force, vendored);
+        report(moved, root, vendored);
         return 0;
     }
 
     // --------------------------------------------------------------------- found
 
-    private static void found(Shape shape, Path root) {
+    private static void found(Shape shape, Path root, boolean vendored) {
         var lines = new LinkedHashMap<String, String>();
         if (!shape.buildFile().isEmpty()) {
             var bits = new ArrayList<String>();
@@ -124,7 +143,11 @@ public final class Adopt {
             System.out.printf("    %-" + width + "s   %s%n", e.getKey(), e.getValue());
         }
         System.out.println();
-        System.out.println("""
+        System.out.println(vendored ? """
+              This lab carries the simulator as committed jars. All of it — the jars, the
+              viewer and the manual — is inside one artifact now, which a build resolves.
+              Your code is already where losim looks for it, so nothing here moves."""
+            : """
               This is a program that talks to itself over a real socket. losim runs the same
               handlers on many machines over a simulated network, so the socket, the port and
               the shutdown hook all go — and the handlers do not.""");
@@ -134,12 +157,20 @@ public final class Adopt {
     // ---------------------------------------------------------------------- plan
 
     /** What is about to happen, so it can be printed before it does. */
-    private record Plan(List<String[]> moves, Map<String, String> writes, List<String> kept) {
+    private record Plan(List<String[]> moves, Map<String, String> writes,
+                        List<String> untracked, List<String> kept) {
 
         void print(Path root) {
             if (!moves.isEmpty()) {
                 System.out.println("  moving        git mv, so your history follows");
                 for (String[] m : moves) System.out.printf("    %-16s ->  %s%n", m[0], m[1]);
+                System.out.println();
+            }
+            if (!untracked.isEmpty()) {
+                System.out.println("  untracking    git rm --cached: out of the index, still on disk");
+                for (String d : untracked) {
+                    System.out.printf("    %-16s %s%n", d + "/", size(root.resolve(d)));
+                }
                 System.out.println();
             }
             System.out.println("  writing");
@@ -154,21 +185,36 @@ public final class Adopt {
 
         void apply(Path root) throws Exception {
             for (String[] m : moves) move(root, m[0], m[1]);
+            for (String d : untracked) untrack(root, d);
         }
     }
 
-    private static Plan plan(Shape shape, Path root, boolean force) throws IOException {
+    private static Plan plan(Shape shape, Path root, boolean vendored) throws IOException {
         var moves = new ArrayList<String[]>();
-        if (Files.isDirectory(root.resolve("src/main/proto"))) moves.add(new String[]{"src/main/proto/", "proto/"});
-        if (Files.isDirectory(root.resolve("src/main/java"))) moves.add(new String[]{"src/main/java/", "src/"});
+        if (!vendored) {
+            if (Files.isDirectory(root.resolve("src/main/proto"))) moves.add(new String[]{"src/main/proto/", "proto/"});
+            if (Files.isDirectory(root.resolve("src/main/java"))) moves.add(new String[]{"src/main/java/", "src/"});
+        }
 
         var writes = new LinkedHashMap<String, String>();
         writes.put("build.gradle.kts", "losim " + Scaffold.version()
                 + ", protoc, and the toolchain task");
         writes.put("losim", "the launcher: it builds, then runs");
         writes.put("AGENTS.md", "what is left, for your agent");
-        writes.put("scenarios/1-one-call.yaml", "two machines and one call");
-        writes.put(".gitignore", "+= gen/ build/");
+        // A lab from before 1.5.0 has scenarios of its own, and a first scenario
+        // written into it would be a file nobody asked for beside the ones they wrote.
+        if (!vendored) writes.put("scenarios/1-one-call.yaml", "two machines and one call");
+        writes.put(".gitignore", "+= gen/ build/" + (vendored ? " lib/ viewer/ docs/" : ""));
+
+        var untracked = new ArrayList<String>();
+        if (vendored) {
+            untracked.add("lib");
+            // Only losim's own copies. A `docs/` somebody wrote is theirs, and a
+            // `viewer/` that is not the export is not losim's to take out of a
+            // repository — so each is identified by the file losim put in it.
+            if (Files.isRegularFile(root.resolve("viewer/index.html"))) untracked.add("viewer");
+            if (Files.isRegularFile(root.resolve("docs/docs.json"))) untracked.add("docs");
+        }
 
         var kept = new ArrayList<String>();
         if (Files.isRegularFile(root.resolve("build.gradle"))) {
@@ -178,7 +224,7 @@ public final class Adopt {
             kept.add("grpc-netty-shaded is not carried over: there is no socket transport in");
             kept.add("a simulated network, and nothing on the lab classpath provides one");
         }
-        return new Plan(moves, writes, kept);
+        return new Plan(moves, writes, untracked, kept);
     }
 
     /**
@@ -188,12 +234,13 @@ public final class Adopt {
      * <p>Written unless one is there already, which is the difference between
      * adopting a project twice and losing what somebody wrote the first time.
      */
-    private static void write(Shape shape, Path root, boolean force) throws IOException {
+    private static void write(Shape shape, Path root, boolean force, boolean vendored)
+            throws IOException {
         put(root, "build.gradle.kts",
                 Scaffold.build(shape.grpcVersion(), shape.protobufVersion()), force);
         put(root, "losim", Scaffold.launcher(), force);
         put(root, "AGENTS.md", Agents.forProject(shape, root), force);
-        put(root, "scenarios/1-one-call.yaml", firstScenario(shape), force);
+        if (!vendored) put(root, "scenarios/1-one-call.yaml", firstScenario(shape), force);
 
         // Appended rather than written: a project's own ignore file is its own.
         Path ignore = root.resolve(".gitignore");
@@ -201,6 +248,20 @@ public final class Adopt {
         if (!have.contains("gen/")) {
             Files.writeString(ignore, have + (have.endsWith("\n") || have.isEmpty() ? "" : "\n")
                     + "\n" + Scaffold.gitignore());
+            have = Files.readString(ignore);
+        }
+        // The three directories that were just untracked, so that `git status` after
+        // this is the conversion and not 900 deleted files.
+        if (vendored) {
+            var add = new StringBuilder();
+            for (String d : new String[]{"lib/", "viewer/", "docs/"}) {
+                if (!have.contains(d)) add.append(d).append('\n');
+            }
+            if (!add.isEmpty()) {
+                Files.writeString(ignore, have + (have.endsWith("\n") ? "" : "\n")
+                        + "\n# What losim used to be copied into a lab as. It is one\n"
+                        + "# dependency now, and all of this is inside it.\n" + add);
+            }
         }
         // Gradle refuses a project with two build files, and the old one is the
         // record of what this project was. Aside, not away.
@@ -249,8 +310,11 @@ public final class Adopt {
      * this is the part somebody reads — and it is {@link Check}'s renderer, so
      * that "what is left" and "what was left" cannot come to differ.
      */
-    private static void report(Shape shape, Path root) {
-        System.out.println("""
+    private static void report(Shape shape, Path root, boolean vendored) {
+        System.out.println(vendored ? """
+              No .java was touched and no scenario rewritten. What is left is yours —
+              AGENTS.md has all of it, in the same classes, so your agent can work from it:"""
+            : """
               Nothing inside a .java was touched. What is left is yours — AGENTS.md has all of
               it, in the same classes, so your agent can work from it:""");
         System.out.println();
@@ -258,9 +322,11 @@ public final class Adopt {
         System.out.println();
         System.out.println("""
               next
-                ./losim build     generate, compile, and say what is wrong
-                ./losim check     re-run these findings without running anything
-                ./losim serve     the lab, on :8000""");
+                ./losim build          generate, compile, and say what is wrong
+                ./losim check          re-run these findings without running anything
+                ./losim serve          the lab, on :8000
+                gradle --write-locks   once, then commit gradle.lockfile — your
+                                       classpath is resolved now, and this pins it""");
     }
 
     // ------------------------------------------------------------------- helpers
@@ -306,6 +372,34 @@ public final class Adopt {
             System.out.println("    (moved " + root.relativize(source)
                     + " without git; history will not follow)");
         }
+    }
+
+    /**
+     * A directory out of the index, with every byte of it left on disk.
+     *
+     * <p>{@code --cached} on purpose. What is being removed is 23 MB of a
+     * simulator somebody may well want to look at, or to go back to; a command
+     * that deleted it would be a command nobody could safely run to find out what
+     * it does.
+     */
+    private static void untrack(Path root, String dir) throws Exception {
+        int code = new ProcessBuilder("git", "rm", "-r", "--cached", "-q", dir)
+                .directory(root.toFile()).redirectErrorStream(true)
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD).start().waitFor();
+        if (code != 0) {
+            System.out.println("    (" + dir + "/ is not tracked here; left alone)");
+        }
+    }
+
+    /** Roughly how much is in a directory, for a line that says what is being moved out. */
+    private static String size(Path dir) {
+        long bytes = 0;
+        try (var walk = Files.walk(dir)) {
+            for (Path p : walk.toList()) if (Files.isRegularFile(p)) bytes += Files.size(p);
+        } catch (IOException e) {
+            return "";
+        }
+        return bytes >= 1 << 20 ? (bytes >> 20) + " MB" : Math.max(1, bytes >> 10) + " KB";
     }
 
     /** Deletes what is left of a moved-out-of directory, while it is empty. */

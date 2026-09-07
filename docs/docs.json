@@ -83,7 +83,8 @@
               "ref/cli-run",
               "ref/cli-bill",
               "ref/cli-diff",
-              "ref/cli-adopt"
+              "ref/cli-adopt",
+       "ref/cli-losim"
             ]
           },
           {

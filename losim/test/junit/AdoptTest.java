@@ -3,6 +3,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import losim.cli.Adopt;
 import losim.cli.Shape;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -19,6 +20,11 @@ import org.junit.jupiter.api.io.TempDir;
  * handler must come back as something that makes a number wrong; a shutdown hook
  * must come back as dead. Those two being the same class is the failure this
  * exists to catch, because the whole report is built on their being different.
+ *
+ * <p>The last case is the other shape entirely: a lab from before 1.5.0, carrying
+ * the simulator as committed jars. What it asserts is that the jars are still on
+ * disk afterwards — a conversion that deleted them would be one nobody could
+ * safely run to find out what it does.
  */
 class AdoptTest {
 
@@ -101,5 +107,47 @@ class AdoptTest {
         Shape s = Shape.of(empty);
         assertTrue(s.rpcs().isEmpty());
         assertTrue(s.services().isEmpty());
+    }
+
+    @Test
+    @DisplayName("a lab with a committed lib/ keeps every byte of it, out of the index")
+    void vendored(@TempDir Path root) throws Exception {
+        Files.createDirectories(root.resolve("lib"));
+        Files.createDirectories(root.resolve("proto"));
+        Files.createDirectories(root.resolve("scenarios"));
+        Files.writeString(root.resolve("lib/losim.jar"), "stands in for the simulator");
+        Files.writeString(root.resolve("proto/lab.proto"), """
+                syntax = "proto3";
+                package lab;
+                message Chunk { string text = 1; }
+                service Worker { rpc Map (Chunk) returns (Chunk); }
+                """);
+        Files.writeString(root.resolve("scenarios/mine.yaml"), "job: Mine\n");
+        git(root, "init", "-q");
+        git(root, "add", "-A");
+        git(root, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "a lab as it was");
+
+        assertEquals(0, Adopt.main(new String[]{"adopt", root.toString()}));
+
+        assertTrue(Files.isRegularFile(root.resolve("lib/losim.jar")),
+                "the jars are untracked, never deleted");
+        assertFalse(git(root, "ls-files", "lib").contains("losim.jar"),
+                "and they are out of the index, or the next commit carries them again");
+        assertTrue(Files.isRegularFile(root.resolve("build.gradle.kts")));
+        assertTrue(Files.readString(root.resolve(".gitignore")).contains("lib/"));
+        // A lab has scenarios of its own. Writing a first one into it would be a
+        // file nobody asked for, beside the ones they wrote.
+        assertFalse(Files.exists(root.resolve("scenarios/1-one-call.yaml")));
+        assertEquals("job: Mine\n", Files.readString(root.resolve("scenarios/mine.yaml")));
+    }
+
+    private static String git(Path root, String... argv) throws Exception {
+        var command = new java.util.ArrayList<String>(List.of("git"));
+        command.addAll(List.of(argv));
+        Process p = new ProcessBuilder(command).directory(root.toFile())
+                .redirectErrorStream(true).start();
+        String out = new String(p.getInputStream().readAllBytes());
+        p.waitFor();
+        return out;
     }
 }

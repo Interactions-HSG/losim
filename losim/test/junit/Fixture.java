@@ -45,37 +45,12 @@ final class Fixture {
      */
     static Path build() throws IOException {
         Path root = Files.createTempDirectory(Path.of("build"), "test-lab-");
-        Path lib = root.resolve("lib");
-        Files.createDirectories(lib.resolve("jars"));
-        Files.createDirectories(lib.resolve("bin"));
-        Files.createDirectories(lib.resolve("prices"));
 
         Path jar = Path.of("build/losim.jar");
         if (!Files.isRegularFile(jar)) {
             throw new IOException("no build/losim.jar — run `gradle jar` first");
         }
-        copy(jar, lib.resolve("losim.jar"));
-
-        try (Stream<Path> s = Files.list(Path.of("vendor/jars"))) {
-            for (Path p : s.toList()) {
-                if (p.getFileName().toString().endsWith(".jar")) copy(p, lib.resolve("jars").resolve(p.getFileName()));
-            }
-        }
-
-        String platform = losim.cli.Lab.platform();
-        for (String bin : new String[] {"protoc-" + platform, "protoc-gen-grpc-java-" + platform}) {
-            Path from = Path.of("vendor/bin", bin);
-            if (!Files.isExecutable(from)) continue;   // an unsupported platform: run() will say so itself
-            Path to = lib.resolve("bin").resolve(bin);
-            copy(from, to);
-            to.toFile().setExecutable(true);
-        }
-
-        // Deliberately no price list: `Bills` prints "no price list… using the
-        // built-in defaults" to stderr exactly when one is missing, and stdout
-        // and stderr are kept apart precisely so that line can never land inside
-        // `.bill.json` and break its JSON. A fixture that shipped a price list
-        // would never say it.
+        toolchain(root, jar);
 
         Files.createDirectories(root.resolve("proto"));
         copy(Path.of("losim/test/proto/lab.proto"), root.resolve("proto/lab.proto"));
@@ -103,6 +78,45 @@ final class Fixture {
         Files.writeString(root.resolve("scenarios/main.yaml"), SCENARIO);
 
         return root;
+    }
+
+    /**
+     * The one file losim reads to find its toolchain, written the way a lab's
+     * build writes it.
+     *
+     * <p>Pointed straight at this repository's vendored jars and binaries rather
+     * than at copies of them. A copy would be a second set of bytes to keep in
+     * step with the first, and the file names absolute paths in either case — so
+     * copying buys a fixture that can disagree with the build it was made from.
+     *
+     * <p>Deliberately no price list anywhere: {@code Bills} prints "no price
+     * list… using the built-in defaults" to stderr exactly when one is missing,
+     * and stdout and stderr are kept apart precisely so that line can never land
+     * inside {@code .bill.json} and break its JSON. A fixture that shipped a
+     * price list would never say it.
+     */
+    private static void toolchain(Path root, Path jar) throws IOException {
+        var cp = new StringBuilder(jar.toAbsolutePath().toString());
+        try (Stream<Path> s = Files.list(Path.of("vendor/jars"))) {
+            for (Path p : s.sorted().toList()) {
+                if (p.getFileName().toString().endsWith(".jar")) {
+                    cp.append(java.io.File.pathSeparator).append(p.toAbsolutePath());
+                }
+            }
+        }
+        var said = new StringBuilder("losim=" + losim.Version.get() + "\n");
+        said.append("classpath=").append(cp).append('\n');
+        String platform = losim.cli.Lab.platform();
+        for (String tool : new String[] {"protoc", "protoc-gen-grpc-java"}) {
+            Path from = Path.of("vendor/bin", tool + "-" + platform);
+            // An unsupported platform: `run` says so itself, and says it before it
+            // deletes anything, which is the behaviour worth having a fixture for.
+            if (!Files.isExecutable(from)) continue;
+            said.append(tool).append('=').append(from.toAbsolutePath()).append('\n');
+        }
+        Path file = root.resolve(losim.cli.Lab.TOOLCHAIN);
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, said.toString());
     }
 
     /** Where `NoisyJob`'s static initializer would leave evidence, if it ran. */

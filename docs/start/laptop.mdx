@@ -59,6 +59,7 @@ rung by adding one to the probe ladder.
 ## Editor setup
 
 The repository ships `.vscode/settings.json` pointing the Java extension at
-`vendor/jars/*.jar`, so imports resolve without a build system. Any editor works —
-there is no Maven or Gradle file to import, on purpose: the build is fifteen lines
-of `javac` and you can read all of it.
+`vendor/jars/*.jar`, so imports resolve before anything has been built. Any editor
+works: `build.gradle.kts` is the build, and it resolves nothing to compile the
+simulator — the compile classpath is those committed jars, which is what keeps a
+number a run produces independent of what a package manager felt like today.
