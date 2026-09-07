@@ -110,7 +110,7 @@ public final class Draft {
      * control would be a form where the heading can be edited into naming
      * nothing.
      */
-    public record Takes(String runs, String rpc, double refMs, double refNsPerRecord) {}
+    public record Takes(String runs, String rpc, double refMs, double refNsPerUnit) {}
 
     public record Of(String name, String job, long seed, double scale,
                       boolean tightMargin, String mode,
@@ -274,7 +274,7 @@ public final class Draft {
             for (var rpc : runs.getValue().map().entrySet()) {
                 Node body = rpc.getValue();
                 takes.add(new Takes(runs.getKey(), rpc.getKey(),
-                        body.opt("refMs").num(0), body.opt("refNsPerRecord").num(0)));
+                        body.opt("refMs").num(0), body.opt("refNsPerUnit").num(0)));
             }
         }
 

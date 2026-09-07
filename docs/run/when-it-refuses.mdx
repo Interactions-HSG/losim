@@ -20,8 +20,8 @@ The run still happens and everything else is still projected.
 <AccordionGroup>
   <Accordion title="the ladder bends" icon="stairs" defaultOpen>
     ```
-    diskMb  REFUSED: the ladder bends: over the lower half it grows as records^0.59
-    and over the upper half as records^0.87, a difference of 0.28. Something behaves
+    diskMb  REFUSED: the ladder bends: over the lower half it grows as units^0.59
+    and over the upper half as units^0.87, a difference of 0.28. Something behaves
     differently small than large — a threshold, a different code path, or a
     granularity that only shows up when the pieces are few — and no extrapolation
     across that means anything. R2 over the whole ladder is still 0.883, which is
@@ -82,7 +82,7 @@ The run still happens and everything else is still projected.
     ```
 
     No candidate variable moved. The usual cause is a job that ignores
-    `cluster.records()` and does a fixed amount of work regardless — so the whole
+    `cluster.units()` and does a fixed amount of work regardless — so the whole
     probe ladder measured the same thing four times.
     [Writing to scale ->](/write/writing-to-scale)
   </Accordion>
@@ -95,7 +95,7 @@ Nothing runs and nothing is projected.
 <AccordionGroup>
   <Accordion title="the variable part does not dominate the fixed overhead" icon="weight-hanging">
     ```
-    memoryMb at 8000 records is only 2.4x its own fixed overhead (0.31 against
+    memoryMb at 8000 units is only 2.4x its own fixed overhead (0.31 against
     0.13); below 10x the fit is describing the overhead rather than the workload
     ```
 
@@ -111,7 +111,7 @@ Nothing runs and nothing is projected.
 
   <Accordion title="the fleet would not fit this host" icon="server">
     ```
-    at 8000 records the fleet would hold 4200 MB, and this host offers 1843 MB to
+    at 8000 units the fleet would hold 4200 MB, and this host offers 1843 MB to
     work in — the run does not fit the laptop it is meant to fit on
     ```
 

@@ -162,7 +162,7 @@ public enum Rule {
      * <p>losim is on both sides of every call as gRPC's own interceptors: that is
      * where latency, loss, partitions, cost, spans and byte counts come from. A
      * channel built by hand has none of them attached, so the call happens and
-     * nothing in the trace records that it did.
+     * nothing in the trace units that it did.
      */
     OWN_CHANNEL(Flag.WIRE, "builds its own channel or server, which no interceptor is"
             + " attached to", List.of(

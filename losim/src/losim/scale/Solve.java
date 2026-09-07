@@ -28,7 +28,7 @@ public final class Solve {
     static final double HOST_HEAP_SHARE = 0.6;
 
     public static ScalePlan of(Scenario s, Grid grid, Laws laws) {
-        long full = s.records();
+        long full = s.units();
         var notes = new ArrayList<>(grid.notes());
         var rungs = grid.dataLadder().stream().map(Probe::medianOf).toList();
 
@@ -38,7 +38,7 @@ public final class Solve {
         Long chosen = null;
         String infeasible = null;
         for (int i = rungs.size() - 1; i >= 0; i--) {
-            long n = rungs.get(i).variables().getOrDefault("records", 0.0).longValue();
+            long n = rungs.get(i).variables().getOrDefault("units", 0.0).longValue();
             String why = whyNot(n, s, laws, grid);
             if (why == null) { chosen = n; break; }
             infeasible = why;
@@ -81,7 +81,7 @@ public final class Solve {
             if (law == null) continue;
             double variable = laws.variablePart(resource, n);
             if (law.fixed() > 0 && variable < law.fixed() * VARIABLE_MUST_DOMINATE)
-                return String.format("%s at %d records is only %.1fx its own fixed overhead"
+                return String.format("%s at %d units is only %.1fx its own fixed overhead"
                         + " (%.3f against %.3f); below %.0fx the fit is describing the overhead"
                         + " rather than the workload", resource, n, variable / law.fixed(),
                         variable, law.fixed(), VARIABLE_MUST_DOMINATE);
@@ -90,7 +90,7 @@ public final class Solve {
         double demand = laws.project(Probe.MEMORY, n).orElse(0)
                 * Math.max(1, s.machines().size() - 1);
         if (demand > heapMb)
-            return String.format("at %d records the fleet would hold %.0f MB, and this host"
+            return String.format("at %d units the fleet would hold %.0f MB, and this host"
                     + " offers %.0f MB to work in — the run does not fit the laptop it is"
                     + " meant to fit on", n, demand, heapMb);
         return null;

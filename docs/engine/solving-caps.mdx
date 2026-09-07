@@ -43,7 +43,7 @@ and the run size is 8,000 records against a full scale of 40,000,000.
 
 <Steps>
   <Step title="Project the variable at both scales">
-    `distinctItems` is itself a law of records, so evaluate it at 8,000 and at
+    `distinctItems` is itself a law of units, so evaluate it at 8,000 and at
     40,000,000, then take the variable part of memory at each.
   </Step>
   <Step title="Take the ratio">
@@ -77,7 +77,7 @@ If no rung satisfies both, the engine names the resource and stops.
 ## The caps your job sees
 
 ```java
-cluster.records();                       // the size the engine chose
+cluster.units();                       // the size the engine chose
 Losim.current().here().memoryCapMb();    // the cap this machine is under NOW
 ```
 

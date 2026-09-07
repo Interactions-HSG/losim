@@ -23,7 +23,7 @@ public final class Counter extends WorkerBase {
     @Override protected Counts map(Chunk c) {
         var out = new HashMap<String, Integer>();
         for (String word : c.getText().split("\\s+")) out.merge(word, 1, Integer::sum);
-        Losim.current().records(c.getLines());
+        Losim.current().units(c.getLines());
         Losim.current().reveal("keys", out.size());
         return Counts.newBuilder().putAllCounts(out).build();
     }

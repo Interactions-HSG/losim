@@ -7,7 +7,7 @@ icon: "stopwatch"
 ```yaml
 takes:
   Shrinker:
-    Thumbnail: { refMs: 3, refNsPerRecord: 240000 }
+    Thumbnail: { refMs: 3, refNsPerUnit: 240000 }
 ```
 
 **In the scenario, not in the handler.** A duration is a claim about the machine a
@@ -63,10 +63,10 @@ it lands on and however compressed the run is.
   thread. Marshalling, setup, a lookup: the cost of being called at all.
 </ParamField>
 
-<ParamField path="refNsPerRecord" type="double" default="0">
+<ParamField path="refNsPerUnit" type="double" default="0">
   What each unit of input adds, in reference **nanoseconds**. Nothing outside the
   handler can know how much input there was, so the handler declares it with
-  `Losim.current().records(n)` and this part is slept **after the body returns**,
+  `Losim.current().units(n)` and this part is slept **after the body returns**,
   before the response leaves.
 
   Slept before the response leaves rather than after, because a caller waits for
@@ -75,8 +75,8 @@ it lands on and however compressed the run is.
 </ParamField>
 
 <Warning>
-A handler that never calls `records(n)` is charged the **fixed part only**, and its
-span says so. If your per-record term looks like it is doing nothing, that is
+A handler that never calls `units(n)` is charged the **fixed part only**, and its
+span says so. If your per-unit term looks like it is doing nothing, that is
 almost always why.
 </Warning>
 
@@ -130,7 +130,7 @@ machines:
 
 takes:
   Shrinker:
-    Thumbnail: { refMs: 3, refNsPerRecord: 240000 }
+    Thumbnail: { refMs: 3, refNsPerUnit: 240000 }
 ```
 
 A duration belongs to the **code**, not to the operation. Two implementations of

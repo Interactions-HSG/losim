@@ -4,9 +4,9 @@ import java.util.Map;
 /**
  * t14-late-deadline — a deadline the caller could not have known was too short.
  *
- * <p><b>Catches:</b> the per-record half of a declared cost going unchecked against
+ * <p><b>Catches:</b> the per-unit half of a declared cost going unchecked against
  * the deadline it will blow. The client side can only compare a deadline with the
- * <i>fixed</i> part of a declared cost, because {@code refNsPerRecord} needs a
+ * <i>fixed</i> part of a declared cost, because {@code refNsPerUnit} needs a
  * count and the count is the handler's to declare while it runs. So the mistake
  * people actually make — a constant deadline written once for a small workload and
  * left there — times out with every number looking reasonable.
@@ -34,9 +34,9 @@ public final class T14 {
         // 2 refMs fixed plus 40000 at 0.02 refMs. Neither deadline is under the
         // fixed part, so nothing the caller could inspect would have shown this.
         double declared = handlers.isEmpty() ? -1 : Expect.num(Expect.detail(handlers.get(0)).get("declaredRefMs"));
-        e.note(String.format("the handler declared %.0f refMs: 2 fixed, and 40,000 records at 0.02", declared));
+        e.note(String.format("the handler declared %.0f refMs: 2 fixed, and 40,000 units at 0.02", declared));
         e.check(declared > 790 && declared < 815,
-                "the declared cost is the fixed part plus the per-record part, counted — "
+                "the declared cost is the fixed part plus the per-unit part, counted — "
                 + "not the 2 refMs the annotation shows before a call is made");
 
         var impossible = handlers.stream().filter(s -> Boolean.TRUE.equals(Expect.detail(s).get("unmeetable"))).toList();
@@ -67,7 +67,7 @@ public final class T14 {
         // The trace carrying it is not enough: this exists to be read by somebody
         // who did not think to look.
         String said = Expect.text(args[1]);
-        e.check(said.contains("the deadline was") && said.contains("once its records are counted"),
+        e.check(said.contains("the deadline was") && said.contains("once its units are counted"),
                 "and the run says so on its own summary, where a person who never opens the "
                 + "trace will see it");
         e.done();

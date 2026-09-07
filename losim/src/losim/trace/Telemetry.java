@@ -12,7 +12,7 @@ import losim.time.Clock;
  * A change log — one record per state change — is silent exactly when a system
  * is stuck, which is exactly when you want to look at it. Measured against the
  * questions a debugger answers, one answered one and a half of five. So this
- * records three things, not one:
+ * units three things, not one:
  *
  * <pre>
  *   events   sparse, rich, one moment each   "the reducer was killed"
@@ -83,8 +83,8 @@ public final class Telemetry {
          * which call put it there.
          */
         public final AtomicLong allocBytes = new AtomicLong();
-        /** Records the handler declared it processed, or −1 if it never said. */
-        public final AtomicLong records = new AtomicLong(-1);
+        /** Units the handler declared it processed, or −1 if it never said. */
+        public final AtomicLong units = new AtomicLong(-1);
 
         Span(long id, long parent, String vm, String kind, String label, double t0) {
             this.id = id; this.parent = parent; this.vm = vm;

@@ -18,7 +18,7 @@ import java.util.List;
  * which is worse than failing.
  *
  * <h2>Recording — silent outside a run</h2>
- * {@link #reveal}, {@link #log}, {@link #records}
+ * {@link #reveal}, {@link #log}, {@link #units}
  *
  * <h2>State — throws outside a run</h2>
  * {@link #machine}, {@link #here}, {@link #peers}, {@link #peersServing},
@@ -63,16 +63,16 @@ public interface LosimCtx {
     void log(String message);
 
     /**
-     * How many records this call processed.
+     * How many units this call processed.
      *
-     * <p>Two things need it. The scenario's {@code refNsPerRecord:} is charged
+     * <p>Two things need it. The scenario's {@code refNsPerUnit:} is charged
      * against it,
      * and the scaler engine needs to know which independent variable a cost site
-     * is a function of — records, or distinct keys, or bytes — because fitting a
+     * is a function of — units, or distinct keys, or bytes — because fitting a
      * resource against the wrong variable gives an exponent that will not survive
      * a change of corpus.
      */
-    void records(long n);
+    void units(long n);
 
     /**
      * Records that this call wrote bytes to the machine's disk.

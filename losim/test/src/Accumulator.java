@@ -13,7 +13,7 @@ import losim.t.Counts;
  *
  * <ul>
  *   <li><b>memory</b> follows <i>distinct keys</i>, and vocabulary saturates — the
- *       corpus is Zipf, so keys grow as a sublinear power of records (Heaps' law)</li>
+ *       corpus is Zipf, so keys grow as a sublinear power of units (Heaps' law)</li>
  *   <li><b>disk</b> follows the <i>data volume</i>, linearly, because every chunk is
  *       spilled whether or not its words were new</li>
  *   <li><b>wire bytes</b> follow the record count, but with a per-call constant that
@@ -38,7 +38,7 @@ public final class Accumulator extends WorkerBase {
             holding.merge(word, 1, Integer::sum);
             payload.computeIfAbsent(word, k -> new long[PAYLOAD_PER_KEY]);
         }
-        Losim.current().records(c.getLines());
+        Losim.current().units(c.getLines());
         // Every chunk is spilled, new words or not — so disk follows volume while
         // memory follows vocabulary, and the two part company as the run grows.
         Losim.current().wroteDisk(c.getText().length());

@@ -149,7 +149,7 @@ public final class Regions {
     /**
      * The link from a zone to a region, for bytes already known to have left the zone.
      *
-     * <p>This is the question a bill asks. A trace records egress by destination
+     * <p>This is the question a bill asks. A trace units egress by destination
      * <i>region</i> — the destination zone is not kept, because the price does not
      * depend on it — so {@link Link#SAME_ZONE} cannot come back from here: bytes
      * that never left the zone were never counted in the first place.

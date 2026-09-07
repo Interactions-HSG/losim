@@ -30,11 +30,11 @@ public final class T12 {
         // The claim this case exists to make. Read the two exponents out of the
         // engine's own words rather than recomputing them, because what is being
         // checked is that the engine says this — not that it is sayable.
-        double lower = number(why, "lower half it grows as records^");
-        double upper = number(why, "upper half as records^");
+        double lower = number(why, "lower half it grows as units^");
+        double upper = number(why, "upper half as units^");
         e.check(Math.abs(lower - upper) > 0.25, String.format(
-                "and it catches it by splitting the ladder: the lower half fits records^%.2f "
-                + "and the upper half records^%.2f, which is unambiguous and interpretable — "
+                "and it catches it by splitting the ladder: the lower half fits units^%.2f "
+                + "and the upper half units^%.2f, which is unambiguous and interpretable — "
                 + "something in this program behaves differently large than small", lower, upper));
 
         double r2 = number(why, "R2 over the whole ladder is still ");

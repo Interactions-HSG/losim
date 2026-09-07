@@ -25,5 +25,5 @@ machines:
 # with no losim in it.
 takes:
   Combiner:
-    Map: { refMs: 2, refNsPerRecord: 360000 }
+    Map: { refMs: 2, refNsPerUnit: 360000 }
     Reduce: { refMs: 5 }

@@ -31,7 +31,7 @@ public final class T13 {
             runs.put(names[i], i == 0 ? e : Expect.of("", new String[]{args[i]}));
 
         // Allocation is the resource the observer inflates, and it is fitted against
-        // records at every level — so this is the one comparison that can be made
+        // units at every level — so this is the one comparison that can be made
         // across all four runs at once.
         var alloc = new LinkedHashMap<String, Double>();
         runs.forEach((name, r) -> alloc.put(name, beta(r, "allocMb")));
@@ -118,9 +118,9 @@ public final class T13 {
                 + "be believed");
 
         // What turning telemetry off actually costs, which is not only trace size.
-        e.check("records".equals(variable(runs.get("off"), "memoryMb"))
+        e.check("units".equals(variable(runs.get("off"), "memoryMb"))
                 && "revealed.distinctKeys".equals(variable(runs.get("full"), "memoryMb")),
-                "and with telemetry off the engine can only fit memory against records, because "
+                "and with telemetry off the engine can only fit memory against units, because "
                 + "nothing revealed anything — turning it off does not merely make the trace "
                 + "smaller, it removes the evidence resources are attributed with");
         e.done();

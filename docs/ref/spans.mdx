@@ -7,7 +7,7 @@ icon: "bars-staggered"
 ```json
 { "id": 15, "parent": 14, "vm": "w0", "kind": "handler",
   "label": "lab.Thumbnailer.Thumbnail", "t0": 64.9, "t1": 78.9,
-  "status": "OK", "records": 25,
+  "status": "OK", "units": 25,
   "detail": { "call": 14, "inBytes": 611432, "outBytes": 41206, "status": "OK" } }
 ```
 
@@ -20,7 +20,7 @@ icon: "bars-staggered"
 | `label` | the method, or the label you passed |
 | `t0`, `t1` | simulated milliseconds |
 | `status` | `OK`, a gRPC status code, `FAILED`, `TIMEOUT` or `ABANDONED` |
-| `records` | present only when the handler declared a count |
+| `units` | present only when the handler declared a count |
 | `detail` | see below, sorted by key |
 
 ## The five kinds

@@ -40,7 +40,7 @@ public final class Plans {
      */
     public static String key(Scenario s, Telemetry.Level level, List<Path> code) {
         var sb = new StringBuilder();
-        sb.append(level).append('|').append(s.job()).append('|').append(s.records())
+        sb.append(level).append('|').append(s.job()).append('|').append(s.units())
           .append('|').append(s.seed())
           .append('|').append(s.scale());
         for (var m : s.machines())
@@ -102,8 +102,8 @@ public final class Plans {
 
     @SuppressWarnings("unchecked")
     static ScalePlan fromMap(Map<String, Object> m) {
-        long records = ((Number) m.get("records")).longValue();
-        long full = ((Number) m.get("fullRecords")).longValue();
+        long units = ((Number) m.get("units")).longValue();
+        long full = ((Number) m.get("fullUnits")).longValue();
         int runs = m.containsKey("gridRuns") ? ((Number) m.get("gridRuns")).intValue() : 0;
 
         var byResource = new TreeMap<String, Fit.Law>();
@@ -125,7 +125,7 @@ public final class Plans {
         var byVariable = new TreeMap<String, Fit.Law>();
         ((Map<String, Object>) m.getOrDefault("variables", Map.of())).forEach((k, v) -> {
             var l = (Map<String, Object>) v;
-            byVariable.put(k, new Fit.Law(k, "records", num(l, "fixed"), num(l, "coefficient"),
+            byVariable.put(k, new Fit.Law(k, "units", num(l, "fixed"), num(l, "coefficient"),
                     num(l, "beta"), num(l, "r2"), num(l, "wobble")));
         });
 
@@ -138,7 +138,7 @@ public final class Plans {
         var notes = new ArrayList<String>();
         for (Object n : (List<Object>) m.getOrDefault("notes", List.of())) notes.add(String.valueOf(n));
 
-        return new ScalePlan(records, full, caps,
+        return new ScalePlan(units, full, caps,
                 new Laws(byResource, errorBars, refused, new TreeMap<>(), amplification, byVariable),
                 runs, notes, (String) m.get("infeasible"));
     }

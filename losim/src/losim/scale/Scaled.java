@@ -59,8 +59,8 @@ public final class Scaled {
             plan = cached.get();
         } else {
             var grid = Grid.run(s, loader, level, SEEDS);
-            double reach = s.records() / (double) Math.max(1, grid.dataLadder()
-                    .get(grid.dataLadder().size() - 1).get(0).records());
+            double reach = s.units() / (double) Math.max(1, grid.dataLadder()
+                    .get(grid.dataLadder().size() - 1).get(0).units());
             var laws = Laws.fit(grid, reach);
             plan = Solve.of(s, grid, laws);
             Plans.save(key, plan);

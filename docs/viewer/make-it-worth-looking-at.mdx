@@ -43,7 +43,7 @@ want anyway, and each one has a specific consequence you can point at.
     ```yaml
     takes:
       Shrinker:
-        Thumbnail: { refMs: 3, refNsPerRecord: 240000 }
+        Thumbnail: { refMs: 3, refNsPerUnit: 240000 }
     ```
 
     Without it every handler is instant, every message crosses in a single frame, and
@@ -56,7 +56,7 @@ want anyway, and each one has a specific consequence you can point at.
 
   <Step title="Declare how many records each call processed">
     ```java
-    Losim.current().records(request.getFramesCount());
+    Losim.current().units(request.getFramesCount());
     ```
 
     It lands on the span, so a handler's duration reads against the work it actually

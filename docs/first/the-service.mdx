@@ -83,9 +83,9 @@ public final class Shrinker extends ThumbnailerBase {
     @Override protected Thumbs thumbnail(Batch request) {
         var here = Losim.current();
 
-        // What the scenario's per-record cost is charged against, and what the
+        // What the scenario's per-unit cost is charged against, and what the
         // scale engine needs to know which variable this call is a function of.
-        here.records(request.getFramesCount());
+        here.units(request.getFramesCount());
 
         var out = Thumbs.newBuilder();
         long bytes = 0;
@@ -155,7 +155,7 @@ Not here. It goes in the scenario, under the class that serves it:
 ```yaml
 takes:
   Shrinker:
-    Thumbnail: { refMs: 3, refNsPerRecord: 240000 }
+    Thumbnail: { refMs: 3, refNsPerUnit: 240000 }
 ```
 
 Two terms, answering different questions:
@@ -163,7 +163,7 @@ Two terms, answering different questions:
 | | |
 |---|---|
 | `refMs` | what one call takes **regardless of what is in it** — the fixed part. Known before the handler runs, and slept before it. |
-| `refNsPerRecord` | what each unit of input adds. Nothing outside the handler can know how much input there was, so the handler declares it with `records(n)` and this part is slept **after the body returns**, before the response leaves. |
+| `refNsPerUnit` | what each unit of input adds. Nothing outside the handler can know how much input there was, so the handler declares it with `units(n)` and this part is slept **after the body returns**, before the response leaves. |
 
 Both are **reference-machine** time, so they compose with everything else: the
 interceptor sleeps `refMs × machineFactor ÷ k_time`. A machine with half the
@@ -184,9 +184,9 @@ of an identical workload. [The full argument ->](/write/declaring-time)
 An unannotated method takes **no time**, deliberately, rather than a made-up
 amount.
 
-### `records(n)` — what this call processed
+### `units(n)` — what this call processed
 
-Two things need it. `refNsPerRecord` is charged against it, and the scale engine
+Two things need it. `refNsPerUnit` is charged against it, and the scale engine
 needs to know which independent variable a cost site is a function of. A handler
 that never declares a count is charged the fixed part only, and its span says so.
 
@@ -228,7 +228,7 @@ losim is on the classpath only because `Losim.current()` has to resolve — and 
 does nothing here. Recording calls are silent; state calls throw.
 [Why that asymmetry ->](/write/unit-testing)
 
-Take the two `reveal` lines and the `records` line out and **nothing in this file
+Take the two `reveal` lines and the `units` line out and **nothing in this file
 names losim at all**: it is a plain gRPC handler, it compiles with losim off the
 classpath, and it unit-tests without it.
 

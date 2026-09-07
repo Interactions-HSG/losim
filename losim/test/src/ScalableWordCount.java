@@ -8,7 +8,7 @@ import losim.t.*;
 /**
  * A word count whose size is whatever it is asked for.
  *
- * <p>This is what makes a job scalable: it reads {@link Cluster#records()} rather
+ * <p>This is what makes a job scalable: it reads {@link Cluster#units()} rather
  * than deciding for itself how much work there is. A job that hardcodes its own
  * size cannot be shrunk, and the engine has nothing to turn.
  *
@@ -26,7 +26,7 @@ public final class ScalableWordCount implements Job {
         var workers = cluster.serving("Worker");
         if (workers.isEmpty()) throw new IllegalStateException("nobody serves Worker");
 
-        long records = cluster.records();
+        long units = cluster.units();
         // Seeded from the scenario, so a sweep varies the data and not only the weather.
         var corpus = new Corpus(200_000, 1.1, cluster.seed());
         var stubs = new ArrayList<WorkerGrpc.WorkerBlockingStub>();
@@ -34,8 +34,8 @@ public final class ScalableWordCount implements Job {
 
         int chunks = 0;
         try (var phase = cluster.phase("map")) {
-            for (long done = 0; done < records; done += LINES_PER_CHUNK) {
-                int lines = (int) Math.min(LINES_PER_CHUNK, records - done);
+            for (long done = 0; done < units; done += LINES_PER_CHUNK) {
+                int lines = (int) Math.min(LINES_PER_CHUNK, units - done);
                 var text = new StringBuilder();
                 for (var line : corpus.lines(lines, WORDS_PER_LINE)) {
                     if (text.length() > 0) text.append(' ');
@@ -66,6 +66,6 @@ public final class ScalableWordCount implements Job {
             }
             phase.note("keys", merged.size());
         }
-        cluster.done(Map.of("records", records, "chunks", chunks, "distinct", merged.size()));
+        cluster.done(Map.of("units", units, "chunks", chunks, "distinct", merged.size()));
     }
 }

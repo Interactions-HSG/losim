@@ -1,6 +1,6 @@
 ---
 title: "Telemetry"
-description: "reveal, log and records — what turns a run that happened into a run you can read."
+description: "reveal, log and units — what turns a run that happened into a run you can read."
 icon: "signal"
 ---
 
@@ -42,15 +42,15 @@ number that must not bend. Taking the primitive moves the boxing inside the
 bracket, where it belongs to losim.
 </Warning>
 
-## `records(n)` — the independent variable
+## `units(n)` — the independent variable
 
 ```java
-Losim.current().records(request.getFramesCount());
+Losim.current().units(request.getFramesCount());
 ```
 
 Two things need it:
 
-1. the scenario's `refNsPerRecord:` is charged against it. Without it, only the fixed
+1. the scenario's `refNsPerUnit:` is charged against it. Without it, only the fixed
    part is slept, and the span says so.
 2. The scale engine needs to know which variable a cost site is a function of.
    Fitting a resource against the wrong variable gives an exponent that will not

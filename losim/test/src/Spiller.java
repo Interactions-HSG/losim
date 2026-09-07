@@ -39,7 +39,7 @@ public final class Spiller extends WorkerBase {
             if (payload.size() < keepInMemory) payload.computeIfAbsent(word, k -> new long[PAYLOAD_PER_KEY]);
             else spilled += PAYLOAD_PER_KEY * 8L;
         }
-        Losim.current().records(c.getLines());
+        Losim.current().units(c.getLines());
         Losim.current().wroteDisk(c.getText().length());
         Losim.current().reveal("distinctKeys", holding.size());
         Losim.current().reveal("spilledBytes", spilled);

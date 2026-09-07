@@ -43,8 +43,8 @@ public final class MyJob implements Job {
 
 ## The workload
 
-<ResponseField name="records()" type="long">
-  How many records this run is to process.
+<ResponseField name="units()" type="long">
+  How many units this run is to process.
 
   One, unless the scenario declared a [scale](/ref/scale) — then `scale × 8000` in
   direct mode, and in scaled mode what the engine chose: a fraction of full scale,

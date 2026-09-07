@@ -243,7 +243,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
      *
      * <p>Two things it cannot price, and both would be silent. A <b>streaming</b>
      * rpc is metered by a cost model that assumes one request and one response:
-     * {@code refNsPerRecord} is slept inside {@code sendMessage}, so it is paid
+     * {@code refNsPerUnit} is slept inside {@code sendMessage}, so it is paid
      * once per message rather than once per call, and {@code refMs} is paid at
      * half-close, which for a client-streaming or bidirectional handler is after
      * the work it stands for. A <b>non-protobuf marshaller</b> has no serialized
@@ -262,7 +262,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
             throw new IllegalArgumentException(at + method + " is a "
                     + md.getType().name().toLowerCase().replace('_', '-') + " rpc, and losim"
                     + " prices a call as one request and one response: a declared"
-                    + " refNsPerRecord would be slept once per message sent, and refMs paid"
+                    + " refNsPerUnit would be slept once per message sent, and refMs paid"
                     + " when the client stopped sending rather than before the handler ran."
                     + " The numbers would come out consistent and wrong. Make it unary.");
         if (!protobuf(md.getRequestMarshaller()) || !protobuf(md.getResponseMarshaller()))
@@ -671,9 +671,9 @@ public final class Machine implements Bound, Telemetry.Sampled {
 
     @Override public void event(String kind, Object... kv) { tel().event(name, kind, kv); }
 
-    @Override public void records(long n) {
+    @Override public void units(long n) {
         Telemetry.Span s = Telemetry.SPAN.get();
-        if (s != null) s.records.set(n);
+        if (s != null) s.units.set(n);
     }
 
     @Override public List<String> peers() {

@@ -47,7 +47,7 @@ public final class Load {
                     held.computeIfAbsent(w, k -> new int[1])[0]++;
                 }
             }
-            Losim.current().records(lines);
+            Losim.current().units(lines);
             // The whole point of the extreme case: at one call per handler an
             // accounting leak is undetectable, and at a thousand it halves the
             // fitted exponent.
@@ -56,7 +56,7 @@ public final class Load {
         }
     }
 
-    public static Result run(int records, int reveals, Telemetry.Level level, long seed)
+    public static Result run(int units, int reveals, Telemetry.Level level, long seed)
             throws Exception {
         var clock = new Clock(K_TIME, 1.2832);
         var tel = new Telemetry(clock, level);
@@ -81,7 +81,7 @@ public final class Load {
             // Built on the test's own thread, deliberately: the corpus is the
             // fixture, not the workload, and must not land on a machine's ledger.
             var corpus = new Corpus(200_000, 1.1, seed);
-            var lines = corpus.lines(records, WORDS_PER_LINE);
+            var lines = corpus.lines(units, WORDS_PER_LINE);
 
             var futures = new ArrayList<Future<?>>();
             for (int off = 0, k = 0; off < lines.size(); off += LINES_PER_CHUNK, k++) {

@@ -7,7 +7,7 @@ icon: "stopwatch"
 ```yaml
 takes:
   Shrinker:
-    Thumbnail: { refMs: 3, refNsPerRecord: 240000 }
+    Thumbnail: { refMs: 3, refNsPerUnit: 240000 }
     Capacity:  { refMs: 1 }
 ```
 
@@ -20,9 +20,9 @@ than a made-up amount.
   the handler runs, and slept before it.
 </ParamField>
 
-<ParamField path="refNsPerRecord" type="number" default="0">
+<ParamField path="refNsPerUnit" type="number" default="0">
   What each record processed adds, in reference **nanoseconds**. The handler
-  declares the count with `Losim.current().records(n)`, and this part is slept
+  declares the count with `Losim.current().units(n)`, and this part is slept
   **after the body returns**, before the response leaves — because a caller waits
   for work that has not finished, and by then the handler has said how much there
   was.
@@ -31,7 +31,7 @@ than a made-up amount.
 <Note>
 Plain numbers here, where everywhere else a duration has to say what kind of time
 it is. The key already says it: `refMs` is reference milliseconds and
-`refNsPerRecord` reference nanoseconds, so `3 refMs` under a key called `refMs`
+`refNsPerUnit` reference nanoseconds, so `3 refMs` under a key called `refMs`
 would be the unit written twice.
 </Note>
 

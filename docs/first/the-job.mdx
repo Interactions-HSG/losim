@@ -54,7 +54,7 @@ public final class ThumbnailJob implements Job {
         // 3. The album. Work the job does itself needs a span, or the busiest
         //    stretch of the run reads as idle.
         List<Frame> album = cluster.compute("read the album",
-                () -> Album.of(cluster.records(), cluster.seed()));
+                () -> Album.of(cluster.units(), cluster.seed()));
 
         // 4. Fan out. Every call is asynchronous, so they overlap.
         int thumbs = 0, failed = 0;
@@ -170,8 +170,8 @@ final class Album {
     using a core.
   </Accordion>
 
-  <Accordion title="records() and seed() — where the workload comes from" icon="dice">
-    `cluster.records()` is how much work this run is to do. In direct mode it is
+  <Accordion title="units() and seed() — where the workload comes from" icon="dice">
+    `cluster.units()` is how much work this run is to do. In direct mode it is
     what the scenario declared. In scaled mode it is what the engine chose — a
     fraction of full scale, picked so the machines and the workload shrink by the
     same factor. **A job that ignores it cannot be scaled, and the trace will say

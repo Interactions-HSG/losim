@@ -104,7 +104,7 @@ public final class Trace {
             m.put("t0", round(s.t0));
             m.put("t1", round(s.t1));
             m.put("status", s.status);
-            if (s.records.get() >= 0) m.put("records", s.records.get());
+            if (s.units.get() >= 0) m.put("units", s.units.get());
             m.put("detail", new TreeMap<>(s.detail));
             sps.add(m);
         }

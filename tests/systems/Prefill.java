@@ -12,7 +12,7 @@ import losim.api.Losim;
  * error on top of it.
  *
  * <p>A law fitted there is a law about the index. Extrapolated, it says a fleet
- * processing forty-eight thousand records needs about as much disk as one
+ * processing forty-eight thousand units needs about as much disk as one
  * processing eight thousand — which is true of the index and false of everything
  * else, and the engine has no way to tell those apart from four points that are all
  * index. So it refuses, and names the resource.

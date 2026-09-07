@@ -59,7 +59,7 @@ public record Grid(List<List<Probe>> dataLadder,
         for (int size : sizes) {
             var rung = new ArrayList<Probe>();
             for (long seed : seeds)
-                rung.add(Probe.run(bare.withRecords(size).withSeed(seed), loader, level));
+                rung.add(Probe.run(bare.withUnits(size).withSeed(seed), loader, level));
             dataLadder.add(rung);
         }
 
@@ -74,7 +74,7 @@ public record Grid(List<List<Probe>> dataLadder,
             var rung = new ArrayList<Probe>();
             for (long seed : few)
                 rung.add(Probe.run(s.withoutWeather().withWorkers(workers)
-                        .withRecords(midSize).withSeed(seed), loader, level));
+                        .withUnits(midSize).withSeed(seed), loader, level));
             fleetLadder.add(rung);
         }
 
@@ -87,7 +87,7 @@ public record Grid(List<List<Probe>> dataLadder,
         } else {
             int topSize = sizes.get(sizes.size() - 1);
             for (long seed : few)
-                weathered.add(Probe.run(s.withWorkers(baseFleet).withRecords(topSize)
+                weathered.add(Probe.run(s.withWorkers(baseFleet).withUnits(topSize)
                         .withSeed(seed), loader, level));
         }
         return new Grid(dataLadder, fleetLadder, clean, weathered, notes);

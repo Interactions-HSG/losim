@@ -284,8 +284,8 @@ public final class Main {
             return 1;
         }
 
-        System.out.printf("%s  seed %d  scaled %,d -> %,d records (x%,.0f)%s%n",
-                s.file(), s.seed(), plan.records(), plan.fullRecords(), plan.scaleFactor(),
+        System.out.printf("%s  seed %d  scaled %,d -> %,d units (x%,.0f)%s%n",
+                s.file(), s.seed(), plan.units(), plan.fullUnits(), plan.scaleFactor(),
                 scaled.planWasCached() ? "  [plan cached]"
                         : String.format("  [plan fitted from %d probe runs in %.1fs]",
                                 plan.gridRuns(), (System.nanoTime() - began) / 1e9));
@@ -458,7 +458,7 @@ public final class Main {
                     refMs(e.detail().get("declaredRefMs"))));
         }
         // The subtler half, and the one people actually hit. The client can only
-        // check a deadline against the fixed part of a cost, because the per-record
+        // check a deadline against the fixed part of a cost, because the per-unit
         // part is not knowable until the handler declares its count. So a deadline
         // set above `refMs` and far below the real total times out with nothing said
         // above. The callee knows both by the time it answers, and says so on its
@@ -470,7 +470,7 @@ public final class Main {
             if (unmeetable.containsKey(method)) continue;
             unmeetable.put(method, String.format(
                     "    %s: the deadline was %s refMs and the handler declares %s once "
-                    + "its records are counted", method, refMs(s.detail.get("deadlineRefMs")),
+                    + "its units are counted", method, refMs(s.detail.get("deadlineRefMs")),
                     refMs(s.detail.get("declaredRefMs"))));
         }
 

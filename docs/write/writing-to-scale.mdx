@@ -14,12 +14,12 @@ That only works if your system cooperates. Four things.
 
 ```java
 List<Frame> album = cluster.compute("read the album",
-        () -> Album.of(cluster.records(), cluster.seed()));   // ← both from the scenario
+        () -> Album.of(cluster.units(), cluster.seed()));   // ← both from the scenario
 ```
 
 <Warning>
 A job that generates a fixed amount of work **cannot be scaled**, and the trace
-will say so: the engine varies `records` up the probe ladder, sees nothing move,
+will say so: the engine varies `units` up the probe ladder, sees nothing move,
 and finds that no resource is a function of anything.
 
 The same goes for the seed. A workload that draws from a constant of its own is a
@@ -30,10 +30,10 @@ measure one thing twenty times, and the error bar it computes is meaningless.
 ## 2. Declare how much each call processed
 
 ```java
-Losim.current().records(request.getFramesCount());
+Losim.current().units(request.getFramesCount());
 ```
 
-Without it, a `refNsPerRecord:` charges nothing and the engine has no
+Without it, a `refNsPerUnit:` charges nothing and the engine has no
 per-call independent variable.
 
 ## 3. Reveal what your resources are *actually* functions of
@@ -53,7 +53,7 @@ exponent that will not survive a change of input.
 <Note>
 Measured on a workload where those two genuinely diverge: fitting memory against
 the revealed distinct count gives R² 1.0000 and a projection within 3% of ground
-truth. Fitting it against records gives a projection **34% out** — which is exactly
+truth. Fitting it against units gives a projection **34% out** — which is exactly
 what multiplying the small run by the size ratio would have got you.
 
 Every numeric `reveal` becomes a candidate variable. The engine fits each resource
@@ -110,13 +110,13 @@ whose numbers nobody could account for.
 ## The output
 
 ```
-thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 records (x5,000)
+thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 units (x5,000)
                                               [plan fitted from 30 probe runs in 41.2s]
 
   memoryMb   = 0.0597 + 0.00187 * revealed.distinctItems^1.013  (R2 1.0000, wobble 0.000)
-  wireMb     = 0.0    + 0.000151 * records^0.952                (R2 1.0000, wobble 0.004)
-  diskMb       REFUSED: the ladder bends — over the lower half it grows as records^0.59
-               and over the upper half as records^0.87 …
+  wireMb     = 0.0    + 0.000151 * units^0.952                (R2 1.0000, wobble 0.004)
+  diskMb       REFUSED: the ladder bends — over the lower half it grows as units^0.59
+               and over the upper half as units^0.87 …
   makespan     REFUSED: its exponent moves by 0.66 between independent seed sets of the
                same workload, which over a factor of 5000 is an error bar of x268 …
 
@@ -149,7 +149,7 @@ until the cluster bill arrives.
     than the workload:
 
     ```
-    memoryMb at 8000 records is only 2.4x its own fixed overhead (0.31 against
+    memoryMb at 8000 units is only 2.4x its own fixed overhead (0.31 against
     0.13); below 10x the fit is describing the overhead rather than the workload
     ```
 

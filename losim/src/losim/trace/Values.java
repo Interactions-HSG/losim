@@ -9,7 +9,7 @@ import java.util.*;
  *
  * A real system would never put arguments and results in its telemetry. losim
  * does, deliberately: the point is to watch a computation happen, and a video of
- * machines exchanging opaque byte counts teaches nothing. So every call records
+ * machines exchanging opaque byte counts teaches nothing. So every call units
  * what went in and what came out — bounded, because a trace that embeds a
  * gigabyte of payload is its own kind of useless.
  */

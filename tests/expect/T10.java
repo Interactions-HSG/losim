@@ -12,8 +12,8 @@ import java.util.Map;
  * and completely wrong.
  *
  * <p>Two runs. One in scaled mode, which climbs a ladder of four small runs and
- * projects to forty-eight thousand records. One in direct mode at forty-eight
- * thousand records, where nothing is scaled and nothing inferred and every number is
+ * projects to forty-eight thousand units. One in direct mode at forty-eight
+ * thousand units, where nothing is scaled and nothing inferred and every number is
  * what happened. Then they are put beside each other.
  *
  * <p>The comparison is against <b>the obvious alternative</b> as well as against the
@@ -33,9 +33,9 @@ public final class T10 {
         for (var p : projections(e)) projected.put(String.valueOf(p.get("resource")), p);
 
         e.check(factor >= 4 && !projected.isEmpty(), String.format(
-                "the engine ran %s records to say what %s would do — a factor of %.0f, from a"
+                "the engine ran %s units to say what %s would do — a factor of %.0f, from a"
                 + " ladder it actually climbed rather than one it assumed",
-                scale.get("records"), scale.get("fullRecords"), factor));
+                scale.get("units"), scale.get("fullUnits"), factor));
 
         // What actually happened, computed off the other trace the way the engine
         // computes it: memory and disk are the worst machine's, because a fleet does
@@ -65,7 +65,7 @@ public final class T10 {
             compared++;
             if (eErr > 25) tooFar++;
             // At least as close everywhere. A resource that really is linear in
-            // records is one the uniform factor gets right too, and the engine is not
+            // units is one the uniform factor gets right too, and the engine is not
             // required to beat a thing that happens to be correct — only never to be
             // worse than it.
             if (eErr > uErr + 1) worseThanUniform++;
@@ -78,13 +78,13 @@ public final class T10 {
                 "and on none of them is it worse than multiplying the small run by the size"
                 + " ratio, which is what anyone would do without an engine");
 
-        // The claim that separates the two. Disk really is linear in records, so the
+        // The claim that separates the two. Disk really is linear in units, so the
         // uniform factor gets it right and deserves to; memory is not, and that is
         // where an engine either earns its place or does not.
         Double memErr = error.get("memoryMb");
         double memUniform = uniformError(projected.get("memoryMb"), factor, actual.get("memoryMb"));
         e.check(memErr != null && memErr < memUniform / 2, String.format(
-                "and on memory — the resource that is not linear in records — it is %.1f%% out"
+                "and on memory — the resource that is not linear in units — it is %.1f%% out"
                 + " where the uniform factor is %.0f%% out. Vocabulary saturates: a reducer at"
                 + " a sixth of the scale sees far more than a sixth of the distinct keys, and"
                 + " an engine that cannot see that under-shrinks every machine it sizes",
@@ -93,7 +93,7 @@ public final class T10 {
         var memoryLaw = sub(sub(scale, "laws"), "memoryMb");
         e.check("revealed.distinctKeys".equals(memoryLaw.get("variable")),
                 "which it can only do because memory was attributed to distinct keys rather"
-                + " than to records — the program said what its cost depends on, in the one"
+                + " than to units — the program said what its cost depends on, in the one"
                 + " place that knows, and the engine fitted against that");
 
         // D7: a projection carries its confidence or it is absent. Never a plausible
@@ -136,12 +136,12 @@ public final class T10 {
         // The plan travels, so projected = f(observed) is something a reader can
         // redo rather than take on trust.
         double keys = at(sub(sub(scale, "variables"), "revealed.distinctKeys"),
-                         Expect.num(scale.get("fullRecords")));
+                         Expect.num(scale.get("fullUnits")));
         double redone = at(memoryLaw, keys);
         double reported = Expect.num(projected.get("memoryMb").get("projected"));
         e.check(Math.abs(redone - reported) < 0.01 * Math.max(1, reported), String.format(
                 "and the plan travels in the trace: recomputing the memory projection from the"
-                + " two laws it carries — keys from records, then memory from keys — gives"
+                + " two laws it carries — keys from units, then memory from keys — gives"
                 + " %.3f against the %.3f it reported", redone, reported));
         e.done();
     }

@@ -46,7 +46,7 @@ and a law fitted to either comes out smooth, confident and false.
 </Warning>
 
 <ParamField path="a streaming rpc" type="refused">
-  The cost model is one request and one response. `refNsPerRecord` is slept inside
+  The cost model is one request and one response. `refNsPerUnit` is slept inside
   `sendMessage`, so on a stream it is paid once per **message** rather than once per
   call; and `refMs` is paid at half-close, which for a client-streaming or
   bidirectional handler is *after* the work it stands for.
@@ -104,12 +104,12 @@ and a law fitted to either comes out smooth, confident and false.
 
 | message | what to change |
 |---|---|
-| `the ladder bends: over the lower half it grows as records^0.59 …` | move the probe ladder to one side of the threshold |
+| `the ladder bends: over the lower half it grows as units^0.59 …` | move the probe ladder to one side of the threshold |
 | `its exponent moves by 0.66 between independent seed sets …` | normal for the timeline; give handlers more to do, or accept it |
 | `it was never measured above zero, so there is nothing to fit` | your system never used that resource |
-| `nothing measured varied with it, so it has no law here` | the job probably ignores `cluster.records()` |
-| `memoryMb at 8000 records is only 2.4x its own fixed overhead …` | bigger rungs on the ladder |
-| `at 8000 records the fleet would hold 4200 MB, and this host offers 1843 MB …` | more heap, or a smaller rung |
+| `nothing measured varied with it, so it has no law here` | the job probably ignores `cluster.units()` |
+| `memoryMb at 8000 units is only 2.4x its own fixed overhead …` | bigger rungs on the ladder |
+| `at 8000 units the fleet would hold 4200 MB, and this host offers 1843 MB …` | more heap, or a smaller rung |
 | `this run is clocked at 40x real time, and … costs … refMs` | a cost site too fine for the clock; there is no compression to turn down |
 | `no size on the ladder satisfies every resource at once` | |
 

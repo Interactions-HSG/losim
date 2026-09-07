@@ -55,7 +55,7 @@ public final class Loader {
                 over.opt("seed").present() ? (long) over.at("seed").num(base.seed()) : base.seed(),
                 base.job(),
                 base.scale(),
-                base.records(),
+                base.units(),
                 base.machines(),
                 over.opt("network").present() ? network(over.opt("network")) : base.net(),
                 over.opt("faults").present() ? faults(over.opt("faults"), names, over) : base.faults(),
@@ -99,7 +99,7 @@ public final class Loader {
         var s = new Scenario(root.where().split(":")[0], seed, job, scale,
                 0, machines, net, faults, chaos, retries, takes,
                 root.opt("tightMargin").bool(false), mode);
-        return s.withRecords(s.fullRecords());
+        return s.withUnits(s.fullUnits());
     }
 
     private static Scenario.Mode mode(Node node) {
@@ -293,12 +293,12 @@ public final class Loader {
         for (var runs : node.map().entrySet()) {
             for (var rpc : runs.getValue().map().entrySet()) {
                 Node body = rpc.getValue();
-                body.onlyAllows("refMs", "refNsPerRecord");
+                body.onlyAllows("refMs", "refNsPerUnit");
                 // Plain numbers: the key already says which unit each one is in.
                 // A duration written as `2 refMs` elsewhere has to say so because
                 // nothing around it does.
                 double refMs = body.opt("refMs").num(0);
-                double perRecord = body.opt("refNsPerRecord").num(0);
+                double perRecord = body.opt("refNsPerUnit").num(0);
                 if (refMs < 0 || perRecord < 0) throw body.fail("a call cannot take negative time");
                 out.put(runs.getKey().trim() + "." + rpc.getKey().trim(),
                         new Cost(refMs, perRecord, body.where()));

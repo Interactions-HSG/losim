@@ -21,7 +21,7 @@ final class Absent implements LosimCtx {
     @Override public void reveal(String key, String value)  { }
     @Override public void reveal(String key, Object value)  { }
     @Override public void log(String message)               { }
-    @Override public void records(long n)                   { }
+    @Override public void units(long n)                   { }
     @Override public void wroteDisk(long bytes)             { }
     @Override public void sleep(double refMs)               { }
 
@@ -35,7 +35,7 @@ final class Absent implements LosimCtx {
     private static IllegalStateException absent(String call) {
         return new IllegalStateException(
                 "no simulation is running, so Losim.current()." + call + " has no answer here. "
-              + "Recording calls (reveal, log, records) are silent outside a run; state calls are "
+              + "Recording calls (reveal, log, units) are silent outside a run; state calls are "
               + "not, because a fabricated fleet would make a passing test meaningless.");
     }
 }

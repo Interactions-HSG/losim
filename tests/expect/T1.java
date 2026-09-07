@@ -27,7 +27,7 @@ public final class T1 {
         boolean silent = true;
         try {
             Losim.current().reveal("emitted", 2);
-            Losim.current().records(1);
+            Losim.current().units(1);
             Losim.current().log("counted");
             Losim.current().sleep(5_000);
         } catch (RuntimeException x) { silent = false; }

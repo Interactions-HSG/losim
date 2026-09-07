@@ -166,11 +166,11 @@ export interface CostRule {
   /** What a call takes regardless of what is in it. */
   refMs: number;
   /** What each record the handler declares adds, in reference nanoseconds. */
-  refNsPerRecord: number;
+  refNsPerUnit: number;
 }
 
 /** The biggest run the engine can measure — the top of its own probe ladder. */
-export const BASE_RECORDS = 8000;
+export const BASE_UNITS = 8000;
 
 export interface Draft {
   name: string;
@@ -181,7 +181,7 @@ export interface Draft {
    *
    * 1 is not a scale model at all — it is the run itself, whatever the job does
    * with the one record it is given. Above 1 the scenario is a model of
-   * `scale × BASE_RECORDS`, and everything the engine needs to build that model —
+   * `scale × BASE_UNITS`, and everything the engine needs to build that model —
    * the probe ladder, the fleet sizes, how fast the clock runs — follows from it
    * rather than being asked of the person writing the scenario. None of those is
    * knowable in advance by anybody, which is the whole reason to run a simulator.
@@ -435,7 +435,7 @@ export function toYaml(draft: Draft): string {
              + `backoff: ${r.backoffRefMs} refMs${mult}${unsafe} }`);
     }
   }
-  const priced = draft.takes.filter((c) => c.refMs > 0 || c.refNsPerRecord > 0);
+  const priced = draft.takes.filter((c) => c.refMs > 0 || c.refNsPerUnit > 0);
   if (priced.length) {
     L.push('');
     L.push('takes:');
@@ -444,7 +444,7 @@ export function toYaml(draft: Draft): string {
     for (const runs of [...new Set(priced.map((c) => c.runs))]) {
       const mine = priced.filter((c) => c.runs === runs);
       const rows = mine.map((c) => {
-        const perRecord = c.refNsPerRecord > 0 ? `, refNsPerRecord: ${c.refNsPerRecord}` : '';
+        const perRecord = c.refNsPerUnit > 0 ? `, refNsPerUnit: ${c.refNsPerUnit}` : '';
         return `${q(c.rpc)}: { refMs: ${c.refMs}${perRecord} }`;
       });
       L.push(`  ${q(runs)}: { ${rows.join(', ')} }`);
@@ -506,7 +506,7 @@ export function firstDraft(palette: Palette): Draft {
     // than a block to remember. A fleet that leaves them at zero is a fleet where
     // every call is instant, which the form says out loud beside them.
     takes: (worker?.methods ?? []).map((m) => ({
-      runs: worker!.cls, rpc: m.name, refMs: 0, refNsPerRecord: 0,
+      runs: worker!.cls, rpc: m.name, refMs: 0, refNsPerUnit: 0,
     })),
   };
 }

@@ -35,11 +35,11 @@ public final class Corpus {
         return vocab[lo];
     }
 
-    /** `records` lines of `wordsPerLine` words each. */
-    public List<String> lines(int records, int wordsPerLine) {
-        var out = new ArrayList<String>(records);
+    /** `units` lines of `wordsPerLine` words each. */
+    public List<String> lines(int units, int wordsPerLine) {
+        var out = new ArrayList<String>(units);
         var sb = new StringBuilder();
-        for (int i = 0; i < records; i++) {
+        for (int i = 0; i < units; i++) {
             sb.setLength(0);
             for (int w = 0; w < wordsPerLine; w++) { if (w > 0) sb.append(' '); sb.append(word()); }
             out.add(sb.toString());

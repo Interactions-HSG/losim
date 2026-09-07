@@ -67,11 +67,11 @@ final class Present implements LosimCtx {
         b.charge(Meter.allocNow() - a0, System.nanoTime() - t0);
     }
 
-    @Override public void records(long n) {
+    @Override public void units(long n) {
         long a0 = Meter.allocNow(), t0 = System.nanoTime();
         Bound b = Ambient.MACHINE.get();
         if (b == null) return;
-        b.records(n);
+        b.units(n);
         b.charge(Meter.allocNow() - a0, System.nanoTime() - t0);
     }
 
@@ -101,7 +101,7 @@ final class Present implements LosimCtx {
 
     // -------------------------------------------------------------------- state
 
-    // Reads, not records: they allocate nothing worth charging and are cheap
+    // Reads, not units: they allocate nothing worth charging and are cheap
     // enough that bracketing them would cost more than it recovered.
     @Override public String machine()                    { return bound().name(); }
     @Override public Spec here()                         { return bound().here(); }

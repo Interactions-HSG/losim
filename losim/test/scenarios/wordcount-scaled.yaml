@@ -28,5 +28,5 @@ machines:
 # with no losim in it.
 takes:
   Accumulator:
-    Map: { refMs: 2, refNsPerRecord: 20000 }
+    Map: { refMs: 2, refNsPerUnit: 20000 }
     Reduce: { refMs: 5 }

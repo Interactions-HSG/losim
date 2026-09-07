@@ -22,7 +22,7 @@ public record Scenario(
         long seed,
         String job,
         double scale,
-        long records,
+        long units,
         List<MachineSpec> machines,
         NetSpec net,
         List<Fault> faults,
@@ -101,7 +101,7 @@ public record Scenario(
      * run and a model of a run are different claims, and only the second one has
      * error bars.
      */
-    public long fullRecords() { return scale <= 1 ? 1 : Math.round(scale * BASE); }
+    public long fullUnits() { return scale <= 1 ? 1 : Math.round(scale * BASE); }
 
     /**
      * How many machines to put in each multi-machine pool, varied on its own.
@@ -124,24 +124,24 @@ public record Scenario(
     // system is — in one place, and makes the grid's axes explicit.
 
     public Scenario withSeed(long seed) {
-        return new Scenario(file, seed, job, scale, records, machines, net,
+        return new Scenario(file, seed, job, scale, units, machines, net,
                 faults, chaos, retries, takes, tightMargin, mode);
     }
 
     /** The run size the engine solved for, replacing the full-scale one. */
-    public Scenario withRecords(long n) {
+    public Scenario withUnits(long n) {
         return new Scenario(file, seed, job, scale, n, machines, net,
                 faults, chaos, retries, takes, tightMargin, mode);
     }
 
     public Scenario withMode(Mode m) {
-        return new Scenario(file, seed, job, scale, records, machines, net,
+        return new Scenario(file, seed, job, scale, units, machines, net,
                 faults, chaos, retries, takes, tightMargin, m);
     }
 
     /** The same scenario with no weather at all — the clean column of the grid. */
     public Scenario withoutWeather() {
-        return new Scenario(file, seed, job, scale, records, machines, net,
+        return new Scenario(file, seed, job, scale, units, machines, net,
                 List.of(), List.of(), retries, takes, tightMargin, mode);
     }
 
@@ -173,7 +173,7 @@ public record Scenario(
         var stillThere = faults.stream()
                 .filter(f -> kept.contains(f.target()) && (f.other() == null || kept.contains(f.other())))
                 .toList();
-        return new Scenario(file, seed, job, scale, records, out, net,
+        return new Scenario(file, seed, job, scale, units, out, net,
                 stillThere, chaos, retries, takes, tightMargin, mode);
     }
 
@@ -185,7 +185,7 @@ public record Scenario(
             out.add(caps == null ? m : new MachineSpec(m.name(), m.pool(), m.instance(),
                     m.zone(), m.runs(), caps[0], caps[1], m.where()));
         }
-        return new Scenario(file, seed, job, scale, records, out, net,
+        return new Scenario(file, seed, job, scale, units, out, net,
                 faults, chaos, retries, takes, tightMargin, mode);
     }
 

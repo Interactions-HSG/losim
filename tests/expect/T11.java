@@ -113,11 +113,11 @@ public final class T11 {
         for (Cell c : fleet) {
             if (!"revealed.distinctKeys".equals(c.of("memoryMb"))) wrongVariable++;
             for (String r : List.of("wireMb", "diskMb"))
-                if (c.projected(r) && !"records".equals(c.of(r))) wrongVariable++;
+                if (c.projected(r) && !"units".equals(c.of(r))) wrongVariable++;
         }
         e.check(wrongVariable == 0,
                 "at 2, 4 and 8 workers, memory is a function of distinct keys and wire and disk "
-                + "are functions of records — the attribution does not move when the fleet does, "
+                + "are functions of units — the attribution does not move when the fleet does, "
                 + "and the two never swap");
 
         double lo = fleet.stream().mapToDouble(c -> c.beta("memoryMb")).min().orElse(0);

@@ -19,7 +19,7 @@ import losim.trace.Values;
  * outside the marks, because it is not losim's to give back.
  *
  * <p>Two things are pointedly <b>not</b> bracketed: the cost sleep and the
- * per-record sleep. Those are the simulated program's time, not losim's, and
+ * per-unit sleep. Those are the simulated program's time, not losim's, and
  * subtracting them would report a handler as faster than it was asked to be.
  */
 final class ServerSide implements ServerInterceptor {
@@ -41,10 +41,10 @@ final class ServerSide implements ServerInterceptor {
         // What the caller allowed, read on arrival and in reference milliseconds.
         //
         // The client side can only ever check a deadline against the *fixed* part
-        // of a cost: `refNsPerRecord` is not knowable before the handler runs,
+        // of a cost: `refNsPerUnit` is not knowable before the handler runs,
         // because the handler is what declares the count. So a deadline set
         // comfortably above `refMs` and hopelessly below the real total — 600 refMs
-        // against 2 + 0.02 per record, about 780 at six million — times out with
+        // against 2 + 0.02 per unit, about 780 at six million — times out with
         // nothing said, which is the shape of the mistake people actually make.
         //
         // Here that is knowable. The callee has the count by the time it answers,
@@ -76,10 +76,10 @@ final class ServerSide implements ServerInterceptor {
                 // The variable part of the cost is paid before the response
                 // leaves, not after: a caller waits for work that has not
                 // finished, and by now the handler has said how much there was.
-                if (takes != null && takes.refNsPerRecord() > 0) {
-                    long n = span.records.get();
+                if (takes != null && takes.refNsPerUnit() > 0) {
+                    long n = span.units.get();
                     if (n > 0) node.fleet().clock
-                            .spend(takes.refNsPerRecord() * n / 1e6 * node.effectiveFactor());
+                            .spend(takes.refNsPerUnit() * n / 1e6 * node.effectiveFactor());
                 }
                 long b0 = Meter.allocNow(), n0 = System.nanoTime();
                 if (tel.payloads()) span.detail.put("result", Values.render(message));
@@ -107,9 +107,9 @@ final class ServerSide implements ServerInterceptor {
                     // completion and closes OK — so close() is the one place reached
                     // whether the answer arrived in time, late, or not at all.
                     if (takes != null && deadlineRefMs != null) {
-                        long n = span.records.get();
+                        long n = span.units.get();
                         double declared = takes.refMs();
-                        if (n > 0 && takes.refNsPerRecord() > 0) declared += takes.refNsPerRecord() * n / 1e6;
+                        if (n > 0 && takes.refNsPerUnit() > 0) declared += takes.refNsPerUnit() * n / 1e6;
                         declared *= node.effectiveFactor();
                         span.detail.put("declaredRefMs", Machine.round(declared));
                         span.detail.put("deadlineRefMs", Machine.round(deadlineRefMs));

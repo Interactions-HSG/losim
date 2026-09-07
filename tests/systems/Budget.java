@@ -8,7 +8,7 @@ import losim.api.Job;
 /**
  * The same call twice, against a deadline that can be met and one that cannot.
  *
- * <p>Forty thousand records at 0.02 refMs each is 800, plus 2 fixed. So 2000 refMs
+ * <p>Forty thousand units at 0.02 refMs each is 800, plus 2 fixed. So 2000 refMs
  * is enough and 600 is not — and neither of those is knowable from the fixed cost
  * alone, which is the whole point: 2 refMs is under both.
  *

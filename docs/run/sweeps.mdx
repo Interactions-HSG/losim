@@ -150,7 +150,7 @@ for (int workers : new int[] {2, 4, 8}) {
 instance type, zones and services. Singletons — the coordinator — are left alone,
 because varying the fleet is meant to vary the workers.
 
-The other axes are the same shape: `withRecords`, `withSeed`, `withKTime`,
+The other axes are the same shape: `withUnits`, `withSeed`, `withKTime`,
 `withExpectedRun`, `withoutWeather`. Each returns a copy, so the base scenario you
 loaded is never mutated and every run in the loop differs by exactly one thing.
 </Note>

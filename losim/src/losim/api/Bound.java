@@ -41,8 +41,8 @@ public interface Bound {
     /** Records one event against this machine. */
     void event(String kind, Object... kv);
 
-    /** Declares how many records the call in flight processed. */
-    void records(long n);
+    /** Declares how many units the call in flight processed. */
+    void units(long n);
 
     /** Takes a write, or refuses it because the disk is full. */
     void wroteDisk(long bytes);

@@ -10,18 +10,18 @@ import losim.scenario.Scenario;
  * recomputable by anyone reading it later rather than being a number they have to
  * take on trust.
  *
- * @param records     what the run actually processed
- * @param fullRecords what it is a scale model of
+ * @param units     what the run actually processed
+ * @param fullUnits what it is a scale model of
  * @param caps        per machine, {memoryMb, diskMb}, <b>solved rather than divided</b>
  * @param notes       what the engine could not do, in words, so nothing is silently absent
  */
-public record ScalePlan(long records, long fullRecords,
+public record ScalePlan(long units, long fullUnits,
                         Map<String, double[]> caps, Laws laws,
                         int gridRuns, List<String> notes, String infeasible) {
 
     public boolean feasible() { return infeasible == null; }
 
-    public double scaleFactor() { return fullRecords / (double) Math.max(1, records); }
+    public double scaleFactor() { return fullUnits / (double) Math.max(1, units); }
 
     /** Everything the engine will say about one resource, at both scales. */
     public record Projection(String resource, double observed, OptionalDouble projected,
@@ -31,7 +31,7 @@ public record ScalePlan(long records, long fullRecords,
         String why = laws.refused().get(resource);
         if (why != null)
             return new Projection(resource, observed, OptionalDouble.empty(), 0, why);
-        var projected = laws.project(resource, fullRecords);
+        var projected = laws.project(resource, fullUnits);
         return new Projection(resource, observed, projected,
                 laws.errorBars().getOrDefault(resource, 1.0), null);
     }
@@ -39,8 +39,8 @@ public record ScalePlan(long records, long fullRecords,
     /** A description a person can read, and a trace can carry. */
     public Map<String, Object> asMap() {
         var m = new LinkedHashMap<String, Object>();
-        m.put("records", records);
-        m.put("fullRecords", fullRecords);
+        m.put("units", units);
+        m.put("fullUnits", fullUnits);
         m.put("factor", Math.round(scaleFactor()));
         m.put("gridRuns", gridRuns);
         var laws = new LinkedHashMap<String, Object>();
@@ -58,8 +58,8 @@ public record ScalePlan(long records, long fullRecords,
             laws.put(resource, l);
         });
         m.put("laws", laws);
-        // The variable-of-records laws travel too, or a cached plan could not
-        // project a resource that is a function of anything but records.
+        // The variable-of-units laws travel too, or a cached plan could not
+        // project a resource that is a function of anything but units.
         var vars = new LinkedHashMap<String, Object>();
         this.laws.byVariable().forEach((name, law) -> {
             var l = new LinkedHashMap<String, Object>();
@@ -84,6 +84,6 @@ public record ScalePlan(long records, long fullRecords,
 
     /** The scenario the plan says to run: the chosen size and every solved cap. */
     public Scenario applyTo(Scenario s) {
-        return s.withRecords(records).withCaps(caps);
+        return s.withUnits(units).withCaps(caps);
     }
 }

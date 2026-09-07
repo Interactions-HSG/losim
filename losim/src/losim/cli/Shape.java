@@ -330,7 +330,7 @@ public final class Shape {
             if (r.streaming()) {
                 findings.add(new Finding(Kind.REFUSED, r.service() + "." + r.name()
                         + " is a streaming rpc",
-                        "losim prices a call as one request and one response: a per-record"
+                        "losim prices a call as one request and one response: a per-unit"
                         + " cost would be slept once per message, and the fixed cost paid"
                         + " when the client stopped sending rather than before the handler"
                         + " ran. The numbers would come out consistent and wrong. Make it"

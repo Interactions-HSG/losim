@@ -73,7 +73,7 @@ final class ClientSide implements ClientInterceptor {
         final Double deadlineRefMs = opts.getDeadline() == null ? null
                 : opts.getDeadline().timeRemaining(java.util.concurrent.TimeUnit.NANOSECONDS) / 1e6;
         final Cost callee = target == null ? null : target.takenBy(md.getFullMethodName());
-        // The fixed part only. `refNsPerRecord` is not knowable here — the handler
+        // The fixed part only. `refNsPerUnit` is not knowable here — the handler
         // declares its count while it runs — so what is reported is a lower bound
         // on the cost, and a deadline under even that cannot be met.
         final Double declaredRefMs = callee == null || callee.refMs() <= 0 ? null

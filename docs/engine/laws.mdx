@@ -24,7 +24,7 @@ memoryMb = 0.0597 + 0.00187 * revealed.distinctItems^1.013  (R2 1.0000, wobble 0
 
 Every quantity that **varied** across the ladder and could plausibly drive something:
 
-- `records` — what the scenario declared
+- `units` — what the scenario declared
 - every numeric `Losim.current().reveal(key, value)` your code made
 
 Each resource is fitted against **every** candidate, and the best is kept.
@@ -37,7 +37,7 @@ what went past — and those grow at different rates.
 
 ## The two-step composition
 
-A variable that is not `records` is **itself fitted against records**:
+A variable that is not `units` is **itself fitted against units**:
 
 ```
 memoryMb      = f(distinctItems)
@@ -60,8 +60,8 @@ Not by R². In order:
   <Step title="Which has the narrower error bar?">
     Compared to within 0.01.
   </Step>
-  <Step title="A tie goes to `records`">
-    Because `records` is known **exactly** at full scale rather than itself being
+  <Step title="A tie goes to `units`">
+    Because `units` is known **exactly** at full scale rather than itself being
     projected.
 
     Anything else has to earn its place by **halving** the variance the simpler
@@ -100,7 +100,7 @@ both.
 
 ## A law per cost site, not one for the whole run
 
-A hash lookup is flat in `n`; a per-record scan is linear; a sort is `n log n`; a
+A hash lookup is flat in `n`; a per-unit scan is linear; a sort is `n log n`; a
 fan-out is quadratic in the fleet. One exponent for all of them would be wrong for
 most.
 

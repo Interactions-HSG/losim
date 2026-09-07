@@ -107,7 +107,7 @@ almost no time and costs almost nothing.
 ```yaml
 takes:
   Greeter:
-    SayHello: { refMs: 3, refNsPerRecord: 240000 }
+    SayHello: { refMs: 3, refNsPerUnit: 240000 }
 ```
 
 `refMs` is time on a reference machine — two vCPUs, running alone. Nothing
@@ -116,7 +116,7 @@ is genuinely instant, because the workload is shrunk and the host's CPU is not.
 Declare what the work would cost at full size.
 
 If a handler's cost depends on how much it was given, call
-`Losim.current().records(n)` in it and use `refNsPerRecord`.
+`Losim.current().records(n)` in it and use `refNsPerUnit`.
 
 ### 4. Declare which rpcs are idempotent
 

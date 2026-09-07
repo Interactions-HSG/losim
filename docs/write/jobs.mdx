@@ -26,7 +26,7 @@ threads, so everything it does is attributed to that machine like any other work
   <Accordion title="channelTo(machine)" icon="plug">
     A channel with losim on it. Build whatever stub your `.proto` generated on top.
   </Accordion>
-  <Accordion title="records() and seed()" icon="dice">
+  <Accordion title="units() and seed()" icon="dice">
     How much work this run is to do, and the scenario's seed. Both come from the
     scenario, and a job that generates its own input needs both.
   </Accordion>
@@ -78,7 +78,7 @@ threads, so everything it does is attributed to that machine like any other work
   <Card title="compute — work with no RPC to carry it" icon="microchip">
     ```java
     var album = cluster.compute("read the album",
-            () -> Album.of(cluster.records(), cluster.seed()));
+            () -> Album.of(cluster.units(), cluster.seed()));
     ```
     Opens a span **and** marks the machine busy.
 

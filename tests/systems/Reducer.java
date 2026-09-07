@@ -23,7 +23,7 @@ public final class Reducer extends ShufflerBase {
             holding.merge(word, n, Integer::sum);
             payload.computeIfAbsent(word, k -> new long[PER_KEY / 8]);
         });
-        Losim.current().records(bucket.getCountsCount());
+        Losim.current().units(bucket.getCountsCount());
         Losim.current().reveal("distinctKeys", holding.size());
         return Counts.newBuilder().putAllCounts(holding).build();
     }

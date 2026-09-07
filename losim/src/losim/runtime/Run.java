@@ -192,7 +192,7 @@ public final class Run {
             dispatcher.start();
 
             Machine entry = byName.values().iterator().next();
-            var cluster = new Live(fleet, entry, tel, s.records(), s.seed());
+            var cluster = new Live(fleet, entry, tel, s.units(), s.seed());
             Job job = job(s.job(), loader);
             started = tel.now();
             var span = tel.open(entry.name, "job", s.job());
@@ -460,12 +460,12 @@ public final class Run {
         private final Machine here;
         private final Telemetry tel;
 
-        private final long records;
+        private final long units;
         private final long seed;
 
-        Live(Fleet fleet, Machine here, Telemetry tel, long records, long seed) {
+        Live(Fleet fleet, Machine here, Telemetry tel, long units, long seed) {
             this.fleet = fleet; this.here = here; this.tel = tel;
-            this.records = records; this.seed = seed;
+            this.units = units; this.seed = seed;
         }
 
         @Override public List<String> machines() { return fleet.names(); }
@@ -477,7 +477,7 @@ public final class Run {
         @Override public Channel channelTo(String machine) { return here.dial(machine); }
 
         @Override public double clockMs() { return tel.now(); }
-        @Override public long records() { return records; }
+        @Override public long units() { return units; }
         @Override public long seed() { return seed; }
         @Override public void log(String message) { tel.event(here.name, "log", "message", message); }
         @Override public <T> T compute(String label, Supplier<T> body) {

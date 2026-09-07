@@ -12,19 +12,19 @@ import losim.trace.Telemetry;
  * <h2>Sourcing the independent variables</h2>
  * The engine cannot fit a resource until it knows what that resource is a function
  * of, and getting that wrong is the failure mode that makes every projection
- * plausible and wrong. Peak reducer memory is not really a function of records at
+ * plausible and wrong. Peak reducer memory is not really a function of units at
  * all: it is a function of <i>distinct keys</i>, which is itself a sublinear
- * function of records. Fitted against keys it is near-perfect; fitted against
- * records it is a fragile exponent that will not survive a change of corpus.
+ * function of units. Fitted against keys it is near-perfect; fitted against
+ * units it is a fragile exponent that will not survive a change of corpus.
  *
- * <p>So the candidates are collected rather than assumed. Records and the fleet
+ * <p>So the candidates are collected rather than assumed. Units and the fleet
  * shape come from the scenario; calls and bytes are counted; and <b>every number
  * the program revealed is a candidate too</b>. That is the second thing
  * {@code Losim.current().reveal(...)} is for — a handler saying "this is the
  * quantity my cost depends on" in the one place that knows.
  */
 public record Probe(
-        long records, int workers, int faults, long seed,
+        long units, int workers, int faults, long seed,
         Map<String, Double> variables,        // what a resource might be a function of
         Map<String, Double> resources,        // what it consumed
         Map<String, Double> costSites,        // per handler: what the program took, in refMs
@@ -47,7 +47,7 @@ public record Probe(
         var variables = new TreeMap<String, Double>();
         var resources = new TreeMap<String, Double>();
 
-        variables.put("records", (double) s.records());
+        variables.put("units", (double) s.units());
         variables.put("workers", (double) s.machines().stream()
                 .filter(m -> !m.runs().isEmpty()).count());
 
@@ -87,7 +87,7 @@ public record Probe(
         perSite.forEach((label, xs) -> costSites.put(label, median(xs)));
 
         int faults = s.faults().size() + s.chaos().size();
-        return new Probe(s.records(), variables.get("workers").intValue(), faults, s.seed(),
+        return new Probe(s.units(), variables.get("workers").intValue(), faults, s.seed(),
                 variables, resources, costSites, result.completed(), result.failure());
     }
 
@@ -117,7 +117,7 @@ public record Probe(
         boolean all = runs.stream().allMatch(Probe::completed);
         String failure = runs.stream().map(Probe::failure).filter(Objects::nonNull)
                 .findFirst().orElse(null);
-        return new Probe(first.records(), first.workers(), first.faults(), first.seed(),
+        return new Probe(first.units(), first.workers(), first.faults(), first.seed(),
                 variables, resources, costSites, all, failure);
     }
 

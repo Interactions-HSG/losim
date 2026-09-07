@@ -103,14 +103,14 @@ const DRAFTS: [string, Draft][] = [
       { name: 'vault', count: 2, prefix: 'vault', instance: 'm5.large', zones: ['switzerlandnorth-1'], runs: ['lab.Reducer'], memoryMb: null, diskMb: null, overrides: [] },
     ],
   }],
-  ['what each rpc costs, one with a per-record term and one without', {
+  ['what each rpc costs, one with a per-unit term and one without', {
     ...base, name: 'priced',
     takes: [
-      { runs: 'lab.Combiner', rpc: 'Map', refMs: 2, refNsPerRecord: 20000 },
-      { runs: 'lab.Combiner', rpc: 'Reduce', refMs: 5, refNsPerRecord: 0 },
+      { runs: 'lab.Combiner', rpc: 'Map', refMs: 2, refNsPerUnit: 20000 },
+      { runs: 'lab.Combiner', rpc: 'Reduce', refMs: 5, refNsPerUnit: 0 },
       // Left at zero, so it is not written and must not read back: an rpc absent
       // from the file and one written at zero are the same scenario.
-      { runs: 'lab.Combiner', rpc: 'Note', refMs: 0, refNsPerRecord: 0 },
+      { runs: 'lab.Combiner', rpc: 'Note', refMs: 0, refNsPerUnit: 0 },
     ],
   }],
   ['a machine killed, and one that never comes back', {
@@ -490,7 +490,7 @@ try {
     });
     // Only the priced ones: a row at zero is what an rpc gets by not being in the
     // file at all, so the form writes none and the lab reads none back.
-    const priced = draft.takes.filter((c) => c.refMs > 0 || c.refNsPerRecord > 0);
+    const priced = draft.takes.filter((c) => c.refMs > 0 || c.refNsPerUnit > 0);
     same('takes', priced.length, got.takes.length);
     priced.forEach((c, j) => {
       const g = got.takes[j];
@@ -500,7 +500,7 @@ try {
       same(`takes ${j} refMs`, c.refMs, g.refMs);
       // The term that decides whether a law has a variable in it at all. Dropped,
       // every scaled run still completes and every projection is flat and wrong.
-      same(`takes ${j} refNsPerRecord`, c.refNsPerRecord, g.refNsPerRecord);
+      same(`takes ${j} refNsPerUnit`, c.refNsPerUnit, g.refNsPerUnit);
     });
     if (off.length) {
       say(`${what}: the lab did not read back what the form wrote`);

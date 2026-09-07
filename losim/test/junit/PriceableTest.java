@@ -89,7 +89,7 @@ class PriceableTest {
                               + "other refusal the loader gives — " + e.getMessage());
                 assertTrue(e.getMessage().contains("lab.Thing.Watch"),
                         () -> "names the method, not just the service — " + e.getMessage());
-                assertTrue(e.getMessage().contains("refNsPerRecord"),
+                assertTrue(e.getMessage().contains("refNsPerUnit"),
                         () -> "says which part of the cost model cannot hold, rather than "
                               + "that streaming is unsupported — " + e.getMessage());
             }

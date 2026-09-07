@@ -42,7 +42,7 @@ class HandlerTest {
         // A test does not have to know losim exists for a handler to be callable.
         assertDoesNotThrow(() -> Losim.current().reveal("emitted", 3));
         assertDoesNotThrow(() -> Losim.current().log("counted"));
-        assertDoesNotThrow(() -> Losim.current().records(1));
+        assertDoesNotThrow(() -> Losim.current().units(1));
         assertDoesNotThrow(() -> Losim.current().wroteDisk(4096));
 
         // And a declared wait returns at once. There is no compressed clock to

@@ -10,7 +10,7 @@ import losim.trace.Telemetry;
  * Phase 3: the scaler engine, which is what losim is for.
  *
  * <p>Everything before this could be described as a small simulator. This is the
- * part that claims something harder: that a run of eight thousand records can say
+ * part that claims something harder: that a run of eight thousand units can say
  * what forty million would have done, and know when it cannot.
  *
  * <p>So the tests are about being <i>right</i> and about <i>refusing</i>, in that
@@ -43,7 +43,7 @@ public class Phase3 {
                 zone: z
                 runs: [%s]
             takes:
-              %s: { Map: { refMs: 2, refNsPerRecord: 20000 }, Reduce: { refMs: 5 } }
+              %s: { Map: { refMs: 2, refNsPerUnit: 20000 }, Reduce: { refMs: 5 } }
             """.formatted(trim(scale), service, service);
     }
 
@@ -75,20 +75,20 @@ public class Phase3 {
         // small run is visibly the wrong answer, near enough that the host can still
         // hold the run this is checked against.
         var s = Loader.of(Yaml.parse("truth.yaml", fleet("Accumulator", 4)));
-        final long TRUTH = s.fullRecords();
+        final long TRUTH = s.fullUnits();
 
         var grid = Grid.run(s, loader(), Telemetry.Level.FULL, Scaled.SEEDS);
         var rungs = grid.dataLadder().stream().map(Probe::medianOf).toList();
-        long top = rungs.get(rungs.size() - 1).records();
+        long top = rungs.get(rungs.size() - 1).units();
         var laws = Laws.fit(grid, TRUTH / (double) top);
         System.out.print(laws.describe());
 
         // What actually happens at the size the engine was asked about.
         var actual = Probe.medianOf(List.of(
-                Probe.run(s.withoutWeather().withRecords(TRUTH).withSeed(91), loader(), Telemetry.Level.FULL),
-                Probe.run(s.withoutWeather().withRecords(TRUTH).withSeed(92), loader(), Telemetry.Level.FULL)));
+                Probe.run(s.withoutWeather().withUnits(TRUTH).withSeed(91), loader(), Telemetry.Level.FULL),
+                Probe.run(s.withoutWeather().withUnits(TRUTH).withSeed(92), loader(), Telemetry.Level.FULL)));
 
-        System.out.printf("%n  projecting %d -> %d records (x%.0f)%n", top, TRUTH, TRUTH / (double) top);
+        System.out.printf("%n  projecting %d -> %d units (x%.0f)%n", top, TRUTH, TRUTH / (double) top);
         System.out.printf("  %-14s %10s %12s %10s   %12s %10s%n",
                 "", "actual", "engine", "err", "uniform", "err");
         int enginesWon = 0, compared = 0;
@@ -118,8 +118,8 @@ public class Phase3 {
 
         var memory = laws.law(Probe.MEMORY);
         check(memory != null && memory.variable().equals("revealed.distinctKeys"),
-              "memory was attributed to distinct keys, not to records: peak reducer memory is "
-              + "not a function of how many records there were, and fitting it against them "
+              "memory was attributed to distinct keys, not to units: peak reducer memory is "
+              + "not a function of how many units there were, and fitting it against them "
               + "gives an exponent that will not survive a change of corpus");
         System.out.println();
     }
@@ -134,17 +134,17 @@ public class Phase3 {
         Spiller.keepInMemory = Integer.MAX_VALUE;
 
         var rungs = grid.dataLadder().stream().map(Probe::medianOf).toList();
-        double[] records = rungs.stream().mapToDouble(Probe::records).toArray();
+        double[] units = rungs.stream().mapToDouble(Probe::units).toArray();
         double[] memory = rungs.stream()
                 .mapToDouble(p -> p.resources().get(Probe.MEMORY)).toArray();
         System.out.printf("  memory across the ladder: %s%n",
                 Arrays.stream(memory).mapToObj(m -> String.format("%.2f", m)).toList());
 
-        double r2 = Fit.power(records, memory)[1];
-        double diverge = Fit.halvesDiverge(records, memory);
+        double r2 = Fit.power(units, memory)[1];
+        double diverge = Fit.halvesDiverge(units, memory);
         System.out.printf("  R2 over the whole ladder %.3f;  lower half beta %.2f, upper half %.2f"
                         + " (apart by %.2f)%n", r2,
-                Fit.lowerBeta(records, memory), Fit.upperBeta(records, memory), diverge);
+                Fit.lowerBeta(units, memory), Fit.upperBeta(units, memory), diverge);
 
         check(diverge > Fit.DISCONTINUITY,
               "splitting the ladder catches it: the halves disagree about the exponent");
@@ -222,7 +222,7 @@ public class Phase3 {
               Slow: { Hit: { refMs: 200 }, Poll: { refMs: 200 } }
             """;
         // Four 2-vCPU machines: eight cores. Observed under-saturated, projected saturated.
-        // 16k records is 4 calls, under eight cores; 128k is 32, which is four
+        // 16k units is 4 calls, under eight cores; 128k is 32, which is four
         // waves of them. Scale 1 would be one record and so one call, which is a
         // call graph with nothing in it to replay.
         var small = Loader.of(Yaml.parse("sched.yaml", yaml.formatted(2)));

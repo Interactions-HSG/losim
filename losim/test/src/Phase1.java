@@ -72,7 +72,7 @@ public class Phase1 {
     /** A handler whose cost is proportional to what it was given. */
     static final class PerRecord extends WorkerBase {
         @Override protected Counts map(Chunk c) {
-            Losim.current().records(c.getLines());
+            Losim.current().units(c.getLines());
             return Counts.newBuilder().putCounts("seen", c.getLines()).build();
         }
     }
@@ -252,7 +252,7 @@ public class Phase1 {
             @Override protected Counts map(Chunk c) {
                 Losim.current().reveal("emitted", 3);
                 Losim.current().log("counted");
-                Losim.current().records(c.getLines());
+                Losim.current().units(c.getLines());
                 return Counts.newBuilder().putCounts("a", 1).build();
             }
         };
@@ -349,10 +349,10 @@ public class Phase1 {
                     .filter(s -> s.kind.equals("handler"))
                     .sorted(Comparator.comparingDouble(s -> s.t0)).toList();
             double none = spans.get(0).grossMs(), many = spans.get(1).grossMs();
-            System.out.printf("    0 records -> %.0f refMs, 400 records -> %.0f refMs%n", none, many);
+            System.out.printf("    0 units -> %.0f refMs, 400 units -> %.0f refMs%n", none, many);
             check(many - none > 300,
-                  "refNsPerRecord is charged against what the handler said it processed");
-            check(spans.get(1).records.get() == 400,
+                  "refNsPerUnit is charged against what the handler said it processed");
+            check(spans.get(1).units.get() == 400,
                   "and the count itself is in the trace, which is what the scaler engine fits against");
         }
         System.out.println();

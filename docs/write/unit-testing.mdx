@@ -49,7 +49,7 @@ get the other one.
     ```java
     Losim.current().reveal("frames", 3);   // returns
     Losim.current().log("counted");        // returns
-    Losim.current().records(1);            // returns
+    Losim.current().units(1);            // returns
     Losim.current().wroteDisk(4096);       // returns
     Losim.current().sleep(5_000);          // returns AT ONCE
     ```
@@ -69,7 +69,7 @@ get the other one.
 
 ```
 no simulation is running, so Losim.current().peers() has no answer here.
-Recording calls (reveal, log, records) are silent outside a run; state calls are
+Recording calls (reveal, log, units) are silent outside a run; state calls are
 not, because a fabricated fleet would make a passing test meaningless.
 ```
 

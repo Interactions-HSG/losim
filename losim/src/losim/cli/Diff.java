@@ -67,7 +67,7 @@ public final class Diff {
             if (meta(left).containsKey(key))
                 aspects.add(new Aspect("meta." + key, false, meta(left).get(key), meta(right).get(key)));
         aspects.add(new Aspect("run size chosen", false,
-                scale(left).get("records"), scale(right).get("records")));
+                scale(left).get("units"), scale(right).get("units")));
         for (var e : exponents(left).entrySet())
             aspects.add(new Aspect("exponent of " + e.getKey(), false,
                     e.getValue(), exponents(right).get(e.getKey())));

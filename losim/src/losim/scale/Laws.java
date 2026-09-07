@@ -53,13 +53,13 @@ public record Laws(Map<String, Fit.Law> byResource,
             if (mine != theirs) return mine;
             if (Math.abs(errorBar - other.errorBar) > 0.01) return errorBar < other.errorBar;
 
-            // A tie goes to records, which is known exactly at full scale rather than
+            // A tie goes to units, which is known exactly at full scale rather than
             // itself projected. Anything else has to earn its place by halving the
             // variance the simpler answer leaves unexplained — otherwise a variable
-            // that is merely records-plus-a-constant wins on a hair of R2 and then
+            // that is merely units-plus-a-constant wins on a hair of R2 and then
             // extrapolates its own offset as though it were growth.
-            boolean iAmDirect = law.variable().equals("records");
-            boolean itIsDirect = other.law().variable().equals("records");
+            boolean iAmDirect = law.variable().equals("units");
+            boolean itIsDirect = other.law().variable().equals("units");
             if (iAmDirect != itIsDirect) {
                 Candidate direct = iAmDirect ? this : other;
                 Candidate indirect = iAmDirect ? other : this;
@@ -79,33 +79,33 @@ public record Laws(Map<String, Fit.Law> byResource,
     public Fit.Law law(String resource) { return byResource.get(resource); }
 
     /**
-     * What a candidate variable itself becomes at a given number of records.
+     * What a candidate variable itself becomes at a given number of units.
      *
      * <p>This is the second half of the attribution and it is what makes the
      * projection hold. Peak reducer memory is a function of distinct keys; distinct
-     * keys is a sublinear function of records. Fitting memory against keys and keys
-     * against records composes two well-behaved laws. Fitting memory against records
+     * keys is a sublinear function of units. Fitting memory against keys and keys
+     * against units composes two well-behaved laws. Fitting memory against units
      * directly gives one fragile exponent that will not survive a change of corpus.
      */
-    public double variableAt(String variable, double records) {
-        if (variable.equals("records")) return records;
+    public double variableAt(String variable, double units) {
+        if (variable.equals("units")) return units;
         Fit.Law law = byVariable.get(variable);
-        return law == null ? records : law.at(records);
+        return law == null ? units : law.at(units);
     }
 
-    /** The projected demand at a given number of records, or empty where the engine refused (D7). */
-    public OptionalDouble project(String resource, double records) {
+    /** The projected demand at a given number of units, or empty where the engine refused (D7). */
+    public OptionalDouble project(String resource, double units) {
         Fit.Law law = byResource.get(resource);
         if (law == null) return OptionalDouble.empty();
-        return OptionalDouble.of(law.at(variableAt(law.variable(), records))
+        return OptionalDouble.of(law.at(variableAt(law.variable(), units))
                 * amplification.getOrDefault(resource, 1.0));
     }
 
     /** The variable part alone — what shrinks when the workload does. Fixed overhead does not. */
-    public double variablePart(String resource, double records) {
+    public double variablePart(String resource, double units) {
         Fit.Law law = byResource.get(resource);
         if (law == null) return 0;
-        return law.coefficient() * Math.pow(variableAt(law.variable(), records), law.beta());
+        return law.coefficient() * Math.pow(variableAt(law.variable(), units), law.beta());
     }
 
     // --------------------------------------------------------------------- fit
@@ -130,22 +130,22 @@ public record Laws(Map<String, Fit.Law> byResource,
         var resources = new TreeSet<String>();
         for (Probe p : rungs) resources.addAll(p.resources().keySet());
 
-        // Each candidate variable as a function of records, fitted first — because a
+        // Each candidate variable as a function of units, fitted first — because a
         // resource fitted against a variable that is itself projected inherits that
         // variable's uncertainty, and the compounding has to be part of the choice
         // rather than discovered afterwards.
-        double[] recordsAxis = rungs.stream()
-                .mapToDouble(p -> p.variables().getOrDefault("records", 0.0)).toArray();
+        double[] unitsAxis = rungs.stream()
+                .mapToDouble(p -> p.variables().getOrDefault("units", 0.0)).toArray();
         var byVariable = new TreeMap<String, Fit.Law>();
         var variableWobble = new TreeMap<String, Double>();
         for (String variable : candidates) {
-            if (variable.equals("records")) continue;
+            if (variable.equals("units")) continue;
             double[] v = rungs.stream()
                     .mapToDouble(p -> p.variables().getOrDefault(variable, 0.0)).toArray();
-            if (!varies(recordsAxis) || Arrays.stream(v).anyMatch(x -> x <= 0)) continue;
-            byVariable.put(variable, Fit.withFixedTerm(variable, "records", recordsAxis, v));
+            if (!varies(unitsAxis) || Arrays.stream(v).anyMatch(x -> x <= 0)) continue;
+            byVariable.put(variable, Fit.withFixedTerm(variable, "units", unitsAxis, v));
             variableWobble.put(variable, Math.max(0,
-                    spread(grid, "records", pr -> pr.variables().getOrDefault(variable, 0.0))));
+                    spread(grid, "units", pr -> pr.variables().getOrDefault(variable, 0.0))));
         }
 
         for (String resource : resources) {
@@ -156,26 +156,26 @@ public record Laws(Map<String, Fit.Law> byResource,
                 continue;
             }
             // The discontinuity test belongs on the axis the ladder was climbed on.
-            // A resource that bends against records has changed behaviour between the
+            // A resource that bends against units has changed behaviour between the
             // small end and the large end, and no choice of variable makes that
             // legitimate — re-parameterising a bend only hides it, and the hidden
             // version extrapolates confidently and wrongly.
-            double bendsOnLadder = Fit.halvesDiverge(recordsAxis, y);
+            double bendsOnLadder = Fit.halvesDiverge(unitsAxis, y);
             if (bendsOnLadder > Fit.DISCONTINUITY) {
                 // The R2 is quoted because it is the number that would have said
                 // nothing was wrong. A reader who reaches for it instead — and it is
                 // the obvious thing to reach for — should be able to see from the
                 // refusal itself why it would not have served.
                 refused.put(resource, String.format(
-                        "the ladder bends: over the lower half it grows as records^%.2f and over"
-                        + " the upper half as records^%.2f, a difference of %.2f. Something behaves"
+                        "the ladder bends: over the lower half it grows as units^%.2f and over"
+                        + " the upper half as units^%.2f, a difference of %.2f. Something behaves"
                         + " differently small than large — a threshold, a different code path, or a"
                         + " granularity that only shows up when the pieces are few — and no"
                         + " extrapolation across that means anything. R2 over the whole ladder is"
                         + " still %.3f, which is why no threshold on R2 could have separated this"
                         + " from a merely noisy straight line",
-                        Fit.lowerBeta(recordsAxis, y), Fit.upperBeta(recordsAxis, y), bendsOnLadder,
-                        Fit.power(recordsAxis, y)[1]));
+                        Fit.lowerBeta(unitsAxis, y), Fit.upperBeta(unitsAxis, y), bendsOnLadder,
+                        Fit.power(unitsAxis, y)[1]));
                 continue;
             }
 
@@ -228,7 +228,7 @@ public record Laws(Map<String, Fit.Law> byResource,
     /**
      * A law per cost site, not one for the whole run.
      *
-     * <p>A hash lookup is flat in n; a per-record scan is linear; a sort is n log n;
+     * <p>A hash lookup is flat in n; a per-unit scan is linear; a sort is n log n;
      * a shuffle is quadratic in the fleet. One exponent for all of them would be
      * wrong for most.
      */

@@ -34,15 +34,15 @@ package losim.runtime;
  *
  * <p>The two terms answer different questions. {@link #refMs()} is what the call
  * takes regardless of what is in it — the fixed part, known before the handler
- * runs, and slept before it. {@link #refNsPerRecord()} is what each unit of input
+ * runs, and slept before it. {@link #refNsPerUnit()} is what each unit of input
  * adds, which nothing outside the handler can know: the handler declares the count
- * with {@code Losim.current().records(n)} and the variable part is slept after the
+ * with {@code Losim.current().units(n)} and the variable part is slept after the
  * body returns, before the span closes. A handler that never declares a count is
  * charged the fixed part only, and its span says so.
  *
  * @param where the file and line it was written on, for a refusal to name
  */
-public record Cost(double refMs, double refNsPerRecord, String where) {
+public record Cost(double refMs, double refNsPerUnit, String where) {
 
-    public Cost(double refMs, double refNsPerRecord) { this(refMs, refNsPerRecord, ""); }
+    public Cost(double refMs, double refNsPerUnit) { this(refMs, refNsPerUnit, ""); }
 }

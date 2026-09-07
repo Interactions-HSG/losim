@@ -28,7 +28,7 @@ import { useConsole } from '../../lib/console.tsx';
 import { Lab } from '../Lab.tsx';
 import {
   distances, expand, firstDraft, perHour, toYaml, unplaced,
-  BASE_RECORDS, FAULT_KINDS, PAIRED,
+  BASE_UNITS, FAULT_KINDS, PAIRED,
   type Chaos, type CostRule, type Draft, type Fault, type Pool,
 } from '../../lib/author.ts';
 import {
@@ -437,7 +437,7 @@ function Scale({ draft, edit }: { draft: Draft; edit: (f: (d: Draft) => void) =>
     <Panel
       title="Scale"
       note={modelled
-        ? `a model of ${(draft.scale * BASE_RECORDS).toLocaleString()} records`
+        ? `a model of ${(draft.scale * BASE_UNITS).toLocaleString()} units`
         : 'one run, nothing projected'}
     >
       <p className="lead">
@@ -463,7 +463,7 @@ function Scale({ draft, edit }: { draft: Draft; edit: (f: (d: Draft) => void) =>
           </div>
           <span className="hint">
             {modelled
-              ? `${draft.scale}× the biggest run the engine can measure — ${(draft.scale * BASE_RECORDS).toLocaleString()} records.`
+              ? `${draft.scale}× the biggest run the engine can measure — ${(draft.scale * BASE_UNITS).toLocaleString()} units.`
               : 'One run of itself. Nothing is projected, so nothing can be projected wrongly.'}
           </span>
         </div>
@@ -1439,15 +1439,15 @@ function Costs({
     const service = palette.services.find((s) => s.cls === cls);
     return (service?.methods ?? []).map((m) => {
       const has = draft.takes.find((c) => c.runs === cls && c.rpc === m.name);
-      return { runs: cls, rpc: m.name, refMs: has?.refMs ?? 0, refNsPerRecord: has?.refNsPerRecord ?? 0 };
+      return { runs: cls, rpc: m.name, refMs: has?.refMs ?? 0, refNsPerUnit: has?.refNsPerUnit ?? 0 };
     });
   });
   const set = (runs: string, rpc: string, f: (c: CostRule) => void) => edit((d) => {
     let row = d.takes.find((c) => c.runs === runs && c.rpc === rpc);
-    if (!row) { row = { runs, rpc, refMs: 0, refNsPerRecord: 0 }; d.takes.push(row); }
+    if (!row) { row = { runs, rpc, refMs: 0, refNsPerUnit: 0 }; d.takes.push(row); }
     f(row);
   });
-  const priced = rows.some((r) => r.refMs > 0 || r.refNsPerRecord > 0);
+  const priced = rows.some((r) => r.refMs > 0 || r.refNsPerUnit > 0);
 
   return (
     <Panel title="What a call takes" note="reference milliseconds, by what serves it">
@@ -1465,9 +1465,9 @@ function Costs({
                    c.refMs = Math.max(0, Number(e.target.value) || 0);
                  })} />
           <span>refMs, plus</span>
-          <input type="number" min={0} step="any" value={r.refNsPerRecord}
+          <input type="number" min={0} step="any" value={r.refNsPerUnit}
                  onChange={(e) => set(r.runs, r.rpc, (c) => {
-                   c.refNsPerRecord = Math.max(0, Number(e.target.value) || 0);
+                   c.refNsPerUnit = Math.max(0, Number(e.target.value) || 0);
                  })} />
           <span>refNs a record</span>
         </div>

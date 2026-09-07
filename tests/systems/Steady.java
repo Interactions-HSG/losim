@@ -4,7 +4,7 @@ import lab.pb.Counts;
 import losim.api.Losim;
 
 /**
- * Cheap to start and dear per record: 2 refMs, and 0.02 refMs for each one.
+ * Cheap to start and dear per unit: 2 refMs, and 0.02 refMs for each one.
  *
  * <p>The shape a fixed deadline is actually got wrong against. Two refMs is under
  * any deadline anybody would write, so nothing about this method looks expensive
@@ -15,7 +15,7 @@ public final class Steady extends Mapper {
     @Override protected Counts map(Chunk c) {
         var out = new HashMap<String, Integer>();
         for (String word : c.getText().split("\\s+")) if (!word.isEmpty()) out.merge(word, 1, Integer::sum);
-        Losim.current().records(c.getLines());
+        Losim.current().units(c.getLines());
         return Counts.newBuilder().putAllCounts(out).build();
     }
 }

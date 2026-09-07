@@ -2,10 +2,10 @@
 A service is an ordinary gRPC service. One losim annotation says what a call
 costs on the reference machine, and one call records what the handler was doing:
 
-    @Takes(refMs = 2, refNsPerRecord = 40)
+    @Takes(refMs = 2, refNsPerUnit = 40)
     @Override protected Counts tally(Chunk request) {
         var seen = new HashMap<String, Long>();
-        Losim.current().records(request.getLineCount());
+        Losim.current().units(request.getLineCount());
         Losim.current().reveal("distinctKeys", seen.size());
         return build(seen);
     }

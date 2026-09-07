@@ -16,7 +16,7 @@ import losim.api.Job;
 /**
  * A word count whose size is whatever it is asked for.
  *
- * <p>This is what makes a job scalable: it reads {@link Cluster#records()} rather
+ * <p>This is what makes a job scalable: it reads {@link Cluster#units()} rather
  * than deciding for itself how much work there is. A job that hardcodes its own size
  * cannot be shrunk, and the engine has nothing to turn.
  *
@@ -60,9 +60,9 @@ public final class Elastic implements Job {
             blocking.add(WorkerGrpc.newBlockingStub(channel));
         }
 
-        long records = cluster.records();
+        long units = cluster.units();
         var corpus = new Zipf(200_000, 1.1, cluster.seed());
-        int chunks = (int) ((records + LINES_PER_CHUNK - 1) / LINES_PER_CHUNK);
+        int chunks = (int) ((units + LINES_PER_CHUNK - 1) / LINES_PER_CHUNK);
 
         // Fanned out across every worker at once — which is what makes this the phase
         // a bigger fleet finishes sooner.
@@ -71,7 +71,7 @@ public final class Elastic implements Job {
             var room = new Semaphore(IN_FLIGHT);
             var done = new CountDownLatch(chunks);
             for (int i = 0; i < chunks; i++) {
-                int lines = (int) Math.min(LINES_PER_CHUNK, records - (long) i * LINES_PER_CHUNK);
+                int lines = (int) Math.min(LINES_PER_CHUNK, units - (long) i * LINES_PER_CHUNK);
                 var text = new StringBuilder();
                 for (String line : corpus.lines(lines, WORDS_PER_LINE)) {
                     if (text.length() > 0) text.append(' ');
@@ -135,6 +135,6 @@ public final class Elastic implements Job {
             }
             phase.note("keys", merged.size());
         }
-        cluster.done(Map.of("records", records, "chunks", chunks, "distinct", merged.size()));
+        cluster.done(Map.of("units", units, "chunks", chunks, "distinct", merged.size()));
     }
 }

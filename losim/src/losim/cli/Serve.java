@@ -535,7 +535,7 @@ public final class Serve {
             row.put("runs", c.runs());
             row.put("rpc", c.rpc());
             row.put("refMs", c.refMs());
-            row.put("refNsPerRecord", c.refNsPerRecord());
+            row.put("refNsPerUnit", c.refNsPerUnit());
             takes.add(row);
         }
 

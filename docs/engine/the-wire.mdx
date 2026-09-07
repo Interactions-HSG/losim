@@ -95,9 +95,9 @@ still terminates.
   <Step title="Your handler runs">
     With the machine ambient, so `Losim.current()` works.
   </Step>
-  <Step title="The per-record cost is slept before the response leaves">
+  <Step title="The per-unit cost is slept before the response leaves">
     Not after — a caller waits for work that has not finished, and by now the handler
-    has said how much there was via `records(n)`.
+    has said how much there was via `units(n)`.
   </Step>
   <Step title="`handler_end`, with both durations">
     `ms` is what the **program** took; `grossMs` is open-to-close including whatever

@@ -17,7 +17,7 @@ public class Mapper extends WorkerBase {
     @Override protected Counts map(Chunk c) {
         var out = new HashMap<String, Integer>();
         for (String word : c.getText().split("\\s+")) if (!word.isEmpty()) out.merge(word, 1, Integer::sum);
-        Losim.current().records(c.getLines());
+        Losim.current().units(c.getLines());
         Losim.current().reveal("emitted", out.size());
         return Counts.newBuilder().putAllCounts(out).build();
     }

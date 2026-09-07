@@ -1,4 +1,4 @@
-# 40000 records at 0.02 refMs each, asked for twice: once with 2000 refMs of
+# 40000 units at 0.02 refMs each, asked for twice: once with 2000 refMs of
 # patience and once with 600. The fixed cost is 2 refMs, so neither deadline looks
 # wrong until the handler declares its count.
 seed: 1
@@ -15,5 +15,5 @@ machines:
 # with no losim in it.
 takes:
   Steady:
-    Map: { refMs: 2, refNsPerRecord: 20000 }
+    Map: { refMs: 2, refNsPerUnit: 20000 }
     Note: { refMs: 1 }

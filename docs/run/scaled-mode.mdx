@@ -27,7 +27,7 @@ java -Xmx3g -cp "${CP}build/losim.jar:build/losim/classes" \
 The first run is slow, and here is where the time goes:
 
 ```
-thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 records (x5,000)
+thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 units (x5,000)
                                               [plan fitted from 30 probe runs in 41.2s]
 ```
 
@@ -56,9 +56,9 @@ rm -rf build/.losim-plans      # force a refit
 
 ```
   memoryMb   = 0.0597 + 0.00187 * revealed.distinctItems^1.013  (R2 1.0000, wobble 0.000)
-  wireMb     = 0.0    + 0.000151 * records^0.952                (R2 1.0000, wobble 0.004)
-  diskMb       REFUSED: the ladder bends — over the lower half it grows as records^0.59
-               and over the upper half as records^0.87 …
+  wireMb     = 0.0    + 0.000151 * units^0.952                (R2 1.0000, wobble 0.004)
+  diskMb       REFUSED: the ladder bends — over the lower half it grows as units^0.59
+               and over the upper half as units^0.87 …
   makespan     REFUSED: its exponent moves by 0.66 between independent seed sets …
 
                      observed              projected
@@ -80,11 +80,11 @@ rm -rf build/.losim-plans      # force a refit
   </Accordion>
   <Accordion title="The variable" icon="magnifying-glass">
     `revealed.distinctItems` means your own `reveal("distinctItems", …)` was chosen
-    as the independent variable, over `records`. That is the engine finding what the
+    as the independent variable, over `units`. That is the engine finding what the
     resource is *actually* a function of. Peak memory is a function of how much you
     hold, not of how much went past.
 
-    A variable that is not `records` is itself fitted against records, so the
+    A variable that is not `units` is itself fitted against units, so the
     projection composes two well-behaved laws instead of one fragile one.
   </Accordion>
   <Accordion title="The error bar" icon="plus-minus">
@@ -136,7 +136,7 @@ what the machines cost.
 
 ```
 thumbs-scaled.yaml  scaled mode: no feasible size
-  memoryMb at 8000 records is only 2.4x its own fixed overhead (0.31 against 0.13);
+  memoryMb at 8000 units is only 2.4x its own fixed overhead (0.31 against 0.13);
   below 10x the fit is describing the overhead rather than the workload
   Nothing was run and nothing is projected, which is the point:
   a projection that could not be made must be absent, not guessed.
