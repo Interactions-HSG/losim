@@ -2,7 +2,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lab.pb.Counts;
 import losim.api.Losim;
-import losim.api.Takes;
 
 /**
  * A reducer that accumulates, which is the whole reason it can run out of memory.
@@ -19,7 +18,6 @@ public final class Reducer extends ShufflerBase {
     /** Bytes a reducer really keeps per distinct key. Small, so the machines can be too. */
     static final int PER_KEY = 500_000;
 
-    @Takes(refMs = 30)
     @Override protected Counts fold(Counts bucket) {
         bucket.getCountsMap().forEach((word, n) -> {
             holding.merge(word, n, Integer::sum);

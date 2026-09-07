@@ -11,11 +11,12 @@ Losim.current().sleep(200);      // 200 reference milliseconds
 Same unit as everything else, same division by `k_time`. At 40× that waits
 five real milliseconds and two hundred simulated ones.
 
-## `@Takes` is fixed per method
+## A declared cost is fixed per rpc
 
-`@Takes` is an annotation, so it is fixed per method. This is for a duration **only
-the running program knows**: a backoff that grows with the attempt, a poll
-interval, a lease held until something else happens.
+`takes:` is a table in the scenario, so it is fixed per rpc. This is for a duration
+**only the running program knows**: a backoff that grows with the attempt, a poll
+interval, a lease held until something else happens. No table can carry any of
+those, which is why both exist.
 
 ## `Thread.sleep` ignores `k_time`
 
@@ -31,9 +32,9 @@ flags it in favour of.
   <Card title="It does not stretch on a slow machine" icon="gauge-simple">
     A machine at half speed **computes** slower. It does not **wait** longer. So a
     declared wait is not multiplied by `machineFactor` or by a degrade factor,
-    where `@Takes` is.
+    where declared **work** is.
 
-    Measured, at 40× on a machine at half speed: `@Takes(500)` takes 1019
+    Measured, at 40× on a machine at half speed: a declared 500 takes 1019
     refMs and `sleep(500)` takes 596.
   </Card>
   <Card title="It does not mark the machine busy" icon="bed">

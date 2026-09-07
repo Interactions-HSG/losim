@@ -37,14 +37,13 @@ computed, which is the one thing a simulator cannot afford.
 
 ## A service
 
-An ordinary gRPC service, from an ordinary `.proto`, with one losim annotation.
-Twelve lines of adapter turn grpc-java's `void map(Chunk, StreamObserver<Counts>)`
-into a value-returning method, which is the difference between a handler you can
-call from a plain unit test and one you cannot.
+An ordinary gRPC service, from an ordinary `.proto`, naming losim nowhere. Twelve
+lines of adapter turn grpc-java's `void map(Chunk, StreamObserver<Counts>)` into a
+value-returning method, which is the difference between a handler you can call from
+a plain unit test and one you cannot.
 
 ```java
 public final class Mapper extends WorkerBase {
-    @Takes(refMs = 2)
     @Override protected Counts map(Chunk request) {
         var counts = count(request.getText());
         Losim.current().reveal("emitted", counts.size());   // silent in a bare test
@@ -53,15 +52,26 @@ public final class Mapper extends WorkerBase {
 }
 ```
 
-No losim type appears in any signature. `@Takes` is reference-machine time, so it
-composes with scaling: the interceptor sleeps `refMs × machineFactor ÷ k_time`.
+No losim type appears in any signature, and the one call above is optional — delete
+it and this file compiles with losim off the classpath entirely.
+
+What the call costs is declared in the scenario, under the class that runs it:
+
+```yaml
+takes:
+  Mapper: { Map: { refMs: 2 } }
+```
+
+Reference-machine time, so it composes with scaling: the interceptor sleeps
+`refMs × machineFactor ÷ k_time`. A key naming a class nothing places, or an rpc
+that class does not serve, is refused with its line before anything runs.
 
 A duration only the running program knows — a backoff that grows with the attempt,
-a poll interval — cannot be an annotation, so there is
+a poll interval — cannot be written in a table, so there is
 `Losim.current().sleep(refMs)`. Same unit, same division by `k_time`. It differs
-from `@Takes` in one way that matters: **waiting is not work**, so it does not
+from declared work in one way that matters: **waiting is not work**, so it does not
 stretch on a degraded machine and does not mark it busy. Measured, at `k_time` 100
-on a machine at half speed: `@Takes(500)` takes 1019 refMs and `sleep(500)` takes
+on a machine at half speed: a declared 500 takes 1019 refMs and `sleep(500)` takes
 596. `Thread.sleep` is the one duration in a run that `k_time` never touches, which
 is why the verifier flags it.
 

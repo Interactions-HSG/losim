@@ -2,8 +2,8 @@ import io.grpc.ManagedChannel;
 import io.grpc.stub.StreamObserver;
 import java.util.*;
 import java.util.concurrent.*;
-import losim.api.Takes;
 import losim.api.Losim;
+import losim.runtime.Cost;
 import losim.runtime.Fleet;
 import losim.runtime.Machine;
 import losim.runtime.Net;
@@ -39,25 +39,38 @@ public class Phase1 {
 
     // ------------------------------------------------------------------ fixtures
 
+    /** What the scenario says an rpc costs, for a fleet built without a scenario. */
+    static final Map<String, Cost> COSTED = Map.of("Costed.Map", new Cost(500, 0));
+    static final Map<String, Cost> PER_RECORD =
+            Map.of("PerRecord.Map", new Cost(0, 1_000_000));   // 1 refMs a record
+
     /** A handler with a declared cost, so the interceptor has something to sleep. */
     static final class Costed extends WorkerBase {
-        @Takes(refMs = 500)
         @Override protected Counts map(Chunk c) {
             return Counts.newBuilder().putCounts("seen", c.getLines()).build();
         }
     }
 
-    /** A handler whose cost is proportional to what it was given. */
-    /** A handler whose duration only the running program knows, so no annotation can carry it. */
+    /**
+     * A handler whose duration only the running program knows.
+     *
+     * <p>It waits on {@code reduce} rather than on {@code map} so that it can sit
+     * in the same fleet as {@link Costed} and cost nothing: what a call takes is
+     * declared per rpc, not per machine, so two implementations of one rpc in one
+     * fleet are two machines running the same operation at the same price.
+     */
     static final class Waiting extends WorkerBase {
-        @Override protected Counts map(Chunk c) {
+        @Override protected Counts map(Chunk c) { return c.getLines() == 0
+                ? Counts.getDefaultInstance() : Counts.getDefaultInstance(); }
+
+        @Override protected Counts reduce(Counts c) {
             Losim.current().sleep(500);
             return Counts.newBuilder().putCounts("waited", 500).build();
         }
     }
 
+    /** A handler whose cost is proportional to what it was given. */
     static final class PerRecord extends WorkerBase {
-        @Takes(refNsPerRecord = 1_000_000)             // 1 refMs a record
         @Override protected Counts map(Chunk c) {
             Losim.current().records(c.getLines());
             return Counts.newBuilder().putCounts("seen", c.getLines()).build();
@@ -192,9 +205,9 @@ public class Phase1 {
             // The callee is slow on purpose: if the caller were blocked, five of
             // these would take five times as long as one.
             fleet.machine("b", "m5.large", "z").serving(new VolleyBase() {
-                @Takes(refMs = 300)
                 @Override protected void hit(Ping p) { arrived.countDown(); }
             });
+            fleet.costing(Map.of("VolleyBase.Hit", new Cost(300, 0)));
             ManagedChannel ch = a.channelTo("b");
             var stub = VolleyGrpc.newStub(ch);
 
@@ -258,13 +271,14 @@ public class Phase1 {
     // -------------------------------------------------------------- declared cost
 
     static void declaredCost() throws Exception {
-        System.out.println("=== @Takes, in reference milliseconds ===");
+        System.out.println("=== a declared cost, in reference milliseconds ===");
         try (var fleet = fleet(100, Telemetry.Level.FULL)) {
             var c = fleet.machine("c", "m5.large", "z");
             fleet.machine("s", "m5.large", "z").serving(new Costed());
             fleet.machine("w", "m5.large", "z").serving(new Waiting());
             fleet.machine("dc", "m5.large", "z").serving(new Costed()).degrade(2);
             fleet.machine("dw", "m5.large", "z").serving(new Waiting()).degrade(2);
+            fleet.costing(COSTED);
             ManagedChannel ch = c.channelTo("s");
             long t0 = System.nanoTime();
             c.submit(() -> WorkerGrpc.newBlockingStub(ch)
@@ -288,14 +302,16 @@ public class Phase1 {
             ManagedChannel w = c.channelTo("w");
             var chunk = Chunk.newBuilder().setLines(1).build();
             long t1 = System.nanoTime();
-            c.submit(() -> WorkerGrpc.newBlockingStub(w).map(chunk)).get();
+            // `reduce`, which nothing declares a cost for: this machine's whole
+            // duration is the wait its own code asked for.
+            c.submit(() -> WorkerGrpc.newBlockingStub(w).reduce(Counts.getDefaultInstance())).get();
             double waitReal = (System.nanoTime() - t1) / 1e6;
             w.shutdownNow();
             var waited = byMachine(fleet, "w");
             System.out.printf("    sleep(500 refMs) at k_time 100 -> %.2f ms of real time, "
                             + "%.0f refMs on the simulated clock%n", waitReal, waited);
             check(waitReal > 3.5 && waitReal < 60 && waited > 400, String.format(
-                    "Losim.current().sleep() divides by k_time exactly as @Takes does (%.1f ms "
+                    "Losim.current().sleep() divides by k_time exactly as a declared cost does (%.1f ms "
                     + "real, %.0f refMs simulated) — a wait is a declared duration, and every "
                     + "declared duration is reference time", waitReal, waited));
             check(fleet.telemetry().events().stream().anyMatch(e -> e.kind().equals("sleep")),
@@ -305,15 +321,16 @@ public class Phase1 {
             // Waiting is not work, and this is where that stops being a slogan.
             ManagedChannel dc = c.channelTo("dc"), dw = c.channelTo("dw");
             c.submit(() -> WorkerGrpc.newBlockingStub(dc).map(chunk)).get();
-            c.submit(() -> WorkerGrpc.newBlockingStub(dw).map(chunk)).get();
+            c.submit(() -> WorkerGrpc.newBlockingStub(dw)
+                    .reduce(Counts.getDefaultInstance())).get();
             dc.shutdownNow(); dw.shutdownNow();
             double cost = byMachine(fleet, "dc"), wait = byMachine(fleet, "dw");
-            System.out.printf("    on a machine at half speed: @Takes(500) -> %.0f refMs, "
+            System.out.printf("    on a machine at half speed: a declared 500 -> %.0f refMs, "
                             + "sleep(500) -> %.0f refMs  (x%.2f)%n", cost, wait, cost / wait);
             // The ratio, not the two figures: both carry the same constant of call
             // overhead, and only the ratio says which of them the degrade multiplied.
             check(cost / wait > 1.4, String.format(
-                    "@Takes stretches on a degraded machine and sleep does not (%.0f vs %.0f "
+                    "a declared cost stretches on a degraded machine and sleep does not (%.0f vs %.0f "
                     + "refMs, x%.2f) — a machine at half speed computes slower, but it does not "
                     + "wait longer, and that difference is why a wait is not an annotation",
                     cost, wait, cost / wait));
@@ -322,6 +339,7 @@ public class Phase1 {
         try (var fleet = fleet(100, Telemetry.Level.FULL)) {
             var c = fleet.machine("c", "m5.large", "z");
             fleet.machine("s", "m5.large", "z").serving(new PerRecord());
+            fleet.costing(PER_RECORD);
             ManagedChannel ch = c.channelTo("s");
             var stub = WorkerGrpc.newBlockingStub(ch);
             c.submit(() -> stub.map(Chunk.newBuilder().setLines(0).build())).get();
@@ -346,7 +364,8 @@ public class Phase1 {
         System.out.println("=== the executor is the vCPU model ===");
         try (var fleet = fleet(10, Telemetry.Level.NO_PAYLOAD)) {
             var c = fleet.machine("c", "m5.2xlarge", "z");
-            fleet.machine("two", "m5.large", "z").serving(new Costed());   // 2 vCPU, 500 refMs
+            fleet.machine("two", "m5.large", "z").serving(new Costed());   // 2 vCPU
+            fleet.costing(COSTED);                                         // 500 refMs a call
             ManagedChannel ch = c.channelTo("two");
             var stub = WorkerGrpc.newBlockingStub(ch);
             var calls = new ArrayList<Future<?>>();
@@ -412,7 +431,8 @@ public class Phase1 {
         // --- a deadline is reference time too, or it disagrees with everything else
         try (var fleet = fleet(100, Telemetry.Level.NO_PAYLOAD)) {
             var c = fleet.machine("c", "m5.large", "z");
-            fleet.machine("slow", "m5.large", "z").serving(new Costed());   // 500 refMs
+            fleet.machine("slow", "m5.large", "z").serving(new Costed());
+            fleet.costing(COSTED);                                          // 500 refMs
             var ch = c.channelTo("slow");
             var req = Chunk.newBuilder().setLines(1).build();
             String tight = c.submit(() -> outcome(() -> WorkerGrpc.newBlockingStub(ch)
@@ -513,6 +533,7 @@ public class Phase1 {
         try (var fleet = fleet(200, Telemetry.Level.FULL)) {
             var c = fleet.machine("c", "m5.large", "z");
             fleet.machine("s", "m5.large", "z").serving(new Costed());
+            fleet.costing(COSTED);
             fleet.startSampling();
             ManagedChannel ch = c.channelTo("s");
             var stub = WorkerGrpc.newBlockingStub(ch);

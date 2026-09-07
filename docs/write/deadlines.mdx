@@ -67,7 +67,7 @@ A deadline is a claim about how long the callee should take, and the two numbers
 are related:
 
 ```java
-@Takes(refMs = 3, refNsPerRecord = 240_000)     // 25 frames -> 3 + 6 = 9 refMs
+Thumbnail: { refMs: 3, refNsPerRecord: 240000 }   # 25 frames -> 3 + 6 = 9 refMs
 ```
 
 Nine reference milliseconds of work on a two-vCPU machine. On the `c5.large`s in the

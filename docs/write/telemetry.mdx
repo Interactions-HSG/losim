@@ -50,7 +50,7 @@ Losim.current().records(request.getFramesCount());
 
 Two things need it:
 
-1. `@Takes(refNsPerRecord = …)` is charged against it. Without it, only the fixed
+1. the scenario's `refNsPerRecord:` is charged against it. Without it, only the fixed
    part is slept, and the span says so.
 2. The scale engine needs to know which variable a cost site is a function of.
    Fitting a resource against the wrong variable gives an exponent that will not

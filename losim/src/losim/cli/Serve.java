@@ -528,6 +528,16 @@ public final class Serve {
             retries.add(row);
         }
 
+        List<Object> takes = new ArrayList<>();
+        for (Draft.Takes c : d.takes()) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("runs", c.runs());
+            row.put("rpc", c.rpc());
+            row.put("refMs", c.refMs());
+            row.put("refNsPerRecord", c.refNsPerRecord());
+            takes.add(row);
+        }
+
         Map<String, Object> draft = new LinkedHashMap<>();
         draft.put("name", d.name());
         draft.put("job", d.job());
@@ -542,6 +552,7 @@ public final class Serve {
         net.put("loss", d.net().loss());
         draft.put("net", net);
         draft.put("pools", pools);
+        draft.put("takes", takes);
         draft.put("faults", faults);
         draft.put("chaos", chaos);
         draft.put("retries", retries);

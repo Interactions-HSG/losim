@@ -152,6 +152,23 @@ export interface RetryRule {
   unsafe: boolean;
 }
 
+/**
+ * What one rpc costs on the reference machine.
+ *
+ * Under the class that serves it, not under the rpc: two implementations of one
+ * rpc in one fleet is how a design is compared with another, and a cost keyed on
+ * the rpc would say they take the same time. `runs` is the class as `runs:`
+ * names it.
+ */
+export interface CostRule {
+  runs: string;
+  rpc: string;
+  /** What a call takes regardless of what is in it. */
+  refMs: number;
+  /** What each record the handler declares adds, in reference nanoseconds. */
+  refNsPerRecord: number;
+}
+
 /** The biggest run the engine can measure — the top of its own probe ladder. */
 export const BASE_RECORDS = 8000;
 
@@ -183,6 +200,15 @@ export interface Draft {
   faults: Fault[];
   chaos: Chaos[];
   retries: RetryRule[];
+  /**
+   * What each placed class's rpcs cost.
+   *
+   * Nothing in a handler declares this any more: a duration is a claim about the
+   * machine a design would run on, so it belongs to the scenario — which leaves a
+   * student's Java with no losim symbol in it at all. A fleet that declares none
+   * of these runs, and every call in it is instant.
+   */
+  takes: CostRule[];
 }
 
 /** One machine, once the pools have been dealt out. */
@@ -409,6 +435,21 @@ export function toYaml(draft: Draft): string {
              + `backoff: ${r.backoffRefMs} refMs${mult}${unsafe} }`);
     }
   }
+  const priced = draft.takes.filter((c) => c.refMs > 0 || c.refNsPerRecord > 0);
+  if (priced.length) {
+    L.push('');
+    L.push('takes:');
+    // Grouped by the class, which is how the file is written and read: one
+    // heading per thing that runs, its rpcs under it.
+    for (const runs of [...new Set(priced.map((c) => c.runs))]) {
+      const mine = priced.filter((c) => c.runs === runs);
+      const rows = mine.map((c) => {
+        const perRecord = c.refNsPerRecord > 0 ? `, refNsPerRecord: ${c.refNsPerRecord}` : '';
+        return `${q(c.rpc)}: { refMs: ${c.refMs}${perRecord} }`;
+      });
+      L.push(`  ${q(runs)}: { ${rows.join(', ')} }`);
+    }
+  }
   return L.join('\n') + '\n';
 }
 
@@ -461,5 +502,11 @@ export function firstDraft(palette: Palette): Draft {
     faults: [],
     chaos: [],
     retries: [],
+    // Every rpc the one placed class serves, at zero — a row to fill in rather
+    // than a block to remember. A fleet that leaves them at zero is a fleet where
+    // every call is instant, which the form says out loud beside them.
+    takes: (worker?.methods ?? []).map((m) => ({
+      runs: worker!.cls, rpc: m.name, refMs: 0, refNsPerRecord: 0,
+    })),
   };
 }

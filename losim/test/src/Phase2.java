@@ -49,6 +49,8 @@ public class Phase2 {
         machines:
           master: { instance: m5.large, zone: z }
           workers: { count: 2, prefix: w, instance: m5.large, zone: z, runs: [Pinger] }
+        takes:
+          Pinger: { Hit: { refMs: 1 } }
         """;
 
     /**
@@ -71,6 +73,9 @@ public class Phase2 {
               master: { instance: m5.large, zone: z }
               front:  { instance: m5.large, zone: z, runs: [Forwarder] }
               back:   { instance: m5.large, zone: z, runs: [Counter] }
+            takes:
+              Forwarder: { Map: { refMs: 1 } }
+              Counter:   { Map: { refMs: 15 }, Reduce: { refMs: 100 } }
             """)));
         var tel = result.telemetry();
         check(result.completed(), "the job finished: master called front, and front called back");
@@ -268,6 +273,8 @@ public class Phase2 {
                   workers: { count: 1, prefix: w, instance: m5.large, zone: z, runs: [Pinger] }
                 retries:
                   - { method: Volley.Poll, attempts: 4, backoff: 20 refMs, multiplier: 2 }
+                takes:
+                  Pinger: { Hit: { refMs: 1 } }
                 """)));
         Pinger.failFirst = 0;
         var retries = result.telemetry().events().stream()
@@ -313,6 +320,8 @@ public class Phase2 {
                   - { at: 400 refMs, partition: [master, w3] }
                   - { at: 700 refMs, kill: w3, restart_after: 300 refMs }
                   - { at: 1200 refMs, heal: [master, w3] }
+                takes:
+                  Pinger: { Hit: { refMs: 1 } }
                 """)));
         var tel = result.telemetry();
         var at = new LinkedHashMap<String, Double>();
@@ -355,6 +364,8 @@ public class Phase2 {
                   workers: { count: 6, prefix: w, instance: m5.large, zone: z, runs: [Pinger] }
                 chaos:
                   - { kill: { every: 3 refSeconds, among: workers } }
+                takes:
+                  Pinger: { Hit: { refMs: 1 } }
                 """;
         var afternoons = new ArrayList<List<String>>();
         for (long seed : new long[]{1, 1, 2}) {
@@ -392,6 +403,8 @@ public class Phase2 {
                     runs: [Counter]
                     overrides:
                       w1: { diskMb: 1 }
+                takes:
+                  Counter: { Map: { refMs: 15 }, Reduce: { refMs: 100 } }
                 """)));
         var tel = result.telemetry();
         var full = tel.events().stream().filter(e -> e.kind().equals("disk_full")).findFirst();

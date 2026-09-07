@@ -8,3 +8,12 @@ tightMargin: true          # this case is about a margin, and says so
 machines:
   client: { instance: m5.large, zone: eu-central-1a }
   srv:    { instance: m5.large, zone: eu-central-1a, runs: [Steady] }
+
+# What each rpc costs on the reference machine, under the class that serves it.
+# The handlers declare nothing: a duration is a claim about the machine a design
+# would run on, so it belongs to the scenario — and a system stays plain gRPC
+# with no losim in it.
+takes:
+  Steady:
+    Map: { refMs: 2, refNsPerRecord: 20000 }
+    Note: { refMs: 1 }

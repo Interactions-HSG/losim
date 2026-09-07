@@ -75,19 +75,16 @@ package lab;
 import com.google.protobuf.ByteString;
 import lab.pb.*;
 import losim.api.Losim;
-import losim.api.Takes;
-
 public final class Shrinker extends ThumbnailerBase {
 
     /** Longest edge of a thumbnail, in pixels. */
     private static final int EDGE = 128;
 
-    @Takes(refMs = 3, refNsPerRecord = 240_000)
     @Override protected Thumbs thumbnail(Batch request) {
         var here = Losim.current();
 
-        // What the variable part of @Takes is charged against, and what the scale
-        // engine needs in order to know which variable this call is a function of.
+        // What the scenario's per-record cost is charged against, and what the
+        // scale engine needs to know which variable this call is a function of.
         here.records(request.getFramesCount());
 
         var out = Thumbs.newBuilder();
@@ -105,7 +102,6 @@ public final class Shrinker extends ThumbnailerBase {
         return out.setBytes((int) bytes).build();
     }
 
-    @Takes(refMs = 0.5)
     @Override protected Health capacity(Empty request) {
         // Local knowledge only: this machine's own limits, never a peer's.
         var spec = Losim.current().here();
@@ -147,15 +143,19 @@ public final class Shrinker extends ThumbnailerBase {
     simulating anything. That is what the adapter bought.
   </Card>
   <Card title="Three lines that are losim's" icon="circle-info">
-    One annotation, one `records(…)`, two `reveal(…)`. All four are optional and
-    all four earn their place. The next sections say what each is for.
+    One `records(…)` and two `reveal(…)`. All three are optional and all three
+    earn their place. The next sections say what each is for.
   </Card>
 </Columns>
 
-### `@Takes` — what this call costs
+### `takes:` — what this call costs
 
-```java
-@Takes(refMs = 3, refNsPerRecord = 240_000)
+Not here. It goes in the scenario, under the class that serves it:
+
+```yaml
+takes:
+  Shrinker:
+    Thumbnail: { refMs: 3, refNsPerRecord: 240000 }
 ```
 
 Two terms, answering different questions:
@@ -224,9 +224,13 @@ No fleet, no scenario, no interceptor, no clock. Set a breakpoint inside
 `shrink` and step into it: it is ordinary Java, and stopping on it stops nothing
 else, because nothing else is running.
 
-losim is on the classpath because `@Takes` is a compile-time annotation and
-`Losim.current()` has to resolve — but it does nothing here. Recording calls are
-silent; state calls throw. [Why that asymmetry ->](/write/unit-testing)
+losim is on the classpath only because `Losim.current()` has to resolve — and it
+does nothing here. Recording calls are silent; state calls throw.
+[Why that asymmetry ->](/write/unit-testing)
+
+Take the two `reveal` lines and the `records` line out and **nothing in this file
+names losim at all**: it is a plain gRPC handler, it compiles with losim off the
+classpath, and it unit-tests without it.
 
 <Card title="Next: the job" icon="arrow-right" href="/first/the-job">
   Finding peers, asking them how big they are, and fanning work out.

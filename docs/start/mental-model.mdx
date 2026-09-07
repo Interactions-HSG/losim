@@ -23,7 +23,7 @@ Three ways time is spent, and they behave differently:
 
 | | what it is | stretches on a slow machine? | occupies a core? |
 |---|---|---|---|
-| `@Takes(refMs = …)` | declared **work** in a handler | yes | yes |
+| `takes:` in the scenario | declared **work** for an rpc | yes | yes |
 | `Losim.current().sleep(refMs)` | a declared **wait** — a backoff, a poll interval | no | no |
 | `Thread.sleep(…)` | your afternoon, untouched by `k_time` | — | — |
 

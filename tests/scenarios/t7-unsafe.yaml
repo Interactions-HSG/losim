@@ -11,3 +11,16 @@ machines:
 
 retries:
   - { method: lab.Volley.Hit, attempts: 3, backoff: 40 refMs }
+
+# What each rpc costs on the reference machine, under the class that serves it.
+# The handlers declare nothing: a duration is a claim about the machine a design
+# would run on, so it belongs to the scenario — and a system stays plain gRPC
+# with no losim in it.
+takes:
+  Mapper:
+    Map: { refMs: 20 }
+    Note: { refMs: 1 }
+  Reducer:
+    Fold: { refMs: 30 }
+  Volleyer:
+    Hit: { refMs: 200 }

@@ -3,7 +3,6 @@ import lab.pb.Empty;
 import lab.pb.Ping;
 import lab.pb.VolleyGrpc;
 import losim.api.Losim;
-import losim.api.Takes;
 
 /**
  * Fire-and-forget, which is not a second messaging path.
@@ -15,7 +14,6 @@ import losim.api.Takes;
  */
 public final class Volleyer extends VolleyGrpc.VolleyImplBase {
 
-    @Takes(refMs = 200)
     @Override public void hit(Ping p, StreamObserver<Empty> out) {
         Losim.current().reveal("rally", p.getSeq());
         out.onNext(Empty.getDefaultInstance());

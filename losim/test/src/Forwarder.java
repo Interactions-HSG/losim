@@ -1,6 +1,5 @@
 import io.grpc.Channel;
 import losim.api.Losim;
-import losim.api.Takes;
 import losim.t.Chunk;
 import losim.t.Counts;
 import losim.t.WorkerGrpc;
@@ -16,7 +15,6 @@ import losim.t.WorkerGrpc;
  */
 public final class Forwarder extends WorkerBase {
 
-    @Takes(refMs = 1)
     @Override protected Counts map(Chunk c) {
         var here = Losim.current();
         var workers = here.peersServing("Worker");

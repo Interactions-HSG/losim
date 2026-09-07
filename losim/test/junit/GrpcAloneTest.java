@@ -119,9 +119,9 @@ class GrpcAloneTest {
     @Test
     @DisplayName("losim is on the classpath and is not running")
     void nothingIsSimulated() {
-        // losim.jar is here because `@Takes` is a compile-time annotation on
-        // Counter and has to resolve. If this ever comes back true, something
-        // started a simulation and the tests above stopped proving what they say.
+        // losim.jar is here because Counter calls Losim.current(), which has to
+        // resolve. If this ever comes back true, something started a simulation
+        // and the tests above stopped proving what they say.
         assertFalse(Losim.current().isRunning());
     }
 }

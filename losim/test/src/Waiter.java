@@ -6,7 +6,7 @@ import losim.t.Counts;
  * The same wait as {@link Napper}, written in the unit everything else is written in.
  *
  * <p>Which is the point of the fixture: it must not be flagged. A backoff that grows
- * with the attempt cannot be an annotation, so `@Takes` is not the answer here. The
+ * with the attempt cannot be written in a table, so `takes:` is not the answer here. The
  * duration is still reference time, and losim still divides it by k_time before
  * spending it. The problem is `Thread.sleep`'s unit, not waiting itself.
  */

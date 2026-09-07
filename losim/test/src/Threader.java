@@ -1,4 +1,3 @@
-import losim.api.Takes;
 import losim.t.Chunk;
 import losim.t.Counts;
 
@@ -12,7 +11,6 @@ import losim.t.Counts;
  */
 public final class Threader extends WorkerBase {
 
-    @Takes(refMs = 2)
     @Override protected Counts map(Chunk c) {
         var counted = new int[1];
         Thread worker = Thread.startVirtualThread(() -> counted[0] = c.getText().split(" ").length);

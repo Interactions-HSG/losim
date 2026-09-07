@@ -1,4 +1,3 @@
-import losim.api.Takes;
 import losim.t.Chunk;
 import losim.t.Counts;
 
@@ -17,7 +16,6 @@ public final class Referrer extends WorkerBase {
     /** How the two ends find each other: a field, rather than a name and a channel. */
     static void wire(Counter other) { peer = other; }
 
-    @Takes(refMs = 2)
     @Override protected Counts map(Chunk c) {
         return peer == null ? Counts.getDefaultInstance() : peer.map(c);
     }

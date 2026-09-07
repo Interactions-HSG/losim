@@ -3,7 +3,6 @@ import lab.pb.Chunk;
 import lab.pb.Counts;
 import lab.pb.Report;
 import losim.api.Losim;
-import losim.api.Takes;
 
 /**
  * The service most of the suite is written against: count the words in a chunk.
@@ -15,7 +14,6 @@ import losim.api.Takes;
  */
 public class Mapper extends WorkerBase {
 
-    @Takes(refMs = 20)
     @Override protected Counts map(Chunk c) {
         var out = new HashMap<String, Integer>();
         for (String word : c.getText().split("\\s+")) if (!word.isEmpty()) out.merge(word, 1, Integer::sum);
@@ -25,7 +23,6 @@ public class Mapper extends WorkerBase {
     }
 
     /** Echoes a message with an enum and a oneof in it, so rendering has work to do. */
-    @Takes(refMs = 1)
     @Override protected Report note(Report r) {
         return r.toBuilder().addTags("seen").build();
     }

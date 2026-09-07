@@ -21,8 +21,9 @@ icon: "circle-nodes"
 </Columns>
 
 Your program never imports a simulator type into a signature. It calls peers over
-`io.grpc.Channel`. It gets back the messages your schema declared. If you delete
-losim from the classpath, the only thing that stops compiling is one annotation.
+`io.grpc.Channel`. It gets back the messages your schema declared. **Delete losim
+from the classpath and nothing stops compiling at all** — what a call costs, what a
+machine is, and what goes wrong are declared in the scenario, not in your code.
 
 That separation is what makes the numbers mean something. When losim says a
 machine ran out of memory, that is what happened: the machine really was

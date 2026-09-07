@@ -49,7 +49,7 @@ Anything not in this table is refused at load, with the list.
 
 <ParamField path="vCPU" type="int">
   The size of the machine's **thread pool**, and its speed relative to the reference
-  machine: `machineFactor = 2 ÷ vcpu`. A `c5.4xlarge` runs a `@Takes(refMs = 8)`
+  machine: `machineFactor = 2 ÷ vcpu`. A `c5.4xlarge` runs an 8 refMs
   handler in 1 refMs; an `m5.large` takes the full 8, and an `a1.nano` takes 16.
 </ParamField>
 

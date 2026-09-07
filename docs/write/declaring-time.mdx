@@ -1,13 +1,18 @@
 ---
 title: "Declaring what work costs"
-description: "@Takes, reference time, and why the one thing losim does not measure is time."
+description: "The takes: block, reference time, and why the one thing losim does not measure is time."
 icon: "stopwatch"
 ---
 
-```java
-@Takes(refMs = 3, refNsPerRecord = 240_000)
-@Override protected Thumbs thumbnail(Batch request) { … }
+```yaml
+takes:
+  Shrinker:
+    Thumbnail: { refMs: 3, refNsPerRecord: 240000 }
 ```
+
+**In the scenario, not in the handler.** A duration is a claim about the machine a
+design would run on, which is the scenario's subject — and it leaves your Java with
+no losim symbol in it at all.
 
 ## Time is declared, not measured
 
@@ -26,7 +31,7 @@ between seed sets of an *identical* workload. A number that moves that much when
 nothing changed is not a measurement.
 
 <Note>
-So it is declared, and it is **optional**. An unannotated method takes no time —
+So it is declared, and it is **optional**. An rpc nobody prices takes no time —
 deliberately, rather than a made-up amount. A handler nobody has timed should run
 at whatever speed it runs, not at a speed somebody guessed.
 </Note>
@@ -115,28 +120,29 @@ site too small to be timed, and that was true of the design before losim said it
 
 [How the sleep debt works ->](/engine/the-sleep-debt)
 
-## Finding the annotation
+## Where the numbers go
 
-gRPC knows the method as `lab.Thumbnailer/Thumbnail`. You wrote `Thumbs
-thumbnail(Batch)`. The bridge is grpc-java's own naming rule — an rpc `Thumbnail`
-becomes a Java method `thumbnail` — applied to whatever the service actually
-registered.
+Under the class `runs:` names, and then the rpc — not under the rpc alone:
 
-The search walks the class and every superclass, so the annotation is found on your
-handler, on a shared base class, or on the generated base. Put it on **the
-value-returning method**, which is the one whose body is the work:
+```yaml
+machines:
+  workers: { count: 4, prefix: w, instance: c5.large, zone: eu-central-1a, runs: [Shrinker] }
 
-```java
-public abstract class ThumbnailerBase extends ThumbnailerGrpc.ThumbnailerImplBase {
-    protected abstract Thumbs thumbnail(Batch request);            // no annotation here
-    @Override public final void thumbnail(Batch r, StreamObserver<Thumbs> o) { … }
-}
-
-public final class Shrinker extends ThumbnailerBase {
-    @Takes(refMs = 3, refNsPerRecord = 240_000)                     // here
-    @Override protected Thumbs thumbnail(Batch request) { … }
-}
+takes:
+  Shrinker:
+    Thumbnail: { refMs: 3, refNsPerRecord: 240000 }
 ```
+
+A duration belongs to the **code**, not to the operation. Two implementations of
+one rpc, on two machines, is how one design is compared with another — and a table
+keyed on the rpc would say they take the same time.
+
+Written under a class nothing places, or an rpc that class does not serve, it is
+refused before anything runs, with the line it was written on. That is what stands
+in for the annotation's one advantage: an annotation followed a renamed method, and
+a table cannot, so the scenario stops loading instead of quietly costing nothing.
+
+[The full grammar ->](/ref/takes)
 
 <Card title="Next: waiting" icon="arrow-right" href="/write/waiting">
   A backoff is not work, and the difference is measurable.

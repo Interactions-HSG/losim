@@ -29,7 +29,7 @@ import { Lab } from '../Lab.tsx';
 import {
   distances, expand, firstDraft, perHour, toYaml, unplaced,
   BASE_RECORDS, FAULT_KINDS, PAIRED,
-  type Chaos, type Draft, type Fault, type Pool,
+  type Chaos, type CostRule, type Draft, type Fault, type Pool,
 } from '../../lib/author.ts';
 import {
   openScenario, palette as fetchPalette, saveScenario, type Palette,
@@ -265,6 +265,7 @@ export function Scenarios() {
             <Machines draft={draft} palette={palette} machines={machines} edit={edit} />
             <Scale draft={draft} edit={edit} />
             <Network draft={draft} palette={palette} edit={edit} />
+            <Costs draft={draft} palette={palette} edit={edit} />
             <Retries draft={draft} palette={palette} edit={edit} />
           </div>
 
@@ -1414,6 +1415,71 @@ function count(names: string[]): string {
   return names.length === 1
     ? names[0]
     : `any of ${names[0]}…${names[names.length - 1]}`;
+}
+
+/* ----------------------------------------------------------------- the costs
+ *
+ * What each rpc takes on the reference machine, under the class that serves it.
+ * Rows for whatever the fleet actually places, so the panel is a table to fill in
+ * rather than a block to remember — and a fleet left at zero says so, because a
+ * run where every call is instant has no queueing, no contention and no critical
+ * path, and looks from the outside like a design that is simply very fast.
+ */
+function Costs({
+  draft, palette, edit,
+}: {
+  draft: Draft;
+  palette: Palette;
+  edit: (f: (d: Draft) => void) => void;
+}) {
+  // Only what is placed: a cost for a class no machine runs is refused at load,
+  // so the form must not be able to write one.
+  const placed = [...new Set(draft.pools.flatMap((p) => p.runs))];
+  const rows = placed.flatMap((cls) => {
+    const service = palette.services.find((s) => s.cls === cls);
+    return (service?.methods ?? []).map((m) => {
+      const has = draft.takes.find((c) => c.runs === cls && c.rpc === m.name);
+      return { runs: cls, rpc: m.name, refMs: has?.refMs ?? 0, refNsPerRecord: has?.refNsPerRecord ?? 0 };
+    });
+  });
+  const set = (runs: string, rpc: string, f: (c: CostRule) => void) => edit((d) => {
+    let row = d.takes.find((c) => c.runs === runs && c.rpc === rpc);
+    if (!row) { row = { runs, rpc, refMs: 0, refNsPerRecord: 0 }; d.takes.push(row); }
+    f(row);
+  });
+  const priced = rows.some((r) => r.refMs > 0 || r.refNsPerRecord > 0);
+
+  return (
+    <Panel title="What a call takes" note="reference milliseconds, by what serves it">
+      {!rows.length && (
+        <p className="none">
+          Nothing is placed yet, so there is nothing to price. Give a pool something to run.
+        </p>
+      )}
+      {rows.map((r) => (
+        <div className="rule" key={`${r.runs}.${r.rpc}`}>
+          <span><code>{r.runs}</code>.{r.rpc}</span>
+          <span>takes</span>
+          <input type="number" min={0} step="any" value={r.refMs}
+                 onChange={(e) => set(r.runs, r.rpc, (c) => {
+                   c.refMs = Math.max(0, Number(e.target.value) || 0);
+                 })} />
+          <span>refMs, plus</span>
+          <input type="number" min={0} step="any" value={r.refNsPerRecord}
+                 onChange={(e) => set(r.runs, r.rpc, (c) => {
+                   c.refNsPerRecord = Math.max(0, Number(e.target.value) || 0);
+                 })} />
+          <span>refNs a record</span>
+        </div>
+      ))}
+      {rows.length > 0 && !priced && (
+        <p className="aside warn">
+          Every call is instant. Nothing queues, nothing contends, and the timeline is empty —
+          which is most of what a fleet is interesting for.
+        </p>
+      )}
+    </Panel>
+  );
 }
 
 /* --------------------------------------------------------------- the retries

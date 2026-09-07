@@ -102,10 +102,20 @@ public final class Draft {
     /** The medium, in the same four numbers {@code network:} is written in. All zero is no key at all. */
     public record Net(double sameZoneRefMs, double crossZoneRefMs, double jitterRefMs, double loss) {}
 
+    /**
+     * What one rpc costs, under the class that serves it.
+     *
+     * <p>Flat here, one row per rpc, because that is what the form draws: the
+     * file's two levels are a heading and its rows, and a form with a heading
+     * control would be a form where the heading can be edited into naming
+     * nothing.
+     */
+    public record Takes(String runs, String rpc, double refMs, double refNsPerRecord) {}
+
     public record Of(String name, String job, long seed, double scale,
                       boolean tightMargin, String mode,
                       Net net, List<Pool> pools, List<Fault> faults, List<Chaos> chaos,
-                      List<Retry> retries) {}
+                      List<Retry> retries, List<Takes> takes) {}
 
     /**
      * Every fault kind, and for each the keys it does not obey.
@@ -256,12 +266,24 @@ public final class Draft {
                     r.opt("unsafe").bool(false)));
         }
 
+        var takes = new ArrayList<Takes>();
+        // Absent is not empty to `map()`, which refuses anything that is not a
+        // block — and a scenario with no costs in it is the ordinary case.
+        Node priced = root.opt("takes");
+        for (var runs : (priced.present() ? priced.map() : java.util.Map.<String, Node>of()).entrySet()) {
+            for (var rpc : runs.getValue().map().entrySet()) {
+                Node body = rpc.getValue();
+                takes.add(new Takes(runs.getKey(), rpc.getKey(),
+                        body.opt("refMs").num(0), body.opt("refNsPerRecord").num(0)));
+            }
+        }
+
         var net = new Net(sc.net().sameZoneRefMs(), sc.net().crossZoneRefMs(),
                 sc.net().jitterRefMs(), sc.net().loss());
 
         return new Of(name.replaceAll("\\.ya?ml$", ""), sc.job(), sc.seed(), sc.scale(),
                 sc.tightMargin(), sc.mode().name().toLowerCase(),
                 net, List.copyOf(pools), List.copyOf(faults),
-                List.copyOf(chaos), List.copyOf(retries));
+                List.copyOf(chaos), List.copyOf(retries), List.copyOf(takes));
     }
 }

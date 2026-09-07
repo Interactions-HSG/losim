@@ -36,6 +36,7 @@ public final class Fleet implements AutoCloseable {
     private final Map<String, List<String>> byService = new ConcurrentHashMap<>();
     private volatile ExecutorService waiting;
     private volatile List<Retry> retries = List.of();
+    private volatile Map<String, Cost> costs = Map.of();
 
     public Fleet(Telemetry tel) { this(tel, new Net(0)); }
 
@@ -62,6 +63,62 @@ public final class Fleet implements AutoCloseable {
     }
 
     List<Retry> retries() { return retries; }
+
+    /**
+     * Installs what each rpc costs, keyed by the class that serves it.
+     *
+     * <p>Checked against what the fleet actually runs, because a table is not an
+     * annotation: rename an rpc and the number stops belonging to anything, and a
+     * cost that costs nothing is a run that comes out fast, confident and wrong.
+     * So a key naming a class no machine runs, or an rpc that class does not
+     * serve, is refused with the line it was written on.
+     *
+     * <p>Kept here rather than pushed once into the machines, because a machine
+     * that is killed and restarted rebuilds its services from scratch and has to
+     * be able to ask again what they cost.
+     */
+    public Fleet costing(Map<String, Cost> declared) {
+        var known = new ArrayList<String>();
+        var classes = new ArrayList<String>();
+        for (Machine m : all()) {
+            for (String placed : m.placed()) if (!classes.contains(placed)) classes.add(placed);
+            for (String key : m.costKeys()) if (!known.contains(key)) known.add(key);
+        }
+        for (var e : declared.entrySet()) {
+            if (known.contains(e.getKey())) continue;
+            String klass = e.getKey().substring(0, Math.max(0, e.getKey().lastIndexOf('.')));
+            throw new IllegalArgumentException(e.getValue().where() + ": takes names '"
+                    + e.getKey().replace('.', ' ').trim() + "', and "
+                    + (classes.contains(klass)
+                        ? klass + " serves no rpc of that name. It serves "
+                          + named(known, klass) + "."
+                        : "no machine in this fleet runs " + (klass.isEmpty() ? "that" : klass)
+                          + ". This fleet runs " + (classes.isEmpty() ? "nothing"
+                                                    : String.join(", ", classes)) + ".")
+                    + " A cost that belongs to nothing is a method that quietly takes no time,"
+                    + " so it is a refusal rather than a warning.");
+        }
+        this.costs = Map.copyOf(declared);
+        for (Machine m : all()) m.recost();
+        // Not a refusal: a method nobody has timed takes no time on purpose, and a
+        // fleet where that is true of every method is a legitimate thing to run —
+        // it is simply not a thing to read a timeline off.
+        if (declared.isEmpty() && !known.isEmpty()) {
+            tel.event("-", "note", "text", "nothing in this scenario declares what an rpc takes,"
+                    + " so every call is instant: no queueing, no contention and no critical"
+                    + " path. Add a takes: block.");
+        }
+        return this;
+    }
+
+    /** The rpcs one placed class serves, for a refusal to list. */
+    private static String named(List<String> known, String klass) {
+        var mine = known.stream().filter(k -> k.startsWith(klass + "."))
+                .map(k -> k.substring(klass.length() + 1)).sorted().toList();
+        return mine.isEmpty() ? "none" : String.join(", ", mine);
+    }
+
+    Map<String, Cost> costs() { return costs; }
 
     public Telemetry telemetry() { return tel; }
     public Clock clock()         { return clock; }

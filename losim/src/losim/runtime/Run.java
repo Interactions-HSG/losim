@@ -160,7 +160,7 @@ public final class Run {
                         m.memoryCapMb() != null ? m.memoryCapMb() : spec.memoryMb(),
                         m.diskCapMb() != null ? m.diskCapMb() : spec.storageGb() * 1024.0);
                 for (String service : m.runs())
-                    machine.serves(factory(service, loader, m.where()), m.where());
+                    machine.serves(factory(service, loader, m.where()), service, m.where());
                 if (m.runs().isEmpty()) machine.serving();     // listening, offering nothing
                 byName.put(m.name(), machine);
             }
@@ -168,6 +168,10 @@ public final class Run {
             // Checked here, before a single call is made: a retry policy the schema
             // does not support is a line to fix, not a duplicate write to discover.
             fleet.retrying(s.retries());
+            // And what each of them costs, checked the same way and for the same
+            // reason: a takes: line naming nothing is a method that quietly takes
+            // no time, which comes out as a fast run rather than as an error.
+            fleet.costing(s.takes());
 
 
             fleet.begin();

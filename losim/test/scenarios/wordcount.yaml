@@ -23,3 +23,12 @@ faults:
   # After every mapper has answered and before the last reducer is asked, so the
   # coordinator has to notice a machine that is simply not there any more.
   - { at: 400 refMs, kill: w5 }
+
+# What each rpc costs on the reference machine, under the class that serves it.
+# The handlers declare nothing: a duration is a claim about the machine a design
+# would run on, so it belongs to the scenario — and a system stays plain gRPC
+# with no losim in it.
+takes:
+  Counter:
+    Map: { refMs: 15 }
+    Reduce: { refMs: 100 }

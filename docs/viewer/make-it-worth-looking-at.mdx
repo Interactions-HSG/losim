@@ -40,16 +40,18 @@ want anyway, and each one has a specific consequence you can point at.
   </Step>
 
   <Step title="Declare what your handlers cost — or the film has no duration">
-    ```java
-    @Takes(refMs = 3, refNsPerRecord = 240_000)
+    ```yaml
+    takes:
+      Shrinker:
+        Thumbnail: { refMs: 3, refNsPerRecord: 240000 }
     ```
 
     Without it every handler is instant, every message crosses in a single frame, and
-    there is no queueing, no contention and no critical path to watch. An unannotated
-    handler takes no time, deliberately — so an unannotated fleet is a blur.
+    there is no queueing, no contention and no critical path to watch. An unpriced
+    rpc takes no time, deliberately — so an unpriced fleet is a blur.
 
-    The annotation is **`@Takes`**. If you have seen `@Cost` in older notes, that is
-    not what compiles.
+    It goes in the **scenario**, under the class `runs:` names. If you have seen a
+    `@Takes` annotation in older notes, that is not what compiles any more.
   </Step>
 
   <Step title="Declare how many records each call processed">

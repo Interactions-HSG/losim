@@ -61,14 +61,14 @@ Losim.current().wroteDisk(spill.getSerializedSize());
 
 <Note>
 Nothing checks that you declared the truth, and nothing can. This is a claim about
-your design, like `@Takes` — and like `@Takes`, what matters is that it is
+your design, like a declared duration — and like one, what matters is that it is
 consistent between the designs you are comparing.
 </Note>
 
 ## Reading back
 
 There is no read side, on purpose. A design that spills and re-reads pays for the
-spill; re-reading costs whatever your `@Takes` says it costs. Adding a read API
+spill; re-reading costs whatever the scenario says it costs. Adding a read API
 would mean modelling a filesystem, and the interesting question — *does this fit,
 and what does the storage cost* — is answered without one.
 

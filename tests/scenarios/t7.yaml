@@ -42,3 +42,14 @@ chaos:
 # Map is declared NO_SIDE_EFFECTS in the .proto, so retrying it needs no argument.
 retries:
   - { method: lab.Worker.Map, attempts: 3, backoff: 40 refMs, multiplier: 2 }
+
+# What each rpc costs on the reference machine, under the class that serves it.
+# The handlers declare nothing: a duration is a claim about the machine a design
+# would run on, so it belongs to the scenario — and a system stays plain gRPC
+# with no losim in it.
+takes:
+  Mapper:
+    Map: { refMs: 20 }
+    Note: { refMs: 1 }
+  Reducer:
+    Fold: { refMs: 30 }

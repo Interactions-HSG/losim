@@ -1,7 +1,6 @@
 package losim.runtime;
 
 import io.grpc.*;
-import losim.api.Takes;
 import losim.res.Meter;
 import losim.trace.Telemetry;
 import losim.trace.Values;
@@ -67,13 +66,13 @@ final class ClientSide implements ClientInterceptor {
         // A deadline shorter than the callee's declared cost cannot ever succeed,
         // and until now a trace said only that a call had timed out. That is the
         // one fact a reader cannot recover: they can see the deadline in their own
-        // source and the @Takes in theirs, and the run does not put the two
+        // source and the declared cost of theirs, and the run does not put the two
         // together. Someone spent an afternoon diffing traces against a second
         // machine to rule out host noise for exactly this, on a deadline that had
         // been computed once for a smaller workload and left as a literal.
         final Double deadlineRefMs = opts.getDeadline() == null ? null
                 : opts.getDeadline().timeRemaining(java.util.concurrent.TimeUnit.NANOSECONDS) / 1e6;
-        final Takes callee = target == null ? null : target.takenBy(md.getFullMethodName());
+        final Cost callee = target == null ? null : target.takenBy(md.getFullMethodName());
         // The fixed part only. `refNsPerRecord` is not knowable here — the handler
         // declares its count while it runs — so what is reported is a lower bound
         // on the cost, and a deadline under even that cannot be met.

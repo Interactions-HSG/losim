@@ -4,7 +4,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import lab.pb.Chunk;
 import lab.pb.Counts;
 import losim.api.Losim;
-import losim.api.Takes;
 
 /**
  * A worker that folds every chunk into what it is already holding.
@@ -40,7 +39,6 @@ public class Combiner extends WorkerBase {
      * around it makes a fleet look like it does not scale, and the fleet would not
      * be the reason.
      */
-    @Takes(refMs = 2, refNsPerRecord = 360_000)
     @Override protected Counts map(Chunk c) {
         var chunk = new HashMap<String, Integer>();
         for (String word : c.getText().split(" ")) {
@@ -62,7 +60,6 @@ public class Combiner extends WorkerBase {
         payload.computeIfAbsent(word, k -> new long[PAYLOAD_PER_KEY]);
     }
 
-    @Takes(refMs = 5)
     @Override protected Counts reduce(Counts request) {
         request.getCountsMap().forEach((word, n) -> {
             holding.merge(word, n, Integer::sum);

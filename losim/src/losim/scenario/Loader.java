@@ -3,9 +3,12 @@ package losim.scenario;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import losim.res.InstanceCatalog;
+import losim.runtime.Cost;
 import losim.runtime.Retry;
 import losim.scenario.Scenario.*;
 
@@ -58,13 +61,14 @@ public final class Loader {
                 over.opt("faults").present() ? faults(over.opt("faults"), names, over) : base.faults(),
                 over.opt("chaos").present() ? chaos(over.opt("chaos"), base.machines()) : base.chaos(),
                 over.opt("retries").present() ? retries(over.opt("retries")) : base.retries(),
+                base.takes(),
                 over.opt("tightMargin").present() ? over.at("tightMargin").bool(false) : base.tightMargin(),
                 base.mode());
     }
 
     public static Scenario of(Node root) {
         root.onlyAllows("seed", "job", "scale", "machines",
-                        "network", "faults", "chaos", "retries", "tightMargin", "mode");
+                        "network", "faults", "chaos", "retries", "takes", "tightMargin", "mode");
 
         long seed = (long) root.opt("seed").num(1);
         String job = root.at("job").str();
@@ -84,6 +88,7 @@ public final class Loader {
         var faults = faults(root.opt("faults"), names, root);
         var chaos = chaos(root.opt("chaos"), machines);
         var retries = retries(root.opt("retries"));
+        var takes = takes(root.opt("takes"));
 
         var mode = mode(root.opt("mode"));
         if (mode == Scenario.Mode.SCALED && scale <= 1)
@@ -92,7 +97,7 @@ public final class Loader {
                     + " or run it directly.");
 
         var s = new Scenario(root.where().split(":")[0], seed, job, scale,
-                0, machines, net, faults, chaos, retries,
+                0, machines, net, faults, chaos, retries, takes,
                 root.opt("tightMargin").bool(false), mode);
         return s.withRecords(s.fullRecords());
     }
@@ -249,6 +254,54 @@ public final class Loader {
                             + "this scenario has pools " + String.join(", ", pools));
                 out.add(new Chaos(kind, body.at("every").refMs(), among,
                         body.opt("factor").num(2), body.opt("for").refMs(1000), body.where()));
+            }
+        }
+        return out;
+    }
+
+    // -------------------------------------------------------------------- takes
+
+    /**
+     * What each rpc costs, under the class that serves it.
+     *
+     * <pre>
+     * takes:
+     *   Mapper:
+     *     Map:  { refMs: 20 }
+     *     Note: { refMs: 1 }
+     * </pre>
+     *
+     * <p><b>Keyed by what {@code runs:} names, not by the rpc.</b> A duration is a
+     * property of the code that runs, not of the operation: two implementations of
+     * one rpc placed in one fleet is how a design is compared with another, and a
+     * table keyed on the rpc would say they cost the same. That is also the shape
+     * the annotation this replaces had, so no scenario's numbers move.
+     *
+     * <p>Flattened here to {@code Class.Rpc}, which nothing outside this file
+     * writes; the file itself stays two levels, because a class with four rpcs
+     * repeating its own name four times is a file nobody proof-reads.
+     *
+     * <p>Nothing is checked here beyond the shape. Whether a name is a class this
+     * fleet places, and whether that class serves that rpc, are questions about
+     * classes the loader has not loaded — it never loads one — so they are asked by
+     * {@link losim.runtime.Fleet} once the machines are up, and refused there with
+     * this line.
+     */
+    private static Map<String, Cost> takes(Node node) {
+        var out = new LinkedHashMap<String, Cost>();
+        if (!node.present()) return out;
+        for (var runs : node.map().entrySet()) {
+            for (var rpc : runs.getValue().map().entrySet()) {
+                Node body = rpc.getValue();
+                body.onlyAllows("refMs", "refNsPerRecord");
+                // Plain numbers: the key already says which unit each one is in.
+                // A duration written as `2 refMs` elsewhere has to say so because
+                // nothing around it does.
+                double refMs = body.opt("refMs").num(0);
+                double perRecord = body.opt("refNsPerRecord").num(0);
+                if (refMs < 0 || perRecord < 0) throw body.fail("a call cannot take negative time");
+                out.put(runs.getKey().trim() + "." + rpc.getKey().trim(),
+                        new Cost(refMs, perRecord, body.where()));
             }
         }
         return out;

@@ -7,7 +7,6 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 import losim.api.Bound;
-import losim.api.Takes;
 import losim.res.InstanceSpec;
 import losim.res.Meter;
 import losim.res.Retained;
@@ -55,6 +54,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
     private volatile long frozenUntilNs;
     /** A service this machine serves, and the line of the scenario that placed it. */
     private record Offered(java.util.function.Supplier<? extends BindableService> factory,
+                           String named,
                            String where) {}
 
     private final List<Offered> factories = new CopyOnWriteArrayList<>();
@@ -134,7 +134,8 @@ public final class Machine implements Bound, Telemetry.Sampled {
     final AtomicLong losimStops = new AtomicLong();
 
     private final List<Object> roots = new CopyOnWriteArrayList<>();
-    private final Map<String, Takes> declared = new ConcurrentHashMap<>();
+    private final Map<String, Cost> declared = new ConcurrentHashMap<>();
+    private final Map<String, String> runsAs = new ConcurrentHashMap<>();
     private final Map<String, ManagedChannel> dialled = new ConcurrentHashMap<>();
     private final List<String> servicesOffered = new CopyOnWriteArrayList<>();
     private int sinceWalk = WALK_EVERY_TICKS;            // walk on the very first tick
@@ -195,7 +196,8 @@ public final class Machine implements Bound, Telemetry.Sampled {
      * to have losim build fresh ones.
      */
     public Machine serving(BindableService... services) {
-        for (BindableService svc : services) factories.add(new Offered(() -> svc, ""));
+        // Unnamed: nothing placed these by a name, so start() takes their own.
+        for (BindableService svc : services) factories.add(new Offered(() -> svc, null, ""));
         return start();
     }
 
@@ -207,7 +209,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
      * work" a real question rather than a formality.
      */
     public Machine serves(java.util.function.Supplier<? extends BindableService> factory) {
-        return serves(factory, "");
+        return serves(factory, null, "");
     }
 
     /**
@@ -220,7 +222,18 @@ public final class Machine implements Bound, Telemetry.Sampled {
      */
     public Machine serves(java.util.function.Supplier<? extends BindableService> factory,
                           String where) {
-        factories.add(new Offered(factory, where));
+        return serves(factory, null, where);
+    }
+
+    /**
+     * The same, under the name the scenario placed it by.
+     *
+     * <p>That name is how {@code takes:} finds it: a cost is written under what
+     * {@code runs:} says, so the two spell one thing one way.
+     */
+    public Machine serves(java.util.function.Supplier<? extends BindableService> factory,
+                          String named, String where) {
+        factories.add(new Offered(factory, named, where));
         rebuildable = true;
         return start();
     }
@@ -295,14 +308,19 @@ public final class Machine implements Bound, Telemetry.Sampled {
         declared.clear();
         served.clear();
         var b = InProcessServerBuilder.forName(name).executor(queueing);
+        runsAs.clear();
         for (var offered : factories) {
             BindableService s = offered.factory().get();
             roots.add(s);                                // a machine's data hangs off its services
-            declared.putAll(Durations.of(s));
+            // What the scenario called this, so `takes:` can be looked up under the
+            // same word the person wrote. Falling back to the class's own name for
+            // a fleet built in code, which named nothing.
+            String named = offered.named() != null ? offered.named() : nameOf(s.getClass());
             var def = s.bindService();
             for (var m : def.getMethods()) {
                 priceable(m.getMethodDescriptor(), offered.where());
                 served.add(m.getMethodDescriptor());
+                runsAs.put(m.getMethodDescriptor().getFullMethodName(), named);
             }
             String svc = def.getServiceDescriptor().getName();
             String bare = svc.substring(svc.lastIndexOf('.') + 1);
@@ -310,6 +328,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
             fleet.offers(svc, name);
             b.addService(ServerInterceptors.intercept(def, new ServerSide(this)));
         }
+        recost();
         try { server = b.build().start(); }
         catch (Exception e) {
             // Named, because "could not start machine m0" is not a diagnosis and
@@ -411,7 +430,64 @@ public final class Machine implements Bound, Telemetry.Sampled {
                                     + "which a real one would not");
     }
 
-    Takes takenBy(String fullMethodName) { return declared.get(fullMethodName); }
+    Cost takenBy(String fullMethodName) { return declared.get(fullMethodName); }
+
+    /**
+     * Re-reads the scenario's costs, for the methods this machine now serves.
+     *
+     * <p>Called when the fleet is told what things cost and again whenever this
+     * machine rebuilds its services, because a machine that was killed and came
+     * back with fresh handlers would otherwise come back free.
+     */
+    void recost() {
+        declared.clear();
+        for (io.grpc.MethodDescriptor<?, ?> md : served) {
+            String full = md.getFullMethodName();
+            Cost c = fleet.costs().get(runsAs.getOrDefault(full, "") + "." + rpcOf(full));
+            if (c != null) declared.put(full, c);
+        }
+    }
+
+    /**
+     * What to call a service nobody named — a fleet built in code rather than from
+     * a scenario.
+     *
+     * <p>Its own class, unless that is an anonymous one: {@code new VolleyBase(){…}}
+     * has no simple name at all, and a cost keyed on the empty string would belong
+     * to nothing and be refused for it. The base it extends is the nearest thing to
+     * a name such a service has.
+     */
+    private static String nameOf(Class<?> k) {
+        for (Class<?> c = k; c != null && c != Object.class; c = c.getSuperclass()) {
+            if (!c.getSimpleName().isEmpty()) return c.getSimpleName();
+        }
+        return k.getName();
+    }
+
+    /** The rpc's own name, as the schema spells it: {@code losim.t.Worker/Map} -> {@code Map}. */
+    static String rpcOf(String fullMethodName) {
+        return fullMethodName.substring(fullMethodName.indexOf('/') + 1);
+    }
+
+    /** What each served method's class was placed under, for looking its cost up. */
+    List<String> placed() { return List.copyOf(new java.util.LinkedHashSet<>(runsAs.values())); }
+
+    /**
+     * Every {@code Class.Rpc} this machine could be given a cost for.
+     *
+     * <p>Built from the pairs rather than from the two lists, because a machine
+     * running two services would otherwise accept `Reducer.Map` — every class
+     * crossed with every rpc — and the check would stop catching the typo it
+     * exists for.
+     */
+    List<String> costKeys() {
+        var out = new java.util.ArrayList<String>();
+        for (var e : runsAs.entrySet()) {
+            String key = e.getValue() + "." + rpcOf(e.getKey());
+            if (!out.contains(key)) out.add(key);
+        }
+        return out;
+    }
 
     /**
      * Work this machine does that no RPC carried.

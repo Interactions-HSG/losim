@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
  * on the line below and step into {@code map}: it is ordinary Java, and stopping
  * on it stops nothing else, because nothing else is running.
  *
- * <p>losim is on the classpath because {@code @Takes} is a compile-time annotation
+ * <p>losim is on the classpath because {@code Losim.current()} is an api type
  * and {@code Losim.current()} has to resolve. It does nothing here, which is the
  * point: a handler that needed a simulation to be testable would not be testable.
  */

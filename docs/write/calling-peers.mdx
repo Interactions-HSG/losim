@@ -97,7 +97,6 @@ nor the handler's measured duration is touched.
 Exactly the same, and there is nothing special about it:
 
 ```java
-@Takes(refMs = 2)
 @Override protected Thumbs thumbnail(Batch request) {
     if (tooBigForMe(request)) {
         var here = Losim.current();

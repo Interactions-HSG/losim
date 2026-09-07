@@ -1,5 +1,4 @@
 import java.util.function.LongSupplier;
-import losim.api.Takes;
 import losim.t.Chunk;
 import losim.t.Counts;
 
@@ -15,7 +14,6 @@ public final class Deferrer extends WorkerBase {
 
     private static final LongSupplier WHEN = System::nanoTime;
 
-    @Takes(refMs = 2)
     @Override protected Counts map(Chunk c) {
         return Counts.newBuilder().putCounts(c.getText().trim(), (int) (WHEN.getAsLong() % 97)).build();
     }

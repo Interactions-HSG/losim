@@ -19,7 +19,7 @@ import losim.trace.Telemetry;
  * <p>The first gRPC call a JVM makes is enormously more expensive than every
  * call after it — class loading down the whole stack, the interceptor chain, the
  * marshallers, and a cold JIT on all of it. Measured on a tour scenario: a
- * handler declaring {@code @Takes(refMs = 5)} was billed <b>320 refMs</b> on the
+ * handler declared at {@code refMs: 5} was billed <b>320 refMs</b> on the
  * first call and 6 to 9 refMs on every call after. The same scenario run three
  * times in one JVM pays it once:
  *

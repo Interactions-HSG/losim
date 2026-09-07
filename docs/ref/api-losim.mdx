@@ -60,7 +60,7 @@ needs the machine's identity.
 <ResponseField name="records(long n)" type="void">
   How many records **this call** processed.
 
-  Two things need it: `@Takes(refNsPerRecord = …)` is charged against it, and the
+  Two things need it: the scenario's `refNsPerRecord:` is charged against it, and the
   scale engine needs to know which independent variable a cost site is a function
   of. A handler that never declares a count is charged the fixed part only, and its
   span says so.
@@ -85,7 +85,7 @@ needs the machine's identity.
   hundred milliseconds of the simulated world, whatever the compression is.
 
   **Waiting is not work**, and two things follow: it does not stretch on a degraded
-  machine, where `@Takes` does; and it does not mark the machine busy, because a
+  machine, where declared work does; and it does not mark the machine busy, because a
   backoff occupies no vCPU.
 
   For a duration only the running program knows — a backoff that grows with the

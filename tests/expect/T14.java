@@ -6,7 +6,7 @@ import java.util.Map;
  *
  * <p><b>Catches:</b> the per-record half of a declared cost going unchecked against
  * the deadline it will blow. The client side can only compare a deadline with the
- * <i>fixed</i> part of a {@code @Takes}, because {@code refNsPerRecord} needs a
+ * <i>fixed</i> part of a declared cost, because {@code refNsPerRecord} needs a
  * count and the count is the handler's to declare while it runs. So the mistake
  * people actually make — a constant deadline written once for a small workload and
  * left there — times out with every number looking reasonable.
@@ -15,7 +15,7 @@ import java.util.Map;
  * deadline, so it records what it declared against what it was allowed.
  *
  * <p><b>Sound in one direction only, and that is the useful one.</b> A declared cost
- * is slept and never subtracted — {@code @Takes} can make a run longer and never
+ * is slept and never subtracted — a declared cost can make a run longer and never
  * shorter — so it is a lower bound on what the handler took, and a declared cost
  * above the deadline is impossible rather than unlikely. The converse says nothing:
  * a declared cost under the deadline leaves the handler's own work still to come.

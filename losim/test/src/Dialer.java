@@ -1,5 +1,4 @@
 import io.grpc.inprocess.InProcessChannelBuilder;
-import losim.api.Takes;
 import losim.t.Chunk;
 import losim.t.Counts;
 
@@ -13,7 +12,6 @@ import losim.t.Counts;
  */
 public final class Dialer extends WorkerBase {
 
-    @Takes(refMs = 2)
     @Override protected Counts map(Chunk c) {
         var channel = InProcessChannelBuilder.forName("somewhere-else").build();
         channel.shutdownNow();

@@ -1,5 +1,4 @@
 import java.util.HashMap;
-import losim.api.Takes;
 import losim.t.Chunk;
 import losim.t.Counts;
 
@@ -14,7 +13,6 @@ import losim.t.Counts;
  */
 public final class Peeker extends WorkerBase {
 
-    @Takes(refMs = 5)
     @Override protected Counts map(Chunk c) {
         long began = System.nanoTime();
         var out = new HashMap<String, Integer>();

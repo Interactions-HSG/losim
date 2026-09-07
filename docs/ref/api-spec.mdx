@@ -53,7 +53,6 @@ moment it is built.
 So a service that wants to be placed well answers a question about itself:
 
 ```java
-@Takes(refMs = 0.5)
 @Override protected Health capacity(Empty request) {
     var spec = Losim.current().here();
     return Health.newBuilder()

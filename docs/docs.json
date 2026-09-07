@@ -94,6 +94,7 @@
               "ref/faults",
               "ref/chaos",
               "ref/retries",
+              "ref/takes",
               "ref/scale"
             ]
           },
@@ -101,7 +102,6 @@
             "group": "The Java API",
             "pages": [
               "ref/api-losim",
-              "ref/api-takes",
               "ref/api-spec",
               "ref/api-cluster",
               "ref/api-job"

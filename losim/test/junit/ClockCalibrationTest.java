@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
  * host at startup. A mean over parks is destroyed by the host being busy: one
  * descheduled sample of 50 ms among two hundred parks of 0.05 ms adds five times
  * the measured quantity to their average. A mean-based correction would land
- * near double, every {@code @Takes} would sleep about half its declared length,
+ * near double, every declared cost would sleep about half its length,
  * and the trace would look perfectly ordinary — the same jar and the same seed
  * billing a handler 200 refMs in the morning and 100 in the afternoon.
  *

@@ -1,6 +1,8 @@
 package losim.scenario;
 
 import java.util.List;
+import java.util.Map;
+import losim.runtime.Cost;
 import losim.runtime.Retry;
 
 /**
@@ -26,6 +28,17 @@ public record Scenario(
         List<Fault> faults,
         List<Chaos> chaos,
         List<Retry> retries,
+        /**
+         * What each rpc costs, by dotted {@code Service.Method} name.
+         *
+         * <p>Here rather than on the handler, so that a student's Java names
+         * losim nowhere: a system can be written, compiled and unit-tested with
+         * this project off the classpath entirely. What that gives up is drift —
+         * an annotation follows a renamed method and a table does not — which is
+         * why a key naming a method the fleet does not serve is refused at load
+         * with the line it was written on.
+         */
+        Map<String, Cost> takes,
         boolean tightMargin,
         Mode mode) {
 
@@ -112,24 +125,24 @@ public record Scenario(
 
     public Scenario withSeed(long seed) {
         return new Scenario(file, seed, job, scale, records, machines, net,
-                faults, chaos, retries, tightMargin, mode);
+                faults, chaos, retries, takes, tightMargin, mode);
     }
 
     /** The run size the engine solved for, replacing the full-scale one. */
     public Scenario withRecords(long n) {
         return new Scenario(file, seed, job, scale, n, machines, net,
-                faults, chaos, retries, tightMargin, mode);
+                faults, chaos, retries, takes, tightMargin, mode);
     }
 
     public Scenario withMode(Mode m) {
         return new Scenario(file, seed, job, scale, records, machines, net,
-                faults, chaos, retries, tightMargin, m);
+                faults, chaos, retries, takes, tightMargin, m);
     }
 
     /** The same scenario with no weather at all — the clean column of the grid. */
     public Scenario withoutWeather() {
         return new Scenario(file, seed, job, scale, records, machines, net,
-                List.of(), List.of(), retries, tightMargin, mode);
+                List.of(), List.of(), retries, takes, tightMargin, mode);
     }
 
     /**
@@ -161,7 +174,7 @@ public record Scenario(
                 .filter(f -> kept.contains(f.target()) && (f.other() == null || kept.contains(f.other())))
                 .toList();
         return new Scenario(file, seed, job, scale, records, out, net,
-                stillThere, chaos, retries, tightMargin, mode);
+                stillThere, chaos, retries, takes, tightMargin, mode);
     }
 
     /** The same fleet with caps the engine solved for, per machine, per resource. */
@@ -173,7 +186,7 @@ public record Scenario(
                     m.zone(), m.runs(), caps[0], caps[1], m.where()));
         }
         return new Scenario(file, seed, job, scale, records, out, net,
-                faults, chaos, retries, tightMargin, mode);
+                faults, chaos, retries, takes, tightMargin, mode);
     }
 
     /**

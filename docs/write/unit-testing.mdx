@@ -40,7 +40,7 @@ No fleet. No scenario. No interceptor. No clock. Nothing is running.
 
 ## losim is on the classpath, and does nothing
 
-It has to be: `@Takes` is a compile-time annotation and `Losim.current()` has to
+It has to be: `Losim.current()` has to
 resolve. But there are two implementations behind that call, and outside a run you
 get the other one.
 
@@ -103,7 +103,6 @@ be slower for nothing. A handler that waits would then be one nobody unit-tests.
 If a handler genuinely needs the machine's own identity, guard it:
 
 ```java
-@Takes(refMs = 3)
 @Override protected Thumbs thumbnail(Batch request) {
     var here = Losim.current();
     if (here.isRunning()) here.reveal("on", here.machine());

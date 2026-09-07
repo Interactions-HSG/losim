@@ -42,7 +42,9 @@ public class Phase3 {
                 instance: r5.large
                 zone: z
                 runs: [%s]
-            """.formatted(trim(scale), service);
+            takes:
+              %s: { Map: { refMs: 2, refNsPerRecord: 20000 }, Reduce: { refMs: 5 } }
+            """.formatted(trim(scale), service, service);
     }
 
     /** A scale that reads as `6` rather than `6.0` in a file a person has to read. */
@@ -216,6 +218,8 @@ public class Phase3 {
                 instance: m5.large
                 zone: z
                 runs: [Slow]
+            takes:
+              Slow: { Hit: { refMs: 200 }, Poll: { refMs: 200 } }
             """;
         // Four 2-vCPU machines: eight cores. Observed under-saturated, projected saturated.
         // 16k records is 4 calls, under eight cores; 128k is 32, which is four

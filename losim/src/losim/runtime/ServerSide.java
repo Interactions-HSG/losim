@@ -2,7 +2,7 @@ package losim.runtime;
 
 import io.grpc.*;
 import losim.api.Ambient;
-import losim.api.Takes;
+
 import losim.res.Meter;
 import losim.trace.Telemetry;
 import losim.trace.Values;
@@ -36,7 +36,7 @@ final class ServerSide implements ServerInterceptor {
         final Telemetry tel = node.tel();
         final String full = call.getMethodDescriptor().getFullMethodName();
         final String method = Wire.dotted(full);
-        final Takes takes = node.takenBy(full);
+        final Cost takes = node.takenBy(full);
 
         // What the caller allowed, read on arrival and in reference milliseconds.
         //
@@ -114,7 +114,7 @@ final class ServerSide implements ServerInterceptor {
                         span.detail.put("declaredRefMs", Machine.round(declared));
                         span.detail.put("deadlineRefMs", Machine.round(deadlineRefMs));
                         // Sound in one direction only, and that is the useful one. A
-                        // declared cost is *slept* and never subtracted — @Takes can
+                        // declared cost is *slept* and never subtracted — takes: can
                         // make a run longer and never shorter — so it is a lower bound
                         // on what the handler actually took, and a declared cost above
                         // the deadline is impossible rather than unlikely. The converse

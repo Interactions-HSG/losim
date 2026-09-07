@@ -180,7 +180,24 @@ public class Phase4 {
               master: { instance: m5.large, zone: z }
               w0: { instance: m5.large, zone: z, runs: [%s] }
               w1: { instance: m5.large, zone: z, runs: [%s] }
-            """.formatted(w0, w1);
+            takes:
+            %s""".formatted(w0, w1, costs(w0, w1));
+    }
+
+    /**
+     * What each of those handlers costs, written once even when both machines run
+     * the same one — a scenario naming a class twice would be a duplicate key.
+     */
+    static String costs(String... classes) {
+        var out = new java.util.LinkedHashSet<String>();
+        for (String c : classes) {
+            out.add(switch (c) {
+                case "Counter" -> "  Counter: { Map: { refMs: 15 }, Reduce: { refMs: 100 } }";
+                case "Peeker"  -> "  Peeker: { Map: { refMs: 5 } }";
+                default        -> "  " + c + ": { Map: { refMs: 2 } }";
+            });
+        }
+        return String.join("\n", out) + "\n";
     }
 
     static Run.Result run(String yaml) throws Exception {

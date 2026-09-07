@@ -1,5 +1,4 @@
 import java.util.concurrent.atomic.AtomicInteger;
-import losim.api.Takes;
 import losim.api.Losim;
 import losim.t.Ping;
 
@@ -15,7 +14,6 @@ public final class Pinger extends VolleyBase {
     public static final AtomicInteger HITS = new AtomicInteger();
     public static volatile int failFirst = 0;
 
-    @Takes(refMs = 1)
     @Override protected void hit(Ping p) {
         int n = HITS.incrementAndGet();
         Losim.current().reveal("seq", p.getSeq());

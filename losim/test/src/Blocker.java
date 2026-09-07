@@ -1,7 +1,6 @@
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
-import losim.api.Takes;
 import losim.t.Chunk;
 import losim.t.Counts;
 
@@ -19,7 +18,6 @@ import losim.t.Counts;
  */
 public final class Blocker extends WorkerBase {
 
-    @Takes(refMs = 2)
     @Override protected Counts map(Chunk c) {
         var arrived = new CountDownLatch(1);
         arrived.countDown();

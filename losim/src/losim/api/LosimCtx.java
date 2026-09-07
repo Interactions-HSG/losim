@@ -8,9 +8,9 @@ import java.util.List;
  *
  * There are exactly two implementations, and the difference between them is the
  * point. Inside a run, calls reach the machine that is serving. Outside one — in
- * a plain unit test, where losim is on the classpath because {@link Takes} is a
- * compile-time annotation but nothing is simulating anything — the recording
- * calls are silent and the state calls throw.
+ * a plain unit test, where losim is on the classpath only so that this interface
+ * resolves and nothing is simulating anything — the recording calls are silent and
+ * the state calls throw.
  *
  * <p>That asymmetry is deliberate. A silent {@code reveal} lets a handler be
  * called directly from a test without the test having to know losim exists. A
@@ -65,7 +65,8 @@ public interface LosimCtx {
     /**
      * How many records this call processed.
      *
-     * <p>Two things need it. {@link Takes#refNsPerRecord()} is charged against it,
+     * <p>Two things need it. The scenario's {@code refNsPerRecord:} is charged
+     * against it,
      * and the scaler engine needs to know which independent variable a cost site
      * is a function of — records, or distinct keys, or bytes — because fitting a
      * resource against the wrong variable gives an exponent that will not survive
@@ -103,14 +104,14 @@ public interface LosimCtx {
      *
      * <p><b>Waiting is not work</b>, and two things follow. It does not stretch on
      * a degraded machine — a machine at half speed computes slower but does not
-     * wait longer — where {@code @Takes} does. And it does not mark the machine
+     * wait longer — where declared work does. And it does not mark the machine
      * busy: a backoff occupies no vCPU, so counting it as occupancy would overstate
      * how loaded the fleet was.
      *
-     * <p>{@code @Takes} is the right way to declare what a handler's <i>work</i>
-     * costs, and it is an annotation, so it is fixed per method. This is for a
-     * duration only the running program knows: a backoff that grows with the
-     * attempt, a poll interval, a lease held until something else happens.
+     * <p>The scenario's {@code takes:} is the right way to declare what a
+     * handler's <i>work</i> costs, and it is a table, so it is fixed per rpc. This
+     * is for a duration only the running program knows: a backoff that grows with
+     * the attempt, a poll interval, a lease held until something else happens.
      *
      * <p>Returns immediately outside a run, like the recording calls — there is no
      * clock to spend against in a unit test, and one that really slept would make
