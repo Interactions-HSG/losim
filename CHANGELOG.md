@@ -7,6 +7,48 @@ Gradle, so it is a fact about a jar rather than about a branch. Every release is
 cut from a tag whose name and `./VERSION` are checked against each other before
 anything is built.
 
+## 1.2.0
+
+Two things a viewer sees, and one rename that follows from the first.
+
+### The film keeps its own clock
+
+The console had one clock for four views, and it was paced. Pacing is what
+`lib/pace.ts` exists for — a three-millisecond call held on screen long enough to
+see a shape cross a gap — and it is a property of the **film**, which is the only
+view that draws one. Overview, usage and cost inherited it for nothing.
+
+The cost was not small. Held at a second a moment, a six-second run becomes a
+436-second film — seventy times longer, about fourteen reference milliseconds a
+second. Watching a memory line grow on the usage page took seven minutes while the
+readout said `1x`. That reads as a broken page rather than a careful one.
+
+So the film owns its clock and the transport it already had, and the console's
+transport is the system timeline: linear, one reference second per second, `1x`
+meaning what it says. The hold control goes with the pacing, to the film, since it
+was a film control everywhere it appeared.
+
+**The two timelines are now independent.** The cost page is no longer pinned to
+the same instant as the picture two tabs away. That coupling was worth something;
+it was not worth seven minutes to watch a five-second run.
+
+### No revenue, no profit — including the part that said so
+
+The bill has four buckets and has had for some time, but the explanation of what
+was removed was still on the Cost page, in the machine panel, in the ledger and
+bill prose, and twice in the manual. The README went further and still *printed* a
+revenue line in its example, above the words "five buckets".
+
+All of it is gone, with nothing left in its place.
+
+### `losim.price.PnL` is `losim.price.Account`
+
+A class named for profit and loss is the same statement in another spelling.
+Nothing in a lab imports it — it is the type `losim bill` builds — but the rename
+is source-breaking for anything that did.
+
+The URL parameter that opens the ledger over the film is `ledger=1`, not `pnl=1`.
+
 ## 1.1.4
 
 A timeout the caller could not have predicted now says so.
