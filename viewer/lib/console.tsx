@@ -45,7 +45,7 @@ export const VIEWS = ['runs', 'scenarios', 'overview', 'film', 'usage', 'cost'] 
 export type View = (typeof VIEWS)[number];
 
 /** The views the clock governs. On the others it is not shown, because there is no time in them. */
-export const TIMED: ReadonlySet<View> = new Set<View>(['overview', 'film', 'usage', 'cost']);
+export const TIMED: ReadonlySet<View> = new Set<View>(['overview', 'usage', 'cost']);
 
 export interface ConsoleState {
   /** Every run the export was built with. */

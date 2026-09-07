@@ -1,12 +1,14 @@
 'use client';
 
 /**
- * The film, on the console's clock.
+ * The film, on a clock of its own.
  *
- * This page renders the same component that draws the film elsewhere, but
- * gives it a definite height and hands it the clock from above instead of
- * letting it make its own — which is why the cost report two tabs away can
- * be at the same instant as the picture.
+ * This page renders the same component that draws the film elsewhere and gives
+ * it a definite height. The clock is the film's own, because the film is the one
+ * view whose clock is not linear: it slows down where something short is
+ * happening, so that a three-millisecond call is on screen long enough to see.
+ * A chart of memory against time has nothing that flickers past and should not
+ * pay for that — on the rest of the console a reference second takes a second.
  */
 import { useCallback, useState } from 'react';
 
@@ -17,7 +19,7 @@ import { refTime } from '../../lib/playback.ts';
 import { openUrl, type Run } from '../../lib/runs.ts';
 
 export function FilmView() {
-  const { run, runs, clock, go } = useConsole();
+  const { run, runs, go } = useConsole();
   /**
    * A second run, on the same clock.
    *
@@ -46,7 +48,7 @@ export function FilmView() {
     [runs],
   );
 
-  if (!run || !clock) return null;
+  if (!run) return null;
 
   return (
     <>
@@ -90,7 +92,7 @@ export function FilmView() {
       <Panel flush>
         <div className="c-stage">
           {busy && <div className="c-over">opening…</div>}
-          <Film key={run.name + (against?.name ?? '')} run={run} against={against} clock={clock} transport={false} />
+          <Film key={run.name + (against?.name ?? '')} run={run} against={against} transport />
         </div>
       </Panel>
 

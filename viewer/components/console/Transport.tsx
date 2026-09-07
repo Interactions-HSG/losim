@@ -17,37 +17,30 @@
  * its natural pace with the quick parts held long enough to see, and every
  * reading anywhere in the console is at the trace instant this playhead is at.
  */
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useSyncExternalStore } from 'react';
 
 import { Scrubber, type Chapter } from '../Scrubber.tsx';
-import { HOLD_SECONDS } from '../../lib/pace.ts';
 import { Clock, FIT_SECONDS, RATES, refTime } from '../../lib/playback.ts';
 import type { Run } from '../../lib/runs.ts';
 
 /** Nothing on screen for less than this, in real seconds. `0` turns the pacing off. */
-const HOLDS = [HOLD_SECONDS, 0.5, 0.25, 0] as const;
-
 /** How long this film runs, in the shortest form that is still a duration. */
-function fmtFilm(seconds: number): string {
-  if (seconds >= 90)
-    return `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, '0')}`;
-  return `${seconds.toFixed(0)}s`;
-}
-
 export function Transport({ run, clock }: { run: Run; clock: Clock }) {
   const { trace, index } = run;
   const t = useSyncExternalStore(clock.subscribe, clock.now, clock.now);
   const playing = useSyncExternalStore(clock.subscribe, clock.isPlaying, () => false);
   const rateLabel = useSyncExternalStore(clock.subscribe, clock.label, () => '1x');
-  const filmSeconds = useSyncExternalStore(clock.subscribe, clock.filmSeconds, () => 0);
-  const stretch = useSyncExternalStore(clock.subscribe, clock.stretch, () => 1);
 
-  const [hold, setHold] = useState<number>(HOLDS[0]);
-  // The pace belongs to the clock, so the toggle sets it there rather than being
-  // read by the frame. Re-applied when the clock changes: a new run starts held.
+  // Linear, and deliberately. The pace in `lib/pace.ts` exists so that a
+  // three-millisecond call is on screen long enough to see a shape cross a gap,
+  // and the film is the only view that draws one. A chart of memory against time
+  // and a bill accruing have nothing that flickers past, and holding every moment
+  // for a second costs them a seventyfold stretch: a five second run takes seven
+  // minutes to watch a line grow, which reads as a broken page rather than a
+  // careful one. Here a reference second takes a second, and `1x` means it.
   useEffect(() => {
-    clock.setHold(hold);
-  }, [clock, hold]);
+    clock.setHold(0);
+  }, [clock]);
 
   const chapters: Chapter[] = useMemo(
     () =>
@@ -131,8 +124,8 @@ export function Transport({ run, clock }: { run: Run; clock: Clock }) {
             onClick={() => clock.setRate(r)}
             title={
               r === 1
-                ? 'the film at its own pace — nothing on screen for less than a second'
-                : `${r}x that pace. Above 1x the quick messages go back under a second.`
+                ? 'one reference second per second — the run at the speed it happened'
+                : `${r}x that: a reference second every ${(1 / r).toFixed(2)}s.`
             }
           >
             {r}x
@@ -141,32 +134,11 @@ export function Transport({ run, clock }: { run: Run; clock: Clock }) {
         <button
           aria-pressed={rateLabel === 'fit'}
           onClick={() => clock.fit()}
-          title={
-            `the whole film in ${FIT_SECONDS} seconds. It keeps the pacing — the quick parts still `
-            + 'get far more than their share of the run — but squeezed to fit, so the one-second '
-            + 'floor only holds at 1x.'
-          }
+          title={`the whole run in ${FIT_SECONDS} seconds, whatever it took.`}
         >
           fit
         </button>
       </div>
-
-      <button
-        className="btn hold"
-        onClick={() => setHold(HOLDS[(HOLDS.indexOf(hold as never) + 1) % HOLDS.length])}
-        aria-pressed={hold > 0}
-        title={
-          hold > 0
-            ? `The clock slows down where things are quick, so nothing is on screen for less than ${hold}s. `
-              + `This film runs ${fmtFilm(filmSeconds)} — ${stretch.toFixed(0)}x the run itself. `
-              + 'Every reading is still at its true instant; only the pace changes. '
-              + 'Press for a shorter hold, and a shorter film.'
-            : 'One simulated second per real second — where most calls are quicker than a single frame. '
-              + 'Press to slow the quick parts down again.'
-        }
-      >
-        {hold > 0 ? '◉' : '○'} hold {hold > 0 ? `${hold}s` : 'off'}
-      </button>
 
       <span className="scope muted">
         every panel below is drawn from the events up to here
@@ -184,10 +156,8 @@ export function Transport({ run, clock }: { run: Run; clock: Clock }) {
           font-variant-numeric: tabular-nums;
         }
         .transport .at b { color: var(--text); font-weight: 600; }
-        .transport .hold { font-size: 12px; }
         .transport .scope { font-size: 11.5px; white-space: nowrap; }
         @media (max-width: 1400px) { .transport .scope { display: none; } }
-        @media (max-width: 1080px) { .transport .hold { display: none; } }
       `}</style>
     </div>
   );
