@@ -74,6 +74,18 @@ public final class WordCountJob implements Job {
         }
             phase.note("keys", merged.size());
         }
+
+        // The coordinator's own work, carried by no RPC. It is here because the
+        // trace has to be able to show a computation that is not a call — a job
+        // that only ever fans out would let that go untested — and because the
+        // alternative was a span that exists only when a reducer happens to die
+        // first, which made a telemetry check depend on how fast the host was.
+        var top = cluster.compute("the three commonest words", () -> merged.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed()
+                        .thenComparing(Map.Entry.comparingByKey()))
+                .limit(3).map(Map.Entry::getKey).toList());
+        cluster.log("commonest: " + top);
+
         cluster.done(merged);
     }
 }

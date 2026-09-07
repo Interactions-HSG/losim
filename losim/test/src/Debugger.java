@@ -185,6 +185,9 @@ public class Debugger {
         for (var s : handlers.stream().filter(x -> x.detail.containsKey("error")).toList())
             System.out.printf("    %-7s %-24s %s  ->  FAILED: %s%n", s.vm, s.label,
                     Values.summary(s.detail.get("arg")), s.detail.get("error"));
+        // Any compute span: the job does one unconditionally at the end, so this
+        // asks whether telemetry records a computation no call carried — which is
+        // the question — rather than whether a reducer happened to die first.
         var merge = tel.spans().stream().filter(s -> s.kind.equals("compute")).findFirst();
         merge.ifPresent(s -> System.out.printf("    %-7s %-24s ->  %s%n",
                 s.vm, s.label, Values.summary(s.detail.get("result"))));
