@@ -41,13 +41,7 @@ revenue line in its example, above the words "five buckets".
 
 All of it is gone, with nothing left in its place.
 
-### `losim.price.PnL` is `losim.price.Account`
-
-A class named for profit and loss is the same statement in another spelling.
-Nothing in a lab imports it — it is the type `losim bill` builds — but the rename
-is source-breaking for anything that did.
-
-The URL parameter that opens the ledger over the film is `ledger=1`, not `pnl=1`.
+The ledger opens over the film with `ledger=1`.
 
 ## 1.1.4
 
