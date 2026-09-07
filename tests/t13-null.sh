@@ -41,7 +41,7 @@ case "$(uname -s)-$(uname -m)" in
   *) echo "no vendored protoc for $(uname -s)-$(uname -m)" >&2; exit 1 ;;
 esac
 
-./build.sh > /dev/null
+gradle -q jar
 OUT=build/t13-null
 rm -rf "$OUT"; mkdir -p "$OUT/gen" "$OUT/classes" "$OUT/traces"
 vendor/bin/protoc-$P --plugin=protoc-gen-grpc-java=vendor/bin/protoc-gen-grpc-java-$P \

@@ -52,7 +52,7 @@ final class Fixture {
 
         Path jar = Path.of("build/losim.jar");
         if (!Files.isRegularFile(jar)) {
-            throw new IOException("no build/losim.jar — run ./build.sh first");
+            throw new IOException("no build/losim.jar — run `gradle jar` first");
         }
         copy(jar, lib.resolve("losim.jar"));
 

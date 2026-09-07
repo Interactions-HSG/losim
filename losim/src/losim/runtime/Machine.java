@@ -53,8 +53,11 @@ public final class Machine implements Bound, Telemetry.Sampled {
     final double machineFactor;
     private volatile double degraded = 1.0;
     private volatile long frozenUntilNs;
-    private final List<java.util.function.Supplier<? extends BindableService>> factories =
-            new CopyOnWriteArrayList<>();
+    /** A service this machine serves, and the line of the scenario that placed it. */
+    private record Offered(java.util.function.Supplier<? extends BindableService> factory,
+                           String where) {}
+
+    private final List<Offered> factories = new CopyOnWriteArrayList<>();
     private volatile boolean rebuildable;
     private final List<io.grpc.MethodDescriptor<?, ?>> served = new CopyOnWriteArrayList<>();
 
@@ -192,7 +195,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
      * to have losim build fresh ones.
      */
     public Machine serving(BindableService... services) {
-        for (BindableService svc : services) factories.add(() -> svc);
+        for (BindableService svc : services) factories.add(new Offered(() -> svc, ""));
         return start();
     }
 
@@ -204,9 +207,72 @@ public final class Machine implements Bound, Telemetry.Sampled {
      * work" a real question rather than a formality.
      */
     public Machine serves(java.util.function.Supplier<? extends BindableService> factory) {
-        factories.add(factory);
+        return serves(factory, "");
+    }
+
+    /**
+     * The same, knowing the line of the scenario that asked for it.
+     *
+     * <p>What this machine can and cannot serve is decided here, when the service
+     * is bound and its methods are known — the loader cannot do it, because it has
+     * not loaded a class. So a refusal from here carries the {@code runs:} line it
+     * belongs to, and reads like every other one the loader gives.
+     */
+    public Machine serves(java.util.function.Supplier<? extends BindableService> factory,
+                          String where) {
+        factories.add(new Offered(factory, where));
         rebuildable = true;
         return start();
+    }
+
+    /**
+     * Whether losim can put a number on this method, or must refuse it.
+     *
+     * <p>Two things it cannot price, and both would be silent. A <b>streaming</b>
+     * rpc is metered by a cost model that assumes one request and one response:
+     * {@code refNsPerRecord} is slept inside {@code sendMessage}, so it is paid
+     * once per message rather than once per call, and {@code refMs} is paid at
+     * half-close, which for a client-streaming or bidirectional handler is after
+     * the work it stands for. A <b>non-protobuf marshaller</b> has no serialized
+     * size, and {@link Wire#sizeOf} answers 0 for it, so every call weighs nothing
+     * and the bill says so.
+     *
+     * <p>Refused rather than flagged, which is the opposite of what the verifier
+     * does and deliberately so. The verifier's rules yield a wrong number beside a
+     * marker saying it is wrong; these two yield a wrong number that looks right,
+     * and a projection fitted to one is smooth, confident and false.
+     */
+    private static void priceable(io.grpc.MethodDescriptor<?, ?> md, String where) {
+        String at = where.isEmpty() ? "" : where + ": ";
+        String method = Wire.dotted(md.getFullMethodName());
+        if (md.getType() != io.grpc.MethodDescriptor.MethodType.UNARY)
+            throw new IllegalArgumentException(at + method + " is a "
+                    + md.getType().name().toLowerCase().replace('_', '-') + " rpc, and losim"
+                    + " prices a call as one request and one response: a declared"
+                    + " refNsPerRecord would be slept once per message sent, and refMs paid"
+                    + " when the client stopped sending rather than before the handler ran."
+                    + " The numbers would come out consistent and wrong. Make it unary.");
+        if (!protobuf(md.getRequestMarshaller()) || !protobuf(md.getResponseMarshaller()))
+            throw new IllegalArgumentException(at + method + " carries a marshaller of its"
+                    + " own rather than a protobuf one. Every byte losim counts is the"
+                    + " serialized size of a protobuf message, so this call would weigh"
+                    + " nothing on the wire and cost nothing in the bill — which is worse"
+                    + " than refusing it.");
+    }
+
+    /**
+     * Whether this marshaller hands back something {@link Wire#sizeOf} can weigh.
+     *
+     * <p>The marshaller and not the schema descriptor: losim builds one
+     * {@code MethodDescriptor} of its own by hand, for the warm-up, and it carries
+     * no schema descriptor while being perfectly ordinary protobuf. What the byte
+     * count actually depends on is whether the message is a {@link Message}, and a
+     * {@code PrototypeMarshaller} is the one place that says so before a call.
+     */
+    private static boolean protobuf(io.grpc.MethodDescriptor.Marshaller<?> m) {
+        return m instanceof io.grpc.MethodDescriptor.PrototypeMarshaller<?> p
+                && p.getMessageClass() != null
+                && com.google.protobuf.Message.class.isAssignableFrom(p.getMessageClass());
     }
 
     private Machine start() {
@@ -229,12 +295,15 @@ public final class Machine implements Bound, Telemetry.Sampled {
         declared.clear();
         served.clear();
         var b = InProcessServerBuilder.forName(name).executor(queueing);
-        for (var factory : factories) {
-            BindableService s = factory.get();
+        for (var offered : factories) {
+            BindableService s = offered.factory().get();
             roots.add(s);                                // a machine's data hangs off its services
             declared.putAll(Durations.of(s));
             var def = s.bindService();
-            for (var m : def.getMethods()) served.add(m.getMethodDescriptor());
+            for (var m : def.getMethods()) {
+                priceable(m.getMethodDescriptor(), offered.where());
+                served.add(m.getMethodDescriptor());
+            }
             String svc = def.getServiceDescriptor().getName();
             String bare = svc.substring(svc.lastIndexOf('.') + 1);
             if (!servicesOffered.contains(bare)) servicesOffered.add(bare);

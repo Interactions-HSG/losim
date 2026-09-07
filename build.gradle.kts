@@ -1,43 +1,27 @@
-// The simulator, as a Maven artifact.
+// The simulator: how it is built, and how it is published.
 //
-// **This is not how a lab builds losim, and it is not how CI builds it.**
-// `./build.sh` is: one javac, one jar, against the jars in vendor/. That stays
-// the build, because D10 says the number a run produces must not depend on what
-// a package manager resolved, and a Gradle build that fetched grpc from the
-// network would make it depend on exactly that.
+// **One build.** There used to be two — a shell script for the labs and this file
+// for the Maven artifact — and the duplication was a standing hazard: a resource
+// added to one and not the other makes a jar whose behaviour depends on who
+// compiled it, which is how a billing difference goes unnoticed for a term. There
+// is now nothing to keep in step.
 //
-// So this file compiles against the *vendored* jars, the identical files in
-// vendor/jars that build.sh puts on its classpath, and never resolves a compile
-// dependency. What it adds is the one thing a directory of jars cannot have: a
-// coordinate and a version, so that anything outside a lab can depend on losim
-// the ordinary way.
+// D10 survives the merge intact, because the thing D10 cares about was never the
+// build tool. It is that the number a run produces must not depend on what a
+// package manager resolved — so this build compiles against the *vendored* jars,
+// the files in vendor/jars, and never resolves a compile dependency. The
+// `dependencies` block below is a **declaration for consumers**, an input to the
+// POM and to nothing else. It is pinned to the versions in vendor/jars, and if the
+// two ever drift the check at the bottom fails the build rather than publishing a
+// POM that lies.
 //
-// **What is and is not claimed about the two jars.** That sentence is about the
-// build's *inputs*, not its output: compiling the same sources against the same
-// jars does not by itself make the resulting jars byte-identical, so do not read
-// it as a guarantee that it does. Both this build and build.sh ship the price
-// lists as resources, under the same manifest, so the two jars agree on all 144
-// entries and every one of the 132 classes. They are not byte-identical and are
-// not meant to be: zip ordering and timestamps differ. What is guaranteed is the
-// thing that matters: the same sources, compiled against the same jars, carrying
-// the same resources, so no program can tell which build made the jar it was
-// handed.
-//
-// If you add a resource to one, add it to the other. A jar whose behaviour
-// depends on who compiled it is how a billing difference goes unnoticed for a
-// term.
-//
-// The dependency list below is therefore a *declaration for consumers*, not an
-// input to this build. It is pinned to the versions in vendor/jars, and if the
-// two ever drift the check at the bottom fails the build rather than publishing
-// a POM that lies.
-//
+//   gradle jar                          -> build/losim.jar
 //   gradle publishToMavenLocal          try it
 //   gradle publish                      to GitHub Packages (needs credentials)
 //
-// There is no wrapper committed. `gradle wrapper` will make one; the release
-// workflow installs Gradle instead, so nothing here depends on a binary blob
-// nobody can read.
+// There is no wrapper committed. `gradle wrapper` will make one; CI and the
+// devcontainer image both bring their own Gradle, so nothing here depends on a
+// binary blob nobody can read.
 
 plugins {
     `java-library`
@@ -69,7 +53,7 @@ sourceSets {
     // set stays empty rather than being pointed at losim/test.
 }
 
-// The version, as a resource, exactly as build.sh writes it. Same file, same
+// The version, as a resource, at a path Version.get() knows. Same file, same
 // path inside the jar, so a jar from either build answers Version.get() the same.
 val stampVersion by tasks.registering {
     val out = layout.buildDirectory.file("version-resource/losim/version")
@@ -97,6 +81,12 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 tasks.named<Jar>("jar") {
+    // `build/losim.jar`, not `build/libs/losim-<version>.jar`. This is the one
+    // build, so the jar lands where everything already looks for it: the tests,
+    // the devcontainer, the workflows and the editor all name that path, and a
+    // version in the filename would make every one of them go looking.
+    archiveFileName.set("losim.jar")
+    destinationDirectory.set(layout.buildDirectory)
     manifest {
         attributes(
             "Implementation-Title" to "losim",

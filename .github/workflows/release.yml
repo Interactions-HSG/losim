@@ -86,6 +86,11 @@ jobs:
           fi
           echo "releasing losim $FILE"
 
+      # Before the checks, not after: Gradle builds the simulator now, so
+      # `./check.sh` needs it as much as the publish steps do.
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '9.2.0' }
+
       # Not a fast gate, and deliberately not skipped. CI has already run this on
       # the commit; running it again here is what makes "this tag was tested" a
       # fact about the tag rather than about a branch it was once on.
@@ -93,8 +98,6 @@ jobs:
 
       - name: build the archive
         run: ./dist.sh
-
-      - uses: gradle/actions/setup-gradle@v4
 
       # The Maven layout, as files. This is the artifact students resolve, and it
       # is built before anything is pushed anywhere so a broken build file fails

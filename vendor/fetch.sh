@@ -3,7 +3,7 @@
 #
 # losim must behave identically in the devcontainer, on a laptop and in a
 # Codespace (D10), which rules out resolving dependencies at build time. So the
-# jars live in git and build.sh stays javac + jar. This script is how they got
+# jars live in git and the build stays javac + jar. This script is how they got
 # here; it is not run by the build, and needs a network.
 set -euo pipefail
 cd "$(dirname "$0")"

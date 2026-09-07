@@ -1,4 +1,4 @@
-// Gradle exists here for one job: to publish the simulator as a versioned Maven
-// artifact. It is not how losim is built for the labs — `./build.sh` is, and
-// `./check.sh` and `tests/run.sh` call that one. See build.gradle.kts.
+// Gradle builds the simulator and publishes it as a versioned Maven artifact.
+// It is the only build: `./check.sh` and `tests/run.sh` call `gradle -q jar`.
+// See build.gradle.kts for why that does not weaken D10.
 rootProject.name = "losim"

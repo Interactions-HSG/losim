@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 echo "building losim..."
-./build.sh
+gradle -q jar
 
 # The manual previews with Mintlify's CLI. Fetched here so that `docs-check/dev.sh`
 # works without a wait later — and deliberately allowed to fail: the docs are not
@@ -22,7 +22,7 @@ ready. The lab is on :8000 and the manual on :3000 — .devcontainer/start.sh pu
 them there on every attach, so neither is something you have to start.
 
 Try:
-  ./build.sh     the simulator, into build/losim.jar
+  gradle -q jar  the simulator, into build/losim.jar
   ./check.sh     losim's own checks — every phase's acceptance criteria
   tests/run.sh   the reference suite — gRPC systems, run the way a student runs them
   docs-check/dev.sh    the manual, at http://localhost:3000 — no node needed

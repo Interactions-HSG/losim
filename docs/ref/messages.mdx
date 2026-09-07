@@ -32,7 +32,38 @@ Grouped by when it happens. Scenario errors read like compiler errors on purpose
 | `mode is 'direct' or 'scaled', not 'auto'` | |
 | `scaled mode measures a small run and projects it up, and at scale 1 there is nothing above the run to project to` | |
 | `a workload has at least one record` | |
+| `lab.Router.Watch is a server-streaming rpc, and losim prices a call as one request and one response …` | make it unary; see below |
+| `lab.Thing.Say carries a marshaller of its own rather than a protobuf one …` | losim weighs a call by its serialized protobuf size |
 | `no such scenario: thumbs.yaml` | |
+
+## The two shapes losim will not price
+
+<Warning>
+Both are **refused**, not flagged, and that is the opposite of what the trust
+verifier does. Every rule the verifier catches yields a wrong number *beside a
+marker saying it is wrong*. These two yield a wrong number that **looks right**,
+and a law fitted to either comes out smooth, confident and false.
+</Warning>
+
+<ParamField path="a streaming rpc" type="refused">
+  The cost model is one request and one response. `refNsPerRecord` is slept inside
+  `sendMessage`, so on a stream it is paid once per **message** rather than once per
+  call; and `refMs` is paid at half-close, which for a client-streaming or
+  bidirectional handler is *after* the work it stands for.
+
+  The remedy is a unary rpc. There is no flag that makes a stream priceable.
+</ParamField>
+
+<ParamField path="a marshaller that is not protobuf" type="refused">
+  Every byte losim counts is the serialized size of a protobuf message. A JSON or
+  byte-array marshaller — grpc-java's `advanced` and `preserialized` examples both
+  use one — has no such size, so the call would weigh nothing on the wire and cost
+  nothing in the bill.
+
+  Checked on the **marshaller**, not on the schema descriptor: losim builds one
+  method descriptor by hand for its own warm-up, and it carries no schema while
+  being perfectly ordinary protobuf.
+</ParamField>
 
 ## Wiring up
 

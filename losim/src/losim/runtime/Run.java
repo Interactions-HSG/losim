@@ -160,7 +160,7 @@ public final class Run {
                         m.memoryCapMb() != null ? m.memoryCapMb() : spec.memoryMb(),
                         m.diskCapMb() != null ? m.diskCapMb() : spec.storageGb() * 1024.0);
                 for (String service : m.runs())
-                    machine.serves(factory(service, loader, m.where()));
+                    machine.serves(factory(service, loader, m.where()), m.where());
                 if (m.runs().isEmpty()) machine.serving();     // listening, offering nothing
                 byName.put(m.name(), machine);
             }

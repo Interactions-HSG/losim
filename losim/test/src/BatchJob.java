@@ -18,9 +18,11 @@ public final class BatchJob implements Job {
 
     @Override public void run(Cluster cluster) throws Exception {
         var workers = cluster.serving("Volley");
-        // One call per thousand records, so the fixture's call count follows the
-        // scale the scenario asked for rather than a number of its own.
-        int calls = (int) Math.max(1, cluster.records() / 1000);
+        // One call per four thousand records, so the call count follows the scale
+        // the scenario asked for rather than a number of its own — and so that a
+        // fleet of eight cores can be observed under-saturated at one scale and
+        // saturated at another, which is what the schedule tests need.
+        int calls = (int) Math.max(1, cluster.records() / 4000);
         var done = new CountDownLatch(calls);
         try (var phase = cluster.phase("batch")) {
             for (int i = 0; i < calls; i++) {

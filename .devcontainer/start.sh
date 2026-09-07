@@ -13,7 +13,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p build
 
-[ -f build/losim.jar ] || ./build.sh > /dev/null
+[ -f build/losim.jar ] || gradle -q jar
 
 # The viewer, from the committed export rather than from npm. It is committed
 # like the generated protobuf sources are (D10), so putting it where the server

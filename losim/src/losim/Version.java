@@ -12,11 +12,9 @@ import java.nio.charset.StandardCharsets;
  * answerable without asking somebody to describe a jar.
  *
  * <p>The number lives in one file — {@code VERSION} at the root of the
- * simulator's repository — and is copied into the jar as a resource by whichever
- * build ran. Both builds do it: {@code build.sh} writes it into the classes
- * directory before the jar is made, and Gradle reads the same file. That is D10
- * again, in the smallest possible form: two commands, one number, and no way for
- * them to disagree without the file itself changing.
+ * simulator's repository — and the build copies it into the jar as a resource.
+ * One file, one build, and no way for a jar to disagree with the tag it was cut
+ * from without that file changing.
  *
  * <p>A jar built some other way has no such resource, and says so. It does not
  * guess and it does not fail — a version is a label, and a run whose label is

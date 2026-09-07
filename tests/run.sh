@@ -21,7 +21,7 @@ case "$(uname -s)-$(uname -m)" in
   *) echo "no vendored protoc for $(uname -s)-$(uname -m)" >&2; exit 1 ;;
 esac
 
-./build.sh > /dev/null
+gradle -q jar
 
 OUT=build/tests
 rm -rf "$OUT"

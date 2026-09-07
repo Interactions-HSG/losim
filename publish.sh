@@ -60,7 +60,7 @@ TARGET="$(cd "$TARGET" && pwd)"
 [ "$TARGET" != "$ROOT" ] || { echo "that is this repository" >&2; exit 1; }
 
 echo "Building the simulator…"
-./build.sh > /dev/null
+gradle -q jar
 
 if [ "$LIB_ONLY" -eq 0 ]; then
   # From the committed export, always — not from whatever build/viewer happens to

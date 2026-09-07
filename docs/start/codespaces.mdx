@@ -47,7 +47,7 @@ published site, and the `.mdx` files under `docs/` in the editor you are already
 ## Inside `setup.sh`
 
 ```bash
-./build.sh                     # the simulator -> build/losim.jar
+gradle jar                     # the simulator -> build/losim.jar
 ```
 
 <Note>
@@ -62,7 +62,7 @@ package it needs was unpublished from under it.
 
 <CodeGroup>
 ```bash losim
-./build.sh          # the simulator, into build/losim.jar
+gradle jar          # the simulator, into build/losim.jar
 ./check.sh          # losim's own acceptance criteria
 tests/run.sh        # the reference suite: gRPC systems, end to end
 ```

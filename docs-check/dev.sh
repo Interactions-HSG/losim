@@ -14,7 +14,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-[ -f build/losim.jar ] || ./build.sh
+[ -f build/losim.jar ] || gradle -q jar
 
 CP="$(ls vendor/jars/*.jar 2>/dev/null | tr '\n' ':')build/losim.jar"
 exec java -cp "$CP" losim.cli.Main serve docs --port "${PORT:-3000}" --docs docs

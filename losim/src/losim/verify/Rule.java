@@ -135,10 +135,17 @@ public enum Rule {
      * <p>"On one machine" is the boundary the whole design rests on: nothing leaves
      * the JVM, so anything that does is neither simulated, nor measured, nor
      * reproducible on the next host.
+     *
+     * <p>{@code InetAddress} is here for a quieter reason than the sockets are. It
+     * does not leave the JVM so much as ask it who it is, and the answer is the
+     * host's — one identity shared by every machine in the fleet, which is a lie
+     * about isolation of exactly the kind this rule exists for. A machine's own
+     * name and shape are on {@link losim.api.Spec}.
      */
     OUTSIDE_THE_JVM(Flag.ISOLATION, "reaches outside the JVM, where nothing is simulated",
             List.of(
             "java.net.Socket#*",
+            "java.net.InetAddress#*",
             "java.net.ServerSocket#*",
             "java.net.DatagramSocket#*",
             "java.net.URL#openStream",

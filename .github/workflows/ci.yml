@@ -26,7 +26,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '25' }
-      - run: ./build.sh
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '9.2.0' }
+      - run: gradle -q jar
       - run: ./check.sh
 
   # The manual, checked for the one thing a manual can get catastrophically wrong
@@ -56,7 +58,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '25' }
-      - run: ./build.sh
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '9.2.0' }
+      - run: gradle -q jar
       - run: tests/run.sh
       # One direct trace and one scaled one. The direct trace carries every event
       # kind, span kind and sampled channel the fleet produces; the scaled one
@@ -73,12 +77,13 @@ jobs:
     name: reference suite (the Codespace image)
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    # The image a Codespace boots, used unchanged. Nothing is installed and nothing
-    # is downloaded: if the vendored toolchain is incomplete, this is where it shows.
+    # The image a Codespace boots, used unchanged. Nothing is installed: if the
+    # vendored toolchain is incomplete, or the image has no Gradle to build with,
+    # this is where it shows — and it is the only job that would.
     container: mcr.microsoft.com/devcontainers/java:25-bookworm
     steps:
       - uses: actions/checkout@v4
-      - run: ./build.sh
+      - run: gradle -q jar
       - run: tests/run.sh
       - uses: actions/upload-artifact@v4
         with:
@@ -96,7 +101,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '25' }
-      - run: ./build.sh
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '9.2.0' }
+      - run: gradle -q jar
       - uses: actions/download-artifact@v4
         with: { path: build/parity }
       - name: compare the traces

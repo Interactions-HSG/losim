@@ -21,7 +21,7 @@ scale exhausts a 16 MiB one here — for the same reason, in the student's own c
 ## Try it
 
 ```bash
-./build.sh          # the simulator -> build/losim.jar
+gradle jar          # the simulator -> build/losim.jar
 ./check.sh          # losim's own checks: every phase's acceptance criteria
 tests/run.sh        # the reference suite: gRPC systems, run the way a student runs them
 

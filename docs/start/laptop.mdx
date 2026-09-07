@@ -18,14 +18,14 @@ Nothing else. There is no package manager step, no lockfile, and no download.
 ## Build and check
 
 ```bash
-./build.sh          # -> build/losim.jar
+gradle jar          # -> build/losim.jar
 ./check.sh          # losim's own acceptance criteria, plus one plain JUnit test
 tests/run.sh        # the reference suite
 ```
 
 ## Supported platforms for `protoc`
 
-`build.sh` needs no `protoc` — it only compiles the simulator. Everything that
+`gradle jar` needs no `protoc` — it only compiles the simulator. Everything that
 compiles a `.proto` (`check.sh`, `tests/run.sh`, your own build) picks a vendored
 binary from `vendor/bin/`:
 
