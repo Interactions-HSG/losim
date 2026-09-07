@@ -340,15 +340,6 @@ export function Cost() {
             </p>
           </Panel>
 
-          <Panel title="No revenue, no profit">
-            <p className="muted" style={{ margin: 0 }}>
-              losim bills four buckets and stops there. What a run <em>earns</em> is not a property
-              of the run — it depends on what the service is worth to somebody, which is a business
-              question this course cannot answer. What a design <strong>costs</strong> is computed
-              from what actually happened.
-            </p>
-          </Panel>
-
           <Panel title="Open another">
             <div className="jump">
               {runs.filter((r) => r.from === 'yours' && r.name !== run.name).slice(0, 6).map((r) => (

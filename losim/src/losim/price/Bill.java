@@ -31,7 +31,7 @@ public final class Bill {
     private Bill() {}
 
     /** Both accounts, and the projected one is absent where the run was not scaled. */
-    public record Both(PnL observed, PnL projected) {
+    public record Both(Account observed, Account projected) {
 
         public Map<String, Object> asMap() {
             var m = new LinkedHashMap<String, Object>();
@@ -47,7 +47,7 @@ public final class Bill {
         var events = rows(trace, "events");
         boolean scaled = "scaled".equals(meta.get("mode"));
 
-        var observed = new PnL(prices.currency, "observed");
+        var observed = new Account(prices.currency, "observed");
         price(observed, prices, meta, machines, events,
               num(meta.get("durationRefMs")), 1.0, null);
         if (!scaled) return new Both(observed, null);
@@ -60,7 +60,7 @@ public final class Bill {
             if (p instanceof Map<?, ?> row)
                 projections.put(String.valueOf(row.get("resource")), cast(row));
 
-        var projected = new PnL(prices.currency, "projected");
+        var projected = new Account(prices.currency, "projected");
         price(projected, prices, meta, machines, events,
               projectedOrNaN(projections, "makespanRefMs"),
               growth(projections, "wireMb"), projections);
@@ -74,7 +74,7 @@ public final class Bill {
      * @param projections   the engine's own column, so a refusal can be quoted rather
      *                      than paraphrased. Null when nothing is being projected.
      */
-    private static void price(PnL pnl, PriceList prices, Map<String, Object> meta,
+    private static void price(Account account, PriceList prices, Map<String, Object> meta,
                               List<Map<String, Object>> machines,
                               List<Map<String, Object>> events,
                               double durationRefMs, double wireGrowth,
@@ -85,7 +85,7 @@ public final class Bill {
         // somebody's afternoon; the job it is a model of takes what the simulated
         // clock says, and that is the number anyone would be invoiced for.
         if (Double.isNaN(durationRefMs)) {
-            pnl.cannotPrice("capacity", "the fleet, for the period",
+            account.cannotPrice("capacity", "the fleet, for the period",
                     projections == null ? "the run has no duration"
                             : refusal(projections, "makespanRefMs"));
         } else {
@@ -95,7 +95,7 @@ public final class Bill {
                 String instance = String.valueOf(m.get("instance"));
                 double onDemand = rate(instance);
                 boolean onSpot = spot.contains(String.valueOf(m.get("name")));
-                pnl.add("capacity", m.get("name") + " (" + instance
+                account.add("capacity", m.get("name") + " (" + instance
                                 + (onSpot ? ", spot" : "") + ")",
                         seconds / 3600.0, "machine-hours", prices.perHour(onDemand, onSpot),
                         "reserved for the whole period, billed per second with a "
@@ -112,16 +112,16 @@ public final class Bill {
         // printed under a full-scale heading would be a silently wrong number.
         double crossZoneMb = sum(machines, "crossZoneMb");
         if (Double.isNaN(wireGrowth) && crossZoneMb > 0)
-            pnl.cannotPrice("consumption", "cross-zone egress", refusal(projections, "wireMb"));
+            account.cannotPrice("consumption", "cross-zone egress", refusal(projections, "wireMb"));
         else if (crossZoneMb > 0)
-            egress(pnl, machines, crossZoneMb, wireGrowth, prices);
+            egress(account, machines, crossZoneMb, wireGrowth, prices);
 
         Double disk = quantity(projections, "diskMb", peak(machines, "diskMb"));
         if (disk == null)
-            pnl.cannotPrice("consumption", "spilled data on disk",
+            account.cannotPrice("consumption", "spilled data on disk",
                     refusal(projections, "diskMb"));
         else if (disk > 0)
-            pnl.add("consumption", "spilled data on disk", disk / 1024.0, "GB-month",
+            account.add("consumption", "spilled data on disk", disk / 1024.0, "GB-month",
                     prices.storagePerGbMonth,
                     "the worst machine's spill, held for the period");
 
@@ -129,23 +129,23 @@ public final class Bill {
         // an OutOfMemory either happened or it did not, and neither is a forecast.
         long timeouts = count(events, "rpc_timeout");
         if (timeouts > 0)
-            pnl.add("incidents", "calls that did not answer in time", timeouts, "reruns",
+            account.add("incidents", "calls that did not answer in time", timeouts, "reruns",
                     prices.incidentPerRerun,
                     "work redone because a machine did not answer inside its deadline");
         long lost = count(events, "kill") + count(events, "spot_notice");
         if (lost > 0)
-            pnl.add("incidents", "machines lost", lost, "failures",
+            account.add("incidents", "machines lost", lost, "failures",
                     prices.incidentPerLostMachine,
                     "recovering from a machine that went away mid-job");
         long full = count(events, "oom") + count(events, "disk_full");
         if (full > 0)
-            pnl.add("incidents", "machines that filled up", full, "failures",
+            account.add("incidents", "machines that filled up", full, "failures",
                     prices.incidentPerLostMachine * 5,
                     "a machine sized too small for what its design asked it to hold");
         if (!Double.isNaN(durationRefMs)) {
             double late = Math.max(0, durationRefMs / 1000.0 - prices.slaSeconds);
             if (late > 0)
-                pnl.add("incidents", "late finish", late, "seconds", prices.latePenaltyPerSecond,
+                account.add("incidents", "late finish", late, "seconds", prices.latePenaltyPerSecond,
                         "past the " + prices.slaSeconds + "s service level");
         }
 
@@ -155,7 +155,7 @@ public final class Bill {
             for (Object s : (List<?>) m.getOrDefault("serves", List.of()))
                 services.add(String.valueOf(s));
         int distinct = Math.max(1, services.size());
-        pnl.add("build", "services carried", distinct, "services",
+        account.add("build", "services carried", distinct, "services",
                 prices.buildPerServiceMonth / 1000.0,
                 "engineering time to construct and carry this design, spread over its life");
     }
@@ -229,7 +229,7 @@ public final class Bill {
      * billed whole at the same-region rate, rather than a guess at a distance
      * nobody recorded.
      */
-    private static void egress(PnL pnl, List<Map<String, Object>> machines,
+    private static void egress(Account account, List<Map<String, Object>> machines,
                                double crossZoneMb, double growth, PriceList prices) {
         var mbByLink = new EnumMap<losim.res.Regions.Link, Double>(losim.res.Regions.Link.class);
         double split = 0;
@@ -243,7 +243,7 @@ public final class Bill {
             }
         }
         if (split <= 0) {
-            pnl.add("consumption", "cross-zone egress", crossZoneMb * growth / 1024.0, "GB",
+            account.add("consumption", "cross-zone egress", crossZoneMb * growth / 1024.0, "GB",
                     prices.egressPerGb,
                     "traffic between availability zones is billed; traffic inside one is free");
             return;
@@ -251,7 +251,7 @@ public final class Bill {
         for (var link : losim.res.Regions.Link.values()) {
             double mb = mbByLink.getOrDefault(link, 0.0);
             if (mb <= 0) continue;
-            pnl.add("consumption", LINE.get(link), mb * growth / 1024.0, "GB",
+            account.add("consumption", LINE.get(link), mb * growth / 1024.0, "GB",
                     prices.egressPerGb(link), WHY.get(link));
         }
     }

@@ -18,7 +18,7 @@ and Spans appears a second time on Overview as the *Execution graph* panel.
 | what is true *right now*? | **Film** | the Film page |
 | why did it take that long, and who was waiting on whom? | **Spans** | inside Film, and on Overview |
 | what is the *shape* of this system? | **Topology** | inside Film |
-| what did it cost, while it was being spent? | **Ledger** | the Cost page, and inside Film with `pnl=1` |
+| what did it cost, while it was being spent? | **Ledger** | the Cost page, and inside Film with `ledger=1` |
 
 The rail across the top has the pages themselves: **Runs** is the gallery you land
 on, and **Scenarios** is where a lab is written, edited and run — none of that has a
@@ -188,7 +188,7 @@ picture, which is the figure anyone would draw on a whiteboard.
 <div id="the-ledger" />
 
 *The Cost page is this, given room: every line, the buckets at the clock, and another
-run beside it. The same accrual is available as a panel over the film with `pnl=1`.*
+run beside it. The same accrual is available as a panel over the film with `ledger=1`.*
 
 Four buckets, accruing **while the film plays**:
 
@@ -294,7 +294,7 @@ the current instant marked, so a reading has a shape around it.
 | `fv=spans \| topology` | which sub-view of Film, when it is not the film itself |
 | `sv=waterfall \| swimlanes \| rollup` | which sub-view of Spans |
 | `m=<machine>` | pins the panel on it |
-| `pnl=1` | opens the ledger |
+| `ledger=1` | opens the ledger |
 | `fail=1` | failed spans only |
 | `method=<text>` | filter by method |
 

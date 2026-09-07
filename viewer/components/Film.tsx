@@ -182,7 +182,7 @@ export function Film({
     if (at !== null && Number.isFinite(Number(at))) clock.seek(Number(at));
     const m = q.get('m');
     if (m && trace.byName.has(m)) setPinned(m);
-    if (q.get('pnl') === '1') setShowLedger(true);
+    if (q.get('ledger') === '1') setShowLedger(true);
     // `fv`, not `view`: the console owns `view` and would be overwritten here.
     // Same shape as `sv` for the Spans sub-view, one level down.
     const v = q.get('fv');
@@ -196,8 +196,8 @@ export function Film({
     url.searchParams.set('t', String(Math.round(t)));
     if (pinned) url.searchParams.set('m', pinned);
     else url.searchParams.delete('m');
-    if (showLedger) url.searchParams.set('pnl', '1');
-    else url.searchParams.delete('pnl');
+    if (showLedger) url.searchParams.set('ledger', '1');
+    else url.searchParams.delete('ledger');
     if (view !== 'film') url.searchParams.set('fv', view);
     else url.searchParams.delete('fv');
     if (against) url.searchParams.set('vs', against.name);

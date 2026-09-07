@@ -37,15 +37,7 @@
  */
 import type { Trace } from './trace.ts';
 
-/**
- * The four costs, and no revenue.
- *
- * What a run earns is not a property of the run — it depends on what the
- * service is worth to somebody, which is a business question this course does
- * not answer, and a revenue line would have to answer it anyway with a number
- * somebody merely picked. What a design costs is computed from what actually
- * happened, and that is the number worth arguing about.
- */
+/** What a design costs, computed from what actually happened. */
 export const BUCKETS = ['build', 'capacity', 'consumption', 'incidents'] as const;
 export type Bucket = (typeof BUCKETS)[number];
 

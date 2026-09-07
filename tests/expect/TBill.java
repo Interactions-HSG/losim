@@ -1,7 +1,7 @@
 import java.util.List;
 import java.util.Map;
 import losim.price.Bill;
-import losim.price.PnL;
+import losim.price.Account;
 import losim.price.PriceList;
 
 /**
@@ -35,7 +35,7 @@ public final class TBill {
 
         var observed = direct.observed();
         e.check(observed.items().stream().map(i -> i.bucket()).distinct().count() >= 3
-                && observed.byBucket().keySet().equals(new java.util.LinkedHashSet<>(PnL.BUCKETS)),
+                && observed.byBucket().keySet().equals(new java.util.LinkedHashSet<>(Account.BUCKETS)),
                 "a direct run bills into the five buckets, reported apart rather than summed — "
                 + "replication triples capacity and adds to build in order to empty incidents, "
                 + "and one number cannot say that");

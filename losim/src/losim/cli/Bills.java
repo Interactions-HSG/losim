@@ -3,7 +3,7 @@ package losim.cli;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import losim.price.Bill;
-import losim.price.PnL;
+import losim.price.Account;
 import losim.price.PriceList;
 import losim.trace.Json;
 import losim.trace.JsonReader;
@@ -84,8 +84,8 @@ public final class Bills {
         }
 
         System.out.println();
-        for (String bucket : PnL.BUCKETS)
-            System.out.printf("  %-12s %s%n", bucket, wrap(PnL.EXPLANATIONS.get(bucket)));
+        for (String bucket : Account.BUCKETS)
+            System.out.printf("  %-12s %s%n", bucket, wrap(Account.EXPLANATIONS.get(bucket)));
         return 0;
     }
 

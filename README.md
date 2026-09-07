@@ -233,13 +233,12 @@ machine's own pool is merely attributed to nobody, and that is what gets said.
 
 ## The cost
 
-Five buckets, printed apart rather than summed, because they are five different kinds
+Four buckets, printed apart rather than summed, because they are four different kinds
 of decision. Replication triples capacity and adds to build in order to empty
 incidents, and one number cannot say that.
 
 ```
 what it is a model of
-  revenue     job completed                    1.000 jobs           CHF    5.0000
   build       services carried                 1.000 services       CHF    0.2500
   capacity    the fleet, for the period            -                CHF   refused
       its exponent moves by 0.793 between independent seed sets of the same workload,

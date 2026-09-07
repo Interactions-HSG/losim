@@ -215,8 +215,8 @@ export function MachinePanel({ trace, m, t, money, pinned, onPin, onClose }: Mac
               ))}
           </ul>
           <p className="muted" style={{ fontSize: 11, margin: '6px 0 0' }}>
-            Its share of lines <code>losim bill</code> already computed. Revenue and the
-            late-finish penalty belong to the job and are not here.
+            Its share of lines <code>losim bill</code> already computed. The late-finish
+            penalty belongs to the job and is not here.
           </p>
         </section>
       )}

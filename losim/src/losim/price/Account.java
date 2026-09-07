@@ -10,20 +10,12 @@ import java.util.*;
  * order to empty incidents — and summing those into one number hides exactly the
  * trade a student is meant to see.
  *
- * <p><b>Cost only, and no revenue.</b> There was a fifth bucket and a profit line
- * once, and they are gone: what a run earns is not a property of the run. It
- * depends on what the service is worth to somebody, which is a business question
- * this course cannot answer and had been answering with a number somebody picked.
- * A design argument that turns on an invented revenue figure is an argument about
- * the figure. What a design <i>costs</i> is computed from what actually happened,
- * and that is the number worth defending.
- *
  * <p>A bucket can also be <b>unpriceable</b>, and that is not the same as zero. Where
  * the engine refused to project the quantity a line is made of, the line is absent
  * with the reason attached, because a bill that quietly leaves out its largest term
  * is worse than no bill at all.
  */
-public final class PnL {
+public final class Account {
 
     public static final List<String> BUCKETS =
             List.of("build", "capacity", "consumption", "incidents");
@@ -45,7 +37,7 @@ public final class PnL {
     public final String currency;
     public final String scale;
 
-    public PnL(String currency, String scale) {
+    public Account(String currency, String scale) {
         this.currency = currency;
         this.scale = scale;
     }

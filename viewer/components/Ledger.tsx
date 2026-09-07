@@ -11,7 +11,7 @@
  * Read it while the film plays. Capacity is flat from the first frame — you have
  * already bought a minute of every machine before a single call is made — build
  * creeps, consumption follows the work, and incidents are steps at the instants
- * things broke. Revenue lands at the end, or does not.
+ * things broke.
  *
  * **And it answers the film.** Point at a machine and this says what that
  * machine costs: its own slice inside every bar, its lines lifted to the top,
