@@ -106,13 +106,17 @@ export function useConsole(): ConsoleState {
 
 /* ------------------------------------------------------------------ the URL */
 
-function readUrl(): { run: string | null; view: View | null } {
-  if (typeof window === 'undefined') return { run: null, view: null };
+function readUrl(): { run: string | null; view: View | null; at: number | null } {
+  if (typeof window === 'undefined') return { run: null, view: null, at: null };
   const q = new URLSearchParams(window.location.search);
   const v = q.get('view');
+  const t = q.get('t');
   return {
     run: q.get('run'),
     view: VIEWS.includes(v as View) ? (v as View) : null,
+    // A moment is part of what somebody is pointing at, on whichever page they
+    // pointed at it from — `?t=2400` is as much a link on Overview as on Film.
+    at: t !== null && Number.isFinite(Number(t)) ? Number(t) : null,
   };
 }
 
@@ -161,6 +165,15 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
     [run],
   );
   useEffect(() => () => clock?.dispose(), [clock]);
+
+  // A clock is built when its run opens, so this is the first moment there is
+  // anything to seek. Only on open: writing `t` back is the film's job, and
+  // re-reading it while somebody drags would fight them for the playhead.
+  useEffect(() => {
+    if (!clock) return;
+    const { at } = readUrl();
+    if (at !== null) clock.seek(at);
+  }, [clock]);
 
   const ledger = useMemo(
     () => (run?.bill ? new LedgerModel(run.trace, run.bill) : null),

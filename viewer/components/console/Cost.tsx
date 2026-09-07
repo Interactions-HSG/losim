@@ -13,7 +13,7 @@
  * `lib/ledger.ts`. Nothing is priced in this app. A viewer with prices of its
  * own would be a second accountant, and two accountants disagree.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { colourOf, Donut, Legend, short, StackedBars, type Bar } from './Chart.tsx';
 import { Head, Panel, Tile } from './Shell.tsx';
@@ -41,6 +41,36 @@ type Dim = keyof typeof DIMS;
  */
 const NOBODY = 'the design itself';
 
+/**
+ * An amount with the currency left off.
+ *
+ * `money()` is right where a number stands alone. In a grid of forty of them the
+ * repeated `CHF` is forty times the same word, and it is what makes the columns
+ * wrap — so the currency is said once in the heading and the cells are numbers.
+ */
+function amt(v: number): string {
+  return v < 10 ? v.toFixed(4) : v.toFixed(2);
+}
+
+/**
+ * Whether the reason a line is somebody's just says the line's label again.
+ *
+ * "calls that did not answer in time — *calls it did not answer in time*" is
+ * one fact printed twice, and a page that does that teaches somebody to stop
+ * reading it. Where the two really do differ the reason is the interesting
+ * half, so this only drops it when it adds nothing.
+ */
+function echoes(what: string, why: string): boolean {
+  if (!why) return true;
+  const words = (t: string) => new Set(t.toLowerCase().match(/[a-z]{4,}/g) ?? []);
+  const a = words(why);
+  if (!a.size) return true;
+  const b = words(what);
+  let shared = 0;
+  for (const w of a) if (b.has(w)) shared++;
+  return shared / a.size >= 0.6;
+}
+
 /** One run, cut whichever way is being asked for, as it stood at `t`. */
 function cut(run: Run, model: LedgerModel, dim: Dim, t: number): Record<string, number> {
   const l = model.at(t);
@@ -63,6 +93,8 @@ export function Cost() {
   const { run, runs, ledger, go, open } = useConsole();
   const now = useNow();
   const [dim, setDim] = useState<Dim>('bucket');
+  /** Whose own bill is open, when somebody has asked for one. */
+  const [whose, setWhose] = useState<string | null>(null);
   /** Other runs to put beside this one. Their traces are fetched when ticked. */
   const [beside, setBeside] = useState<string[]>([]);
   const [find, setFind] = useState('');
@@ -100,6 +132,33 @@ export function Cost() {
     () => (run && ledger ? cut(run, ledger, dim, now) : {}),
     [run, ledger, dim, now],
   );
+
+  /**
+   * Every machine's own share of the bill, at the clock.
+   *
+   * The grouped bar answers "which machine costs the most"; this answers the
+   * question underneath it — *what for*. They are different questions and a
+   * stacked bar cannot be read to the rappen, so the numbers are printed.
+   *
+   * Nothing is re-priced here: `LedgerModel` already knows whose each line is
+   * and why, and this only asks it once per machine.
+   */
+  const mine = useMemo(() => {
+    if (!run || !ledger) return [];
+    const rows = run.trace.machines.map((m) => {
+      const at = ledger.at(now, m.name);
+      return {
+        machine: m,
+        focus: at.focus!,
+        /** Its own lines, largest first — `at()` has already sorted them that way. */
+        lines: at.lines.filter((r) => r.mine > 0),
+      };
+    });
+    return rows.sort((a, b) => b.focus.cost - a.focus.cost);
+  }, [run, ledger, now]);
+
+  /** What the fleet carries between them, so the remainder can say it is nobody's. */
+  const claimed = useMemo(() => mine.reduce((a, r) => a + r.focus.cost, 0), [mine]);
 
   /**
    * The bars: this run, and whichever others are ticked, each as it stood the
@@ -352,6 +411,105 @@ export function Cost() {
         </div>
       </div>
 
+        <Panel
+          title="What each machine costs"
+          note={`${mine.filter((r) => r.focus.cost > 0).length} of ${run.trace.machines.length} carry any of it · ${l.currency}`}
+          flush
+        >
+          <div className="scroll">
+            <table className="per">
+              <thead>
+                <tr>
+                  <th>Machine</th>
+                  <th>Where</th>
+                  {BUCKETS.map((b) => (
+                    <th key={b} className="r">
+                      <i className="dot" style={{ background: COLOUR[b] }} />
+                      {b}
+                    </th>
+                  ))}
+                  <th className="r">So far</th>
+                  <th className="r">Share</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mine.map((r) => {
+                  const open = whose === r.machine.name;
+                  return (
+                    <Fragment key={r.machine.name}>
+                      <tr
+                        className={`row${open ? ' open' : ''}`}
+                        onClick={() => setWhose(open ? null : r.machine.name)}
+                        aria-expanded={open}
+                      >
+                        <td className="id">
+                          <span className="tw" aria-hidden>{open ? '\u25be' : '\u25b8'}</span>
+                          {r.machine.name}
+                        </td>
+                        <td className="muted where">
+                          {r.machine.instance} · {r.machine.zone}
+                        </td>
+                        {BUCKETS.map((b) => (
+                          <td key={b} className="n">
+                            {r.focus.buckets[b] > 1e-9 ? amt(r.focus.buckets[b]) : '\u2014'}
+                          </td>
+                        ))}
+                        <td className="n b">{amt(r.focus.cost)}</td>
+                        <td className="n muted">
+                          {((r.focus.cost / Math.max(l.cost, 1e-9)) * 100).toFixed(0)}%
+                        </td>
+                      </tr>
+                      {open && (
+                        <tr className="why">
+                          <td colSpan={3 + BUCKETS.length + 2}>
+                            {r.lines.length ? (
+                              <ul>
+                                {r.lines.map((row, i) => (
+                                  <li key={i}>
+                                    <i className="dot" style={{ background: COLOUR[row.line.bucket] }} />
+                                    <span className="what">{row.line.what}</span>
+                                    {!echoes(row.line.what, row.why) && (
+                                      <span className="cause">{row.why}</span>
+                                    )}
+                                    <span className="amt mono">{amt(row.mine)}</span>
+                                    <span className="of mono">of {amt(row.sofar)}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="muted">
+                                Nothing is charged to {r.machine.name} by {refTime(now)}.
+                              </p>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+                {l.cost - claimed > 1e-9 && (
+                  <tr className="rest">
+                    <td className="id">{NOBODY}</td>
+                    <td colSpan={1 + BUCKETS.length} className="muted">
+                      what the design cost to write, and any penalty the job as a whole earned —
+                      splitting these over the machines would invent a claim nothing supports
+                    </td>
+                    <td className="n b">{amt(l.cost - claimed)}</td>
+                    <td className="n muted">
+                      {(((l.cost - claimed) / Math.max(l.cost, 1e-9)) * 100).toFixed(0)}%
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <p className="pad note">
+            Click a machine for its own lines, and why each one is charged to it. Every amount is
+            a line <code>losim bill</code> already computed — only the claim about who is
+            answerable for it is added here.
+          </p>
+        </Panel>
+
       <style>{`
         .tiles { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
         .two { display: grid; gap: 20px; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); align-items: start; }
@@ -369,6 +527,25 @@ export function Cost() {
         .dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 7px; }
 
         .ring { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+        /* Every row is a question — "and what is that for?" — so every row opens. */
+        .per th .dot { margin-right: 5px; }
+        .per .row { cursor: pointer; }
+        .per .row:hover { background: var(--surface-2); }
+        .per .row.open { background: var(--surface-2); }
+        .per .tw { display: inline-block; width: 14px; color: var(--text-3); }
+        .per .rest td { color: var(--text-3); font-size: 12.5px; }
+        .per .rest .id { font-family: inherit; font-style: italic; }
+        .per .where { white-space: nowrap; }
+        .why td { padding: 0 0 12px 34px; }
+        .why ul { list-style: none; margin: 0; padding: 0; }
+        .why li {
+          display: flex; align-items: baseline; gap: 10px; padding: 5px 0; font-size: 12.5px;
+        }
+        .why .what { color: var(--text-2); }
+        .why .cause { color: var(--text-3); font-style: italic; }
+        .why .amt { margin-left: auto; font-weight: 500; }
+        .why .of { color: var(--text-3); width: 84px; text-align: right; white-space: nowrap; }
 
         .find {
           width: 100%; height: 32px; padding: 0 12px; margin-bottom: 6px;

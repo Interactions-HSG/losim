@@ -20,8 +20,6 @@ import { LedgerStrip } from './Ledger.tsx';
 import { MachinePanel } from './MachinePanel.tsx';
 import { MessagePanel } from './MessagePanel.tsx';
 import { Scrubber, type Chapter } from './Scrubber.tsx';
-import { Spans } from './Spans.tsx';
-import { Topology } from './Topology.tsx';
 import type { Flight } from '../lib/frame.ts';
 import { LedgerModel, money as money2 } from '../lib/ledger.ts';
 import { HOLD_SECONDS } from '../lib/pace.ts';
@@ -141,7 +139,6 @@ export function Film({
   // button up there is the one that means anything.
   useEffect(() => { if (!outer) clock.setHold(hold); }, [clock, hold, outer]);
   const [showLedger, setShowLedger] = useState(false);
-  const [view, setView] = useState<'film' | 'spans' | 'topology'>('film');
   const [zone, setZone] = useState('');
   const [role, setRole] = useState('');
   const [task, setTask] = useState<number | null>(null);
@@ -183,10 +180,6 @@ export function Film({
     const m = q.get('m');
     if (m && trace.byName.has(m)) setPinned(m);
     if (q.get('ledger') === '1') setShowLedger(true);
-    // `fv`, not `view`: the console owns `view` and would be overwritten here.
-    // Same shape as `sv` for the Spans sub-view, one level down.
-    const v = q.get('fv');
-    if (v === 'spans' || v === 'topology' || v === 'film') setView(v);
   }, [clock, trace]);
 
   useEffect(() => {
@@ -198,12 +191,10 @@ export function Film({
     else url.searchParams.delete('m');
     if (showLedger) url.searchParams.set('ledger', '1');
     else url.searchParams.delete('ledger');
-    if (view !== 'film') url.searchParams.set('fv', view);
-    else url.searchParams.delete('fv');
     if (against) url.searchParams.set('vs', against.name);
     else url.searchParams.delete('vs');
     window.history.replaceState(null, '', url);
-  }, [playing, t, run.name, pinned, showLedger, view, against]);
+  }, [playing, t, run.name, pinned, showLedger, against]);
 
   // `layout` is in here on purpose: it is what the machine positions come from,
   // so a re-searched arrangement has to make a new frame.
@@ -330,9 +321,6 @@ export function Film({
 
   const download = useCallback(async () => {
     clock.pause();
-    // The recorder serialises the film's own SVG, and a hidden element has no
-    // box to measure. Come back to the film rather than record nothing.
-    flushSync(() => setView('film'));
     // **The film's own length, not a fixed thirty seconds.** Recording evenly
     // across the run would spend the frames in trace time and undo all of the
     // pacing — every quick message back to one frame, which is exactly the video
@@ -385,97 +373,57 @@ export function Film({
   return (
     <div className="film">
       <div className="views">
-        <div className="seg" role="group" aria-label="view">
-          {(['film', 'spans', 'topology'] as const).map((v) => (
-            <button key={v} aria-pressed={view === v} onClick={() => setView(v)}>
-              {v}
-            </button>
-          ))}
-        </div>
-        <span className="muted vhint">
-          {view === 'film'
-            ? 'what is true right now'
-            : view === 'spans'
-              ? 'why — the distributed call stack'
-              : 'who called whom, over the whole run'}
-        </span>
+        <span className="muted vhint">what is true right now</span>
 
         {/* Filters set machines aside rather than removing them, so the picture
             never jumps and a filtered machine is still visibly among a fleet. */}
-        {view === 'film' && (
-          <div className="filters">
-            <select value={zone} onChange={(e) => setZone(e.target.value)} aria-label="zone">
-              <option value="">every zone</option>
-              {[...new Set(trace.machines.map((m) => m.zone))].sort().map((z) => (
-                <option key={z} value={z}>
-                  {z}
+        <div className="filters">
+          <select value={zone} onChange={(e) => setZone(e.target.value)} aria-label="zone">
+            <option value="">every zone</option>
+            {[...new Set(trace.machines.map((m) => m.zone))].sort().map((z) => (
+              <option key={z} value={z}>
+                {z}
+              </option>
+            ))}
+          </select>
+          <select value={role} onChange={(e) => setRole(e.target.value)} aria-label="role">
+            <option value="">every role</option>
+            {roles.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+          {tasks.length > 0 && (
+            <select
+              value={task === null ? '' : String(task)}
+              onChange={(e) => setTask(e.target.value === '' ? null : Number(e.target.value))}
+              aria-label="task"
+            >
+              <option value="">every task</option>
+              {tasks.map((n) => (
+                <option key={n} value={n}>
+                  task {n}
                 </option>
               ))}
             </select>
-            <select value={role} onChange={(e) => setRole(e.target.value)} aria-label="role">
-              <option value="">every role</option>
-              {roles.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-            {tasks.length > 0 && (
-              <select
-                value={task === null ? '' : String(task)}
-                onChange={(e) => setTask(e.target.value === '' ? null : Number(e.target.value))}
-                aria-label="task"
-              >
-                <option value="">every task</option>
-                {tasks.map((n) => (
-                  <option key={n} value={n}>
-                    task {n}
-                  </option>
-                ))}
-              </select>
-            )}
-            {(zone || role || task !== null) && (
-              <button
-                className="btn"
-                onClick={() => {
-                  setZone('');
-                  setRole('');
-                  setTask(null);
-                }}
-              >
-                clear
-              </button>
-            )}
-          </div>
-        )}
+          )}
+          {(zone || role || task !== null) && (
+            <button
+              className="btn"
+              onClick={() => {
+                setZone('');
+                setRole('');
+                setTask(null);
+              }}
+            >
+              clear
+            </button>
+          )}
+        </div>
       </div>
 
-      {view === 'spans' && (
-        <Spans
-          trace={trace}
-          theme={theme}
-          t={t}
-          onSeek={(to) => {
-            clock.pause();
-            clock.seek(to);
-          }}
-          hovered={shown}
-          onHoverMachine={(n) => !pinned && setHovered(n)}
-        />
-      )}
-
-      {view === 'topology' && (
-        <Topology
-          trace={trace}
-          layout={layout}
-          theme={theme}
-          t={t}
-          hovered={shown}
-          onHover={(n) => !pinned && setHovered(n)}
-        />
-      )}
-
-      <div className={`stage${pinned ? ' docked' : ''}${against ? ' twin' : ''}`} hidden={view !== 'film'}>
+      <div className={`stage${pinned ? ' docked' : ''}${against ? ' twin' : ''}`}>
         <div className="canvas" ref={stageRef}>
         {against && <div className="who">{run.name}</div>}
         <Dataflow
@@ -674,16 +622,14 @@ export function Film({
           {hold > 0 ? '\u25c9' : '\u25cb'} hold {hold > 0 ? `${hold}s` : 'off'}
         </button>
 
-        {view === 'film' && (
-          <span className="seg" role="group" aria-label="save this instant">
-            <button onClick={() => snap('png')} disabled={!!recording} title="this frame as a PNG, 1920x1080">
-              png
-            </button>
-            <button onClick={() => snap('svg')} disabled={!!recording} title="this frame as vector SVG — type stays type on a projector">
-              svg
-            </button>
-          </span>
-        )}
+        <span className="seg" role="group" aria-label="save this instant">
+          <button onClick={() => snap('png')} disabled={!!recording} title="this frame as a PNG, 1920x1080">
+            png
+          </button>
+          <button onClick={() => snap('svg')} disabled={!!recording} title="this frame as vector SVG — type stays type on a projector">
+            svg
+          </button>
+        </span>
 
         <button className="btn" onClick={download} disabled={!!recording}>
           {recording ?? (made ? 'download again' : 'download film')}
@@ -693,16 +639,14 @@ export function Film({
         // The console's bar has the clock. What is left is what only exists
         // where the picture is: this instant as a file, and the film as one.
         <div className="savebar">
-          {view === 'film' && (
-            <span className="seg" role="group" aria-label="save this instant">
-              <button onClick={() => snap('png')} disabled={!!recording} title="this frame as a PNG, 1920x1080">
-                png
-              </button>
-              <button onClick={() => snap('svg')} disabled={!!recording} title="this frame as vector SVG — type stays type on a projector">
-                svg
-              </button>
-            </span>
-          )}
+          <span className="seg" role="group" aria-label="save this instant">
+            <button onClick={() => snap('png')} disabled={!!recording} title="this frame as a PNG, 1920x1080">
+              png
+            </button>
+            <button onClick={() => snap('svg')} disabled={!!recording} title="this frame as vector SVG — type stays type on a projector">
+              svg
+            </button>
+          </span>
           <button className="btn" onClick={download} disabled={!!recording}>
             {recording ?? (made ? 'download again' : 'download film')}
           </button>
@@ -715,7 +659,6 @@ export function Film({
         .views { display: flex; align-items: center; gap: 10px; flex: none; }
         .vhint { font-size: 11.5px; }
         .filters { display: flex; gap: 6px; margin-left: auto; align-items: center; }
-        .stage[hidden] { display: none; }
         .stage {
           position: relative; flex: 1; min-height: 0;
           background: var(--paper); border: 1px solid var(--border);

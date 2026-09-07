@@ -52,6 +52,7 @@ export function Topology({
   t,
   hovered,
   onHover,
+  plain = false,
 }: {
   trace: Trace;
   layout: Layout;
@@ -59,6 +60,8 @@ export function Topology({
   t: number;
   hovered: string | null;
   onHover?: (name: string | null) => void;
+  /** Without the card around it, for a page that has already drawn one. */
+  plain?: boolean;
 }) {
   const edges = useMemo(() => {
     const zoneOf = new Map(trace.machines.map((m) => [m.name, m.zone]));
@@ -99,7 +102,7 @@ export function Topology({
   const h = 2 * halfH + 2 * MARGIN + CAPTION;
 
   return (
-    <div className="topo card">
+    <div className={plain ? 'topo' : 'topo card'}>
       <svg viewBox={`${minX} ${minY} ${w} ${h}`} style={{ display: 'block', background: theme.surface }}>
         <defs>
           <marker id="tip" markerWidth="4" markerHeight="4" refX="3.4" refY="2" orient="auto">
