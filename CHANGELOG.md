@@ -8,29 +8,37 @@ rather than about a branch. Every release is cut from a tag whose name and
 
 ## 3.0.1
 
-**Two bugs in 3.0.0, and the release that did not go out.**
+**The first 3.x release that can be installed.** 3.0.0 was tagged and its build
+failed before publishing anything, so there is no 3.0.0 jar and never was. Coming
+from 2.x, this is the release that carries the 3.0 break.
 
-3.0.0 was tagged and its release failed: `bin/losim dev test` runs the phase
-suites and then JUnit, and a phase suite still asserted a refusal message 3.0
-had rewritten. Nothing was published — the test step runs before the jar is
-built — so 3.0.0 exists as a tag and never as a release. Take this instead.
+<b>Everything in the 3.0.0 section below applies to this release.</b> It is a hard
+break: `losim.api.Job`, `Scalable`, `Cluster` and `Input.Shape` are deleted rather
+than deprecated, `machines:` is `nodes:`, `faults:` and `chaos:` are one `failures:`
+list written inside whatever it happens to, `takes:` is `simulatedDuration:`, and
+`losim run` and `losim diff` are refused with the new name printed. Read it before
+changing `losimVersion`. A project pinned to 2.x keeps resolving and is untouched.
 
-### The scaled header counted something the file never mentioned
+What 3.0.1 changes on top of that:
 
-A run above `scale: 1` printed the ladder coordinate against the simulation's own
-noun:
+### A scaled run named a workload the file never mentioned
+
+Above `scale: 1` the summary line printed the engine's ladder coordinate against the
+simulation's own noun:
 
 ```
 thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 units (x5,000)
 ```
 
-`count:` is the workload in your unit — frames, lines, orders. The ladder's
-`units` are what handlers counted with `units(n)`, and the two are equal only by
-coincidence. A file saying `count: 24000000` reported a run of 40,000,000 of
-something it never named. The arithmetic underneath was right; the header was not.
+`count:` is the workload in the word the file chose — frames, lines, orders. The
+ladder's `units` are what handlers counted with `units(n)`, and the two are equal
+only by coincidence; a handler reporting pixels per frame makes them differ by a
+thousand. So a file saying `count: 24000000` reported a run of 40,000,000 of
+something it never named.
 
-It now says what was run, in the word the simulation chose, and names the ladder
-coordinate separately:
+The arithmetic underneath was right, and no projection or bill was affected — only
+the line a reader checks their own file against. It now says what was run, in the
+file's own word, and names the ladder coordinate separately:
 
 ```
 thumbs-scaled.yaml  seed 5  scaled 4,800 -> 24,000,000 lines (x5,000)
@@ -38,26 +46,27 @@ thumbs-scaled.yaml  seed 5  scaled 4,800 -> 24,000,000 lines (x5,000)
   laws below are fitted in
 ```
 
-Every simulation in the repository happened to set `count = scale x 8000`, which
-is why nothing caught it.
+Every simulation in this repository sets `count = scale x 8000`, which is why
+nothing caught it.
 
-### The layout check was frozen on input that moves
+### The release notes now carry this file
 
-`viewer/checks/parity.ts` compared layouts against an oracle frozen over
-`build/tests/traces` — which `dev suite` rewrites, and a run is deliberately not
-reproducible. Two suite runs of identical code differed in 75 of 75 sampled series
-channels and moved `durationRefMs` by 121. So the check was green until somebody
-ran the suite, and then reported a wall of differences with no cause, whose only
-repair was `--freeze` — which makes it green whether or not anything is wrong.
+A release page said only which version to write in `build.gradle.kts`. For a break
+this size that is the wrong thing to be silent about, so the section for the version
+being cut is published as the release body.
 
-The input is committed now: `viewer/checks/traces/` holds 22 real suite traces,
-captured once, 1.8 MB beside the 85 MB of vendored jars this repository already
-carries. The comparison can be exact again because both halves are fixed. It stays
-green with `build/` empty, and still names a column whose label changed.
+### Internal: the layout check no longer drifts
 
-`--capture` replaces the traces, deliberately separate from `--freeze` so that
-re-blessing a layout you changed is not the same gesture as replacing everything
-underneath it.
+Nothing here reaches a project that depends on losim; it is recorded because it is
+why 3.0.0's own gates were trusted when they should not have been.
+
+`viewer/checks/parity.ts` froze its answer over `build/tests/traces`, which
+`dev suite` rewrites — and a run is deliberately not reproducible. Two suite runs of
+identical code differed in 75 of 75 sampled series channels and moved
+`durationRefMs` by 121; all 22 traces differed. The check was green only until
+somebody ran the suite, and its one repair made it green whether or not anything was
+wrong. The input is committed now, so both halves are fixed and the comparison can
+be exact again.
 
 ## 3.0.0
 

@@ -190,10 +190,29 @@ jobs:
           if [ "$TAG" = "tag" ]; then TAG="${GITHUB_REF_NAME}"; else TAG="v${V}"; fi
           # Re-running a release must not fail on "already exists": the assets are
           # replaced, so a botched release can be fixed by re-running the job.
+          # The release page is where somebody decides whether to take this, and
+          # it used to say only which number to write in build.gradle.kts. That is
+          # the wrong thing to be silent about across a major version: 3.0 deletes
+          # seven public types, and a page that mentions none of it invites an
+          # upgrade that stops compiling. So the section CHANGELOG.md holds for
+          # this exact version is the body. A version with no section gets the
+          # bare instruction and says so, rather than a page that quietly implies
+          # nothing changed.
+          NOTES=build/release-notes.md
+          {
+            echo "A lab takes this by changing losimVersion in its build.gradle.kts to $V."
+            echo "With no losim yet: download losim.jar and run \`java -jar losim.jar adopt .\`"
+            echo
+            awk -v v="## $V" '$0 == v {on=1; next} on && /^## / {exit} on {print}' CHANGELOG.md \
+              > build/section.md
+            if [ -s build/section.md ]; then cat build/section.md
+            else echo "_No changelog section for $V._"; fi
+          } > "$NOTES"
+
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" build/losim.jar build/losim-maven-repo.zip --clobber
+            gh release edit "$TAG" --title "losim $V" --notes-file "$NOTES"
           else
             gh release create "$TAG" build/losim.jar build/losim-maven-repo.zip \
-              --title "losim $V" \
-              --notes "A lab takes this by changing losimVersion in its build.gradle.kts to $V. With no losim yet: download losim.jar and run \`java -jar losim.jar adopt .\`"
+              --title "losim $V" --notes-file "$NOTES"
           fi
