@@ -280,13 +280,13 @@ public final class Serve {
     }
 
     /**
-     * What the lab's code offers a machine, and what a machine can be.
+     * What the assignment's code offers a node, and what a node can be.
      *
-     * <p>The two halves of authoring a scenario. A student places <b>classes</b>
-     * on <b>machines</b>: the classes are read off their own compiled bytecode by
-     * {@link Palette}, and the machines are the instance catalogue and the regions
+     * <p>The two halves of authoring a simulation. A student places <b>files</b>
+     * on <b>nodes</b>: the files are read off their own compiled bytecode by
+     * {@link Palette}, and the nodes are the instance catalogue and the regions
      * losim already prices. Neither has ever been discoverable without reading
-     * losim's source, which is why scenarios have been written by copying one.
+     * losim's source, which is why simulations have been written by copying one.
      *
      * <p>It compiles when it has to and not otherwise. A page that regenerated
      * protobuf every time somebody opened it would take five seconds to open, and
@@ -325,23 +325,23 @@ public final class Serve {
         List<Object> services = new ArrayList<>();
         for (Palette.Service sv : offer.services()) {
             Map<String, Object> row = new LinkedHashMap<>();
-            row.put("cls", sv.cls());
+            // The two halves of one `runs:` entry, in the order they are written.
+            row.put("file", sv.file());
             row.put("service", sv.service());
-            row.put("qualified", sv.qualified());
-            List<Object> methods = new ArrayList<>();
-            for (Palette.Method m : sv.methods()) {
-                methods.add(new LinkedHashMap<>(Map.of("name", m.name(),
-                                                       "idempotent", m.idempotent())));
+            row.put("bare", sv.bare());
+            // Which of these the simulation starts in. Not a second list of a
+            // different kind of thing: they are all services, and this one answers
+            // to losim.Job.
+            row.put("entry", sv.entry());
+            List<Object> rpcs = new ArrayList<>();
+            for (Palette.Rpc r : sv.rpcs()) {
+                rpcs.add(new LinkedHashMap<>(Map.of("name", r.name(),
+                                                    "idempotent", r.idempotent())));
             }
-            row.put("methods", methods);
-            if (sv.source() != null) row.put("source", sv.source());
+            row.put("rpcs", rpcs);
             services.add(row);
         }
         body.put("compiled", true);
-        // Which of the services below is the one the simulation starts in. Not a
-        // second list of a different kind of thing: they are all services, and this
-        // one answers to losim.Job.
-        body.put("jobs", offer.jobs());
         body.put("services", services);
         body.put("other", offer.other());
         send(x, 200, "application/json", Json.write(body).getBytes(StandardCharsets.UTF_8));

@@ -11,9 +11,11 @@ import java.util.stream.Stream;
  * <p>{@link losim.cli.Lab}, {@link losim.cli.Palette} and {@link losim.cli.Experiments}
  * are all orchestration over real subprocesses — protoc, javac, a forked
  * simulation JVM — so testing them against a fixture of pre-baked classes would
- * be testing something else. This builds the smallest lab that actually has all
- * three shapes {@link losim.cli.Palette} distinguishes: a {@code Job}, a service
- * with methods declared safe to retry, and a class that is neither.
+ * be testing something else. This builds the smallest lab that has one of every
+ * case {@link losim.cli.Palette} has to tell apart: a class answering to
+ * {@code losim.Job}, a service with rpcs declared safe to retry, an abstract base
+ * nothing can run, a service nested where no path reaches it, and a class that is
+ * none of those.
  *
  * <p>Not a {@code @Test} class itself, so JUnit's classpath scan passes over it —
  * it declares no {@code @Test} method for the scanner to find.
@@ -21,8 +23,8 @@ import java.util.stream.Stream;
 final class Fixture {
     private Fixture() {}
 
-    /** The scenario every fixture ships with, proven against a real run. */
-    static final String SCENARIO = """
+    /** The simulation every fixture ships with, proven against a real run. */
+    static final String SIMULATION = """
             seed: 1
 
             nodes:
@@ -73,8 +75,18 @@ final class Fixture {
                 }
                 """.formatted(markerPath));
 
+        // A service that no `runs:` value could reach: a path names the class its
+        // file is named after, and this one is nested inside that class. The
+        // palette has to count it rather than offer it, or the console writes a
+        // line that places Bundle — which serves nothing.
+        Files.writeString(root.resolve("src/Bundle.java"), """
+                public final class Bundle {
+                    public static final class Inner extends losim.t.VolleyGrpc.VolleyImplBase { }
+                }
+                """);
+
         Files.createDirectories(root.resolve("simulations"));
-        Files.writeString(root.resolve("simulations/main.yaml"), SCENARIO);
+        Files.writeString(root.resolve("simulations/main.yaml"), SIMULATION);
 
         return root;
     }

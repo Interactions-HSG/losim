@@ -15,7 +15,7 @@ import losim.Version;
  * the Java stays the author's; the division is not squeamishness but the two edits
  * the obvious design would make being unsafe. Extracting a nested handler is a
  * refactoring engine, and a bad extraction silently drops a field initialiser;
- * turning a client into a {@link losim.api.Job} is a judgement about which of its
+ * turning a client into a losim.Job implementation is a judgement about which of its
  * lines are the design and which are the transport, which is exactly what the
  * course teaches. {@code AGENTS.md} is how that half gets done anyway.
  */
@@ -230,43 +230,70 @@ final class Scaffold {
             """;
     }
 
-    /** What a scenario looks like before anybody has decided anything. */
-    static String scenario(String job, List<String> runs, List<String[]> takes) {
+    /**
+     * What a simulation looks like before anybody has decided anything.
+     *
+     * @param entry the {@code .java} implementing {@code losim.Job}, which is where
+     *              losim enters the system. Usually a file that does not exist yet:
+     *              naming it is how the first refusal points at the one piece of
+     *              work adopting a project leaves behind.
+     * @param runs  {service, file} for everything else, all on one node
+     * @param costs {file, rpc}, in the order they should be written
+     */
+    static String simulation(String entry, List<String[]> runs, List<String[]> costs) {
         var sb = new StringBuilder();
         sb.append("""
-            # Your first scenario, written by `losim adopt`.
+            # Your first simulation, written by `losim adopt`.
             #
-            # Two machines and one call, which is the smallest thing that is still a
-            # distributed system. Everything past that — more machines, a network that
-            # costs something, a machine that dies halfway — is a line at a time.
+            # Two nodes and one call, which is the smallest thing that is still a
+            # distributed system. Everything past that — more nodes, a network that
+            # costs something, a node that dies halfway — is a line at a time.
             seed: 1
-            job: %s
 
             nodes:
-              # The job runs on the first machine in the file.
-              coordinator: { instance: m5.large, zone: eu-central-1a }
-              worker:      { instance: c5.large, zone: eu-central-1a, runs: [%s] }
-            """.formatted(job, String.join(", ", runs)));
-        // Commented, not written. A plain Job is never handed an input, so a live
-        // block here would refuse the first run — and the first run is the one
-        // thing this file has to do. It is uncommented at the same moment the job
-        // becomes Scalable, which is edit 4.
+              # losim calls Job.Load here off the clock, and then Job.Run. That second
+              # call is the simulation: when it returns, the simulation is over.
+              coordinator:
+                instance: m5.large
+                zone: eu-central-1a
+                runs: { losim.Job: %s }
+            """.formatted(entry));
+        if (runs.isEmpty()) {
+            sb.append("""
+
+                # There is one node and no call, because nothing here is yet a service a
+                # node could be given — `losim check` says why, with the line. A second
+                # node is three lines: a name, an instance, and what it runs.
+                """);
+        } else {
+            sb.append("""
+
+                  worker:
+                    instance: c5.large
+                    zone: eu-central-1a
+                    runs:
+                """);
+            for (String[] row : runs) {
+                sb.append("      ").append(row[0]).append(": ").append(row[1]).append('\n');
+            }
+        }
         sb.append("""
 
-            # How big the input is, once the job has one. A job whose input has a
-            # size implements losim.api.Scalable, declares what it is made of, and
-            # is handed it — so the number lives here rather than in the Java,
-            # where no sweep could reach it. Above scale: 1 it is required.
+            # What losim hands Job.Load, before the clock starts. `count:` is the one
+            # number the engine varies: at scale: 1 it is what you wrote, and above it
+            # losim shrinks it, measures what comes back and fits the rest.
             #
-            # The names are your job's, from its shape(). One it does not declare
-            # is refused with the line it is on, and so is one it declares and this
-            # file leaves out.
+            # `unit:` is what one of them is called, singular — frame, line, order. It
+            # is the same word Losim.current().units(n) counts and perUnit: prices.
             #
-            # input:
-            #   items:      240      # a count: the engine shrinks these
-            #   valueBytes: 65536    # a constant: held at every size
+            # Add `source: data/whatever` to read the workload from a file or a folder.
+            # Left out, as here, Load generates it from Losim.current().seed(), which
+            # costs nothing on the clock and varies across a sweep.
+            input:
+              unit:  item
+              count: 100
             """);
-        if (takes.isEmpty()) return sb.toString();
+        if (costs.isEmpty()) return sb.toString();
         sb.append("""
 
             # What each call costs on the reference machine — two vCPUs, running alone.
@@ -274,11 +301,11 @@ final class Scaffold {
             # Everything below is 0, which means every call is instant: no queueing, no
             # contention, no deadline pressure and no critical path. Nothing measures
             # this for you and nothing can, so these are yours to fill in. See
-            # /ref/takes.
+            # /ref/simulated-duration.
             simulatedDuration:
             """);
         String last = "";
-        for (String[] row : takes) {
+        for (String[] row : costs) {
             if (!row[0].equals(last)) sb.append("  ").append(row[0]).append(":\n");
             last = row[0];
             sb.append("    ").append(row[1]).append(": { fixed: 0 refMs }\n");

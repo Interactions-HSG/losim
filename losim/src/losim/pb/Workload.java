@@ -10,7 +10,7 @@ package losim.pb;
  * What Load made of it: the data Run will actually process.
  *
  * A different type from Input on purpose. Input is a declaration and Workload is
- * the data, so Run cannot read the scenario, cannot see the source, and cannot
+ * the data, so Run cannot read the simulation, cannot see the source, and cannot
  * know what size it is doing — which is the property the two-scale model is
  * built on, stated in the signature rather than asked for in the manual.
  * </pre>
@@ -343,7 +343,7 @@ private static final long serialVersionUID = 0L;
    * What Load made of it: the data Run will actually process.
    *
    * A different type from Input on purpose. Input is a declaration and Workload is
-   * the data, so Run cannot read the scenario, cannot see the source, and cannot
+   * the data, so Run cannot read the simulation, cannot see the source, and cannot
    * know what size it is doing — which is the property the two-scale model is
    * built on, stated in the signature rather than asked for in the manual.
    * </pre>

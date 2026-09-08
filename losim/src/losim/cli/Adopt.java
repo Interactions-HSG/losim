@@ -24,12 +24,12 @@ import java.util.Map;
  * quickstart actually has. The handler is a static nested class inside the server
  * bootstrap, so deleting the file deletes the handler and extracting the class is
  * a refactoring engine — a bad extraction silently drops a field initialiser. And
- * turning the client into a {@link losim.api.Job} is a judgement about which of
+ * turning the client into a losim.Job implementation is a judgement about which of
  * its lines are the design and which are the transport, which is the thing the
  * course is for.
  *
  * <p>The boundary already in force is not "losim writes nothing" — the console
- * writes scenarios today. It is <b>losim writes its own furniture; the Java is
+ * writes simulations today. It is <b>losim writes its own furniture; the Java is
  * yours</b>. So this moves files, writes a build, and prints a line-numbered
  * account of every Java edit still needed. The account is not advice:
  * {@code losim check} re-runs the same detector, so what is left is a command
@@ -41,7 +41,7 @@ import java.util.Map;
  * viewer and the manual as directories beside them. Those are the same 23 MB the
  * jar now holds, and losim no longer reads any of it. Such a repository is already
  * the right shape — {@code proto/}, {@code src/}, {@code simulations/} — so nothing
- * moves and no scenario is rewritten: the build file is written, and {@code lib/},
+ * moves and no simulation is rewritten: the build file is written, and {@code lib/},
  * {@code viewer/} and {@code docs/} are untracked and ignored.
  *
  * <p><b>Untracked, not deleted.</b> {@code git rm --cached} takes them out of the
@@ -92,7 +92,7 @@ public final class Adopt {
             if (settings.contains("include")) {
                 System.err.println("""
                       This is a multi-module build, and a lab is one module: one folder of gRPC
-                      code, shared by every scenario in it. Point this at the module that holds
+                      code, shared by every simulation in it. Point this at the module that holds
                       the handlers.""");
                 return 2;
             }
@@ -130,11 +130,15 @@ public final class Adopt {
         }
         lines.put(count(scan.protos().size(), ".proto"),
                   join(scan.protos().stream().map(p -> short_(root, p)).toList()));
+        // Keyed by the file, because a file is what a `runs:` entry names and
+        // because two services keyed by the word "service" would be one line.
         for (Scan.Service s : scan.services()) {
+            String service = scan.serviceOf(s);
             var rpcs = scan.rpcs().stream()
+                    .filter(r -> r.service().equals(service))
                     .map(r -> r.name() + (r.streaming() ? " (streaming)" : ""))
                     .toList();
-            lines.put(count(1, "service"), s.name() + (rpcs.isEmpty() ? ""
+            lines.put(short_(root, s.file()), service + (rpcs.isEmpty() ? ""
                     : " — " + count(rpcs.size(), "rpc") + ": " + String.join(", ", rpcs)));
         }
         System.out.println("  found");
@@ -149,7 +153,7 @@ public final class Adopt {
               Your code is already where losim looks for it, so nothing here moves."""
             : """
               This is a program that talks to itself over a real socket. losim runs the same
-              handlers on many machines over a simulated network, so the socket, the port and
+              handlers on many nodes over a simulated network, so the socket, the port and
               the shutdown hook all go — and the handlers do not.""");
         System.out.println();
     }
@@ -201,9 +205,9 @@ public final class Adopt {
                 + ", protoc, and the toolchain task");
         writes.put("losim", "the launcher: it builds, then runs");
         writes.put("AGENTS.md", "what is left, for your agent");
-        // A lab from before 1.5.0 has scenarios of its own, and a first scenario
+        // A lab from before 1.5.0 has simulations of its own, and a first one
         // written into it would be a file nobody asked for beside the ones they wrote.
-        if (!vendored) writes.put("simulations/1-one-call.yaml", "two machines and one call");
+        if (!vendored) writes.put("simulations/1-one-call.yaml", "two nodes and one call");
         writes.put(".gitignore", "+= gen/ build/" + (vendored ? " lib/ viewer/ docs/" : ""));
 
         var untracked = new ArrayList<String>();
@@ -240,7 +244,7 @@ public final class Adopt {
                 Scaffold.build(scan.grpcVersion(), scan.protobufVersion()), force);
         put(root, "losim", Scaffold.launcher(), force);
         put(root, "AGENTS.md", Agents.forProject(scan, root), force);
-        if (!vendored) put(root, "simulations/1-one-call.yaml", firstScenario(scan), force);
+        if (!vendored) put(root, "simulations/1-one-call.yaml", firstSimulation(scan, root), force);
 
         // Appended rather than written: a project's own ignore file is its own.
         Path ignore = root.resolve(".gitignore");
@@ -282,23 +286,42 @@ public final class Adopt {
     }
 
     /**
-     * The first scenario, naming the classes it expects <b>after</b> the split.
+     * The first simulation, naming the files it expects <b>after</b> the split.
      *
-     * <p>Deliberately: a scenario naming a class that does not exist yet fails at
-     * load with a message that names the class and says what {@code runs:} takes,
-     * which is a better first failure than one that silently works against
+     * <p>Deliberately: a simulation naming a file that does not exist yet fails at
+     * load, on that line, saying what {@code runs:} takes — which is a better first
+     * failure than one that silently works against
      * {@code HelloWorldServer$GreeterImpl} and marks every number untrustworthy.
+     * Nothing in an adopted project implements {@code losim.Job} yet, so the entry
+     * is almost always such a line, and it is the one piece of work this command
+     * cannot do for anybody.
      */
-    private static String firstScenario(Scan scan) {
-        List<String> runs = scan.placeable().isEmpty() ? List.of("YourService") : scan.placeable();
-        var takes = new ArrayList<String[]>();
-        for (String cls : runs) {
+    private static String firstSimulation(Scan scan, Path root) {
+        String entry = "src/YourJob.java";
+        var runs = new ArrayList<String[]>();
+        var placed = new ArrayList<String>();
+        for (Scan.Service s : scan.services()) {
+            // A nested service has no path that reaches it, so there is no line to
+            // write. `check` says so with its own file and line.
+            if (s.nested()) continue;
+            String file = short_(root, s.file()).replace('\\', '/');
+            if (s.entry()) { entry = file; continue; }
+            String service = scan.serviceOf(s);
+            // One node runs a service once. Two files implementing one service is a
+            // design — two replicas, two nodes — and not something to guess at here.
+            if (placed.contains(service)) continue;
+            placed.add(service);
+            runs.add(new String[]{service, file});
+        }
+        var costs = new ArrayList<String[]>();
+        for (String[] run : runs) {
             for (Scan.Rpc r : scan.rpcs()) {
                 if (r.streaming()) continue;
-                takes.add(new String[]{cls, r.name()});
+                if (!r.service().equals(run[0])) continue;
+                costs.add(new String[]{run[1], r.name()});
             }
         }
-        return Scaffold.scenario("YourJob", runs, takes);
+        return Scaffold.simulation(entry, runs, costs);
     }
 
     // -------------------------------------------------------------------- report
@@ -312,7 +335,7 @@ public final class Adopt {
      */
     private static void report(Scan scan, Path root, boolean vendored) {
         System.out.println(vendored ? """
-              No .java was touched and no scenario rewritten. What is left is yours —
+              No .java was touched and no simulation rewritten. What is left is yours —
               AGENTS.md has all of it, in the same classes, so your agent can work from it:"""
             : """
               Nothing inside a .java was touched. What is left is yours — AGENTS.md has all of

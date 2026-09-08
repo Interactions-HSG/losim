@@ -13,7 +13,7 @@ public interface InputOrBuilder extends
   /**
    * <pre>
    * A file or a directory, relative to the project root. Empty when the
-   * scenario named none, which means Load generates from the seed instead.
+   * simulation named none, which means Load generates from the seed instead.
    * </pre>
    *
    * <code>string source = 1;</code>
@@ -23,7 +23,7 @@ public interface InputOrBuilder extends
   /**
    * <pre>
    * A file or a directory, relative to the project root. Empty when the
-   * scenario named none, which means Load generates from the seed instead.
+   * simulation named none, which means Load generates from the seed instead.
    * </pre>
    *
    * <code>string source = 1;</code>

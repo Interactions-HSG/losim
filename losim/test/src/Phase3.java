@@ -140,6 +140,23 @@ public class Phase3 {
               "backwards: two nodes running losim.Job is refused at the second one — two"
               + " designs are two files, and nothing here picks between them");
 
+        check(refusedBy(Loader.of(Yaml.parse("sized.yaml", """
+            seed: 1
+            nodes:
+              master:
+                instance: m5.large
+                zone: z
+                runs: { losim.Job: losim/test/src/Sizer.java }
+              w0:
+                instance: m5.large
+                zone: z
+                runs: { Workr: losim/test/src/Counter.java }
+            """)), ":10:").contains("serves losim.t.Worker"),
+              "backwards: a runs: key the class does not answer to is refused on its own"
+              + " line. Nothing else would ever say so — peersServing returns an empty"
+              + " list, and a design that copes with a missing peer looks like one that"
+              + " worked");
+
         check(refusedBy(Loader.of(Yaml.parse("sized.yaml", cluster + """
             scale: 6
             input:

@@ -83,11 +83,11 @@ class LabTest {
         Lab.Code c = lab.code();
         assertTrue(c.started());
         assertEquals(1, c.protos().size(), "exactly lab.proto");
-        // Counter, WorkerBase, WordCountJob, NoisyJob — and nothing gen/ has not
-        // been asked to produce yet. Which directories the walk declines to enter
-        // is LabWalkTest's question, and it is asked there against a lab that has
-        // Java in them; a count here would pass whatever the walk did.
-        assertEquals(4, c.sources().size());
+        // Bundle, Counter, WorkerBase, WordCountJob, NoisyJob — and nothing gen/
+        // has not been asked to produce yet. Which directories the walk declines to
+        // enter is LabWalkTest's question, and it is asked there against a lab that
+        // has Java in them; a count here would pass whatever the walk did.
+        assertEquals(5, c.sources().size());
     }
 
     @Test
@@ -110,7 +110,7 @@ class LabTest {
         Path dir = root.resolve("simulations");
         String[] made = {"2-two.yaml", "10-ten.yaml", "1-one.yaml", "9-nine.yaml", "01-one.yaml",
                          "2-two-slow.yaml"};
-        for (String n : made) Files.writeString(dir.resolve(n), Fixture.SCENARIO);
+        for (String n : made) Files.writeString(dir.resolve(n), Fixture.SIMULATION);
         try {
             var names = new java.util.ArrayList<>(lab.simulationNames());
             names.retainAll(java.util.List.of(made));

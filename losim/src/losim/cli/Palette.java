@@ -9,25 +9,35 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
+import losim.sim.JavaSource;
 
 /**
- * What the lab's code offers a machine.
+ * What the assignment's code offers a node.
  *
- * <p>A scenario places <b>classes</b> on machines. Without this, the only way to
- * know which classes could be placed would be to read the source, get the fully
- * qualified name right by hand, and find out at run time whether it was a
- * service at all — and the error for getting it wrong would arrive after a
- * build, a generate and a JVM start. This reads the answer off the compiled
- * classes instead, so a console can offer the list rather than asking somebody
- * to remember it.
+ * <p>A simulation places <b>files</b> on nodes, each under the service it
+ * implements. Without this, the only way to know which files could be placed
+ * would be to read the source, get the service name right by hand, and find out
+ * at run time whether it was a service at all — and the error for getting it
+ * wrong would arrive after a build, a generate and a JVM start. This reads the
+ * answer off the compiled classes instead, so a console can offer the list
+ * rather than asking somebody to remember it.
  *
- * <p><b>Two names, and they are different on purpose.</b> A machine <i>runs</i> a
- * Java class ({@code lab.Shrinker}) and thereby <i>serves</i> the gRPC service
- * that class implements ({@code Thumbnailer}). The scenario names the first; the
- * trace reports the second; a job finds its peers by the second. Both are
- * reported here, together, so nobody has to hold the pair in their head.
+ * <p><b>A path and a name, and they are different on purpose.</b> A node runs a
+ * file ({@code src/Shrinker.java}) and thereby serves the gRPC service the class
+ * in it implements ({@code losim.t.Thumbnailer}). One {@code runs:} entry is the
+ * pair: peers find the node by the name, {@code simulatedDuration:} prices the
+ * path. Both are reported here, together, so nobody has to hold the pair in
+ * their head.
+ *
+ * <p><b>Only what can actually be written down.</b> A {@code runs:} value is a
+ * path, and the class it reaches is the one its file is named after — so a
+ * service nested inside another class, or compiled from source this project does
+ * not hold, is counted rather than offered. Offering it would be offering a line
+ * the loader refuses.
  *
  * <p><b>Nothing of the student's is executed.</b> Classes are loaded without
  * initialising them and are never constructed: what a service offers is read off
@@ -37,71 +47,81 @@ import java.util.stream.Stream;
  * answering.
  *
  * <p><b>gRPC is reached by name, never by import.</b> The server is started with
- * {@code losim.jar} alone; the gRPC jars belong to the lab and are only ever on a
- * run's classpath, in the JVM the run forks. So every grpc type here comes
- * through the lab's own loader and is used reflectively — importing one would
- * link this class against something the process listing it does not have, and the
- * symptom is a {@code NoClassDefFoundError} the moment somebody opens the page.
+ * {@code losim.jar} alone; the gRPC jars belong to the assignment and are only
+ * ever on a simulation's classpath, in the JVM it forks. So every grpc type here
+ * comes through the assignment's own loader and is used reflectively — importing
+ * one would link this class against something the process listing it does not
+ * have, and the symptom is a {@code NoClassDefFoundError} the moment somebody
+ * opens the page.
  */
 public final class Palette {
 
     /**
-     * One class a machine could run.
+     * The service losim itself calls, and the only name in here that is losim's.
      *
-     * @param cls       the Java class, fully qualified — what {@code runs:} takes
-     * @param service   the bare gRPC service name — what the trace's {@code serves} reports
-     * @param qualified the same service with its proto package, as gRPC names it on the wire
-     * @param methods   what can be called on it, and what {@code retries:} names
-     * @param source    the file it was written in, relative to the project, when it can be found
+     * <p>A literal rather than {@code JobGrpc.SERVICE_NAME}: reading that field
+     * would import gRPC, which is the one thing this class cannot do.
      */
-    public record Service(String cls, String service, String qualified,
-                          List<Method> methods, String source) {}
+    private static final String JOB = "losim.Job";
+
+    /**
+     * One file a node can run.
+     *
+     * @param file    where it is, relative to the project — what a {@code runs:}
+     *                entry takes as its value
+     * @param service the gRPC service it implements, as gRPC names it on the wire —
+     *                what a {@code runs:} entry takes as its key, and what
+     *                {@code peersServing} finds the node by
+     * @param rpcs    what can be called on it, and what {@code simulatedDuration:},
+     *                {@code failures:} and {@code retries:} name
+     * @param entry   whether this is {@code losim.Job}. Exactly one node runs one,
+     *                and that call is where the simulation starts.
+     */
+    public record Service(String file, String service, List<Rpc> rpcs, boolean entry) {
+
+        /** The service without its proto package, for a form that has room for one word. */
+        public String bare() { return service.substring(service.lastIndexOf('.') + 1); }
+    }
 
     /**
      * One rpc.
      *
      * @param idempotent whether the {@code .proto} declared it safe to run twice.
-     *                   Carried because a retry policy on a method that did not is
+     *                   Carried because a retry policy on an rpc that did not is
      *                   <i>refused</i> at run time — so a console that offers
-     *                   retries without knowing this offers a scenario that will
+     *                   retries without knowing this offers a simulation that will
      *                   not start.
      */
-    public record Method(String name, boolean idempotent) {}
+    public record Rpc(String name, boolean idempotent) {}
 
     /**
      * Everything in the assignment a simulation could point at.
      *
      * <p>One list. What starts the work is a service like any other — the one
-     * whose {@code qualified} name is {@code losim.Job} — so there is no second
-     * list to be in, and nothing here has to construct a student's class to find
-     * out what it is. That used to be the one place a form built one, to ask a
-     * driver object what its input was made of; the input is three lines of YAML
-     * now and the form draws all three without asking anybody.
+     * called {@code losim.Job} — so there is no second list to be in, and nothing
+     * here has to construct a student's class to find out what it is. That used to
+     * be the one place a form built one, to ask a driver object what its input was
+     * made of; the input is three lines of YAML now and the form draws all three
+     * without asking anybody.
      *
-     * @param services classes a node can be given
+     * @param services files a node can be given
      * @param other    how many other classes there are, so a student can tell the
      *                 difference between "nothing here is a service" and "nothing
      *                 here compiled"
      */
-    public record Offer(List<Service> services, int other) {
-
-        /** The classes that implement {@code losim.Job}, of which a simulation runs one. */
-        public List<String> jobs() {
-            return services.stream().filter(sv -> sv.qualified().equals("losim.Job"))
-                    .map(Service::cls).sorted().toList();
-        }
-    }
+    public record Offer(List<Service> services, int other) {}
 
     private Palette() {}
 
     /**
-     * Read the lab's compiled classes.
+     * Read the assignment's compiled classes.
      *
      * @param classes where {@link Lab#compile} put them
-     * @param lab     the lab, for the classpath the classes were compiled against
-     * @param sources the lab's sources, only so a service can be pointed back at one
+     * @param lab     the assignment, for the classpath the classes were compiled against
+     * @param sources its sources, which are what a simulation actually names
      */
     public static Offer of(Path classes, Lab lab, List<Path> sources) throws IOException {
+        Map<String, String> files = files(lab, sources);
         List<Service> services = new ArrayList<>();
         int other = 0;
 
@@ -119,8 +139,8 @@ public final class Palette {
             try {
                 bindable = Class.forName("io.grpc.BindableService", false, loader);
             } catch (ClassNotFoundException e) {
-                // No gRPC on the lab's classpath at all. Nothing here can be a
-                // service, and saying that is better than saying nothing.
+                // No gRPC on the assignment's classpath at all. Nothing here can be
+                // a service, and saying that is better than saying nothing.
                 return new Offer(List.of(), 0);
             }
             for (String name : names(classes)) {
@@ -138,23 +158,60 @@ public final class Palette {
                 }
                 if (!bindable.isAssignableFrom(type)) { other++; continue; }
                 Object d = describe(type);
-                if (d == null) { other++; continue; }
-                String full = str(d, "getName");
-                if (full == null) { other++; continue; }
-                String bare = full.substring(full.lastIndexOf('.') + 1);
-                List<Method> methods = new ArrayList<>();
+                String full = d == null ? null : str(d, "getName");
+                // No path reaches it: nested inside another class, or compiled from
+                // source that is not in this project. It is a service and it cannot
+                // be placed, which is the same thing as far as a form is concerned.
+                String file = files.get(name);
+                if (full == null || file == null) { other++; continue; }
+                List<Rpc> rpcs = new ArrayList<>();
                 for (Object m : each(d, "getMethods")) {
                     String mm = str(m, "getFullMethodName");
                     if (mm == null) continue;
-                    methods.add(new Method(mm.substring(mm.lastIndexOf('/') + 1),
-                                           Boolean.TRUE.equals(flag(m, "isIdempotent"))));
+                    rpcs.add(new Rpc(mm.substring(mm.lastIndexOf('/') + 1),
+                                     Boolean.TRUE.equals(flag(m, "isIdempotent"))));
                 }
-                methods.sort(Comparator.comparing(Method::name));
-                services.add(new Service(name, bare, full, methods, sourceOf(lab, sources, name)));
+                rpcs.sort(Comparator.comparing(Rpc::name));
+                services.add(new Service(file, full, List.copyOf(rpcs), full.equals(JOB)));
             }
         }
-        services.sort(Comparator.comparing(Service::cls));
+        services.sort(Comparator.comparing(Service::file));
         return new Offer(List.copyOf(services), other);
+    }
+
+    /**
+     * Every class this project has a path to, by the name it will be loaded under.
+     *
+     * <p>The same two questions the loader asks of a {@code runs:} value, asked
+     * with the same reader: does the file declare a type named after itself, and
+     * what is that type's qualified name. Matching on the simple name alone would
+     * hand the console {@code src/Shrinker.java} for a {@code lab.two.Shrinker}
+     * when the file holds {@code lab.one.Shrinker} — a line that looks right and
+     * loads the wrong class.
+     */
+    private static Map<String, String> files(Lab lab, List<Path> sources) {
+        var out = new LinkedHashMap<String, String>();
+        for (Path p : sources) {
+            try {
+                if (!JavaSource.declaresItsOwnName(p)) continue;
+                out.putIfAbsent(JavaSource.className(p), rel(lab, p));
+            } catch (IOException ignored) { /* unreadable source is javac's to report */ }
+        }
+        return out;
+    }
+
+    /**
+     * A path relative to the project, because this is shown to somebody looking at
+     * that project in an editor — an absolute path from inside a container is not a
+     * place they can go, and it is not a value {@code runs:} takes either.
+     */
+    private static String rel(Lab lab, Path p) {
+        try {
+            return lab.root().relativize(p.toAbsolutePath().normalize())
+                    .toString().replace('\\', '/');
+        } catch (IllegalArgumentException e) {
+            return p.toString();       // somewhere outside the project entirely
+        }
     }
 
     /**
@@ -177,7 +234,7 @@ public final class Palette {
                 return m.invoke(null);
             } catch (ReflectiveOperationException | RuntimeException ignored) {
                 // Not the shape protoc generates. Whatever this is, it is not one
-                // of ours, and guessing at it would put a wrong name on a machine.
+                // of ours, and guessing at it would put a wrong name on a node.
             }
         }
         return null;
@@ -229,33 +286,10 @@ public final class Palette {
                             .replace(File.separatorChar, '.')
                             .replace('/', '.'))
                     // `Outer$1` is a lambda or an anonymous class: never something
-                    // a scenario could name, and loading them is pure work.
+                    // a simulation could name, and loading them is pure work.
                     .filter(n -> !n.matches(".*\\$\\d+.*"))
                     .sorted()
                     .toList();
         }
-    }
-
-    /**
-     * The file a class was written in, matched by its simple name.
-     *
-     * <p>Relative to the project, because this is shown to somebody who is looking
-     * at that project in an editor — an absolute path from inside a container is
-     * not a place they can go.
-     */
-    private static String sourceOf(Lab lab, List<Path> sources, String cls) {
-        String simple = cls.substring(cls.lastIndexOf('.') + 1);
-        int nested = simple.indexOf('$');
-        if (nested > 0) simple = simple.substring(0, nested);
-        for (Path p : sources) {
-            if (!p.getFileName().toString().equals(simple + ".java")) continue;
-            try {
-                return lab.root().relativize(p.toAbsolutePath().normalize())
-                        .toString().replace('\\', '/');
-            } catch (IllegalArgumentException e) {
-                return p.toString();   // somewhere outside the project entirely
-            }
-        }
-        return null;
     }
 }

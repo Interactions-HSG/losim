@@ -165,6 +165,31 @@ class ScanTest {
     }
 
     @Test
+    @DisplayName("a service filed under its full name is checked like one filed under its last word")
+    void eitherFormOfTheName() throws Exception {
+        // `lab.Thumbnailer` is what gRPC puts on the wire and `Thumbnailer` is what
+        // almost everybody writes. Both reach the same server, so a scan that knew
+        // only one of them would fall silent for whoever wrote the other — which
+        // reads as a file with nothing wrong in it.
+        run("""
+            seed: 7
+            nodes:
+              w9:
+                instance: c5.large
+                runs:
+                  lab.Thumbnailer:
+                    file: src/Shrinker.java
+                    failures:
+                      Thumbnil:
+                        - { drop: true, per: 20 calls }
+            """, s -> {
+            var f = refused(s, "serves no rpc called Thumbnil");
+            assertTrue(f.why().contains("Thumbnail") && f.why().contains("Pull"), f.why());
+            assertEquals(9, f.where().line());
+        });
+    }
+
+    @Test
     @DisplayName("every top-level key 3.0 deleted, each naming what to write instead")
     void keysThatAreGone() throws Exception {
         run("""

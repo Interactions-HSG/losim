@@ -9,7 +9,7 @@ package losim.pb;
  * <pre>
  * What the simulation declared, already shrunk to the size this run is doing.
  *
- * `count` is the scenario's count times the fraction of it this run is measuring
+ * `count` is the simulation's count times the fraction of it this run is measuring
  * — 1 for a direct run, and whichever rung the engine picked otherwise. Nothing
  * here says which: a Job that could tell a probe run from the full one could
  * behave differently at the two sizes, and then the projection would be a
@@ -66,7 +66,7 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * A file or a directory, relative to the project root. Empty when the
-   * scenario named none, which means Load generates from the seed instead.
+   * simulation named none, which means Load generates from the seed instead.
    * </pre>
    *
    * <code>string source = 1;</code>
@@ -88,7 +88,7 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * A file or a directory, relative to the project root. Empty when the
-   * scenario named none, which means Load generates from the seed instead.
+   * simulation named none, which means Load generates from the seed instead.
    * </pre>
    *
    * <code>string source = 1;</code>
@@ -359,7 +359,7 @@ private static final long serialVersionUID = 0L;
    * <pre>
    * What the simulation declared, already shrunk to the size this run is doing.
    *
-   * `count` is the scenario's count times the fraction of it this run is measuring
+   * `count` is the simulation's count times the fraction of it this run is measuring
    * — 1 for a direct run, and whichever rung the engine picked otherwise. Nothing
    * here says which: a Job that could tell a probe run from the full one could
    * behave differently at the two sizes, and then the projection would be a
@@ -531,7 +531,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * A file or a directory, relative to the project root. Empty when the
-     * scenario named none, which means Load generates from the seed instead.
+     * simulation named none, which means Load generates from the seed instead.
      * </pre>
      *
      * <code>string source = 1;</code>
@@ -552,7 +552,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * A file or a directory, relative to the project root. Empty when the
-     * scenario named none, which means Load generates from the seed instead.
+     * simulation named none, which means Load generates from the seed instead.
      * </pre>
      *
      * <code>string source = 1;</code>
@@ -574,7 +574,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * A file or a directory, relative to the project root. Empty when the
-     * scenario named none, which means Load generates from the seed instead.
+     * simulation named none, which means Load generates from the seed instead.
      * </pre>
      *
      * <code>string source = 1;</code>
@@ -592,7 +592,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * A file or a directory, relative to the project root. Empty when the
-     * scenario named none, which means Load generates from the seed instead.
+     * simulation named none, which means Load generates from the seed instead.
      * </pre>
      *
      * <code>string source = 1;</code>
@@ -607,7 +607,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * A file or a directory, relative to the project root. Empty when the
-     * scenario named none, which means Load generates from the seed instead.
+     * simulation named none, which means Load generates from the seed instead.
      * </pre>
      *
      * <code>string source = 1;</code>

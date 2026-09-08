@@ -46,11 +46,14 @@ final class Agents {
                 + " `./losim check` re-runs exactly this.\n\n");
 
         if (!scan.services().isEmpty()) {
+            // The pair a `runs:` entry is written from: the file a node is given,
+            // and the service it thereby serves. Named together, because an agent
+            // that has to derive one from the other derives it wrong.
             sb.append("**Services.** ");
             var said = new java.util.ArrayList<String>();
             for (Scan.Service s : scan.services()) {
-                said.add("`" + s.name() + "`" + (s.nested() ? " (nested — see edit 1)" : "")
-                        + " at `" + rel(root, s.file()) + ":" + s.line() + "`");
+                said.add("`" + scan.serviceOf(s) + "` in `" + rel(root, s.file())
+                        + ":" + s.line() + "`" + (s.nested() ? " (nested — see edit 1)" : ""));
             }
             sb.append(String.join(", ", said)).append("\n\n");
         }

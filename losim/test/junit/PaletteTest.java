@@ -2,6 +2,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import losim.cli.Lab;
 import losim.cli.Palette;
 import org.junit.jupiter.api.AfterAll;
@@ -10,14 +11,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * What the lab's code offers, read off its compiled bytecode.
+ * What the assignment's code offers, read off its compiled bytecode.
  *
- * <p>{@code Palette} draws a line the console's whole authoring story depends
- * on: a class is a {@code Job}, or it is a service (bindable, with methods and
- * an idempotency flag apiece), or it is neither and is counted rather than
- * named. {@link Fixture} ships one of each, plus {@code Volley} — a second gRPC
- * service in the schema that nothing implements — so the "generated but
- * unimplemented" case is exercised too, not just the happy path.
+ * <p>{@code Palette} answers the question a {@code runs:} entry asks: which file
+ * can a node be given, and what does it thereby serve. Everything it lists is a
+ * pair somebody could write down — so a class that is bindable and has no path to
+ * it is counted rather than named, and the one that answers to {@code losim.Job}
+ * is in the same list as everything else with a flag on it. {@link Fixture} ships
+ * one of each, plus {@code Volley} — a second gRPC service in the schema that
+ * nothing implements — so the "generated but unimplemented" case is exercised
+ * too, not just the happy path.
  */
 class PaletteTest {
 
@@ -41,47 +44,61 @@ class PaletteTest {
     }
 
     @Test
-    @DisplayName("a class serving losim.Job is where a simulation starts, alphabetically")
-    void findsTheJobs() {
-        assertEquals(java.util.List.of("NoisyJob", "WordCountJob"), offer.jobs());
+    @DisplayName("every offer is a file a runs: entry could name, in the order they sort")
+    void findsTheFiles() {
+        assertEquals(List.of("src/Counter.java", "src/NoisyJob.java", "src/WordCountJob.java"),
+                offer.services().stream().map(Palette.Service::file).toList());
     }
 
     @Test
-    @DisplayName("a class extending a service's ImplBase is a service, with its methods")
+    @DisplayName("a file is offered under the service its class implements, with its rpcs")
     void findsTheService() {
-        // Three services, and the two that answer to losim.Job are in this list
-        // like everything else. There is no second list to be in: the thing that
-        // starts the work is a service, and that is the whole of 3.0.
-        assertEquals(3, offer.services().size(),
-                () -> "found: " + offer.services().stream().map(Palette.Service::cls).toList());
         Palette.Service worker = offer.services().stream()
-                .filter(sv -> sv.qualified().equals("losim.t.Worker")).findFirst().orElseThrow();
-        assertEquals("Counter", worker.cls());
-        assertEquals("Worker", worker.service());
-        assertEquals("losim.t.Worker", worker.qualified());
+                .filter(sv -> sv.file().equals("src/Counter.java")).findFirst().orElseThrow();
+        // The name gRPC puts on the wire, which is what peersServing finds it by —
+        // and not the name of the class, which a simulation never says at all.
+        assertEquals("losim.t.Worker", worker.service());
+        assertEquals("Worker", worker.bare());
+        assertFalse(worker.entry(), "Worker is not where the simulation starts");
 
-        var byName = worker.methods().stream()
-                .collect(java.util.stream.Collectors.toMap(Palette.Method::name, Palette.Method::idempotent));
+        var byName = worker.rpcs().stream()
+                .collect(java.util.stream.Collectors.toMap(Palette.Rpc::name, Palette.Rpc::idempotent));
         assertEquals(java.util.Set.of("Map", "Reduce"), byName.keySet());
         // lab.proto declares both NO_SIDE_EFFECTS — the whole point of carrying
-        // this flag is that a retry policy on a method that did not declare
-        // itself safe is refused at run time, not silently allowed.
+        // this flag is that a retry policy on an rpc that did not declare itself
+        // safe is refused at run time, not silently allowed.
         assertTrue(byName.get("Map"));
         assertTrue(byName.get("Reduce"));
     }
 
     @Test
-    @DisplayName("Volley has no implementing class, so it is not offered as a service")
-    void unimplementedServiceIsNotOffered() {
-        assertTrue(offer.services().stream().noneMatch(s -> s.service().equals("Volley")),
-                "the schema declares Volley; nothing in src/ implements it, and nothing should claim it does");
+    @DisplayName("a class answering to losim.Job is marked in the one list, not held in a second")
+    void marksTheEntries() {
+        assertEquals(List.of("src/NoisyJob.java", "src/WordCountJob.java"),
+                offer.services().stream().filter(Palette.Service::entry)
+                        .map(Palette.Service::file).toList());
+        assertTrue(offer.services().stream().filter(Palette.Service::entry)
+                        .allMatch(sv -> sv.service().equals("losim.Job")),
+                "the entry is the service called losim.Job, and nothing else makes it one");
     }
 
     @Test
-    @DisplayName("a service is pointed back at the file it was written in")
-    void pointsAtItsOwnSource() {
-        Palette.Service worker = offer.services().get(0);
-        assertEquals("src/Counter.java", worker.source());
+    @DisplayName("a service extended from an abstract base is offered once, as the file that is concrete")
+    void abstractBasesAreNotOffered() {
+        assertTrue(offer.services().stream().noneMatch(s -> s.file().equals("src/WorkerBase.java")),
+                "WorkerBase is abstract: it cannot be constructed, so no node can run it");
+    }
+
+    @Test
+    @DisplayName("a service nested inside another class is counted, because no path reaches it")
+    void aNestedServiceIsNotOffered() {
+        // Bundle.Inner does implement Volley. It is still not on offer: a `runs:`
+        // value is a path, and src/Bundle.java loads Bundle, which serves nothing.
+        // Offering it would be offering a line that starts and then binds nothing.
+        assertTrue(offer.services().stream().noneMatch(s -> s.bare().equals("Volley")),
+                "src/Bundle.java would place Bundle, not Bundle.Inner");
+        assertTrue(offer.services().stream().noneMatch(s -> s.file().equals("src/Bundle.java")),
+                "a file whose class serves nothing is not something a node can run");
     }
 
     @Test
@@ -95,10 +112,10 @@ class PaletteTest {
     }
 
     @Test
-    @DisplayName("classes with the schema in it, one job and one service, is not zero of anything")
+    @DisplayName("classes with the schema in it, one entry and one service, is not zero of anything")
     void otherIsCounted() {
         // Generated message and stub classes (Chunk, Counts, WorkerGrpc's stubs,
-        // Volley's own ImplBase…) are neither a Job nor a placeable service, and
+        // Volley's own ImplBase…) are neither an entry nor a placeable service, and
         // Palette still has to say something about them: the difference between
         // "nothing here is a service" and "nothing here compiled" is this number.
         assertTrue(offer.other() > 0, "expected generated protobuf/grpc classes to be counted");

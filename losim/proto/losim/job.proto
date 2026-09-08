@@ -2,7 +2,7 @@
 //
 // A simulation starts when losim calls Job.Run on the one node that runs this
 // service. There is no driver object, no interface to implement, no class named
-// in a scenario key: the thing that starts the work is a gRPC service, like
+// in a simulation key: the thing that starts the work is a gRPC service, like
 // everything else a node offers.
 //
 // Two rpcs, and the split between them is the whole scale model:
@@ -22,14 +22,14 @@ option java_multiple_files = true;
 
 // What the simulation declared, already shrunk to the size this run is doing.
 //
-// `count` is the scenario's count times the fraction of it this run is measuring
+// `count` is the simulation's count times the fraction of it this run is measuring
 // — 1 for a direct run, and whichever rung the engine picked otherwise. Nothing
 // here says which: a Job that could tell a probe run from the full one could
 // behave differently at the two sizes, and then the projection would be a
 // projection of nothing.
 message Input {
   // A file or a directory, relative to the project root. Empty when the
-  // scenario named none, which means Load generates from the seed instead.
+  // simulation named none, which means Load generates from the seed instead.
   string source = 1;
 
   // What one item is, singular — "frame", "line", "order". The same word
@@ -43,7 +43,7 @@ message Input {
 // What Load made of it: the data Run will actually process.
 //
 // A different type from Input on purpose. Input is a declaration and Workload is
-// the data, so Run cannot read the scenario, cannot see the source, and cannot
+// the data, so Run cannot read the simulation, cannot see the source, and cannot
 // know what size it is doing — which is the property the two-scale model is
 // built on, stated in the signature rather than asked for in the manual.
 message Workload {

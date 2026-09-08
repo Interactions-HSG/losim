@@ -13,10 +13,10 @@ import losim.trace.Telemetry;
  */
 public final class Wordcount {
 
-    public static final Path SCENARIO = Path.of("losim/test/simulations/wordcount.yaml");
+    public static final Path SIMULATION = Path.of("losim/test/simulations/wordcount.yaml");
 
     public static Simulate.Result result() throws Exception {
-        return Simulate.of(Loader.load(SCENARIO), Wordcount.class.getClassLoader());
+        return Simulate.of(Loader.load(SIMULATION), Wordcount.class.getClassLoader());
     }
 
     public static Telemetry run() throws Exception { return result().telemetry(); }

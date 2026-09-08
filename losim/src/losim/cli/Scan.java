@@ -4,10 +4,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -52,6 +50,8 @@ public final class Scan {
     private final List<Rpc> rpcs = new ArrayList<>();
     private final List<Finding> findings = new ArrayList<>();
     private final List<Path> protos = new ArrayList<>();
+    /** Every service the schema declares, by the name gRPC puts on the wire. */
+    private final List<String> declared = new ArrayList<>();
     private final List<Path> sources = new ArrayList<>();
     private String build = "";
     private String buildFile = "";
@@ -69,7 +69,10 @@ public final class Scan {
     public record Service(String name, String pkg, Path file, int line, boolean nested,
                           String base, boolean entry) {
 
-        /** What {@code runs:} has to say, which is a class and not a file. */
+        /**
+         * The name this class is loaded under — the same one the loader derives
+         * from the path a {@code runs:} entry names, so the two can be compared.
+         */
         public String qualified() { return pkg.isEmpty() ? name : pkg + "." + name; }
     }
 
@@ -178,6 +181,8 @@ public final class Scan {
 
     // --------------------------------------------------------------------- proto
 
+    private static final Pattern PROTO_PACKAGE =
+            Pattern.compile("(?m)^\\s*package\\s+([\\w.]+)\\s*;");
     private static final Pattern SERVICE = Pattern.compile("(?m)^\\s*service\\s+(\\w+)\\s*\\{");
     private static final Pattern RPC = Pattern.compile(
             "(?m)^\\s*rpc\\s+(\\w+)\\s*\\(\\s*(stream\\s+)?[\\w.]+\\s*\\)\\s*"
@@ -186,13 +191,20 @@ public final class Scan {
 
     private void proto(Path file) throws IOException {
         String text = Files.readString(file);
+        // The schema's own package, so a service is recorded under the name gRPC
+        // puts on the wire. A simulation may file it under either that or its last
+        // segment, and a scan that knew only one of the two would quietly check
+        // nothing for whoever wrote the other.
+        Matcher p = PROTO_PACKAGE.matcher(text);
+        String in = p.find() ? p.group(1) + "." : "";
         var services = new ArrayList<int[]>();      // {start, end} of each service body
         var names = new ArrayList<String>();
         Matcher m = SERVICE.matcher(text);
         while (m.find()) {
             int body = closing(text, m.end() - 1);
             services.add(new int[]{m.end(), body});
-            names.add(m.group(1));
+            names.add(in + m.group(1));
+            declared.add(in + m.group(1));
         }
         Matcher r = RPC.matcher(text);
         while (r.find()) {
@@ -526,7 +538,7 @@ public final class Scan {
         // A node's own failures: is a list and its path ends at the node.
         if (path.size() < 2 || !path.get(path.size() - 2).equals("runs")) return;
         String service = path.get(path.size() - 1);
-        var served = rpcs.stream().filter(r -> r.service().equals(service))
+        var served = rpcs.stream().filter(r -> names(r.service(), service))
                 .map(Rpc::name).toList();
         if (served.isEmpty()) return;             // no .proto for it here to be sure with
         for (Key k : keys) {
@@ -538,6 +550,19 @@ public final class Scan {
                     + " to nothing is a failure that quietly never fires, so it is a"
                     + " refusal rather than a warning.", new At(file, k.line())));
         }
+    }
+
+    /**
+     * Whether a {@code runs:} key names this service.
+     *
+     * <p>Either form does. {@code lab.Thumbnailer} is what gRPC puts on the wire
+     * and {@code Thumbnailer} is what almost everybody writes, and both reach the
+     * same server — so a scan that insisted on one of them would fall silent for
+     * everybody who wrote the other, which is worse than not checking at all.
+     */
+    private static boolean names(String declared, String written) {
+        return declared.equals(written)
+                || declared.substring(declared.lastIndexOf('.') + 1).equals(written);
     }
 
     /** Whether {@code k} is written directly inside {@code parent}. */
@@ -579,12 +604,15 @@ public final class Scan {
         }
         for (Service s : services) {
             if (!s.nested()) continue;
-            findings.add(new Finding(Kind.UNTRUSTWORTHY, s.name()
+            findings.add(new Finding(Kind.REFUSED, s.name()
                     + " is nested inside another class",
-                    "the trust verifier walks a nested class together with the class"
-                    + " enclosing it, so everything the enclosing bootstrap does — its own"
-                    + " server, its channel, its statics — is read as this service's."
-                    + " Move it to a file of its own.",
+                    "runs: names a file, and the class it reaches is the one that file is"
+                    + " named after — so there is no line anybody could write that would"
+                    + " place this. Even if there were: the trust verifier walks a nested"
+                    + " class together with the class enclosing it, so everything the"
+                    + " enclosing bootstrap does — its own server, its channel, its"
+                    + " statics — would be read as this service's. Move it to a file of"
+                    + " its own.",
                     new At(s.file(), s.line())));
         }
         if (!services.isEmpty() && services.stream().noneMatch(Service::entry)) {
@@ -608,13 +636,25 @@ public final class Scan {
 
     // -------------------------------------------------------------------- helpers
 
-    /** The classes this project offers, in the order a scenario would name them. */
-    public List<String> placeable() {
-        var out = new LinkedHashSet<String>();
-        // Qualified, because `runs:` names a class on a classpath rather than a
-        // file: `runs: [GreeterImpl]` finds nothing when the class is in a package.
-        for (Service s : services) out.add(s.qualified());
-        return List.copyOf(out);
+    /**
+     * The name a {@code runs:} entry files this service under.
+     *
+     * <p>The schema's name and not the class's: {@code src/Shrinker.java} is what
+     * a node runs, and {@code lab.Thumbnailer} is what it thereby serves and what
+     * its peers find it by. Read off the {@code .proto} rather than off the
+     * {@code ImplBase} the class extends, because the package a service is
+     * announced under is the schema's and a generated class need not share it.
+     */
+    public String serviceOf(Service s) {
+        // losim.Job is the one service no project declares: it is losim's, shipped
+        // in losim's own schema, and the scan already knows this class answers to
+        // it by the base it extends.
+        if (s.entry()) return "losim.Job";
+        String bare = s.base().replaceAll("^.*?(\\w+)Grpc\\..*$", "$1");
+        // The schema's list rather than the rpcs', so a service that declares no
+        // rpc — or one this scan could not read — is still named in full.
+        for (String d : declared) if (names(d, bare)) return d;
+        return bare;
     }
 
     /** Every finding of one class, in the order they were found. */

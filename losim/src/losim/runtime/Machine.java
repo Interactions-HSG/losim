@@ -52,8 +52,17 @@ public final class Machine implements Bound, Telemetry.Sampled {
     final double machineFactor;
     private volatile double degraded = 1.0;
     private volatile long frozenUntilNs;
-    /** A service this node serves, and the line of the simulation that placed it. */
+    /**
+     * A service this node serves, and the line of the simulation that placed it.
+     *
+     * @param service what the {@code runs:} key filed it under, or null when
+     *                nothing filed it — a cluster built in code names no service,
+     *                so there is nothing to disagree with
+     * @param named   what costs and failures are keyed by: the path, for a node
+     *                built from a simulation
+     */
     private record Offered(java.util.function.Supplier<? extends BindableService> factory,
+                           String service,
                            String named,
                            java.util.Map<String, List<losim.sim.Simulation.RpcFailure>> failures,
                            String where) {}
@@ -257,7 +266,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
     public Machine serving(BindableService... services) {
         // Unnamed: nothing placed these by a name, so start() takes their own.
         for (BindableService svc : services)
-            factories.add(new Offered(() -> svc, null, java.util.Map.of(), ""));
+            factories.add(new Offered(() -> svc, null, null, java.util.Map.of(), ""));
         return start();
     }
 
@@ -308,7 +317,23 @@ public final class Machine implements Bound, Telemetry.Sampled {
                           String named,
                           java.util.Map<String, List<losim.sim.Simulation.RpcFailure>> failures,
                           String where) {
-        factories.add(new Offered(factory, named, failures, where));
+        return serves(factory, null, named, failures, where);
+    }
+
+    /**
+     * The same, under the service name the simulation filed it under.
+     *
+     * <p>Which is checked against what the class actually serves, once it is bound
+     * and can be asked. The loader cannot ask: it loads nothing. And the key is not
+     * decoration — it is the name peers find this node by — so a key no server
+     * answers to is a node that quietly serves something else than the file says.
+     */
+    public Machine serves(java.util.function.Supplier<? extends BindableService> factory,
+                          String service,
+                          String named,
+                          java.util.Map<String, List<losim.sim.Simulation.RpcFailure>> failures,
+                          String where) {
+        factories.add(new Offered(factory, service, named, failures, where));
         rebuildable = true;
         return start();
     }
@@ -426,6 +451,18 @@ public final class Machine implements Bound, Telemetry.Sampled {
                         f.getValue().isEmpty() ? offered.where() : f.getValue().get(0).where());
             String svc = def.getServiceDescriptor().getName();
             String bare = svc.substring(svc.lastIndexOf('.') + 1);
+            // Either form of the name reaches the same server, and a simulation may
+            // write either. Anything else is a typo that would cost nobody an error
+            // and every peer a lookup: peersServing returns an empty list, and a
+            // design that handles an absent peer would report handling one.
+            if (offered.service() != null
+                    && !offered.service().equals(svc) && !offered.service().equals(bare))
+                throw new IllegalArgumentException(offered.where() + ": this node runs '"
+                        + offered.named() + "' under '" + offered.service() + "', and the"
+                        + " class in it serves " + svc + ". A runs: key is the name peers"
+                        + " find this node by, so peersServing('" + offered.service() + "')"
+                        + " would find nobody and a design that copes with a missing peer"
+                        + " would look like one that worked.");
             if (!servicesOffered.contains(bare)) servicesOffered.add(bare);
             machines.offers(svc, name);
             b.addService(ServerInterceptors.intercept(def, new ServerSide(this)));

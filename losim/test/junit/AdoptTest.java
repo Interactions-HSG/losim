@@ -60,7 +60,9 @@ class AdoptTest {
         Scan s = scan();
         assertEquals(1, s.rpcs().size());
         Scan.Rpc rpc = s.rpcs().get(0);
-        assertEquals("Greeter", rpc.service());
+        // The name the schema announces, package and all: that is what gRPC puts
+        // on the wire and what a `runs:` entry files the file under.
+        assertEquals("helloworld.Greeter", rpc.service());
         assertEquals("SayHello", rpc.name());
         assertFalse(rpc.streaming());
         assertFalse(rpc.idempotent(), "the quickstart declares no idempotency_level");
@@ -75,17 +77,17 @@ class AdoptTest {
         assertEquals("GreeterImpl", greeter.name());
         assertTrue(greeter.nested(), "it is a static nested class, which is the whole problem");
         assertEquals("io.grpc.examples.helloworld.GreeterImpl", greeter.qualified(),
-                "runs: names a class on a classpath, so the package has to come with it");
+                "the loader derives this from the path, so the package has to come with it");
     }
 
     @Test
-    @DisplayName("a nested handler is a wrong number; a shutdown hook is merely dead")
+    @DisplayName("a nested handler will not run at all; a shutdown hook is merely dead")
     void classification() throws Exception {
         Scan s = scan();
-        // The distinction the entire report is built on. A nested class is walked
-        // together with the class enclosing it, so the bootstrap's own server and
-        // statics are read as the service's and every figure it reports is marked.
-        assertTrue(saw(s, Scan.Kind.UNTRUSTWORTHY, "nested"));
+        // The distinction the entire report is built on. A nested class has no path
+        // that reaches it — `runs:` names a file, and a file loads the class it is
+        // named after — so there is no line anybody could write that would place it.
+        assertTrue(saw(s, Scan.Kind.REFUSED, "nested"));
         assertTrue(saw(s, Scan.Kind.UNTRUSTWORTHY, "channel"),
                 "the client builds its own, which no interceptor is attached to");
         // These cost nothing and mean nothing, and no run will ever mention them —
@@ -95,8 +97,6 @@ class AdoptTest {
         assertTrue(saw(s, Scan.Kind.DEAD, "newFixedThreadPool"));
         assertTrue(saw(s, Scan.Kind.DEAD, "grpc-netty-shaded"));
         assertTrue(saw(s, Scan.Kind.MISSING, "idempotency_level"));
-        assertTrue(s.of(Scan.Kind.REFUSED).isEmpty(),
-                "the quickstart is unary and protoc-generated, so nothing here refuses it");
     }
 
     @Test

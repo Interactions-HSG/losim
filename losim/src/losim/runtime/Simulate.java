@@ -165,7 +165,7 @@ public final class Simulate {
                         m.diskCapMb() != null ? m.diskCapMb() : spec.storageGb() * 1024.0);
                 for (var svc : m.runs().values())
                     machine.serves(factory(svc.className(), loader, svc.where()),
-                                   svc.path(), svc.failures(), svc.where());
+                                   svc.service(), svc.path(), svc.failures(), svc.where());
                 if (m.runs().isEmpty()) machine.serving();     // listening, offering nothing
                 byName.put(m.name(), machine);
             }
