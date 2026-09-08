@@ -32,18 +32,6 @@ public interface Cluster {
     Channel channelTo(String machine);
 
     /**
-     * How many units this run is to process.
-     *
-     * <p>In direct mode this is what the scenario declared. In scaled mode it is
-     * what the engine chose — a fraction of full scale, picked so that the machines
-     * and the workload shrink by the same factor and the ratios a design lives or
-     * dies by are preserved.
-     *
-     * <p>A job that ignores this cannot be scaled, and the trace will say so.
-     */
-    long units();
-
-    /**
      * The scenario's seed.
      *
      * <p>A job that generates its own input needs one, and it has to come from the

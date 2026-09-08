@@ -42,9 +42,13 @@ public class Phase3 {
                 instance: r5.large
                 zone: z
                 runs: [%s]
+            input:
+              lines:        %d
+              wordsPerLine: 8
+              vocabulary:   200000
             takes:
               %s: { Map: { refMs: 2, refNsPerUnit: 20000 }, Reduce: { refMs: 5 } }
-            """.formatted(trim(scale), service, service);
+            """.formatted(trim(scale), service, Math.round(scale * Scenario.BASE), service);
     }
 
     /** A scale that reads as `6` rather than `6.0` in a file a person has to read. */
@@ -119,6 +123,16 @@ public class Phase3 {
               chunks:     4
             """)), ":8:").contains("consumes no part called 'chunks'"),
               "backwards: a part the job does not consume is refused, at its own line");
+
+        check(refusedBy(Loader.of(Yaml.parse("sized.yaml", """
+            seed: 1
+            job: NoopJob
+            scale: 6
+            machines:
+              master: { instance: m5.large, zone: z }
+            """)), ":2:").contains("has to implement losim.api.Scalable"),
+              "backwards: a scenario that asks for a model of six times the run, and names a "
+              + "job that cannot be asked for more, is refused at the job: line");
 
         check(refusedBy(Loader.of(Yaml.parse("sized.yaml", """
             seed: 1
@@ -330,15 +344,18 @@ public class Phase3 {
                 instance: m5.large
                 zone: z
                 runs: [Slow]
+            input:
+              calls: %d
             takes:
               Slow: { Hit: { refMs: 200 }, Poll: { refMs: 200 } }
             """;
-        // Four 2-vCPU machines: eight cores. Observed under-saturated, projected saturated.
-        // 16k units is 4 calls, under eight cores; 128k is 32, which is four
-        // waves of them. Scale 1 would be one record and so one call, which is a
-        // call graph with nothing in it to replay.
-        var small = Loader.of(Yaml.parse("sched.yaml", yaml.formatted(2)));
-        var big = Loader.of(Yaml.parse("sched.yaml", yaml.formatted(16)));
+        // Four 2-vCPU machines: eight cores. Observed under-saturated, projected
+        // saturated. Four calls fit under eight cores; thirty-two are four waves of
+        // them. The scale beside each is what the engine is asked to project across,
+        // and the call count is now the scenario's to say rather than a division
+        // buried in the job.
+        var small = Loader.of(Yaml.parse("sched.yaml", yaml.formatted(2, 4)));
+        var big = Loader.of(Yaml.parse("sched.yaml", yaml.formatted(16, 32)));
 
         var observed = losim.runtime.Run.of(small, loader(), Telemetry.Level.NO_PAYLOAD);
         var truth = losim.runtime.Run.of(big, loader(), Telemetry.Level.NO_PAYLOAD);

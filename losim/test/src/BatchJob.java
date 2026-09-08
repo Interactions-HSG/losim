@@ -3,7 +3,8 @@ import io.grpc.stub.StreamObserver;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import losim.api.Cluster;
-import losim.api.Job;
+import losim.api.Input;
+import losim.api.Scalable;
 import losim.t.*;
 
 /**
@@ -14,15 +15,19 @@ import losim.t.*;
  * Four calls into eight cores take one wave; sixteen take two. Multiplying the
  * first run by four says eight.
  */
-public final class BatchJob implements Job {
+public final class BatchJob implements Scalable {
 
-    @Override public void run(Cluster cluster) throws Exception {
+    @Override public Input.Shape shape() {
+        return Input.Shape.counting("calls", "call");
+    }
+
+    @Override public void run(Cluster cluster, Input at) throws Exception {
         var workers = cluster.serving("Volley");
-        // One call per four thousand units, so the call count follows the scale
-        // the scenario asked for rather than a number of its own — and so that a
-        // cluster of eight cores can be observed under-saturated at one scale and
-        // saturated at another, which is what the schedule tests need.
-        int calls = (int) Math.max(1, cluster.units() / 4000);
+        // However many the scenario asked for. A cluster of eight cores is then
+        // observed under-saturated at one size and saturated at another, which is
+        // what the schedule tests need — and the ratio is in the file, where it
+        // can be changed without recompiling anything.
+        int calls = (int) at.count("calls");
         var done = new CountDownLatch(calls);
         try (var phase = cluster.phase("batch")) {
             for (int i = 0; i < calls; i++) {

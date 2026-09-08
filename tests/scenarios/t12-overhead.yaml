@@ -20,6 +20,13 @@ machines:
     zone: eu-central-1a
     runs: [Prefill]
 
+# The corpus, at full size. The job says what its input is made of; this
+# says how much of each part there is.
+input:
+  lines:        48000
+  wordsPerLine: 8
+  vocabulary:   200000
+
 # What each rpc costs on the reference machine, under the class that serves it.
 # The handlers declare nothing: a duration is a claim about the machine a design
 # would run on, so it belongs to the scenario — and a system stays plain gRPC

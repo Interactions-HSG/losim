@@ -1,24 +1,24 @@
 ---
 title: "Trust markers"
-description: "Reading the compiled classes before anything runs — and flagging rather than refusing."
+description: "The verifier reads compiled classes before a run and marks numbers that no longer mean what they say."
 icon: "shield-halved"
 ---
 
-losim's numbers mean something only if the code stayed inside the simulated world. A
-handler that reads `System.nanoTime` gets the host's afternoon rather than the
-compressed clock; one that writes a real file bypasses the disk model and its cap;
-one that hands its work to the common pool is charged to nobody.
+losim's numbers mean something only if the code stays inside the simulated world.
+A handler that reads `System.nanoTime` gets the host's time rather than the
+compressed clock. One that writes a real file bypasses the disk model. One that
+hands its work to the common pool is charged to nobody.
 
 <Warning>
-**None of those throws.** Each produces a run full of plausible figures, every one of
-which is wrong in a direction nobody can see.
+None of those throw. Each produces a run full of plausible figures, and each figure
+is wrong in a way the viewer cannot see on its own.
 </Warning>
 
-So the verifier reads the lab's compiled classes **before anything runs**, and
-**flags rather than refuses** — the run happens, the numbers come out, and what
-carries a caveat says so beside itself.
+So the verifier reads the lab's compiled classes before anything runs, and flags
+rather than refuses. The run still happens, and what carries a caveat says so beside
+itself:
 
-```
+```text
   trust: 4 machines report figures that do not mean what they say
     w0, w1, w2
       each reads the real clock, so its timeline is not projectable
@@ -35,42 +35,40 @@ carries a caveat says so beside itself.
 
 <Columns cols={2}>
   <Card title="A gate would have to be right about generated code" icon="robot">
-    protoc's output trips these rules freely — a `*Grpc` class holds six mutable
-    statics. A hard gate would have to argue with every one of them.
+    protoc's output trips these rules freely. A `*Grpc` class holds mutable
+    statics, and a hard gate would have to argue with every one.
   </Card>
   <Card title="A gate teaches the wrong thing" icon="lock">
-    losim measures rather than restricts what your code does. The useful output is
-    *"this number is a lower bound"*, attached to the machine and to the
-    figure it undermines, not *"this code is bad."*
+    losim measures rather than restricts what your code does. The useful output is a
+    lower bound attached to the machine and the figure it undermines, not a verdict
+    about the code.
   </Card>
 </Columns>
 
 ## The walk's scope
 
-From the services each machine serves and the job that drives them, outward through
-everything they reference **that is also on the lab's classpath**.
+The verifier walks outward from the services each machine serves and the job that
+drives them, then follows everything they reference that is also on the lab's
+classpath.
 
 - The JDK is not walked.
 - gRPC is not walked.
-- losim's own packages are named explicitly and skipped — they would otherwise light
-  up brightly, since the clock reads `nanoTime` for a living and the dispatcher parks
-  threads. Named explicitly rather than by a `losim.` prefix, because a lab is free
-  to use a package of that name.
-- **Generated code is recognised and skipped** — by protobuf's own superclass and
-  grpc-java's `@GrpcGenerated`, not by a guess about its name.
+- losim's own packages are named explicitly and skipped. They would otherwise light
+  up, since the clock reads `nanoTime` and the dispatcher parks threads.
+- Generated code is recognised and skipped by protobuf's superclass and grpc-java's
+  `@GrpcGenerated`, not by a guess about the name.
 
 <Note>
-**Nothing walked is not the same as nothing wrong.** If the classpath yielded
-nothing, the run says so rather than reporting clean:
+Nothing walked is not the same as nothing wrong. If the classpath yields nothing,
+the run says so rather than reporting clean:
 
-```
+```text
 none of the classes this scenario names are on the classpath it was given, so
 nothing was read. A jar is not walked; point --cp at the directory the lab
 compiles to.
 ```
 
-Reporting that as clean would be the one failure mode a check like this cannot
-afford.
+Reporting that as clean would be the one failure mode this check cannot afford.
 </Note>
 
 ## Three things it has to get right
@@ -82,22 +80,22 @@ afford.
     static final String[] WORDS = {"a", "the"};           // not flagged: a table
     ```
 
-    The difference is that nothing is **called** to build the second. The class
+    The difference is that nothing is called to build the second. The class
     initialiser is read, rather than the declaration guessed at.
   </Accordion>
 
   <Accordion title="Said by the declarations, not the call sites" icon="file-code">
-    `System::nanoTime` appears in **no instruction anywhere** — only in a bootstrap
-    argument. And a class that `extends Thread` starts itself through a method on
+    `System::nanoTime` appears in no instruction anywhere, only in a bootstrap
+    argument. A class that `extends Thread` starts itself through a method on
     itself.
 
-    A verifier reading only the instructions would call both of those spotless.
+    A verifier reading only the instructions would call both spotless.
   </Accordion>
 
   <Accordion title="Two machines running the same class are both flagged" icon="clone">
-    Which is right — the same code makes the same figure wrong on each of them. The
-    job is attributed to the machine it runs on, the first in the file, because that
-    is whose pool executes it and whose counters it lands on.
+    The same code makes the same figure wrong on each of them. The job is attributed
+    to the machine it runs on, because that is whose pool executes it and whose
+    counters it lands on.
   </Accordion>
 </AccordionGroup>
 
@@ -112,35 +110,33 @@ meaningless:
 | `memory` | its memory figure is a lower bound | `memoryMb`, `allocMb` |
 | `disk` | its disk figure is a lower bound | `diskMb` |
 | `wire` | its wire bytes are a lower bound | `wireMb` |
-| `isolation` | its figures are not only its own | **all of them** |
+| `isolation` | its figures are not only its own | all of them |
 
-`isolation` is the one that poisons everything rather than one column: if machines
-reach into each other, attributing anything to either of them is arithmetic on a
-fiction.
+`isolation` poisons everything rather than one column. If machines reach into each
+other, attributing anything to either of them is arithmetic on a fiction.
 
-## In scaled mode, the caveat sits beside the projection
+## In scaled mode
 
-```
+```text
   memoryMb              6.823                34.07 k  +-x1.10
-      w0, w1 each read the real clock, so this is a projection of the host's afternoon
+      w0, w1 each read the real clock, so this is a projection of the host's time
 ```
 
 <Note>
-An error bar says **how well a law was fitted**. It says nothing about whether what
-it was fitted to meant anything — and a machine that stepped outside the simulated
-world is exactly that case. So the caveat goes next to the number, not only in a
-block at the end.
+An error bar says how well a law was fitted. It says nothing about whether what it
+was fitted to meant anything. A machine that stepped outside the simulated world is
+exactly that case, so the caveat goes next to the number.
 </Note>
 
-## Left deliberately unchecked
+## Left unchecked
 
-Nothing is flagged for determinism's sake. Unseeded `Random`, `Math.random` and
-identity-hash iteration order are all fine, because runs are not reproducible anyway
-and a sweep of seeds is the answer to that.
+Nothing is flagged for determinism's sake. Unseeded `Random`, `Math.random`, and
+identity-hash iteration order are all fine, because runs are not reproducible
+anyway.
 
-Raw threads are not banned either: real concurrency inside a machine is a feature.
-Work outside the machine's own pool is merely attributed to nobody, and that is what
-gets said.
+Raw threads are not banned either. Real concurrency inside a machine is a feature.
+Work outside the machine's own pool is attributed to nobody, and that is what gets
+said.
 
 <Card title="Every rule, in full" icon="list" href="/ref/trust-rules">
   The eight rules, what trips each, and what to write instead.

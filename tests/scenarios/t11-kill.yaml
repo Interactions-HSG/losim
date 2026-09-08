@@ -15,6 +15,13 @@ machines:
     zone: eu-central-1a
     runs: [Combiner]
 
+# The corpus, at full size. The job says what its input is made of; this
+# says how much of each part there is.
+input:
+  lines:        48000
+  wordsPerLine: 8
+  vocabulary:   200000
+
 faults:
   - { at: 400 refMs, kill: w1, restart_after: 2 refSeconds }
 

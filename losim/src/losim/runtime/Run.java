@@ -195,7 +195,7 @@ public final class Run {
             dispatcher.start();
 
             Machine entry = byName.values().iterator().next();
-            var cluster = new Live(machines, entry, tel, s.units(), s.seed());
+            var cluster = new Live(machines, entry, tel, s.seed());
             Object job = job(s.job(), loader);
             // Resolved before the span opens, because an input the scenario did not
             // describe is a line to fix rather than a run that failed: inside the
@@ -382,6 +382,11 @@ public final class Run {
         }
     }
 
+    /** A scale as somebody wrote it: 6 rather than 6.0. */
+    private static String trim(double scale) {
+        return scale == Math.rint(scale) ? String.valueOf((long) scale) : String.valueOf(scale);
+    }
+
     /**
      * The input this run is to process, or {@code null} for a job that takes none.
      *
@@ -398,6 +403,14 @@ public final class Run {
      */
     private static Input sized(Scenario s, Object job) {
         if (!(job instanceof Scalable scalable)) {
+            // Above scale 1 the scenario is asking for a model, and a model is the
+            // same job asked to do more. A plain Job has no way of being asked: its
+            // size is a constant in its own Java, where no scenario can reach it.
+            if (s.scale() > 1) throw new IllegalArgumentException(s.jobWhere() + ": '" + s.job()
+                    + "' is the job of a scenario at scale " + trim(s.scale()) + ", so it has to"
+                    + " implement losim.api.Scalable. It declares what its input is made of and"
+                    + " the input: block says how big each part is; there is nothing here for the"
+                    + " engine to vary.");
             if (!s.input().isEmpty()) throw new IllegalArgumentException(s.input().get(0).where()
                     + ": this scenario sizes an input and '" + s.job() + "' is a plain"
                     + " losim.api.Job, which is never given one. Implement losim.api.Scalable, or"
@@ -518,12 +531,11 @@ public final class Run {
         private final Machine here;
         private final Telemetry tel;
 
-        private final long units;
         private final long seed;
 
-        Live(Machines machines, Machine here, Telemetry tel, long units, long seed) {
+        Live(Machines machines, Machine here, Telemetry tel, long seed) {
             this.machines = machines; this.here = here; this.tel = tel;
-            this.units = units; this.seed = seed;
+            this.seed = seed;
         }
 
         @Override public List<String> machines() { return machines.names(); }
@@ -535,7 +547,6 @@ public final class Run {
         @Override public Channel channelTo(String machine) { return here.dial(machine); }
 
         @Override public double clockMs() { return tel.now(); }
-        @Override public long units() { return units; }
         @Override public long seed() { return seed; }
         @Override public void log(String message) { tel.event(here.name, "log", "message", message); }
         @Override public <T> T compute(String label, Supplier<T> body) {

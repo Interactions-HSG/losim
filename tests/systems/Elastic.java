@@ -11,14 +11,15 @@ import lab.pb.Chunk;
 import lab.pb.Counts;
 import lab.pb.WorkerGrpc;
 import losim.api.Cluster;
-import losim.api.Job;
+import losim.api.Input;
+import losim.api.Scalable;
 
 /**
  * A word count whose size is whatever it is asked for.
  *
- * <p>This is what makes a job scalable: it reads {@link Cluster#units()} rather
- * than deciding for itself how much work there is. A job that hardcodes its own size
- * cannot be shrunk, and the engine has nothing to turn.
+ * <p>This is what makes a job scalable: every number describing the corpus arrives in
+ * the {@link Input}, so the scenario decides how much work there is. A job that held
+ * its own size could not be shrunk, and the engine would have nothing to turn.
  *
  * <p>Two phases, deliberately of different shapes. The map phase fans out over every
  * worker at once, so it is the part that gets faster when the cluster grows. The
@@ -31,7 +32,7 @@ import losim.api.Job;
  * here would put a linear term in the one machine whose memory is meant to be flat —
  * and the fitted memory law would faithfully follow it.
  */
-public final class Elastic implements Job {
+public final class Elastic implements Scalable {
 
     /**
      * Small enough that the smallest rung of a probe ladder is still many chunks.
@@ -43,12 +44,15 @@ public final class Elastic implements Job {
      * a disk law over it, correctly and uselessly.
      */
     static final int LINES_PER_CHUNK = 50;
-    static final int WORDS_PER_LINE = 8;
 
     /** Chunks allowed in flight at once, so fanning out does not mean holding the corpus. */
     static final int IN_FLIGHT = 8;
 
-    @Override public void run(Cluster cluster) throws Exception {
+    @Override public Input.Shape shape() {
+        return Input.Shape.counting("lines", "line").with("wordsPerLine").with("vocabulary");
+    }
+
+    @Override public void run(Cluster cluster, Input at) throws Exception {
         var workers = cluster.serving("Worker");
         if (workers.isEmpty()) throw new IllegalStateException("nobody serves Worker");
 
@@ -60,8 +64,9 @@ public final class Elastic implements Job {
             blocking.add(WorkerGrpc.newBlockingStub(channel));
         }
 
-        long units = cluster.units();
-        var corpus = new Zipf(200_000, 1.1, cluster.seed());
+        long units = at.count("lines");
+        int wordsPerLine = (int) at.value("wordsPerLine");
+        var corpus = new Zipf((int) at.value("vocabulary"), 1.1, cluster.seed());
         int chunks = (int) ((units + LINES_PER_CHUNK - 1) / LINES_PER_CHUNK);
 
         // Fanned out across every worker at once — which is what makes this the phase
@@ -73,7 +78,7 @@ public final class Elastic implements Job {
             for (int i = 0; i < chunks; i++) {
                 int lines = (int) Math.min(LINES_PER_CHUNK, units - (long) i * LINES_PER_CHUNK);
                 var text = new StringBuilder();
-                for (String line : corpus.lines(lines, WORDS_PER_LINE)) {
+                for (String line : corpus.lines(lines, wordsPerLine)) {
                     if (text.length() > 0) text.append(' ');
                     text.append(line);
                 }
