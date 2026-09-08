@@ -8,9 +8,11 @@ rather than about a branch. Every release is cut from a tag whose name and
 
 ## 3.0.1
 
-**The first 3.x release that can be installed.** 3.0.0 was tagged and its build
-failed before publishing anything, so there is no 3.0.0 jar and never was. Coming
-from 2.x, this is the release that carries the 3.0 break.
+**The first 3.x release that can be installed.** 3.0.0's build failed before it
+published anything, so there is no 3.0.0 jar, there never was one, and its tag has
+been removed rather than left pointing at a version nobody can install. Coming
+from 2.x, you go straight here, and this is the release that carries the 3.0
+break.
 
 **Everything in the 3.0.0 section of
 [CHANGELOG.md](https://github.com/Interactions-HSG/losim/blob/v3.0.1/CHANGELOG.md)
