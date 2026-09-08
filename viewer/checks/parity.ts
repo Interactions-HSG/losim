@@ -9,21 +9,37 @@
  * series channel against a **frozen oracle**. Same numbers or something moved.
  *
  * A layout bug found by looking at a picture is found slowly and argued about;
- * found by a diff it is a line number. That is also why the comparison is exact
- * rather than tolerant — the same arithmetic in the same order on the same
- * doubles — so anything but bit-equality is a difference in the code and not in
- * the floating point.
+ * found by a diff it is a line number.
  *
  * **What the oracle is, and what it is not.** It was once what the Python
  * `Layout` this was ported from computed, over eighty-one gallery traces, on the
  * day the port was proved against it. That claim is spent: the Python is gone,
  * the gallery it ran over is not in this repository, and 3.0 deliberately
  * changed what a column is. What is frozen now is this code's own answer over
- * the reference suite — traces whose YAML and Java are both committed, so the
- * whole chain is reproducible from a clean checkout. It catches a layout that
- * moved when nobody meant it to, which is the property that was always doing the
- * work; it can no longer tell you the port is faithful, because there is nothing
- * left to be faithful to.
+ * whatever `dev suite` last left in `build/tests/traces`. It catches a layout
+ * that moved when nobody meant it to, which is the property that was always
+ * doing the work; it can no longer tell you the port is faithful, because there
+ * is nothing left to be faithful to.
+ *
+ * **Its input is not reproducible, and that is a real limitation.** The oracle is
+ * frozen against generated traces rather than committed ones, and a run is
+ * deliberately not reproducible — real threads, a real wall clock, no simulated
+ * scheduler. Two `dev suite` runs of identical code differ in every sampled
+ * series channel and move `durationRefMs` by a tenth of a percent, which reaches
+ * this check as float noise in the fifteenth digit of a position, different
+ * payload digests, and different channel values. Measured: 22 of 22 traces
+ * differ, 75 of 75 channels in one of them, with nothing changed in between.
+ *
+ * So this check passes until the next `dev suite` and then reports a wall of
+ * differences with no cause. What it can still prove is the part that does not
+ * move: a column that changed **label**, a zone rectangle that changed shape, a
+ * node that appeared or vanished. Read the diff for those and ignore the noise —
+ * and note that `--freeze` makes it green either way, so freezing without
+ * reading is the same as deleting the check.
+ *
+ * The repair, when somebody wants one, is to freeze against **committed** traces
+ * so the input stops moving. That is a decision about what this repository
+ * carries, not a change to this file.
  *
  * A deliberate change runs `--freeze` in the same commit and reads the diff.
  */
