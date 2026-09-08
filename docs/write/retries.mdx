@@ -1,6 +1,6 @@
 ---
 title: "Retries"
-description: "Declared in the scenario, gated by the schema, and never free."
+description: "Declared in the simulation, gated by the schema, and never free."
 icon: "rotate"
 ---
 
@@ -11,7 +11,7 @@ retries:
 
 Three attempts, waiting 50 refMs before the second and 100 before the third.
 
-## The policy lives in the scenario
+## The policy lives in the simulation
 
 Retrying is an **operational** decision, so it belongs where it can be diffed and
 swept — a line in a file, not a `for` loop buried in a handler. Two designs that
@@ -63,10 +63,10 @@ emergent property of a configuration nobody read.
 - { method: Thumbnail }                      # the bare rpc name
 - { method: lab.Thumbnailer.Thumbnail }      # fully qualified, dotted
 - { method: Thumbnailer.Thumbnail }          # a suffix of the dotted name
-- { method: "*" }                            # everything the cluster serves
+- { method: "*" }                            # everything the system serves
 ```
 
-A policy naming a method **no machine in the cluster serves** is refused too — a typo
+A policy naming a method **no node in the system serves** is refused too — a typo
 in a policy would otherwise be a policy that silently does nothing.
 
 ## Every attempt is a real call
@@ -81,7 +81,7 @@ The retry interceptor sits **outside** the recording one. So each attempt gets:
 <Warning>
 A retry that reused the first attempt's accounting would make a design that retries
 look **cheaper** than one that does not, which is the opposite of the truth. If your
-cluster retries under load, the bill's wire and capacity lines go up, and they should.
+system retries under load, the bill's wire and capacity lines go up, and they should.
 </Warning>
 
 The trace says what happened:
@@ -130,7 +130,7 @@ backoffs.
 
 ## Rolling your own instead
 
-The scenario's policy is fixed per method. Use `Losim.current().sleep(refMs)` in
+The simulation's policy is fixed per method. Use `Losim.current().sleep(refMs)` in
 your own loop when the decision depends on something only the program knows — which
 peer to try next, how many are left, whether this piece has already been redone:
 
@@ -157,16 +157,17 @@ Loss high enough that retrying is visibly a decision:
 
 ```yaml retrying.yaml
 seed: 4
-job: lab.ThumbnailJob
-
-machines:
-  coordinator: { instance: m5.large, zone: eu-central-1a }
+nodes:
+  coordinator:
+    instance: m5.large
+    zone: eu-central-1a
+    runs: { losim.Job: src/lab/RenderJob.java }
   workers:
     count: 3
     prefix: w
     instance: c5.large
     zone: eu-central-1a
-    runs: [lab.Shrinker]
+    runs: { Thumbnailer: src/lab/Shrinker.java }
 
 network:
   loss: 0.08
@@ -175,7 +176,7 @@ retries:
   - { method: Thumbnail, attempts: 3, backoff: 40 refMs, multiplier: 2 }
 ```
 
-Save a second scenario beside the first with the `retries:` block deleted, then run
+Save a second simulation beside the first with the `retries:` block deleted, then run
 both — two worlds for one system is exactly what variants are for:
 
 ```java RunExperiments.java

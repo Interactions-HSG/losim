@@ -1,17 +1,17 @@
 ---
 title: "The viewer"
-description: "A run, watched: the cluster at an instant, a scrubber over the whole thing, and the money as it is spent."
+description: "A run, watched: the system at an instant, a scrubber over the whole thing, and the money as it is spent."
 icon: "eye"
 ---
 
 A trace is a few thousand JSON objects. The viewer is how you look at one — and it
-opens **a raw `losim run` trace**, with no baking step in between, because the case it
+opens **a raw `losim simulate` trace**, with no baking step in between, because the case it
 exists for is a student pointing it at their own run.
 
 ## Try it now
 
 It is already open. In a Codespace or the devcontainer the lab server started when you
-attached, on **http://localhost:8000/**, and every run under `build/runs` is in the
+attached, on **http://localhost:8000/**, and every run under `build/results` is in the
 picker — a run is listed because it is on disk, which is the only fact that cannot go
 stale.
 
@@ -47,7 +47,7 @@ panel over the film and the whole Cost page. [Which is where ->](/viewer/views)
 
 <Columns cols={2}>
   <Card title="The film" icon="film">
-    The cluster at an instant. Zones are bands, roles are columns, and a machine is
+    The system at an instant. Zones are bands, roles are columns, and a node is
     drawn **the size it is** — wider with more memory, taller with more cores.
 
     Each one says **how much is left**, not how much is used: "holding 255 MB"
@@ -67,12 +67,12 @@ panel over the film and the whole Cost page. [Which is where ->](/viewer/views)
     *Inside Film.* The shape of the system, edges weighted by **bytes** rather than call count,
     thickening as the clock runs.
   </Card>
-  <Card title="The machine panel" icon="rectangle-list">
-    Hover to sample; pin to **watch**. That is how you see a machine fill up rather
+  <Card title="The node panel" icon="rectangle-list">
+    Hover to sample; pin to **watch**. That is how you see a node fill up rather
     than discover that it did.
   </Card>
   <Card title="The ledger" icon="receipt">
-    *The Cost page, and a panel over the film.* Four buckets, accruing **while the film plays** — and hovering a machine shows
+    *The Cost page, and a panel over the film.* Four buckets, accruing **while the film plays** — and hovering a node shows
     its share of every one of them.
   </Card>
 </Columns>
@@ -82,7 +82,7 @@ panel over the film and the whole Cost page. [Which is where ->](/viewer/views)
 ## The clock is in reference milliseconds
 
 <Note>
-The scrubber reads the clock **the scenario was written in**, not the compressed one
+The scrubber reads the clock **the simulation was written in**, not the compressed one
 the host actually ran at — whatever `k_time` happened to be. That is the only reading
 a student can carry back to the YAML they wrote.
 </Note>
@@ -105,7 +105,7 @@ distortion:
 | | |
 |---|---|
 | **monotone** | trace time never goes backwards, so nothing is reordered and nothing overlaps that did not overlap |
-| **read at the true instant** | every number on screen is taken from the trace at the trace time the playhead is at — a machine's memory at 400 refMs is what it was at 400 refMs |
+| **read at the true instant** | every number on screen is taken from the trace at the trace time the playhead is at — a node's memory at 400 refMs is what it was at 400 refMs |
 | **the scrubber is still refMs** | the axis is unchanged; only the speed along it varies |
 
 **So the film is longer than the run, often much longer** — a five-second run is
@@ -151,8 +151,8 @@ a plain linear axis for exactly that reason. It is deliberately not paced.
 
 ## Status
 
-The console has a rail of pages. **Runs** is the gallery you land on, **Scenarios**
-lists every scenario in the lab, writes a new one from the palette or edits one
+The console has a rail of pages. **Runs** is the gallery you land on, **Simulations**
+lists every simulation in the project, writes a new one from the palette or edits one
 that already exists, and runs it — pressing ▶ moves you straight to Runs, where
 the trace lands when it is ready. **Overview**, **Film**, **Usage** and **Cost**
 all read a single trace, and all four share one clock, so dragging the bar moves
@@ -200,7 +200,7 @@ at runtime, so nothing depends on the network being there.
 
 <CardGroup cols={2}>
   <Card title="Opening a trace" icon="folder-open" href="/viewer/opening-a-trace">
-    `build/runs` is the place to point a run at.
+    `build/results` is the place to point a run at.
   </Card>
   <Card title="The views" icon="table-columns" href="/viewer/views">
     The film, the scrubber, the panel, the ledger — and the keys.

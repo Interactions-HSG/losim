@@ -1,6 +1,6 @@
 ---
 title: "./losim and losim version"
-description: "The launcher a lab commits, the file it reads to find the toolchain, and how to take a newer losim."
+description: "The launcher a project commits, the file it reads to find the toolchain, and how to take a newer losim."
 icon: "terminal"
 ---
 
@@ -38,12 +38,12 @@ protoc-gen-grpc-java=/…/build/losim/bin/protoc-gen-grpc-java
 ```
 
 That file **is** what losim knows about this project. There is no `lib/` to look
-in and nothing to configure: a directory is a lab if a build here declared a
+in and nothing to configure: a directory is a project if a build here declared a
 classpath, and it is that classpath that gets compiled and run against.
 
 <Warning>
-It names absolute paths on one machine, so it is generated and never committed —
-`build/` is gitignored. Copy a working directory to another machine (which is what
+It names absolute paths on one node, so it is generated and never committed —
+`build/` is gitignored. Copy a working directory to another node (which is what
 marking a submission is) and the file arrives naming a laptop that is not there.
 losim disregards it and says so, rather than reporting the code as broken; the fix
 is to run `./losim`, which rewrites it first.
@@ -57,7 +57,7 @@ line.
 
 ## Pinning what it resolved
 
-A lab's classpath used to be jars committed to its repository. It is a resolved
+A project's classpath used to be jars committed to its repository. It is a resolved
 graph now, and locking is what puts back what that cost — that the same build
 tomorrow resolves the same bytes, and that a number a run produces does not depend
 on what a package manager felt like today.
@@ -91,17 +91,17 @@ the tag in a header. No token, no rate limit, and nothing downloaded.
 
   Change losimVersion in build.gradle.kts to 2.0.2 and run ./losim.
   Nothing else moves: the viewer and the manual are inside the jar,
-  and your scenarios, schema and Java are untouched by a version.
+  and your simulations, schema and Java are untouched by a version.
 ```
 
-Updating is that one line. Before 1.5.0 a lab carried the simulator as committed
+Updating is that one line. Before 1.5.0 a project carried the simulator as committed
 jars and `losim update` fetched and replaced them; there is nothing to replace now,
 which is why that command is gone.
 
 <Note>
 `--check` is the only thing in losim that touches the network, and only when you
-type it. A lab builds and runs against what its build already resolved, so a
-machine with no network is a machine that still works.
+type it. A project builds and runs against what its build already resolved, so a
+node with no network is a node that still works.
 </Note>
 
 ## Without a `./losim` yet

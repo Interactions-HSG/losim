@@ -1,26 +1,25 @@
 ---
-title: "Scaled mode"
+title: "A scale above 1"
 description: "Declare a size no laptop can hold, run what fits, and project the rest — with error bars."
 icon: "up-right-and-down-left-from-center"
 ---
 
 ```yaml
-mode: scaled
 scale: 5000
 ```
 
-There are exactly **two** modes and no third. Direct mode runs what it declares and
-every number on screen is what happened. Scaled mode always uses the engine — a
-scenario cannot hand-declare a shrink factor and bypass it, because that would be a
-third mode whose numbers nobody could account for.
+One key, and there is no second one saying this is a model. At `scale: 1` the run
+is the thing and every number on screen is what happened; above it the engine
+always does the work — a simulation cannot hand-declare a shrink factor and bypass
+it, because that would be a number nobody could account for.
 
 ## Running it
 
-The same command. losim notices the mode:
+The same command. losim reads the scale:
 
 ```bash
 java -Xmx3g -cp "${CP}build/losim.jar:build/losim/classes" \
-     losim.cli.Main run thumbs-scaled.yaml \
+     losim.cli.Main simulate thumbs-scaled.yaml \
      --cp build/losim/classes --out build/scaled.json
 ```
 
@@ -31,15 +30,15 @@ thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 units (x5,000)
                                               [plan fitted from 30 probe runs in 41.2s]
 ```
 
-Thirty small runs — four data sizes at six seeds each, two cluster shapes, and a
-fault column — climbed before the real run happens at all. Then:
+Thirty small runs — four data sizes at six seeds each, two system shapes, and a
+weather column — climbed before the real run happens at all. Then:
 
 ```
                                               [plan cached]
 ```
 
 <Note>
-**The plan cache** lives in `build/.losim-plans/` and is keyed on the scenario, the
+**The plan cache** lives in `build/.losim-plans/` and is keyed on the simulation, the
 code it profiles, **and the telemetry level**. Change any of those and it refits;
 change nothing and a grid of thirty runs is paid for once.
 
@@ -80,7 +79,7 @@ rm -rf build/.losim-plans      # force a refit
   </Accordion>
   <Accordion title="The variable" icon="magnifying-glass">
     `revealed.distinctItems` means your own `reveal("distinctItems", …)` was chosen
-    as the independent variable, over `units`. The is the engine finding what the
+    as the independent variable, over `units`. That is the engine finding what the
     resource is *actually* a function of. Peak memory is a function of how much you
     hold, not of how much went past.
 
@@ -122,7 +121,7 @@ The second bill is quantities times prices, and the engine will not project ever
 quantity:
 
 ```
-  capacity    the cluster, for the period            -           CHF   refused
+  capacity    the system, for the period            -           CHF   refused
       its exponent moves by 0.793 between independent seed sets of the same
       workload, which over a factor of 6 is an error bar of x4.1
 ```
@@ -130,12 +129,12 @@ quantity:
 Capacity depends on the timeline, the timeline is the noisiest thing losim
 measures, and capacity is usually the largest line. So the honest account routinely
 says: the bytes cost this much, the storage costs this much, and nobody can tell you
-what the machines cost.
+what the nodes cost.
 
 ## No feasible size
 
 ```
-thumbs-scaled.yaml  scaled mode: no feasible size
+thumbs-scaled.yaml  a scale above 1: no feasible size
   memoryMb at 8000 units is only 2.4x its own fixed overhead (0.31 against 0.13);
   below 10x the fit is describing the overhead rather than the workload
   Nothing was run and nothing is projected, which is the point:
@@ -143,9 +142,9 @@ thumbs-scaled.yaml  scaled mode: no feasible size
 ```
 
 Feasibility is checked in both directions — large enough that the variable part
-dominates the fixed overhead, small enough that the whole scaled cluster fits in the
-host's heap. [What to do about it ->](/run/when-it-refuses)
+dominates the fixed overhead, small enough that the whole scaled system fits in the
+host's heap. [What to do about it ->](/simulate/when-it-refuses)
 
-<Card title="Next: when it refuses" icon="arrow-right" href="/run/when-it-refuses">
+<Card title="Next: when it refuses" icon="arrow-right" href="/simulate/when-it-refuses">
   Every refusal, what it means, and what to change.
 </Card>

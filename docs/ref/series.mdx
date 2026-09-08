@@ -27,7 +27,7 @@ simulated times, `dtMs` apart.
 <Note>
 A change log is **silent exactly when a system is stuck**, which is exactly when you
 want to look at it. Series make the trace's size follow the run's **duration** rather
-than its busyness, so a frozen cluster produces as much evidence as a working one.
+than its busyness, so a frozen system produces as much evidence as a working one.
 
 The sampler starts at its finest — half a real millisecond — and **thins as it
 goes**: every time the trace fills up, half the samples are dropped and the interval
@@ -35,22 +35,22 @@ doubles. So a run of any length yields a bounded number of ticks, without anyone
 having declared in advance how long the run would be.
 </Note>
 
-The sampler runs on **its own thread**, not one of the machines' pool threads,
+The sampler runs on **its own thread**, not one of the nodes' pool threads,
 deliberately: what it costs must not land on the counters it is reading.
 
 ## The metrics
 
 | metric | |
 |---|---|
-| `allocMb` | cumulative allocation by this machine's threads, losim's own subtracted |
-| `retainMb` | what the machine is holding now — the retained-heap walk |
+| `allocMb` | cumulative allocation by this node's threads, losim's own subtracted |
+| `retainMb` | what the node is holding now — the retained-heap walk |
 | `memCapMb` | its memory cap |
 | `memPct` | `retainMb / memCapMb x 100` |
 | `diskMb` | bytes declared through `wroteDisk`, cumulative |
 | `diskPct` | against the disk cap |
 | `inflight` | handlers **using** a core |
 | `queued` | handlers **waiting** for one |
-| `vcpu` | the machine's core count |
+| `vcpu` | the node's core count |
 | `busyPct` | `inflight / vcpu x 100`, capped at 100 |
 | `alive` | 1 or 0 |
 | `frozen` | 1 or 0 |
@@ -59,13 +59,13 @@ deliberately: what it costs must not land on the counters it is reading.
 
 <Warning>
 `retainMb` **steps rather than glides**. A heap walk costs about 0.06 µs an object,
-so a busy machine is walked every eighth tick rather than every tick. The is the
+so a busy node is walked every eighth tick rather than every tick. That is the
 cadence, not your program.
 </Warning>
 
 ## Three encodings
 
-Most channels barely move — a machine is alive for the whole run, idle for most of
+Most channels barely move — a node is alive for the whole run, idle for most of
 it, and its cap never changes at all. So each channel is stored in whichever of three
 forms is smallest:
 
@@ -96,7 +96,7 @@ Samples are quantised before encoding — a `…Pct` to one decimal place, a `�
 two. Without that a flat stretch is not flat: it jitters in the sixth decimal, no run
 ever forms, and the encoding saves nothing.
 
-The is also why the `machines` channel exists separately. Fitting a law against
+That is also why the `nodes` channel exists separately. Fitting a law against
 numbers rounded to a hundredth of a megabyte would fit the rounding.
 </Note>
 

@@ -1,38 +1,35 @@
 ---
 title: "Make a run worth looking at"
-description: "Six things your job can do that visibly change the picture — each one connected to something on the screen."
+description: "Six things your system can do that visibly change the picture — each one connected to something on the screen."
 icon: "wand-magic-sparkles"
 ---
 
-The viewer can only draw what the trace contains. All six are things you were going to
-want anyway, and each one has a specific consequence you can point at.
+The viewer can only draw what the trace contains. All of these are things you were
+going to want anyway, and each one has a specific consequence you can point at.
 
 <Steps>
-  <Step title="Name your phases — they become the chapters on the scrubber">
+  <Step title="Make each stage an rpc — they become the shape of the picture">
     ```java
-    try (var p = cluster.phase("thumbnails")) {
-        …
-        p.note("batches", 40);
-    }
+    var stub = ThumbnailerGrpc.newFutureStub(here.channelTo(worker));
     ```
 
-    Literally. Every `cluster.phase("…")` is a labelled chapter on the bar, and
-    *"which stage was this?"* is the question a viewer asks before any other.
+    Every call is a labelled span, drawn on the node that served it and hanging
+    beneath the call that made it. *"Which stage was this?"* is the question a viewer
+    asks before any other, and the answer is which rpc was in flight.
 
-    A run with no phases is one undifferentiated bar and you count pixels. A run with
-    three is a story you can seek around — and in the
-    [Spans view](/viewer/views#spans) they are the top of the tree that everything
-    else hangs beneath.
+    A `Run` that does everything itself is one undifferentiated root span and you
+    count pixels. A `Run` that hands work to three services is a story you can seek
+    around — and in the [Spans view](/viewer/views#spans) that is the tree.
   </Step>
 
-  <Step title="Reveal real numbers — they fill the machine panel">
+  <Step title="Reveal real numbers — they fill the node panel">
     ```java
     Losim.current().reveal("frames", request.getFramesCount());
     Losim.current().reveal("jpegKb", bytes / 1024.0);
     ```
 
-    This is what puts **real numbers on a machine** instead of "it was busy". Pin the
-    machine and watch them move — pinning docks the panel beside the film, so the
+    This is what puts **real numbers on a node** instead of "it was busy". Pin the
+    node and watch them move — pinning docks the panel beside the film, so the
     picture stays visible while you read.
 
     Use the primitive overloads — the `Object` one boxes at the call site, and at a
@@ -41,17 +38,18 @@ want anyway, and each one has a specific consequence you can point at.
 
   <Step title="Declare what your handlers cost — or the film has no duration">
     ```yaml
-    takes:
-      Shrinker:
-        Thumbnail: { refMs: 3, refNsPerUnit: 240000 }
+    simulatedDuration:
+      src/lab/Shrinker.java:
+        Thumbnail: { fixed: 3 refMs, perUnit: 240000 refNs }
     ```
 
     Without it every handler is instant, every message crosses in a single frame, and
     there is no queueing, no contention and no critical path to watch. An unpriced
-    rpc takes no time, deliberately — so an unpriced cluster is a blur.
+    rpc takes no time, deliberately — so an unpriced system is a blur.
 
-    It goes in the **scenario**, under the class `runs:` names. If you have seen a
-    `@Takes` annotation in older notes, that is not what compiles any more.
+    It goes in the **simulation**, under the same path `runs:` names. If you have
+    seen a `@Takes` annotation or a `takes:` block in older notes, neither is what
+    loads any more.
   </Step>
 
   <Step title="Declare how many units each call processed">
@@ -76,7 +74,7 @@ want anyway, and each one has a specific consequence you can point at.
 
   <Step title="Put the trace where the viewer looks">
     ```bash
-    --out build/runs/mine.json
+    --out build/results/mine.json
     ```
 
     A run is priced as part of making it, so the Ledger has money in it straight away.
@@ -88,22 +86,23 @@ want anyway, and each one has a specific consequence you can point at.
 ## And two that change the picture more than anything else
 
 <Columns cols={2}>
-  <Card title="Wrap local work in compute" icon="microchip">
+  <Card title="Do the reading in Load" icon="inbox">
     ```java
-    cluster.compute("read the album", () -> …);
+    @Override public void load(Input in, StreamObserver<Workload> out) { … }
     ```
-    Without it, the coordinator sits **idle on screen** during the most expensive
-    thing it does all run. No span covers it and nothing shows it busy — so the
-    picture says the cluster was waiting when it was working.
+    `Load` runs off the clock, so building the workload costs nobody anything and
+    appears nowhere. Do it in `Run` instead and the coordinator's root span opens
+    with a long stretch of one node working alone — an accurate picture of a design
+    that is spending its run reading a file.
   </Card>
   <Card title="Dispatch asynchronously" icon="arrows-split-up-and-left">
     ```java
     ThumbnailerGrpc.newFutureStub(channel)
     ```
-    With a blocking stub in the dispatch loop, exactly one machine is ever lit at a
+    With a blocking stub in the dispatch loop, exactly one node is ever lit at a
     time and the rest sit idle for the whole run. It is the single most obvious thing
-    the film shows you, and the single most common reason a first cluster turns out to
-    be one machine with extra steps.
+    the film shows you, and the single most common reason a first system turns out to
+    be one node with extra steps.
   </Card>
 </Columns>
 
@@ -122,14 +121,14 @@ going to *watch*.
 
 <Note>
 A real system would never put arguments and results in its telemetry. losim does
-deliberately: the point is to watch a computation happen, and machines exchanging
+deliberately: the point is to watch a computation happen, and nodes exchanging
 opaque byte counts teach nothing.
 </Note>
 
-## Give the cluster something to look at
+## Give the system something to look at
 
-A last one that is about the scenario rather than the code. A cluster of four identical
-machines in one zone draws as four identical boxes.
+A last one that is about the simulation rather than the code. A system of four
+identical nodes in one zone draws as four identical boxes.
 
 ```yaml
 workers:
@@ -137,13 +136,14 @@ workers:
   prefix: w
   instance: c5.large
   zone: [eu-central-1a, eu-central-1b]
-  runs: [lab.Shrinker]
+  runs: { Thumbnailer: src/lab/Shrinker.java }
   overrides:
     w3: { instance: a1.medium }
-
-faults:
-  - { at: 900 refMs, kill: w1 }
+    w1:
+      failures:
+        - { kill: true, at: 900 refMs }
 ```
 
-Two zones become two bands. A `a1.medium` among three `c5.large`s is visibly a smaller
-box. And the kill is a red marker on the bar you can jump straight to with `]`.
+Two zones become two bands. An `a1.medium` among three `c5.large`s is visibly a
+smaller box. And the kill is a red marker on the bar you can jump straight to with
+`]`.

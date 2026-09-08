@@ -21,9 +21,9 @@ Open the lab. The development servers start with it.
 
   <Step title="Run a system">
     Press the arrow beside a system. That reads its schema, compiles its Java, runs
-    it in the world its scenario describes, and prices what happened.
+    it in the world its simulation describes, and prices what happened.
 
-    A system with more than one scenario lists them all. `main.yaml` is the ordinary
+    A system with more than one simulation lists them all. `main.yaml` is the ordinary
     world, and a variant beside it is a second question.
   </Step>
 
@@ -43,14 +43,14 @@ Open the lab. The development servers start with it.
 
     `DisplayDocs.java` beside it does the same for the manual.
 
-    [More ->](/first/run-it)
+    [More ->](/first/simulate-it)
   </Step>
 
   <Step title="Watch it">
     When the run finishes it appears in the picker, and the viewer shows the
-    machines, the messages between them, and the money accruing while it goes.
+    nodes, the messages between them, and the money accruing while it goes.
 
-    A run is in the picker because it is on disk under `build/runs`.
+    A run is in the picker because it is on disk under `build/results`.
   </Step>
 </Steps>
 
@@ -76,7 +76,7 @@ way `gradlew` does. It runs the build and then the simulator, so there is no
 separate build step and no classpath to get right:
 
 ```bash
-./losim run thumbs.yaml
+./losim simulate thumbs.yaml
 ```
 
 In losim's own repository the same launcher is `bin/losim`, because the source
@@ -85,11 +85,11 @@ lives in `losim/` and a file cannot be a directory. Some pages here write
 </Note>
 
 ```bash
-losim run thumbs.yaml --cp build/losim/classes --out build/runs/thumbs.json
+losim simulate thumbs.yaml --cp build/losim/classes --out build/results/thumbs.json
 ```
 
 At a terminal this opens the viewer on what it just ran and keeps it open. It
-serves the trace's own directory, so several scenarios written into one directory
+serves the trace's own directory, so several simulations written into one directory
 are all in the picker together.
 
 <Tip>
@@ -97,7 +97,7 @@ are all in the picker together.
 open anything either, so a scripted sweep stays a scripted sweep.
 
 `--cp` is where your compiled classes are, meaning the job and the services the
-scenario names. Point it at a directory, not a jar, because the trust verifier reads
+simulation names. Point it at a directory, not a jar, because the trust verifier reads
 class files off disk.
 </Tip>
 
@@ -107,7 +107,7 @@ A run reports something like this:
 
 ```text
 thumbs.yaml  seed 7  completed in 3332 refMs
-  874 events, 292 spans, 75 series -> build/runs/thumbs.json
+  874 events, 292 spans, 75 series -> build/results/thumbs.json
 ```
 
 Three things are worth understanding straight away:
@@ -118,24 +118,24 @@ Three things are worth understanding straight away:
 | **events / spans / series** | the three telemetry channels. Events are moments, spans are intervals that carry a parent, series are dense numbers on a fixed cadence. |
 | the trace path | the file that matters. Everything downstream reads it. |
 
-The exit code matters only if you are scripting `losim run`; the button reads it
+The exit code matters only if you are scripting `losim simulate`; the button reads it
 for you and says which step failed:
 
 | code | meaning |
 |---|---|
-| `0` | the job completed |
-| `1` | the job did not complete — it threw, or outstayed its welcome |
-| `2` | the scenario is wrong: an unknown key, an unknown instance type, a duration with no unit. Nothing ran. |
+| `0` | `Job.Run` completed |
+| `1` | it did not — it threw, or outstayed its welcome |
+| `2` | the simulation is wrong: an unknown key, an unknown instance type, a duration with no unit. Nothing ran. |
 | `3` | something went wrong inside losim |
 
 ## Next steps
 
 <CardGroup cols={2}>
   <Card title="The mental model" icon="brain" href="/start/mental-model">
-    Reference time, `k_time`, the cluster, the trace. The pieces the rest of the
+    Reference time, `k_time`, the system, the trace. The pieces the rest of the
     manual assumes.
   </Card>
   <Card title="Build a system from scratch" icon="hammer" href="/first/the-plan">
-    A worked example: schema, service, job, scenario, trace, bill.
+    A worked example: schema, service, job, simulation, trace, bill.
   </Card>
 </CardGroup>

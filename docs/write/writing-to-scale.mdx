@@ -4,45 +4,47 @@ description: "Four things a system has to do before the engine can project it �
 icon: "up-right-and-down-left-from-center"
 ---
 
-Scaled mode declares a size no laptop can hold, shrinks the workload **and** the
-machines by the same factor, runs what fits, and projects full-scale numbers from
+Above `scale: 1` a simulation declares a size no laptop can hold, shrinks the workload **and** the
+nodes by the same factor, runs what fits, and projects full-scale numbers from
 what it actually observed.
 
 That only works if your system cooperates. Four things.
 
-## 1. Implement `Scalable`, so the size is the scenario's to say
+## 1. Build the workload from `Input.count`, in `Load`
 
 ```java
-public final class Slideshow implements Scalable {
-
-    @Override public Input.Shape shape() {
-        return Input.Shape.counting("frames", "frame").with("frameKb");
-    }
-
-    @Override public void run(Cluster cluster, Input at) {
-        List<Frame> album = cluster.compute("read the album",
-                () -> Album.of(at.count("frames"), (int) at.value("frameKb"), cluster.seed()));
+@Override public void load(Input in, StreamObserver<Workload> out) {
+    Album album = Albums.of(in.getCount(), Losim.current().seed());
+    out.onNext(Workload.newBuilder()
+            .setCount(album.getFrameCount())
+            .setType(Album.getDescriptor().getFullName())
+            .setPayload(album.toByteString())
+            .build());
+    out.onCompleted();
+}
 ```
 
 ```yaml
 input:
-  frames:  40000000
-  frameKb: 512
+  unit:  frame
+  count: 40000000
 ```
 
-Both numbers are in the file, so a sweep can vary either and two designs can be
-compared at one size. See [`Scalable`](/ref/api-scalable) and
-[`input:`](/ref/input).
+The number is in the file, so a sweep can vary it and two designs can be compared at
+one size. `Input.count` arrives already shrunk to the rung the engine is measuring.
+See [`losim.Job`](/ref/losim-proto) and [`input:`](/ref/input).
 
 <Warning>
-A plain [`Job`](/ref/api-job) above `scale: 1` is **refused**, with the line `job:`
-is on. It keeps its size in its own Java, so the engine has nothing to vary: it
-would climb the probe ladder, see nothing move, and find that no resource is a
-function of anything.
+**A `Load` that ignores `Input.count` breaks the whole model.** The engine has
+nothing to vary: it climbs the probe ladder, sees nothing move, and finds that no
+resource is a function of anything.
 
 The same goes for the seed. A workload that draws from a constant of its own is a
-workload whose every run is the same afternoon — so the engine's twenty probe runs
-measure one thing twenty times, and the error bar it computes is meaningless.
+workload whose every run is the same afternoon — so the engine's thirty probe runs
+measure one thing thirty times, and the error bar it computes is meaningless.
+
+`Run` cannot help you here even if you wanted it to: it receives a `Workload` and
+never sees `Input` at all.
 </Warning>
 
 ## 2. Declare how much each call processed
@@ -51,8 +53,8 @@ measure one thing twenty times, and the error bar it computes is meaningless.
 Losim.current().units(request.getFramesCount());
 ```
 
-Without it, a `refNsPerUnit:` charges nothing and the engine has no
-per-call independent variable.
+Without it, a `perUnit:` charges nothing and the engine has no per-call independent
+variable.
 
 ## 3. Reveal what your resources are *actually* functions of
 
@@ -63,7 +65,7 @@ Losim.current().reveal("distinctItems", index.size());
 Losim.current().reveal("payloadKb", bytes / 1024.0);
 ```
 
-Peak memory on a machine that accumulates is usually **not** a function of how many
+Peak memory on a node that accumulates is usually **not** a function of how many
 units went past. It is a function of how many *distinct* things it had to hold ;
 and that grows at a different rate. Fit against the wrong variable and you get an
 exponent that will not survive a change of input.
@@ -79,51 +81,54 @@ against every candidate and keeps the one that would be **reproduced**, not the 
 with the best R². [How the laws are chosen ->](/engine/laws)
 </Note>
 
-## 4. Let the cluster vary independently of the data
+## 4. Let the system vary independently of the data
 
-The probe grid varies data size and cluster size on separate axes, and regenerates
-every pool that has more than one machine at the size it wants. That works as long
-as your job asks the cluster how big it is:
+The probe grid varies data size and system size on separate axes, and regenerates
+every pool that has more than one node at the size it wants. That works as long
+as your job asks the system how big it is:
 
 ```java
-var workers = cluster.serving("Thumbnailer");    // however many there are
+var workers = here.peersServing("Thumbnailer");    // however many there are
 ```
 
 A job with `for (int i = 0; i < 4; i++)` hard-coded in it cannot be run at two
-workers or at eight, so the cluster axis collapses — and a resource that grows with
-the cluster becomes indistinguishable from one that grows with the data. That is the
+workers or at eight, so the system axis collapses — and a resource that grows with
+the system becomes indistinguishable from one that grows with the data. That is the
 failure mode that makes every projection plausible and wrong, because nothing looks
 broken.
 
 <Tip>
-Singleton machines — the coordinator — are left alone when the cluster is resized.
+Singleton nodes — the coordinator — are left alone when the system is resized.
 Only pools with `count:` are regenerated, so put your workers in a pool.
 </Tip>
 
-## A scaled scenario, in full
+## A scaled simulation, in full
 
-```yaml thumbs-scaled.yaml
-mode: scaled
+```yaml simulations/thumbs-scaled.yaml
 seed: 5
-job: lab.ThumbnailJob
-
 scale: 5000
 
-machines:
+nodes:
   coordinator:
     instance: m5.2xlarge
     zone: eu-central-1a
+    runs: { losim.Job: src/lab/RenderJob.java }
   workers:
     count: 4
     prefix: w
     instance: r5.large         # memory-shaped, because holding is what fills up
     zone: [eu-central-1a, eu-central-1b]
-    runs: [lab.Shrinker]
+    runs: { Thumbnailer: src/lab/Shrinker.java }
+
+input:
+  unit:  frame
+  count: 40000000
 ```
 
-Note what is **not** there: no caps, and no shrink factor. The engine solves for the
-caps per machine and per resource, and a hand-declared factor would be a third mode
-whose numbers nobody could account for.
+Note what is **not** there: no caps, no shrink factor, and no key saying this is a
+model. The engine solves for the caps per node and per resource; `scale:` above 1 is
+the whole of the declaration; and a hand-declared factor would be a number nobody
+could account for.
 
 ## The output
 
@@ -146,7 +151,7 @@ thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 units (x5,000)
 Two resources projected with error bars, two refused with reasons. **That is a
 correct output, not a partial one.** A projection carries its confidence or it is
 absent; a field filled with a plausible number is indistinguishable from a good one
-until the cluster bill arrives.
+until the system bill arrives.
 
 ## The habits that make a design projectable
 
@@ -171,25 +176,26 @@ until the cluster bill arrives.
     0.13); below 10x the fit is describing the overhead rather than the workload
     ```
 
-    A 64 MB index that every machine holds regardless of the workload will do this.
+    A 64 MB index that every node holds regardless of the workload will do this.
     Either give the probe ladder bigger rungs, or accept that this resource is
     dominated by something the workload does not move.
   </Accordion>
-  <Accordion title="Declare faults if you want the projection to survive them" icon="cloud-bolt">
-    A killed machine's work is redone elsewhere, so a survivor absorbs its share —
+  <Accordion title="Declare failures if you want the projection to survive them" icon="cloud-bolt">
+    A killed node's work is redone elsewhere, so a survivor absorbs its share —
     measured, that roughly doubles peak memory. A model fitted only on clean runs
     under-predicts by that much, and it under-predicts **optimistically**.
 
-    The grid runs a fault column when the scenario declares any weather, and folds
-    the result in as an amplification term. A scenario with no faults gets a note
-    saying the projection describes a cluster where nothing goes wrong.
+    The grid runs a weathered column when any node declares `failures:`, and folds
+    the result in as an amplification term. A simulation where nothing goes wrong
+    gets a note saying so, because the projection then describes a system where
+    nothing goes wrong.
   </Accordion>
   <Accordion title="Do not expect a timeline" icon="clock">
     The makespan is the noisiest thing losim measures, and on short handlers its
     exponent moves more between seed sets than the effect being measured. It is
     routinely refused — and because capacity is the largest line on the bill and
     depends on the timeline, the projected bill routinely says nobody can tell you
-    what the machines cost.
+    what the nodes cost.
 
     That is the useful answer. It says where the uncertainty in the cost of a
     design sits.
@@ -197,7 +203,7 @@ until the cluster bill arrives.
 </AccordionGroup>
 
 <CardGroup cols={2}>
-  <Card title="Running scaled mode" icon="play" href="/run/scaled-mode">
+  <Card title="Simulating above scale 1" icon="play" href="/simulate/scaled">
     The commands, the plan cache, and reading the output.
   </Card>
   <Card title="Fitting the law" icon="gears" href="/engine/laws">

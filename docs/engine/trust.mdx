@@ -19,7 +19,7 @@ rather than refuses. The run still happens, and what carries a caveat says so be
 itself:
 
 ```text
-  trust: 4 machines report figures that do not mean what they say
+  trust: 4 nodes report figures that do not mean what they say
     w0, w1, w2
       each reads the real clock, so its timeline is not projectable
         Peeker.java:19               System.nanoTime() in map
@@ -40,14 +40,14 @@ itself:
   </Card>
   <Card title="A gate teaches the wrong thing" icon="lock">
     losim measures rather than restricts what your code does. The useful output is a
-    lower bound attached to the machine and the figure it undermines, not a verdict
+    lower bound attached to the node and the figure it undermines, not a verdict
     about the code.
   </Card>
 </Columns>
 
 ## The walk's scope
 
-The verifier walks outward from the services each machine serves and the job that
+The verifier walks outward from the services each node serves and the job that
 drives them, then follows everything they reference that is also on the lab's
 classpath.
 
@@ -63,7 +63,7 @@ Nothing walked is not the same as nothing wrong. If the classpath yields nothing
 the run says so rather than reporting clean:
 
 ```text
-none of the classes this scenario names are on the classpath it was given, so
+none of the classes this simulation names are on the classpath it was given, so
 nothing was read. A jar is not walked; point --cp at the directory the lab
 compiles to.
 ```
@@ -76,7 +76,7 @@ Reporting that as clean would be the one failure mode this check cannot afford.
 <AccordionGroup>
   <Accordion title="A constant is not shared state" icon="lock" defaultOpen>
     ```java
-    static final Map<String, Long> M = new HashMap<>();   // flagged: one map for eight machines
+    static final Map<String, Long> M = new HashMap<>();   // flagged: one map for eight nodes
     static final String[] WORDS = {"a", "the"};           // not flagged: a table
     ```
 
@@ -92,9 +92,9 @@ Reporting that as clean would be the one failure mode this check cannot afford.
     A verifier reading only the instructions would call both spotless.
   </Accordion>
 
-  <Accordion title="Two machines running the same class are both flagged" icon="clone">
+  <Accordion title="Two nodes running the same class are both flagged" icon="clone">
     The same code makes the same figure wrong on each of them. The job is attributed
-    to the machine it runs on, because that is whose pool executes it and whose
+    to the node it runs on, because that is whose pool executes it and whose
     counters it lands on.
   </Accordion>
 </AccordionGroup>
@@ -112,10 +112,10 @@ meaningless:
 | `wire` | its wire bytes are a lower bound | `wireMb` |
 | `isolation` | its figures are not only its own | **all of them** |
 
-`isolation` poisons everything rather than one column. If machines reach into each
+`isolation` poisons everything rather than one column. If nodes reach into each
 other, attributing anything to either of them is arithmetic on a fiction.
 
-## In scaled mode
+## Above `scale: 1`
 
 ```text
   memoryMb              6.823                34.07 k  +-x1.10
@@ -124,7 +124,7 @@ other, attributing anything to either of them is arithmetic on a fiction.
 
 <Note>
 An error bar says how well a law was fitted. It says nothing about whether what it
-was fitted to meant anything. A machine that stepped outside the simulated world is
+was fitted to meant anything. A node that stepped outside the simulated world is
 exactly that case, so the caveat goes next to the number.
 </Note>
 
@@ -134,8 +134,8 @@ Nothing is flagged for determinism's sake. Unseeded `Random`, `Math.random` and
 identity-hash iteration order are all fine, because runs are not reproducible
 anyway.
 
-Raw threads are not banned either. Real concurrency inside a machine is a feature.
-Work outside the machine's own pool is attributed to nobody, and that is what gets
+Raw threads are not banned either. Real concurrency inside a node is a feature.
+Work outside the node's own pool is attributed to nobody, and that is what gets
 said.
 
 <Card title="Every rule, in full" icon="list" href="/ref/trust-rules">

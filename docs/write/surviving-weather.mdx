@@ -1,24 +1,26 @@
 ---
 title: "Surviving weather"
-description: "Designing for the machine that goes away, the one that gets slow, and the link that gets cut."
+description: "Designing for the node that goes away, the one that gets slow, and the link that gets cut."
 icon: "cloud-bolt"
 ---
 
-losim can stage six kinds of bad afternoon. Each breaks a different assumption, and
-the design that survives all six is not the design that survives any one of them.
+losim can stage nine kinds of bad afternoon. Each breaks a different assumption, and
+the design that survives all nine is not the design that survives any one of them.
 
 ## The assumption each one breaks
 
 <AccordionGroup>
-  <Accordion title="kill — the machine stops answering" icon="skull" defaultOpen>
+  <Accordion title="kill — the node stops answering" icon="skull" defaultOpen>
     ```yaml
-    - { at: 900 refMs, kill: w1 }
-    - { at: 900 refMs, kill: w1, restart_after: 400 refMs }
+    w1:
+      failures:
+        - { kill: true, at: 900 refMs }
+        - { kill: true, at: 900 refMs, restartAfter: 400 refMs }
     ```
 
     **Breaks:** the assumption that a peer you found is a peer you can reach.
 
-    You find out by running out of time. `cluster.serving(…)` stops listing it —
+    You find out by running out of time. `peersServing(…)` stops listing it —
     but only from the next call, so work already dispatched still costs a full
     deadline.
 
@@ -27,69 +29,78 @@ the design that survives all six is not the design that survives any one of them
     and forgets what it handed out cannot recover from this at all.
   </Accordion>
 
-  <Accordion title="freeze — the machine stops, without failing" icon="snowflake">
+  <Accordion title="freeze — the node stops, without failing" icon="snowflake">
     ```yaml
-    - { at: 900 refMs, freeze: w1, for: 300 refMs }
+    w1:
+      failures:
+        - { freeze: true, at: 900 refMs, for: 300 refMs }
     ```
 
-    **Breaks:** the assumption that a machine is either working or gone.
+    **Breaks:** the assumption that a node is either working or gone.
 
-    Calls **do not fail**; they wait, on the machine's own threads. From the
+    Calls **do not fail**; they wait, on the node's own threads. From the
     caller this is indistinguishable from slowness, which is exactly why a freeze
     is harder to diagnose than a crash. A stop-the-world pause, a swapping host, a
-    machine that is simply not scheduled.
+    node that is simply not scheduled.
 
-    **Design response:** deadlines. Without one, a frozen machine can hold your
-    whole cluster.
+    **Design response:** deadlines. Without one, a frozen node can hold your
+    whole system.
   </Accordion>
 
-  <Accordion title="degrade — the machine gets slow and stays" icon="gauge-simple-low">
+  <Accordion title="degrade — the node gets slow and stays" icon="gauge-simple-low">
     ```yaml
-    - { at: 1200 refMs, degrade: w2, factor: 4 }
+    w2:
+      failures:
+        - { degrade: 4, at: 1200 refMs }
     ```
 
-    **Breaks:** the assumption that machines of the same type are interchangeable.
+    **Breaks:** the assumption that nodes of the same type are interchangeable.
 
     Every declared cost is multiplied. A straggler rather than a casualty — and
-    this is **the failure most designs handle worst**, because nothing is wrong
-    enough to trigger anything. The job just takes four times as long as it should
-    and the cluster waits politely.
+    this is **the partial failure most designs handle worst**, because nothing is
+    wrong enough to trigger anything. The work just takes four times as long as it
+    should and the system waits politely.
 
     **Design response:** notice. Hand out work in smaller pieces, watch how long
-    each one took, and stop feeding the machine that is behind.
+    each one took, and stop feeding the node that is behind.
   </Accordion>
 
-  <Accordion title="spot_reclaim — the machine tells you first" icon="bell">
+  <Accordion title="spotReclaim — the node tells you first" icon="bell">
     ```yaml
-    - { at: 900 refMs, spot_reclaim: w0, notice: 200 refMs }
+    w0:
+      failures:
+        - { spotReclaim: true, at: 900 refMs, notice: 200 refMs }
     ```
 
     **Breaks:** nothing, if you listen. Everything, if you do not.
 
-    A `spot_notice` event fires, then the machine dies `notice` later. Spot
+    A `spot_notice` event fires, then the node dies `notice` later. Spot
     capacity is roughly 70% cheaper, so this is a genuine trade rather than a
     hazard, and the bill prices it that way.
 
     **Design response:** a design that ignores the warning deserves what happens.
     There is no API to receive the notice — it is a fact in the trace — so the
-    realistic response is *drain work off machines as they finish rather than
+    realistic response is *drain work off nodes as they finish rather than
     committing everything up front*, which is the shape that survives it.
   </Accordion>
 
   <Accordion title="partition — the link is cut, both ends alive" icon="scissors">
     ```yaml
-    - { at: 900 refMs,  partition: [coordinator, w1] }
-    - { at: 2500 refMs, heal:      [coordinator, w1] }
+    w1:
+      failures:
+        - { partition: coordinator, at: 900 refMs }
+        - { heal: coordinator, at: 2500 refMs }
     ```
 
     **Breaks:** the assumption that unreachable means dead.
 
     `w1` is alive, is still listed by discovery, and is still serving anyone who
     can reach it. Only the one link is gone. To the coordinator it looks exactly
-    like a kill.
+    like a kill. This is a **network partition**, and it is the one failure whose
+    two ends disagree about what happened.
 
-    **Design response:** this is where a design that routes through a third
-    machine wins, and where one that assumes a single view of the cluster loses.
+    **Design response:** this is where a design that routes through a third node
+    wins, and where one that assumes a single view of the system loses.
   </Accordion>
 
   <Accordion title="loss — messages that never arrive" icon="ghost">
@@ -104,28 +115,88 @@ the design that survives all six is not the design that survives any one of them
     that was done — so a retry does the work twice, which is what the
     [idempotency gate](/write/retries) is about.
   </Accordion>
+
+  <Accordion title="status — one rpc, on one node, refuses" icon="triangle-exclamation">
+    ```yaml
+    w1:
+      runs:
+        Thumbnailer:
+          file: src/lab/Shrinker.java
+          failures:
+            Thumbnail:
+              - { status: RESOURCE_EXHAUSTED, per: 20 calls }
+    ```
+
+    **Breaks:** the assumption that replicas of one service are interchangeable.
+
+    The handler is never reached; the caller gets a status it has to handle. One
+    call in twenty, on **this node only** — its four peers are fine.
+
+    **Design response:** treat a status as information about that peer, not about
+    the request. A design that retries the same node twenty times has learned
+    nothing from the first refusal.
+  </Accordion>
+
+  <Accordion title="slow — one call path drags" icon="hourglass-half">
+    ```yaml
+            Thumbnail:
+              - { slow: 6, per: 10 calls }
+    ```
+
+    **Breaks:** the assumption that a slow answer means a slow node.
+
+    This rpc's declared cost is multiplied, and nothing else on the node is. A
+    **straggler** you cannot route around by picking another service on the same
+    peer — only by picking another peer.
+
+    **Design response:** measure per call, not per node. A node average hides one
+    rpc in ten taking six times as long.
+  </Accordion>
+
+  <Accordion title="drop — the request never arrives" icon="ghost">
+    ```yaml
+            Thumbnail:
+              - { drop: true, per: 50 calls }
+    ```
+
+    **Breaks:** the assumption that loss is uniform.
+
+    Decided on the caller's side, so the callee never sees it and nothing in its
+    trace says anything happened. Indistinguishable from a timeout, aimed at one
+    rpc on one node.
+
+    **Design response:** the same as loss, plus the reason the
+    [idempotency gate](/write/retries) exists — you cannot tell a request that was
+    dropped from a response that was.
+  </Accordion>
 </AccordionGroup>
 
 ## A rate, not a moment
 
 ```yaml
-chaos:
-  - kill:    { every: 800 refMs, among: workers }
-  - freeze:  { every: 400 refMs, among: workers, for: 150 refMs }
-  - degrade: { every: 600 refMs, among: workers, factor: 3 }
+workers:
+  count: 4
+  prefix: w
+  instance: c5.large
+  runs: { Thumbnailer: src/lab/Shrinker.java }
+  failures:
+    - { kill: true,   per: 800 refMs }
+    - { freeze: true, per: 400 refMs, for: 150 refMs }
+    - { degrade: 3,   per: 600 refMs }
 ```
 
-A scenario with a fault at 900 refMs teaches the cluster to survive 900 refMs. A rate
-teaches it to survive *whenever*, which is the harder and more honest thing.
+A simulation with a failure at 900 refMs teaches the system to survive 900 refMs. A
+rate teaches it to survive *whenever*, which is the harder and more honest thing.
 
-`among:` is a pool name or one machine's name. Gaps are drawn exponentially from the
-seed, so they vary the way real bad afternoons do. Only `kill`, `freeze` and
-`degrade` can be rates — the others happen at a moment and belong under `faults:`.
+Written on a pool, that is four nodes each drawing their own afternoon — not one of
+the four failing every 800 refMs. Gaps are drawn exponentially from the seed, so they
+vary the way real bad afternoons do. Only `kill`, `freeze` and `degrade` take a
+`per:`; the other four happen once, and a rate on one is refused with the line.
 
 <Note>
 A rate has no horizon: each firing draws the next one, so it keeps happening for as
 long as the run does. There is nothing to overrun, and no way to end up with a quiet
-second half that looks exactly like a cluster behaving well.
+second half that looks exactly like a system behaving well.
 </Note>
 
 ## One seed is an anecdote
@@ -136,7 +207,7 @@ var loader = Thread.currentThread().getContextClassLoader();
 
 int ok = 0;
 for (long seed = 1; seed <= 20; seed++) {
-    var r = Run.of(base.withSeed(seed), loader, Telemetry.Level.OFF);
+    var r = Simulate.of(base.withSeed(seed), loader, Telemetry.Level.OFF);
     if (r.completed()) ok++;
     else System.out.printf("seed %2d  %s%n", seed, r.failure());
 }
@@ -145,7 +216,7 @@ System.out.printf("%d of 20 survived%n", ok);
 
 A seed that did not survive prints **why** rather than becoming an indistinguishable
 `false`, and there is no `|| true` to swallow a run that broke for some other reason.
-[The whole file ->](/run/sweeps)
+[The whole file ->](/simulate/sweeps)
 
 
 Twenty seeds turn "it survived an afternoon" into "it survives afternoons", and the
@@ -160,44 +231,55 @@ Not a rule, but it is what the six above keep pointing at:
     A coordinator that cannot say which piece is outstanding cannot redo it.
   </Step>
   <Step title="Put a deadline on everything">
-    It is the only thing that distinguishes a frozen machine from a slow one in
+    It is the only thing that distinguishes a frozen node from a slow one in
     finite time.
   </Step>
-  <Step title="Re-check who is there, rather than caching the cluster">
+  <Step title="Re-check who is there, rather than caching the system">
     Discovery is cheap. A stale list costs a deadline per piece.
   </Step>
-  <Step title="Prefer the machine that just answered">
-    The fastest signal about which machines are healthy is which machines
+  <Step title="Prefer the node that just answered">
+    The fastest signal about which nodes are healthy is which nodes
     responded, and you already have it.
   </Step>
 </Steps>
 
 ## See it
 
-The same cluster, twice: once clean, once with a bad afternoon.
+The same system, twice: once clean, once with a bad afternoon.
 
-```yaml weather.yaml
+```yaml simulations/weather.yaml
 seed: 7
-job: lab.ThumbnailJob
 
-machines:
-  coordinator: { instance: m5.large, zone: eu-central-1a }
+nodes:
+  coordinator:
+    instance: m5.large
+    zone: eu-central-1a
+    runs: { losim.Job: src/lab/RenderJob.java }
   workers:
     count: 4
     prefix: w
     instance: c5.large
     zone: [eu-central-1a, eu-central-1b]
-    runs: [lab.Shrinker]
+    runs: { Thumbnailer: src/lab/Shrinker.java }
+    overrides:
+      w0:
+        failures:
+          - { partition: coordinator, at: 1600 refMs }
+          - { heal: coordinator, at: 2400 refMs }
+      w1:
+        failures:
+          - { kill: true, at: 900 refMs }
+      w2:
+        failures:
+          - { degrade: 4, at: 1200 refMs }
 
-faults:
-  - { at: 900 refMs,  kill: w1 }
-  - { at: 1200 refMs, degrade: w2, factor: 4 }
-  - { at: 1600 refMs, partition: [coordinator, w0] }
-  - { at: 2400 refMs, heal:      [coordinator, w0] }
+input:
+  unit:  frame
+  count: 4000
 ```
 
-Save a second copy beside it as `calm.yaml` with the `faults:` block removed — the
-same cluster, the same work, no weather. Then run both:
+Save a second copy beside it as `calm.yaml` with every `failures:` block removed —
+the same system, the same work, no weather. Then simulate both:
 
 ```java RunExperiments.java
 Experiments.here()
@@ -213,8 +295,8 @@ run on [one clock](/viewer/views#two-runs-on-one-clock). `w1` goes red and stays
 the partition leaves `w0` alive and serving while the coordinator cannot reach it.
 Every one of them is a marker on the bar.
 
-Watching them together is what makes the second one visible: a machine that is merely
-slow looks fine on its own, and looks obviously wrong beside the same machine on a
+Watching them together is what makes the second one visible: a node that is merely
+slow looks fine on its own, and looks obviously wrong beside the same node on a
 calm run at the same instant.
 
 

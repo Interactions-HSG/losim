@@ -1,13 +1,13 @@
 ---
-title: "machines"
-description: "The run's closing machine measurements."
+title: "nodes"
+description: "The run's closing per-node measurements."
 icon: "server"
 ---
 
 ```json
-"machines": [
+"nodes": [
   { "name": "w0", "instance": "c5.large", "zone": "eu-central-1a", "vcpu": 2,
-    "serves": ["Thumbnailer"],
+    "serves": ["render.Thumbnailer"],
     "memoryMb": 41.2, "allocMb": 388.4, "diskMb": 0.0,
     "wireMb": 6.31, "inMb": 24.9, "crossZoneMb": 3.4,
     "egressMb": { "eu-central-1": 1.1, "ap-northeast-1": 2.3 },
@@ -20,14 +20,14 @@ icon: "server"
 ## Its own channel
 
 <Note>
-These are **not moments** — they are the run's closing balance. Anything that reasons
-about quantities rather than about what happened (the bill, a comparison against
-ground truth, a machine's row in the viewer) needs them without reconstructing a peak
-from a sampled series that was quantised for scrubbing and may have missed the last
-walk entirely.
+These are **not moments** — they are the run's closing balance. Anything that
+reasons about quantities rather than about what happened (the bill, a comparison
+against ground truth, a node's row in the viewer) needs them without reconstructing
+a peak from a sampled series that was quantised for scrubbing and may have missed
+the last walk entirely.
 
-A final heap walk happens after the job ends, so a machine that filled up in the last
-tick is not reported at whatever it held eight ticks ago.
+A final heap walk happens after `Job.Run` returns, so a node that filled up in the
+last tick is not reported at whatever it held eight ticks ago.
 </Note>
 
 ## Identity
@@ -38,7 +38,7 @@ tick is not reported at whatever it held eight ticks ago.
 | `instance` | its instance type — recorded here rather than read back off a `boot` event, so a bill does not depend on a telemetry level being on |
 | `zone` | |
 | `vcpu` | |
-| `serves` | the **service** names it offered, bare |
+| `serves` | the **service** names it offered, as `runs:` keyed them |
 | `memCapMb` | the cap it was under on this run |
 | `alive` | whether it survived to the end |
 
@@ -51,7 +51,7 @@ tick is not reported at whatever it held eight ticks ago.
 | `diskMb` | bytes declared through `wroteDisk` |
 | `wireMb` | bytes out |
 | `inMb` | bytes in |
-| `crossZoneMb` | bytes this machine's calls sent across a zone boundary **in both directions** — request out and answer back — which is the traffic anyone pays for |
+| `crossZoneMb` | bytes this node's calls sent across a zone boundary **in both directions** — request out and answer back — which is the traffic anyone pays for |
 | `egressMb` | the same bytes again, split by the **region** they went to. Absent when nothing left the zone |
 | `calls` | handlers it completed |
 
@@ -65,7 +65,7 @@ retention decides an out-of-memory.
 
 | field | |
 |---|---|
-| `losimMb` | bytes losim itself allocated on this machine's threads, and took back off `allocMb` |
+| `losimMb` | bytes losim itself allocated on this node's threads, and took back off `allocMb` |
 | `losimStops` | how many times it stopped to meter |
 
 Published rather than kept private, because *"`allocMb` is the program's own"* is a
@@ -85,8 +85,8 @@ it moved as zero.
 ```python
 import json
 t = json.load(open("build/thumbs.json"))
-print(f'{"machine":<12} {"calls":>6} {"held MB":>9} {"cap MB":>9} {"out MB":>9}  alive')
-for m in sorted(t["machines"], key=lambda m: -m["memoryMb"]):
+print(f'{"node":<12} {"calls":>6} {"held MB":>9} {"cap MB":>9} {"out MB":>9}  alive')
+for m in sorted(t["nodes"], key=lambda m: -m["memoryMb"]):
     print(f'{m["name"]:<12} {m["calls"]:>6} {m["memoryMb"]:>9.2f} '
           f'{m["memCapMb"]:>9.0f} {m["wireMb"]:>9.2f}  {m["alive"]}')
 ```

@@ -18,7 +18,7 @@ java -cp build/losim.jar losim.cli.Main bill <trace.json> [--prices <file>] [--j
 
   ```json
   {
-    "trace": "build/runs/mine.json",
+    "trace": "build/results/mine.json",
     "rates": {
       "currency": "CHF", "spotDiscount": 0.7, "egressPerGb": 0.01,
       "storagePerGbMonth": 0.1, "billingMinimumSeconds": 60,
@@ -57,7 +57,7 @@ different price list costs nothing and needs no re-run.
 
 | bucket | what it is a model of |
 |---|---|
-| `capacity` | the cluster, for the period. An idle machine costs exactly as much as a busy one. |
+| `capacity` | the system, for the period. An idle node costs exactly as much as a busy one. |
 | `consumption` | what the work burned: egress at the distance it went, and storage |
 | `incidents` | zero until something breaks, then large |
 | `build` | engineering time to construct and carry this design, per distinct service |
@@ -78,21 +78,21 @@ So you can map a row of output back to the thing that caused it.
 | bucket | line | unit |
 |---|---|---|
 | `build` | `services carried` | services |
-| `capacity` | `<machine> (<instance>)`, or `(<instance>, spot)` | machine-hours |
-| `capacity` | `the cluster, for the period` — **projected side only** | machine-hours |
+| `capacity` | `<node> (<instance>)`, or `(<instance>, spot)` | node-hours |
+| `capacity` | `the system, for the period` — **projected side only** | node-hours |
 | `consumption` | `cross-zone egress` | GB |
 | `consumption` | `egress to another region` | GB |
 | `consumption` | `egress across an ocean` | GB |
 | `consumption` | `spilled data on disk` | GB-month |
 | `incidents` | `calls that did not answer in time` | reruns |
-| `incidents` | `machines lost` | failures |
-| `incidents` | `machines that filled up` | failures |
+| `incidents` | `nodes lost` | failures |
+| `incidents` | `nodes that filled up` | failures |
 | `incidents` | `late finish` | seconds |
 
 <Note>
-**Capacity reads differently on the two sides.** What happened is one line per machine,
-named, with its instance type — five machines you can point at. What it is a model of
-is a single cluster line, because at full scale the number of machines is itself
+**Capacity reads differently on the two sides.** What happened is one line per node,
+named, with its instance type — five nodes you can point at. What it is a model of
+is a single system line, because at full scale the number of nodes is itself
 something the engine had to project.
 </Note>
 
@@ -101,10 +101,10 @@ something the engine had to project.
 
 <AccordionGroup>
   <Accordion title="capacity">
-    One line per machine: `durationRefMs` as hours, times the instance's on-demand
+    One line per node: `durationRefMs` as hours, times the instance's on-demand
     rate from the catalogue, with a billing minimum (60s by default).
 
-    A machine that received a `spot_notice` is billed at the spot rate — 70% off by
+    A node that received a `spot_notice` is billed at the spot rate — 70% off by
     default — and its line says `(c5.large, spot)`.
 
     Priced in **reference** time, deliberately: the run took a few seconds of your
@@ -121,30 +121,30 @@ something the engine had to project.
     | `egress to another region` | `egress_cross_region_per_gb` | another region on the same continent |
     | `egress across an ocean` | `egress_intercontinental_per_gb` | anything further |
 
-    Read off each machine's `egressMb`, which the run recorded by destination region
+    Read off each node's `egressMb`, which the run recorded by destination region
     as the calls happened — only the caller ever knows both ends of a call. A trace
     written before that existed has no split and is billed whole at the in-region
     rate, which is the old behaviour rather than a guess at a distance nobody
     recorded.
 
-    **Storage** — the worst machine's `diskMb`, in GB-months, held for the period.
+    **Storage** — the worst node's `diskMb`, in GB-months, held for the period.
   </Accordion>
   <Accordion title="incidents">
     Counted from events: `rpc_timeout` as reruns, `kill` plus `spot_notice` as
-    machines lost, `oom` plus `disk_full` as machines that filled up (priced at five
-    times a lost machine), and a per-second penalty past the service level.
+    nodes lost, `oom` plus `disk_full` as nodes that filled up (priced at five
+    times a lost node), and a per-second penalty past the service level.
 
     **Never scaled.** The lines do appear in the projected account — but at the
-    numbers observed, carried across rather than grown. Three machines lost
-    in the run is three machines lost in the model of a job six times the size.
+    numbers observed, carried across rather than grown. Three nodes lost
+    in the run is three nodes lost in the model of a job six times the size.
 
-    A machine either failed or it did not, and an incident bucket extrapolated from
+    A node either failed or it did not, and an incident bucket extrapolated from
     one afternoon would be a forecast dressed as an observation. So read the projected
     incidents as *what this run cost*, not as what the bigger job would suffer.
 
   </Accordion>
   <Accordion title="build">
-    The number of **distinct services** the cluster carries, times a monthly cost per
+    The number of **distinct services** the system carries, times a monthly cost per
     service. Carried whether or not it is ever needed — which is what makes adding a
     service a real decision.
   </Accordion>
@@ -155,8 +155,8 @@ something the engine had to project.
 ```
 what happened
   build       services carried                      1.000 services       CHF    0.2500
-  capacity    master (m5.2xlarge)                 0.01670 machine-hours  CHF    0.0077
-  capacity    w0 (r5.large)                       0.01670 machine-hours  CHF    0.0025
+  capacity    master (m5.2xlarge)                 0.01670 node-hours  CHF    0.0077
+  capacity    w0 (r5.large)                       0.01670 node-hours  CHF    0.0025
   …
   consumption spilled data on disk              0.0001000 GB-month       CHF    0.0000
   ------------------------------------------------------------------------------------
@@ -168,7 +168,7 @@ what happened
 
 what it is a model of
   build       services carried                      1.000 services       CHF    0.2500
-  capacity    the cluster, for the period                 -                CHF   refused
+  capacity    the system, for the period                 -                CHF   refused
       the ladder bends: over the lower half it grows as units^-0.20 and over the
       upper half as units^0.40, a difference of 0.60. Something behaves differently
       small than large, and no extrapolation across that means anything
@@ -183,8 +183,8 @@ what it is a model of
 
 Read the two halves against each other:
 
-- `capacity` is per machine on the left and one line on the right. What happened
-  is five machines you can name; what it is a model of is a cluster whose size is
+- `capacity` is per node on the left and one line on the right. What happened
+  is five nodes you can name; what it is a model of is a system whose size is
   itself a projection.
 - `consumption` grew — 0.0001 to 0.0004 GB-month — because storage has a law
   fitted to it.

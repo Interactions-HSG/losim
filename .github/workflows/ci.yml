@@ -118,6 +118,6 @@ jobs:
           set -e
           for trace in t6 t10; do
             echo "=== $trace ==="
-            bin/losim diff "build/parity/traces-runner/$trace.json" \
-                           "build/parity/traces-codespace/$trace.json"
+            bin/losim compare "build/parity/traces-runner/$trace.json" \
+                              "build/parity/traces-codespace/$trace.json"
           done

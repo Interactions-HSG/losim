@@ -2,9 +2,119 @@
 
 What changed between releases, for somebody deciding whether to take one.
 
-A version is what a lab resolves from Gradle, so it is a fact about a jar rather
-than about a branch. Every release is cut from a tag whose name and `./VERSION`
-are checked against each other before anything is built.
+A version is what an assignment resolves from Gradle, so it is a fact about a jar
+rather than about a branch. Every release is cut from a tag whose name and
+`./VERSION` are checked against each other before anything is built.
+
+## 3.0.0
+
+**There is nothing left that is not a service.**
+
+An assignment is now exactly two things: **YAML** for the system, and **protobuf
+plus the Java implementing it** for the code. The third surface — a driver object
+with its own API, its own lifecycle and its own way of declaring how big the input
+was — is gone.
+
+This is a hard break. Nothing is deprecated and nothing is aliased, because two
+spellings of one verb is how a vocabulary comes apart again a year later.
+
+### The thing that starts the work is a gRPC service
+
+losim ships `losim/job.proto`, and it is the whole of what losim asks of you:
+
+```proto
+service Job {
+  rpc Load (Input)    returns (Workload);   // off the clock
+  rpc Run  (Workload) returns (Result);     // the simulation
+}
+```
+
+You implement it the way you implement any service — extend the `ImplBase` protoc
+generated — and one node `runs:` it. `Load` reads the source or generates from the
+seed with the clock stopped; `Run` is what is measured, and its handler span is the
+trace's root.
+
+`Input` and `Workload` are different types on purpose. `Run` receives only the
+`Workload`, so it cannot read `input:`, cannot see the `source:`, and cannot tell a
+probe run from the full one — the property every projection rests on, now stated in
+the signature rather than asked for in the manual.
+
+**Deleted:** `losim.api.Job`, `Scalable`, `Cluster`, `Cluster.Phase`, `Input`,
+`Input.Shape`, `Input.Shape.Part`. Nine public types are two: `Losim.current()` and
+`Spec`. `losim check` refuses `implements Job` by name and says what to write.
+
+### `runs:` names a file, and the key says what it serves
+
+```yaml
+runs: { Thumbnailer: src/Shrinker.java }
+```
+
+One verb, and its value is a path rather than a class name. A path either exists or
+does not, and saying so on its own line is the difference between a typo and a
+build that ran for four minutes first. Five things are refused at load, before
+anything is built: a value that is not `.java`, a file that is not there, a file
+whose class does not match its name, a class that was not compiled, and a key that
+disagrees with what the class actually serves.
+
+`simulatedDuration:` is keyed on the same path, so there is one string per piece of
+code and no second vocabulary for naming a class.
+
+### Failures are written inside whatever they happen to
+
+`faults:` and `chaos:` are one `failures:` list, nested in the node — or, for the
+three new rpc-level kinds, in a `runs:` entry:
+
+```yaml
+w9:
+  runs:
+    Thumbnailer:
+      file: src/Shrinker.java
+      failures:
+        Thumbnail:
+          - { status: UNAVAILABLE, per: 20 calls }
+  failures:
+    - { kill: true, at: 400 refMs, restartAfter: 300 refMs }
+```
+
+A failure can no longer be aimed at a node that is not there, because there is no
+name to get wrong — `partition:` is the exception, and says so. Every entry carries
+`at:` (an instant) or `per:` (a rate) and never both.
+
+`status:`, `slow:` and `drop:` are new: one bad replica of a service, bad while its
+peers are fine, which is the partial failure every design handles worst.
+
+### The words
+
+| the thing | now | was |
+|---|---|---|
+| the YAML file | simulation | scenario |
+| executing it | `losim simulate` | `losim run` |
+| comparing two results | `losim compare` | `losim diff` |
+| one computer | node | machine |
+| where results go | `build/results/` | `build/runs/` |
+
+`losim run` and `losim diff` are refused with the new name printed, not aliased.
+
+### The trace is schema 4
+
+The `machines` channel is `nodes`; `meta.job` is `meta.entry`; `job_failed` is
+`failed`; the five span kinds are two, `rpc` and `handler`. `losim compare` reports
+a schema difference first and alone, rather than a wall of differences with one
+cause.
+
+### Also
+
+- `Losim.current()` gains `seed()` and `local()`, and `machine()` is `node()`.
+  `local()` is a map owned by the node, shared by every service on it, emptied by a
+  restart — free in time, charged in memory.
+- Top-level keys: `seed`, `scale`, `nodes`, `input`, `network`, `retries`,
+  `simulatedDuration`. Gone: `job:`, `mode:`, `tightMargin:`, `faults:`, `chaos:`,
+  `machines:`, `takes:`.
+- `input:` is a `source:`, a `unit:` and a `count:`. Omit the source and `Load`
+  generates from the seed.
+- A `simulatedDuration:` or `failures:` refusal now prints the file path as it was
+  written. It read `src/Shrinker java Thumbnail` — a path with the dots replaced by
+  spaces names no file anybody can open.
 
 ## 2.0.2
 

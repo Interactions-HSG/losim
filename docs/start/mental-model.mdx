@@ -1,69 +1,69 @@
 ---
 title: "The mental model"
-description: "Six ideas the rest of the manual assumes. Twenty minutes here saves an afternoon later."
+description: "Seven ideas the rest of the manual assumes. Twenty minutes here saves an afternoon later."
 icon: "brain"
 ---
 
 ## 1. There is one wall clock, and it is running fast
 
 Everything you declare is written in **reference milliseconds** — `refMs` — which
-is time on a *reference machine*: two vCPUs, running alone, nothing else going on.
+is time on a *reference node*: two vCPUs, running alone, nothing else going on.
 
 The run itself is compressed by a factor called **`k_time`**, which the engine
 picks — 20x ordinarily, 40x for a scaled run. At 40x, a duration of 800 refMs takes
 20 real milliseconds of your afternoon. A forty-minute job lands in tens of seconds.
 
 <Warning>
-`k_time` is the reason a bare number is refused everywhere in a scenario. `900` is
+`k_time` is the reason a bare number is refused everywhere in a simulation. `900` is
 ambiguous between the simulated world and your afternoon, and the two differ by a
-factor whoever writes the scenario never sees. Write `900 refMs` or `2 refSeconds`.
+factor whoever writes the simulation never sees. Write `900 refMs` or `2 refSeconds`.
 </Warning>
 
 Three ways time is spent, and they behave differently:
 
-| | what it is | stretches on a slow machine? | occupies a core? |
+| | what it is | stretches on a slow node? | occupies a core? |
 |---|---|---|---|
-| `takes:` in the scenario | declared **work** for an rpc | yes | yes |
+| `simulatedDuration:` in the simulation | declared **work** for an rpc | yes | yes |
 | `Losim.current().sleep(refMs)` | a declared **wait** — a backoff, a poll interval | no | no |
 | `Thread.sleep(…)` | your afternoon, untouched by `k_time` | — | — |
 
 The third one is flagged, and [that page](/write/waiting) explains why in detail.
-Waiting is not work: a machine backing off is not using a vCPU, and counting it as
+Waiting is not work: a node backing off is not using a vCPU, and counting it as
 occupancy would make every occupancy figure in the run a lie.
 
-## 2. A machine is a thread pool with a budget
+## 2. A node is a thread pool with a budget
 
-Each machine in the cluster is:
+Each node in the system is:
 
 - one in-process gRPC server,
 - one thread pool sized to its **vCPU count**,
 - a memory cap and a disk cap,
 - a zone.
 
-The pool is the whole model. Four concurrent calls into a two-vCPU machine really
+The pool is the whole model. Four concurrent calls into a two-vCPU node really
 do queue, and the wait is recorded. The pool is also the **unit of measurement**:
-every thread in it belongs to exactly one machine, which is what makes per-machine
+every thread in it belongs to exactly one node, which is what makes per-node
 allocation an exact attribution rather than an estimate.
 
 Two consequences follow directly:
 
 <Columns cols={2}>
   <Card title="Work off the pool is charged to nobody" icon="ghost">
-    A thread your handler started itself is not the machine's. Its memory and its
-    CPU are attributed to no one, so the machine reads cheaper and less busy than
+    A thread your handler started itself is not the node's. Its memory and its
+    CPU are attributed to no one, so the node reads cheaper and less busy than
     it is. losim cannot count it — so it flags it.
   </Card>
-  <Card title="A machine can only read its own limits" icon="lock">
-    `Losim.current().here()` gives you *this* machine's instance type, zone, cores
+  <Card title="A node can only read its own limits" icon="lock">
+    `Losim.current().here()` gives you *this* node's instance type, zone, cores
     and caps. There is no way to read a peer's. An orchestrator that wants to send
-    small work to small machines has to **ask** — over gRPC, like a real one.
+    small work to small nodes has to **ask** — over gRPC, like a real one.
   </Card>
 </Columns>
 
-## 3. gRPC is the only way machines talk
+## 3. gRPC is the only way nodes talk
 
 There is no second messaging path. Fire-and-forget is an `Empty`-returning method
-on an async stub, so costs, faults, telemetry and byte counts apply to it exactly
+on an async stub, so costs, failures, telemetry and byte counts apply to it exactly
 as to anything else.
 
 Peers are found by **what they serve**, never by hostname:
@@ -77,29 +77,48 @@ ThumbnailerGrpc.newBlockingStub(to).thumbnail(frame);   // ordinary generated st
 
 What comes back from `channelTo` is an ordinary `io.grpc.Channel`. The call site is
 plain gRPC. The only thing losim adds is its interceptor — which is where latency,
-byte counts, spans, faults and the retry policy live, and why a channel you built
+byte counts, spans, failures and the retry policy live, and why a channel you built
 yourself is flagged.
 
-## 4. The scenario is data, and it is checked before anything runs
+## 4. The simulation is data, and it is checked before anything runs
 
-The cluster, its weather and its bad afternoon are a YAML file. Nothing in it is
-computed; anything that needs code points at a class by name. The is what lets two
+The system, its weather and its bad afternoon are a YAML file. Nothing in it is
+computed; anything that needs code points at a `.java` file. That is what lets two
 designs be compared by comparing two files.
 
 Everything that can be wrong is refused **at load, with the line it was written
-on**: an unknown instance type, a fault aimed at a machine that is not in the
-cluster, a key that is a typo for a real one, a duration that forgot its unit, a
-retry policy the schema does not support.
+on**: an unknown instance type, a `runs:` path that is not there, a partition
+naming a node the system does not have, a key that is a typo for a real one, a
+duration that forgot its unit, a retry policy the schema does not support.
 
-## 5. The trace is the interchange format
+## 5. The work starts at an rpc
+
+losim does not construct anything of yours. It calls **`losim.Job/Run`** on the one
+node whose `runs:` says so, and everything else in the trace happened because your
+code made it happen.
+
+That service is losim's, in its own `.proto`, with two rpcs: `Load` builds the
+workload with the clock stopped, and `Run` is the simulation. `Run` receives a
+`Workload` and never sees what the simulation declared — which is the property idea 7
+rests on.
+
+```yaml
+coordinator:
+  instance: m5.large
+  runs: { losim.Job: src/lab/RenderJob.java }
+```
+
+[losim.Job ->](/ref/losim-proto)
+
+## 6. The trace is the interchange format
 
 One run, one JSON file. Five top-level channels:
 
 | channel | what it holds |
 |---|---|
-| `meta` | the scenario, the seed, the job, whether it completed, how long it took |
-| `machines` | the closing balance per machine: peak memory, disk, bytes, calls, caps |
-| `events` | sparse, rich moments — *this machine was killed* |
+| `meta` | the simulation, the seed, the entry node, the unit and count, whether it completed, how long it took |
+| `nodes` | the closing balance per node: peak memory, disk, bytes, calls, caps |
+| `events` | sparse, rich moments — *this node was killed* |
 | `spans` | intervals that carry a parent **across the RPC boundary** |
 | `series` | dense numbers on a fixed cadence — what everything held meanwhile |
 
@@ -109,10 +128,10 @@ system is stuck, and that is when you want to look at it.
 The trace is a **contract**: shapes are extended additively and never changed, so
 two runs weeks apart stay comparable. [Full format ->](/ref/trace)
 
-## 6. Two scales, and one of them may be absent
+## 7. Two scales, and one of them may be absent
 
-A scenario in `mode: scaled` declares a size no laptop can hold. losim shrinks the
-workload **and the machines** by the same factor, runs what fits, and projects
+A simulation with `scale:` above 1 declares a size no laptop can hold. losim shrinks the
+workload **and the nodes** by the same factor, runs what fits, and projects
 full-scale numbers from what it observed.
 
 The projection is not a multiplication. The engine fits a law per resource against
@@ -123,7 +142,7 @@ whichever variable that resource is really a function of, then tries to break it
 
 When either answer is bad, the projection is **absent with a reason** rather than
 filled in. A field with a plausible number in it is indistinguishable from a good
-one until the cluster bill arrives.
+one until the system bill arrives.
 
 <CardGroup cols={2}>
   <Card title="Write your first system" icon="hammer" href="/first/the-plan">

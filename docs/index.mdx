@@ -13,19 +13,22 @@ icon: "circle-nodes"
     transport, real marshalling, real allocation, real threads.
   </Card>
   <Card title="losim" icon="layer-group">
-    gRPC interceptors that slow calls or drop them, a machine model that caps
+    gRPC interceptors that slow calls or drop them, a node model that caps
     memory and disk, and a scale engine that shrinks the world and projects the
     result back.
   </Card>
 </Columns>
 
-Your program does not import a simulator type into a signature. It calls peers over
-`io.grpc.Channel` and gets back the messages your schema declared. Delete losim
-from the classpath and the code still compiles. What a call costs, what a machine
-is, and what goes wrong are declared in the scenario.
+An assignment is exactly two things: **YAML** for the system, and **protobuf plus
+the Java implementing it** for the code. There is no third surface. Your program
+calls peers over `io.grpc.Channel` and gets back the messages your schema declared;
+what a call costs, what a node is, and what goes wrong are all in the simulation.
+
+The one service losim asks you to implement is `losim.Job`, and it is a gRPC service
+like any other — losim's own schema, your `ImplBase`, one node that `runs:` it.
 
 The numbers describe the program under test. When losim reports an out-of-memory
-failure, the machine was small and the program filled it under that limit.
+failure, the node was small and the program filled it under that limit.
 
 <Note>
 **Nothing is downloaded and nothing is generated at build time.** The toolchain is
@@ -37,17 +40,17 @@ laptop, in the devcontainer, and in a Codespace.
 
 <Steps>
   <Step title="Write a schema">
-    A `.proto` with your services and messages. gRPC is the only way machines talk.
+    A `.proto` with your services and messages. gRPC is the only way nodes talk.
   </Step>
-  <Step title="Write services and a job">
-    Handlers are plain methods you can call from a plain unit test. The job is one
-    class with a `run(Cluster)` method that drives the cluster.
+  <Step title="Write services, one of them losim's">
+    Handlers are plain methods you can call from a plain unit test. The one that
+    starts the work implements `losim.Job`, a service losim ships in its own schema.
   </Step>
-  <Step title="Write a scenario">
-    A YAML file: how many machines, what they are, what they serve, where they are,
-    and what goes wrong at 400 reference milliseconds.
+  <Step title="Write a simulation">
+    A YAML file: how many nodes, what they are, which `.java` file each runs, where
+    they are, and what goes wrong at 400 reference milliseconds.
   </Step>
-  <Step title="Run it and look">
+  <Step title="Simulate it and look">
     One command produces one trace. The trace is the interchange format, and the
     bill, the viewer, and your own assertions all read it.
   </Step>
@@ -57,47 +60,47 @@ laptop, in the devcontainer, and in a Codespace.
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/start/quickstart">
-    Build, run something, and see a trace — in about ten minutes.
+    Build, simulate something, and see a trace — in about ten minutes.
   </Card>
   <Card title="The mental model" icon="brain" href="/start/mental-model">
-    Reference time, `k_time`, machines, the cluster. The pieces that explain the
+    Reference time, `k_time`, nodes, the system. The pieces that explain the
     rest of the manual.
   </Card>
   <Card title="Your first system" icon="wrench" href="/first/the-plan">
     A complete worked system, from an empty file to a bill.
   </Card>
-  <Card title="Scenario reference" icon="file-code" href="/ref/scenario">
-    Every key the scenario file accepts, and what each one refuses.
+  <Card title="Simulation reference" icon="file-code" href="/ref/simulation">
+    Every key the simulation file accepts, and what each one refuses.
   </Card>
 </CardGroup>
 
 ## More than a toy
 
 <AccordionGroup>
-  <Accordion title="Machines are really small, so running out of memory is real" icon="memory">
-    A machine's memory cap is enforced against a retained-heap walk, which measures
-    what the machine is still holding, not what it allocated. Those are different
+  <Accordion title="Nodes are really small, so running out of memory is real" icon="memory">
+    A node's memory cap is enforced against a retained-heap walk, which measures
+    what the node is still holding, not what it allocated. Those are different
     numbers, and only one of them decides an out-of-memory.
 
-    [How a machine is modelled ->](/engine/a-machine)
+    [How a node is modelled ->](/engine/a-node)
   </Accordion>
   <Accordion title="Concurrency is real, so queueing is real" icon="microchip">
-    Each machine gets one thread pool sized to its vCPU count. Four concurrent calls
-    into a two-vCPU machine queue, and the wait shows up in the trace as its own
+    Each node gets one thread pool sized to its vCPU count. Four concurrent calls
+    into a two-vCPU node queue, and the wait shows up in the trace as its own
     event.
 
-    [Concurrency inside a machine ->](/write/concurrency)
+    [Concurrency inside a node ->](/write/concurrency)
   </Accordion>
   <Accordion title="A projection carries its confidence, or it is absent" icon="chart-line">
-    In scaled mode the engine fits a law per resource and then checks whether it
+    Above `scale: 1` the engine fits a law per resource and then checks whether it
     bends. When it cannot support the result, the field is empty with a reason
     rather than filled with a plausible number.
 
-    [When the engine refuses ->](/run/when-it-refuses)
+    [When the engine refuses ->](/simulate/when-it-refuses)
   </Accordion>
   <Accordion title="Numbers that stopped meaning what they say are marked" icon="triangle-exclamation">
     Reading the real clock, writing a real file, opening your own channel, and
-    sharing a static field between machines do not throw. Each produces a run full
+    sharing a static field between nodes do not throw. Each produces a run full
     of plausible figures, every one of them wrong in a direction nobody can see.
 
     [Trust markers ->](/engine/trust)

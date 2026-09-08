@@ -509,16 +509,23 @@ public class Phase2 {
         // The one refusal the loader cannot make: it loads no class, so it does not
         // know what a service serves. Machines asks the bound server, at run start,
         // before a single call is made.
-        boolean caught = false;
+        boolean caught = false, readable = false;
         try {
             Simulate.of(Loader.of(Yaml.parse("simulation.yaml",
                     badRpc("          Hitt:\n            - { drop: true, per: 3 calls }\n"))));
         } catch (Exception e) {
-            caught = e.getMessage() != null && e.getMessage().contains("serves no rpc of that name");
-            System.out.println("    " + e.getMessage());
+            String said = e.getMessage() == null ? "" : e.getMessage();
+            caught = said.contains("serves no rpc of that name");
+            // The key is a path joined to an rpc with a dot, and the path has dots
+            // of its own. A refusal that prints it back as 'losim/test/src/Volley
+            // java Hitt' names no file the reader can open.
+            readable = said.contains("losim/test/src/Pinger.java Hitt");
+            System.out.println("    " + said);
         }
         check(caught, "an rpc the service does not serve is refused with its line, because a "
               + "failure that belongs to nothing quietly never fires");
+        check(readable, "and the refusal names the file as it was written, dots and all, "
+              + "because the reader's next move is to open it");
 
         var tel = Simulate.of(Loader.of(Yaml.parse("simulation.yaml",
                 badRpc("          Hit:\n            - { status: UNAVAILABLE, per: 2 calls }\n"))))

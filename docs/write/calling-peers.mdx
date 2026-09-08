@@ -24,19 +24,18 @@ where everything the simulator does happens:
 | **byte counts** | the message is marshalled explicitly, because gRPC's in-process transport passes the object by reference and never serializes — so a byte count can never be inferred from the transport. Serialized size plus gRPC's five bytes of framing. |
 | **cross-zone bytes** | counted apart, in **both directions**. Counting only the request would make a fetch look free: a call that asks for a region in forty bytes and is sent a megabyte back travels almost entirely in the direction that was not counted. |
 | **spans** | one on the caller and one on the callee, and the callee's is opened **under the caller's** — the parent crosses the wire in a metadata header, so the span tree is a real distributed call stack |
-| **retries** | if the scenario declared a policy for this method, outside the recording interceptor, so every attempt is genuinely separate |
+| **retries** | if the simulation declared a policy for this method, outside the recording interceptor, so every attempt is genuinely separate |
 | **deadlines** | rewritten from reference time into real time, so `withDeadlineAfter` means what everything else means |
 
-## The channel is the machine's, not yours
+## The channel is the node's, not yours
 
 ```java
 Channel a = here.channelTo("w1");
 Channel b = here.channelTo("w1");     // the same channel
 ```
 
-Made once and kept, so a handler never sees a lifetime. It is also the same channel
-the job's `Cluster` hands out for that peer — one per pair, with one place that
-closes them.
+Made once and kept, so a handler never sees a lifetime. Every service on the node
+gets the same one for that peer — one per pair, with one place that closes them.
 
 <Warning>
 **Do not build your own.**
@@ -46,7 +45,7 @@ var ch = ManagedChannelBuilder.forAddress("w1", 50051).usePlaintext().build();
 ```
 
 No interceptor is attached to that. The call happens at full speed, costs no bytes,
-waits out no latency, **survives a partition**, keeps working after the machine at
+waits out no latency, **survives a partition**, keeps working after the node at
 the other end has been killed, and leaves nothing in the trace to say it happened.
 
 Nothing throws. You get a run full of plausible figures, every one of them wrong in
@@ -81,7 +80,7 @@ ThumbnailerGrpc.newStub(to).notify(ping, new StreamObserver<Empty>() {
 </CodeGroup>
 
 <Note>
-**Blocking in a loop is the most common first cluster.** Four machines, used strictly
+**Blocking in a loop is the most common first system.** Four nodes, used strictly
 one at a time, producing the right answer and teaching nothing. The [Spans
 view](/viewer/views) shows it as a staircase; concurrency shows as a block.
 
@@ -108,7 +107,7 @@ Exactly the same, and there is nothing special about it:
 ```
 
 The forwarded call gets its own span, opened under this handler's span, so the
-trace shows the hop. And the handler occupies one of this machine's cores while it
+trace shows the hop. And the handler occupies one of this node's cores while it
 waits — which is real, and is exactly the cost of forwarding.
 
 ## Silence, and what the trace knows
@@ -135,7 +134,7 @@ The trace can tell, even though you cannot:
 
 <Warning>
 **A call with no deadline waits five seconds and then gives up on your behalf**, so
-a scenario that forgot to set one still terminates. Five seconds of *reference*
+a simulation that forgot to set one still terminates. Five seconds of *reference*
 time is a very long time in a run whose horizon is six. Set deadlines.
 </Warning>
 

@@ -12,10 +12,10 @@ when something is wrong, the useful question is *which layer is this in*, not
 <Warning>
 **Do not put a breakpoint in a running simulation as a first move.**
 
-A run is real threads on a real wall clock. Stopping one machine's pool thread does
+A run is real threads on a real wall clock. Stopping one node's pool thread does
 not stop the others, does not stop the clock, does not stop the sampler and does not
 stop the fault dispatcher. Every duration, every deadline and every fault time in
-that run is now wrong, and the trace will show a cluster that was never there.
+that run is now wrong, and the trace will show a system that was never there.
 
 There is a place for it — [level 4](#level-4-inside-a-run) — but it is the last
 resort, not the first.
@@ -41,7 +41,7 @@ Step into `thumbnail`. It is your code, called directly, on the test thread.
 | wrong arithmetic, wrong loop bounds, an off-by-one in the output | almost everything, in practice |
 | a builder you forgot to `build()` | yes |
 | a message field you never set, so it silently defaults | yes |
-| anything about how machines behave together | **no** |
+| anything about how nodes behave together | **no** |
 
 <Note>
 `Losim.current()` still resolves here and does nothing: recording calls are silent,
@@ -136,7 +136,7 @@ This is the level at which you can check things a simulation would only obscure:
           || ThumbnailerGrpc.getThumbnailMethod().isSafe());
   ```
   which is precisely what losim's [retry gate](/write/retries) will check later, and
-  much easier to diagnose here than as a scenario refusal.
+  much easier to diagnose here than as a simulation refusal.
 
 <Warning>
 **`ManagedChannelBuilder`, `InProcessServerBuilder` and `directExecutor()` are all
@@ -144,21 +144,21 @@ things the verifier flags** — in a *system*. Here they are correct, because th
 no simulation to be wrong about.
 
 Keep this code in a **test source set that no service or job references.** The
-verifier walks outward from the classes your scenario names; a test nothing points
+verifier walks outward from the classes your simulation names; a test nothing points
 at is never reached. If you put a harness like this in a class your service imports,
 it will be walked, and it will be flagged — rightly, because then it could run
-inside a real cluster.
+inside a real system.
 </Warning>
 
 ### Not true at this level
 
 | | |
 |---|---|
-| a scenario's `takes:` | does not apply. There is no scenario and no interceptor, so no duration is slept. |
+| a simulation's `simulatedDuration:` | does not apply. There is no simulation and no interceptor, so no duration is slept. |
 | `k_time` | does not exist. Everything is your afternoon. |
 | memory and disk caps | not enforced. Nothing is walking the heap. |
-| `peers()`, `channelTo()`, `here()` | throw — there is no cluster. |
-| byte counts, spans, faults | not recorded. |
+| `peers()`, `channelTo()`, `here()` | throw — there is no system. |
+| byte counts, spans, failures | not recorded. |
 
 So never conclude anything about *performance* from level 3. It is for behaviour.
 
@@ -166,16 +166,22 @@ So never conclude anything about *performance* from level 3. It is for behaviour
 
 <div id="level-4-inside-a-run" />
 
-When the bug is genuinely about how machines behave together, the trace is the
+When the bug is genuinely about how nodes behave together, the trace is the
 debugger — that is what the three channels are for. Reach for these in order:
 
 <Steps>
-  <Step title="Shrink the cluster and stop compressing time">
+  <Step title="Shrink the system and stop compressing time">
     ```yaml
-    machines:
-      coordinator: { instance: m5.large, zone: eu-central-1a }
-      w0:          { instance: m5.large, zone: eu-central-1a, runs: [lab.Shrinker] }
-    faults: []               # nothing goes wrong yet
+    nodes:
+      coordinator:
+        instance: m5.large
+        zone: eu-central-1a
+        runs: { losim.Job: src/lab/RenderJob.java }
+      w0:
+        instance: m5.large
+        zone: eu-central-1a
+        runs: { Thumbnailer: src/lab/Shrinker.java }
+                             # and no failures: anywhere — nothing goes wrong yet
     ```
     One coordinator, one worker, no weather. If it is broken here, none of the
     interesting things are the cause.
@@ -226,16 +232,16 @@ debugger — that is what the three channels are for. Reach for these in order:
 
   <Step title="Ask losim for its own stack">
     ```bash
-    LOSIM_DEBUG=1 java -cp "$CP" losim.cli.Main run mine.yaml --cp build/losim/classes
+    LOSIM_DEBUG=1 java -cp "$CP" losim.cli.Main simulate mine.yaml --cp build/losim/classes
     ```
 
     Exit code 3 means something went wrong **inside losim**, and one line of it is
     not enough to find. This prints the stack behind it. Exit code 2 is your
-    scenario and already reads like a compiler error.
+    simulation and already reads like a compiler error.
   </Step>
 
   <Step title="Only then, a breakpoint">
-    If you must: use **one worker**, no faults, no chaos, and no deadline on the
+    If you must: use **one worker**, no failures, and no deadline on the
     call you are stopping inside. Accept that
     every number in the resulting trace is fiction — you are looking at control
     flow, not at measurements.
@@ -247,14 +253,14 @@ debugger — that is what the three channels are for. Reach for these in order:
 <AccordionGroup>
   <Accordion title="Every call times out, and nothing looks wrong">
     Check for a deadline that is too tight for the declared cost plus queueing.
-    Then check `queue_wait` — a two-vCPU machine given eight concurrent calls takes
+    Then check `queue_wait` — a two-vCPU node given eight concurrent calls takes
     four waves, and the fourth wave's caller may have given up before its turn.
   </Accordion>
   <Accordion title="The run takes ten times as long as it should, and ends in timeouts">
     A stub with **no deadline** waits five reference seconds before losim gives up
     on your behalf. Set deadlines.
   </Accordion>
-  <Accordion title="One machine does all the work; the others show zero calls">
+  <Accordion title="One node does all the work; the others show zero calls">
     Discovery. You are almost certainly passing the Java class name to
     `peersServing`, where it wants the **service name from the `.proto`** — or you
     fetched the peer list once and are indexing it with something that is always
@@ -266,19 +272,19 @@ debugger — that is what the three channels are for. Reach for these in order:
   </Accordion>
   <Accordion title="`Losim.current()` throws inside a handler">
     ```
-    this thread has no machine: work started on a thread the machine did not create…
+    this thread has no node: work started on a thread the node did not create…
     ```
-    Something is running your work on a thread the machine did not create — a raw
+    Something is running your work on a thread the node did not create — a raw
     `Thread`, an `Executors` pool, `CompletableFuture.supplyAsync`, or a
     `parallelStream`. [Concurrency ->](/write/concurrency)
   </Accordion>
   <Accordion title="It works, but the numbers are implausibly good">
     Read the trust block at the end of the run. A channel built by hand costs no
     bytes and survives partitions; a real file bypasses the disk cap; a static field
-    shared between machines makes every per-machine figure meaningless.
+    shared between nodes makes every per-node figure meaningless.
     [Trust markers ->](/engine/trust)
   </Accordion>
-  <Accordion title="The scenario is refused and nothing runs">
+  <Accordion title="The simulation is refused and nothing runs">
     Exit code 2, with the file and line. That is the loader, and the message names
     exactly what is wrong. [Messages ->](/ref/messages)
   </Accordion>

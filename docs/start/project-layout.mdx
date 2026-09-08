@@ -10,12 +10,12 @@ icon: "folder-tree"
 proto/                   your schema
 src/                     your Java
 gen/                     generated from the schema. Gitignored, never edited.
-scenarios/*.yaml         the worlds it runs in — as many as you like
+simulations/*.yaml       the worlds it runs in — as many as you like
 
 build.gradle.kts         losim, protoc, and the toolchain task
-losim                    the launcher: `./losim run`, `./losim serve`
+losim                    the launcher: `./losim simulate`, `./losim serve`
 AGENTS.md                what `losim adopt` left for you, if it left anything
-build/runs/              your traces, and a bill beside each
+build/results/           your traces, and a bill beside each
 ```
 
 <Note>
@@ -27,17 +27,20 @@ simply win over the jar's.
 
 <Note>
 **Nothing is declared.** There is no manifest listing what to build. Your code is
-whatever `.java` and `.proto` the project holds, and it compiles as one thing — so any
-class can be placed on any machine. Add a file and it is in the next run.
+whatever `.java` and `.proto` the project holds, and it compiles as one thing — so
+any class can be placed on any node. Add a file and it is in the next run. A
+simulation reaches it by path: `runs: { Thumbnailer: src/lab/Shrinker.java }`.
 
-**One code folder, many scenarios.** What changes between two runs of the same system
-is almost never the code; it is the cluster, the distances and what goes wrong. So those
-are what there are many of. Write a scenario in the console's **Scenarios** page and it
-lands in `scenarios/` beside the others.
+**One code folder, many simulations.** What changes between two runs of the same
+system is almost never the code; it is the system, the distances and what goes
+wrong. So those are what there are many of. Write a simulation in the console's
+**Simulations** page and it lands in `simulations/` beside the others.
 
-**Your Java names losim nowhere.** Delete the dependency and everything under `src/`
-still compiles: what a call costs, what a machine is and what goes wrong are all in
-the scenario. [How a project gets this shape ->](/start/adopt)
+**Your Java names losim in one place.** The class that starts the work implements
+`losim.Job`, a service losim ships in its own schema; everything else under `src/`
+compiles with losim off the classpath entirely. What a call costs, what a node is
+and what goes wrong are all in the simulation.
+[How a project gets this shape ->](/start/adopt)
 
 `build/` and `gen/` are gitignored. Your traces are yours and are not handed in — the
 examiner re-runs your code rather than reading a picture you exported.
@@ -45,7 +48,7 @@ examiner re-runs your code rather than reading a picture you exported.
 
 ## The simulator's own repository
 
-Only if you are working on losim itself. Nothing below is in a lab:
+Only if you are working on losim itself. Nothing below is in an assignment:
 
 ```
 build.gradle.kts         the simulator -> build/losim.jar
@@ -60,15 +63,16 @@ build/                   generated, all of it. The viewer's committed export is 
 
 
 losim/src/losim/api/     what a handler may say to losim — and all it can reach
-losim/src/losim/runtime/ the cluster, the machines, the two interceptors
+losim/src/losim/runtime/ the system, the nodes, the two interceptors
 losim/src/losim/trace/   the three-channel recorder and the trace it writes
-losim/src/losim/time/    the compressed clock, and fault placement
+losim/src/losim/time/    the compressed clock, and when failures fire
 losim/src/losim/res/     instance types, the heap walk, losim's own meter
 losim/src/losim/scale/   the probe grid, the laws, the solve — and the refusals
-losim/src/losim/scenario/ a cluster and its weather, as data
+losim/src/losim/sim/     a system and its weather, as data
+losim/proto/losim/       losim.Job — the one service losim ships
 losim/src/losim/verify/  what makes a number stop meaning what it says
 losim/src/losim/price/   four buckets, and what cannot be put in them
-losim/src/losim/cli/     losim run | bill | diff
+losim/src/losim/cli/     losim simulate | bill | compare
 ```
 
 ## The rule about `losim/src`
@@ -77,14 +81,14 @@ losim/src/losim/cli/     losim run | bill | diff
 **Your code compiles against `build/losim.jar` and the vendored jars — never
 against `losim/src`.**
 
-The is not bureaucracy. The jar exposes exactly one package a program may
-mention, `losim.api`, and that package depends on no runtime type. The is what
+That is not bureaucracy. The jar exposes exactly one package a program may
+mention, `losim.api`, and that package depends on no runtime type. That is what
 lets a handler be compiled, constructed and unit-tested with nothing simulating
 anything. A system that reached into `losim.runtime` would be a system that could
 only run inside the simulator, which is the opposite of the point.
 </Warning>
 
-In a lab this is what the ▶ compiles with, and you never type it:
+In a project this is what the ▶ compiles with, and you never type it:
 
 ```bash
 javac --release 21 -cp "$(cat build/losim/classpath)" -d build/losim/classes \
@@ -98,9 +102,9 @@ javac --release 21 -cp "$(cat build/losim/classpath)" -d build/losim/classes \
 |---|---|
 | `build/losim.jar` | the simulator |
 | `build/losim/classes/` | your compiled system — this is what `--cp` points at |
-| `build/<scenario>.json` | the trace, unless `--out` said otherwise |
-| `build/runs/` | **where to point `--out`** — the viewer picks up whatever is here |
-| `build/.losim-plans/` | cached scale plans, keyed on the scenario, the code and the telemetry level |
+| `build/<simulation>.json` | the trace, unless `--out` said otherwise |
+| `build/results/` | **where to point `--out`** — the viewer picks up whatever is here |
+| `build/.losim-plans/` | cached scale plans, keyed on the simulation, the code and the telemetry level |
 
 The plan cache is worth knowing about: fitting a scale plan costs a grid of about
 thirty small runs, and it is paid once. Delete `build/.losim-plans` to force a
@@ -109,7 +113,7 @@ refit. [More on that ->](/engine/probe-grid)
 ## Seeing a run
 
 You do not have to do anything: the lab server is already showing every trace under
-`build/runs`, and `show()` in `RunExperiments.java` opens the viewer on whatever it
+`build/results`, and `show()` in `RunExperiments.java` opens the viewer on whatever it
 ran. [The viewer ->](/viewer/index)
 
 

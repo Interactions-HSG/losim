@@ -1,6 +1,6 @@
 ---
 title: "2. The schema"
-description: "Everything one machine can ask another, in one file."
+description: "Everything one node can ask another, in one file."
 icon: "file-code"
 ---
 
@@ -32,9 +32,9 @@ message Batch  { repeated Frame frames = 1; }
 message Thumbs { repeated Thumb thumbs = 1; int32 bytes = 2; }
 message Empty  {}
 
-// What a machine will tell you about itself, if you ask it.
+// What a node will tell you about itself, if you ask it.
 message Health {
-  string machine     = 1;
+  string node     = 1;
   string instance    = 2;
   string zone        = 3;
   int32  vcpu        = 4;
@@ -66,12 +66,12 @@ service Thumbnailer {
     shows you anything. Batching is the first knob you will want to turn, so the
     schema has to let you turn it.
 
-    It also gives the handler something to declare: `refNsPerUnit` is charged
+    It also gives the handler something to declare: `perUnit` is charged
     against however many frames were in the batch.
   </Accordion>
 
   <Accordion title="`idempotency_level`, and why it is not decoration" icon="rotate">
-    A scenario can declare a retry policy. losim **refuses** to retry a method
+    A simulation can declare a retry policy. losim **refuses** to retry a method
     whose `.proto` does not say running it twice is safe:
 
     ```
@@ -79,7 +79,7 @@ service Thumbnailer {
     declares no idempotency_level, so running it twice is not known to be safe.
     ```
 
-    Whether retrying is an operational decision belongs in the scenario, where it
+    Whether retrying is an operational decision belongs in the simulation, where it
     can be diffed and swept. Whether retrying is *safe* is a property of the
     method, so it belongs in the schema. The two have to agree, and the check
     happens at load — before a single call is made.
@@ -90,13 +90,13 @@ service Thumbnailer {
   </Accordion>
 
   <Accordion title="`Capacity`, because you cannot look" icon="eye-slash">
-    A machine can read *its own* instance type, zone, cores and caps. It cannot
+    A node can read *its own* instance type, zone, cores and caps. It cannot
     read anyone else's — there is no API for it, deliberately.
 
     A real process can read its own cgroup limit and its own instance metadata
     without a network, and cannot read yours at all. So an orchestrator that wants
-    to send small work to small machines has to **ask**, over gRPC, like a
-    scheduler does. The is the whole reason a resource manager has a registration
+    to send small work to small nodes has to **ask**, over gRPC, like a
+    scheduler does. That is the whole reason a resource manager has a registration
     call, and handing your coordinator a free table of everyone's capacity would
     teach that placement is a lookup — when the interesting part is that the table
     is stale the moment it is built.
@@ -106,11 +106,11 @@ service Thumbnailer {
 ## Generating the Java
 
 **You do not run `protoc`.** Pressing the ▶ does it, with the vendored compiler and
-the plugin that matches your machine, every time — so a schema you edited is
+the plugin that matches your platform, every time — so a schema you edited is
 never one stale build away from the code that uses it.
 
 Generated code lands in **`<system>/gen/`**, beside the system rather than under
-`build/`. The is an editor decision: `lab.pb.Batch` resolves and completion works with
+`build/`. That is an editor decision: `lab.pb.Batch` resolves and completion works with
 nothing configured, and you can open what `protoc` produced if you are
 curious. It is gitignored, and you never edit it.
 

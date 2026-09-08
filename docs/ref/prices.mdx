@@ -75,17 +75,17 @@ free:
 
 | link | rate | when |
 |---|---|---|
-| same zone | **free** | both machines in `eu-central-1a` |
+| same zone | **free** | both nodes in `eu-central-1a` |
 | same region | `egress_per_gb` | `eu-central-1a` -> `eu-central-1b` |
 | same continent | `egress_cross_region_per_gb` | `eu-central-1a` -> `eu-west-1a` |
 | across an ocean | `egress_intercontinental_per_gb` | `eu-central-1a` -> `ap-northeast-1a` |
 
-A machine's `zone` decides which, and the **region is read off the zone name** —
+A node's `zone` decides which, and the **region is read off the zone name** —
 `eu-central-1a` is in `eu-central-1`, `switzerlandnorth-1` is in `switzerlandnorth`.
 There is nothing to declare and so nothing to keep in step.
 
-The run records the split as the calls happen — `egressMb` on each machine, by
-destination region ([machines channel](/ref/machines-channel)) — because only the
+The run records the split as the calls happen — `egressMb` on each node, by
+destination region ([nodes channel](/ref/nodes-channel)) — because only the
 caller ever knows both ends of a call. The bill then prints up to three egress lines
 rather than one, so traffic that crossed an ocean is a row you can point at rather
 than a number folded into a total.
@@ -96,8 +96,8 @@ continent, and traffic to it is billed at the **cross-region** rate. The cheaper
 the two, deliberately: guessing "across an ocean" for a name nobody recognised would
 put the largest egress line on the bill on the strength of a guess.
 
-Nothing validates zone names. A scenario may use any it likes, because refusing one
-would break every scenario written against an earlier losim for the sake of a table
+Nothing validates zone names. A simulation may use any it likes, because refusing one
+would break every simulation written against an earlier losim for the sake of a table
 this release happens to carry.
 </Note>
 
@@ -108,15 +108,15 @@ this release happens to carry.
 </ParamField>
 
 <ParamField path="spot_discount" type="double" default="0.70">
-  How much off the on-demand rate a reclaimable machine costs. A machine that
+  How much off the on-demand rate a reclaimable node costs. A node that
   received a `spot_notice` is billed at `onDemand x (1 - spot_discount)`.
 </ParamField>
 
 <ParamField path="region" type="string" default="">
   Which region these rates are for. Bookkeeping only — it names the file on the bill,
-  so one from Tokyo cannot be mistaken for one from Frankfurt. **Where a machine
-  actually is comes from the scenario, never from here**: a price list that could
-  move a cluster would be a second scenario.
+  so one from Tokyo cannot be mistaken for one from Frankfurt. **Where a node
+  actually is comes from the simulation, never from here**: a price list that could
+  move a system would be a second simulation.
 </ParamField>
 
 <ParamField path="egress_per_gb" type="double" default="0.01">
@@ -133,11 +133,11 @@ this release happens to carry.
 </ParamField>
 
 <ParamField path="storage_per_gb_month" type="double" default="0.10">
-  Applied to the worst machine's disk usage, held for the period.
+  Applied to the worst node's disk usage, held for the period.
 </ParamField>
 
 <ParamField path="billing_minimum_seconds" type="long" default="60">
-  The shortest period a machine can be billed for. A run of 2 reference seconds is
+  The shortest period a node can be billed for. A run of 2 reference seconds is
   still billed a minute of capacity.
 </ParamField>
 
@@ -155,13 +155,13 @@ this release happens to carry.
 </ParamField>
 
 <ParamField path="incident_per_rerun" type="double" default="0.02">
-  Per `rpc_timeout` — work redone because a machine did not answer inside its
+  Per `rpc_timeout` — work redone because a node did not answer inside its
   deadline.
 </ParamField>
 
 <ParamField path="incident_per_lost_machine" type="double" default="0.20">
-  Per `kill` or `spot_notice`. A machine that **filled up** — an `oom` or a
-  `disk_full` — is charged **five times** this, because a machine sized too small for
+  Per `kill` or `spot_notice`. A node that **filled up** — an `oom` or a
+  `disk_full` — is charged **five times** this, because a node sized too small for
   what its design asked it to hold is a different kind of mistake from one that
   simply went away.
 </ParamField>
@@ -191,7 +191,7 @@ Now find out whether a design that moved data across zones for convenience was e
 really cheaper.
 
 <Warning>
-**What a machine costs to rent is not here.** That belongs to the [instance
+**What a node costs to rent is not here.** That belongs to the [instance
 catalogue](/ref/instances), beside its vCPUs and its memory, because it is a property
-of the machine rather than a choice the course makes.
+of the node rather than a choice the course makes.
 </Warning>

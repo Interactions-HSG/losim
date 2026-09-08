@@ -400,7 +400,7 @@ public final class Main {
     /**
      * Every argument that is not a flag or a flag's value, in order.
      *
-     * <p>Written as a scan rather than as `args[1]`, because `losim run --no-view
+     * <p>Written as a scan rather than as `args[1]`, because `losim simulate --no-view
      * thing.yaml` must mean what it looks like it means: taking the second
      * argument on faith would read that as "no such simulation: --no-view", which
      * is the sort of message that sends somebody looking in the wrong place — and
@@ -614,7 +614,7 @@ public final class Main {
     /**
      * Whether a person is watching, as opposed to a script collecting a trace.
      *
-     * <p>This decides whether `losim run` opens the viewer afterwards. A person at
+     * <p>This decides whether `losim simulate` opens the viewer afterwards. A person at
      * a terminal wants to see what they just ran; the suite, the gallery and the
      * lab server all want the file and nothing else — and a server that started
      * itself in CI and never returned would hang the build. The distinction is

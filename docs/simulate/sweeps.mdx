@@ -6,16 +6,16 @@ icon: "dice"
 
 <Warning>
 **Runs are not reproducible, on purpose.** Real threads, a real wall clock, and a
-deliberate refusal to simulate a scheduler. Two runs of one scenario on one machine
+deliberate refusal to simulate a scheduler. Two runs of one simulation on one node
 differ in every duration and most byte counts.
 
-The is the property that makes a sweep the unit of evidence rather than a run,
+That is the property that makes a sweep the unit of evidence rather than a run,
 not a defect to be worked around.
 </Warning>
 
 ## The shape of a sweep
 
-**losim is a library, so a sweep is a Java program.** `Run.of` hands you the result
+**losim is a library, so a sweep is a Java program.** `Simulate.of` hands you the result
 as an object, so a sweep is a loop over it — not a shell loop writing twenty files
 for a second script to read back.
 
@@ -23,8 +23,8 @@ for a second script to read back.
 package lab;
 
 import java.nio.file.Path;
-import losim.runtime.Run;
-import losim.scenario.Loader;
+import losim.runtime.Simulate;
+import losim.sim.Loader;
 import losim.trace.Telemetry;
 
 public final class Sweep {
@@ -38,7 +38,7 @@ public final class Sweep {
 
         for (long seed = 1; seed <= 20; seed++) {
             // OFF: a sweep asks whether it finished, not what happened inside.
-            var r = Run.of(base.withSeed(seed), loader, Telemetry.Level.OFF);
+            var r = Simulate.of(base.withSeed(seed), loader, Telemetry.Level.OFF);
             if (r.completed()) completed++;
             else System.out.printf("seed %2d  %s%n", seed, r.failure());
             slowest = Math.max(slowest, r.durationRefMs());
@@ -50,7 +50,7 @@ public final class Sweep {
 ```
 
 <Note>
-**A run that did not complete is a data point, not an error.** `Run.of` returns
+**A run that did not complete is a data point, not an error.** `Simulate.of` returns
 normally either way — `completed()` says which, and `failure()` says why in words. So
 there is no `|| true` to write and nothing that can swallow a real breakage: a run
 that could not start at all still throws, and only that stops the sweep.
@@ -77,7 +77,7 @@ for f in sorted(glob.glob(sys.argv[1] + "/*.json")):
         "timeouts":  kinds.get("rpc_timeout", 0),
         "retries":   kinds.get("retry", 0),
         "oom":       kinds.get("oom", 0),
-        "peakMb":    max((m["memoryMb"] for m in t["machines"]), default=0),
+        "peakMb":    max((m["memoryMb"] for m in t["nodes"]), default=0),
     })
 
 ok = [r for r in rows if r["completed"]]
@@ -113,18 +113,19 @@ Everything that draws from the seed:
 
 | | |
 |---|---|
-| chaos | which machine is picked, and the gaps between events — drawn exponentially |
+| a failure written with `per:` | the gaps between firings — drawn exponentially, per node |
+| an rpc failure's `per: N calls` | which calls it hits |
 | network jitter | how each round trip falls |
 | packet loss | which messages vanish |
-| **your workload** | if you took `cluster.seed()`, which is why you should |
+| **your workload** | if your `Load` took `Losim.current().seed()`, which is why it should |
 
-Scripted `faults:` do **not** vary — a fault at 900 refMs is at 900 refMs in every
-seed. The is what makes them useful for a specific lesson, and what makes `chaos:`
-the right tool for "does it survive afternoons".
+A failure written with `at:` does **not** vary — a kill at 900 refMs is at 900 refMs
+in every seed. That is what makes `at:` useful for a specific lesson, and what makes
+`per:` the right tool for "does it survive afternoons".
 
 ## Sweeping something other than the seed
 
-The scenario is an object, so change the thing you mean and leave the rest alone.
+The simulation is an object, so change the thing you mean and leave the rest alone.
 No `sed`, no temporary YAML, no chance of the substitution matching something else:
 
 ```java
@@ -132,7 +133,7 @@ var base = Loader.load(Path.of("thumbs.yaml")).withoutWeather();
 var loader = Thread.currentThread().getContextClassLoader();
 
 for (int workers : new int[] {2, 4, 8}) {
-    var r = Run.of(base.withWorkers(workers), loader, Telemetry.Level.OFF);
+    var r = Simulate.of(base.withWorkers(workers), loader, Telemetry.Level.OFF);
     System.out.printf("%2d workers  %8.0f refMs  %s%n",
             workers, r.durationRefMs(), r.completed() ? "completed" : "did not");
 }
@@ -146,27 +147,27 @@ for (int workers : new int[] {2, 4, 8}) {
 ```
 
 <Note>
-`withWorkers` resizes **every pool that had more than one machine**, keeping its
+`withWorkers` resizes **every pool that had more than one node**, keeping its
 instance type, zones and services. Singletons — the coordinator — are left alone,
-because varying the cluster is meant to vary the workers.
+because varying the system is meant to vary the workers.
 
 The other axes are the same shape: `withUnits`, `withSeed`, `withKTime`,
-`withExpectedRun`, `withoutWeather`. Each returns a copy, so the base scenario you
+`withExpectedRun`, `withoutWeather`. Each returns a copy, so the base simulation you
 loaded is never mutated and every run in the loop differs by exactly one thing.
 </Note>
 
 
 Then read `durationRefMs` and the bill out of each. The curve — does doubling the
-cluster halve the time? — is one of the more instructive things you can produce, and
+system halve the time? — is one of the more instructive things you can produce, and
 it usually does not.
 
 <Tip>
-Vary **one axis at a time**. If the cluster and the workload move together, a
+Vary **one axis at a time**. If the system and the workload move together, a
 resource that grows with one is indistinguishable from a resource that grows with
-the other. The is exactly why the scale engine's probe grid varies them on
+the other. That is exactly why the scale engine's probe grid varies them on
 separate axes, and the same discipline applies to a hand-run sweep.
 </Tip>
 
-<Card title="Next: comparing two designs" icon="arrow-right" href="/run/comparing-designs">
-  Two scenarios, two bills, and `losim diff`.
+<Card title="Next: comparing two designs" icon="arrow-right" href="/simulate/comparing-designs">
+  Two simulations, two bills, and `losim compare`.
 </Card>

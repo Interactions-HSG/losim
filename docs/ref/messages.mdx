@@ -4,7 +4,7 @@ description: "Every message losim can print at you, and what to do about it."
 icon: "message"
 ---
 
-Grouped by when it happens. Scenario errors read like compiler errors on purpose.
+Grouped by when it happens. Simulation errors read like compiler errors on purpose.
 
 ## At load — exit code 2, nothing ran
 
@@ -13,28 +13,57 @@ Grouped by when it happens. Scenario errors read like compiler errors on purpose
 | `'900' does not say what kind of time it is` | write `900 refMs` or `900 refSeconds` |
 | `unknown key 'zones'; expected one of …` | a typo in a key; the message lists what is accepted |
 | `unknown instance type 'c5.medium'; known types: …` | [the catalogue](/ref/instances) |
-| `k_time must be positive` | |
-| `a scenario needs at least one machine` | |
-| `two machines are both called 'w1'` | a pool's generated names collided; change `prefix:` |
-| `a pool cannot have -2 machines` | |
-| `there is no machine called 'w7' in this scenario; it has …` | a fault aimed at nothing. Remember `prefix: w` + `count: 4` gives `w0 w1 w2 w3` |
-| `this fault does two things at once (kill and freeze); write them as two` | |
-| `a fault has to do something: kill, freeze, degrade, spot_reclaim, partition, heal or restart` | |
-| `degrade needs a factor: how many times slower the machine becomes` | |
-| `partition takes exactly two machines, got 3` | |
-| `chaos cannot 'explode'; it can kill, freeze or degrade` | |
-| `partition happens at a moment, not at a rate; put it under faults:` | |
-| `'w9' is neither a pool nor a machine; this scenario has pools …` | `among:` in a chaos block |
+| `a simulation needs at least one node` | |
+| `two nodes are both called 'w1'` | a pool's generated names collided; change `prefix:` |
+| `a pool cannot have -2 nodes` | |
+| `there is no node called 'w7'; this simulation has …` | a partition aimed at nothing. Remember `prefix: w` + `count: 4` gives `w0 w1 w2 w3` |
+| `'w1' is partitioned from itself. A partition is between two nodes …` | the block it is written in is already one end |
 | `loss is a probability, from 0 to 1` | |
 | `a call is attempted at least once` | `attempts:` must be ≥ 1 |
-| `retry policy names 'Thumbnial', which no machine in this cluster serves` | a typo would otherwise silently do nothing |
+| `retry policy names 'Thumbnial', which no node in this system serves` | a typo would otherwise silently do nothing |
 | `retrying lab.Volley.Hit is refused — its .proto declares no idempotency_level …` | declare it, or write `unsafe: true` |
-| `mode is 'direct' or 'scaled', not 'auto'` | |
-| `scaled mode measures a small run and projects it up, and at scale 1 there is nothing above the run to project to` | |
-| `a part of an input is at least one of something` | |
+| `scale is how many times bigger the design is than the run measuring it, so it starts at 1` | |
+| `count is 0, which is not a smaller run — it is no run` | |
+| `count is 3.5. A workload is counted in whole things …` | say what one item is, and put that in `unit:` |
+| `unit: is what one item is called, singular — frame, line, order …` | |
+| `there is nothing at 'data/frames/'` | `source:` is stat'ed at load |
+| `a call cannot take negative time` | in `simulatedDuration:` |
 | `lab.Router.Watch is a server-streaming rpc, and losim prices a call as one request and one response …` | make it unary; see below |
 | `lab.Thing.Say carries a marshaller of its own rather than a protobuf one …` | losim weighs a call by its serialized protobuf size |
-| `no such scenario: thumbs.yaml` | |
+| `no such simulation: thumbs.yaml` | |
+
+## What `runs:` refuses
+
+| message | fix |
+|---|---|
+| `runs: names a service and the .java file that implements it — { Thumbnailer: src/Shrinker.java }` | it was written as a list |
+| `'src/Shrinkr.jav' is not a .java file` | `runs:` names a file, not a class |
+| `there is no file at 'src/Shrinkr.java'` | paths are relative to the project root |
+| `'src/Shrinker.java' declares no type called Shrinker` | a file and the class in it have to agree |
+| `this node runs 'Thumbnailer' twice` | |
+| `no node in this simulation runs losim.Job, so there is nothing to start` | one node's `runs:` says `{ losim.Job: <path>.java }` |
+| `'b' runs losim.Job, and so does 'a' at thumbs.yaml:6` | two designs are two files, compared with `losim compare` |
+
+## What `failures:` refuses
+
+| message | fix |
+|---|---|
+| `this failure does two things at once (kill and freeze); write them as two` | |
+| `a failure has to do something: kill, freeze, degrade, spotReclaim, partition, heal or restart` | |
+| `degrade is how many times slower the node becomes, so it is above 1` | |
+| `kill: is written true, or left out. A node is not half killed.` | |
+| `this failure says both when it happens (at:) and how often (per:)` | those are two failures |
+| `this failure never happens: it says neither when (at:) nor how often (per:)` | one that never fires reads like a system that survived it |
+| `partition happens once, so it has an at: rather than a per:` | only `kill`, `freeze` and `degrade` take a rate |
+| `status happens to an rpc, not to a node` | write it under the service in `runs:` |
+| `kill happens to a node, not to an rpc` | write it in the node's own `failures:` |
+| `an rpc fails at a rate rather than at an instant` | a failure that begins and stays is `degrade` |
+| `an rpc failure is one of status:, slow: or drop:` | |
+| `'TOO_SLOW' is not a gRPC status code. The codes are …` | |
+| `OK is what a call that worked returns, so a failure cannot be one` | |
+| `slow is how many times its declared duration this call takes, so it is above 1` | |
+| `'Thumbnail' is listed under failures: with nothing wrong with it` | an empty list under an rpc name |
+| `failures: under a service is keyed by the rpc it happens to` | |
 
 ## The two shapes losim will not price
 
@@ -46,9 +75,9 @@ and a law fitted to either comes out smooth, confident and false.
 </Warning>
 
 <ParamField path="a streaming rpc" type="refused">
-  The cost model is one request and one response. `refNsPerUnit` is slept inside
+  The cost model is one request and one response. `perUnit:` is slept inside
   `sendMessage`, so on a stream it is paid once per **message** rather than once per
-  call; and `refMs` is paid at half-close, which for a client-streaming or
+  call; and `fixed:` is paid at half-close, which for a client-streaming or
   bidirectional handler is *after* the work it stands for.
 
   The remedy is a unary rpc. There is no flag that makes a stream priceable.
@@ -69,35 +98,38 @@ and a law fitted to either comes out smooth, confident and false.
 
 | message | fix |
 |---|---|
-| `no class called 'lab.Shrinkr' is on the classpath` | check `--cp` and the spelling. `runs:` names a **class**, fully qualified |
+| `no class called 'lab.Shrinker' is on the classpath` | the file exists but was not compiled; run `./losim build` and check `--cp` |
 | `'lab.Shrinker' is not a gRPC service` | it must extend the `ImplBase` protoc generated |
-| `'lab.Shrinker' needs a no-argument constructor` | losim builds a fresh one when a machine restarts |
-| `'lab.MyJob' is named as the job, so it has to implement losim.api.Job` | |
-| `no class called 'lab.MyJb' is on the classpath to run as the job` | |
-| `could not start machine w0: …` | usually a name still held by a previous run's server |
-| `there is already a machine called 'w1'` | |
+| `'lab.Shrinker' needs a no-argument constructor` | losim builds a fresh one when a node restarts |
+| `this node runs 'Volley' under 'Thumbnailer', and the class in it serves Volley` | the `runs:` key is what peers find this node by; `peersServing` would find nobody |
+| `simulatedDuration names 'src/Shrinker.java Thumbnial', and src/Shrinker.java serves no rpc of that name. It serves Capacity, Thumbnail.` | a cost that belongs to nothing is a method that quietly takes no time |
+| `failures names 'src/Shrinker.java Thumbnil' …` | the same typo, in a `failures:` block; a failure that belongs to nothing never fires |
+| `could not start node w0: …` | usually a name still held by a previous run's server |
+| `there is already a node called 'w1'` | |
 
 ## During a run
 
 | message | meaning |
 |---|---|
 | `w3 has no disk left: 33.4 MB written against a 32.0 MB volume` | working as intended — `wroteDisk` throws past the cap |
-| `w2 ran out of memory: 11.83 MB against a 4.0 MB cap` | the retained-heap walk found it over. The machine is killed. |
-| `this thread has no machine: work started on a thread the machine did not create …` | [concurrency](/write/concurrency) |
+| `w2 ran out of memory: 11.83 MB against a 4.0 MB cap` | the retained-heap walk found it over. The node is killed. |
+| `this thread has no node: work started on a thread the node did not create …` | [concurrency](/write/concurrency) |
 | `no simulation is running, so Losim.current().peers() has no answer here` | a state call in a unit test |
-| `there is no machine called 'w9'; this cluster has …` | `channelTo` with a name that is not in the cluster |
+| `there is no node called 'w9'; this system has …` | `channelTo` with a name that is not in the system |
 | `DEADLINE_EXCEEDED: w1 did not answer (unreachable)` | dead, partitioned or lost — `why` says which |
 | `DEADLINE_EXCEEDED: the network outlasted the deadline` | the callee answered, but the round trip took too long |
-| `the job was still running after 120 seconds of real time` | a backstop, not a deadline — the line between slow and stuck |
+| `losim.Job/Run was still running after 120 seconds of real time` | a backstop, not a deadline — the line between slow and stuck |
+| `losim.Job/Load failed on coordinator: …` | `Load` runs before anything is measured, so a simulation whose input cannot be built has not started |
+| `… — coordinator runs losim.Job and was restarted` | shutting a node down cancels its calls in flight, and `Run` was one |
 
 ## At the end
 
 | message | meaning |
 |---|---|
-| `trust: 4 machines report figures that do not mean what they say` | [trust rules](/ref/trust-rules). Nothing was stopped. |
-| `none of the classes this scenario names are on the classpath it was given …` | point `--cp` at a **directory**; a jar is not walked |
+| `trust: 4 nodes report figures that do not mean what they say` | [trust rules](/ref/trust-rules). Nothing was stopped. |
+| `none of the classes this simulation names are on the classpath it was given …` | point `--cp` at a **directory**; a jar is not walked |
 | `ABANDONED — the run ended while this was in flight` | a span that was still open when the run ended. Normal. |
-| `losim: w0 did not release its name in time` | shutting the machine down took longer than two seconds. Harmless for the trace, which is already written — but if you run several clusters in one JVM, the next one may fail to bind that name. |
+| `losim: w0 did not release its name in time` | shutting the node down took longer than two seconds. Harmless for the trace, which is already written — but if you run several systems in one JVM, the next one may fail to bind that name. |
 
 
 ## From the scale engine
@@ -107,19 +139,19 @@ and a law fitted to either comes out smooth, confident and false.
 | `the ladder bends: over the lower half it grows as units^0.59 …` | move the probe ladder to one side of the threshold |
 | `its exponent moves by 0.66 between independent seed sets …` | normal for the timeline; give handlers more to do, or accept it |
 | `it was never measured above zero, so there is nothing to fit` | your system never used that resource |
-| `nothing measured varied with it, so it has no law here` | the job probably ignores the `Input` it was handed |
+| `nothing measured varied with it, so it has no law here` | `Load` is probably ignoring `Input.count` |
 | `memoryMb at 8000 units is only 2.4x its own fixed overhead …` | bigger rungs on the ladder |
-| `at 8000 units the cluster would hold 4200 MB, and this host offers 1843 MB …` | more heap, or a smaller rung |
+| `at 8000 units the system would hold 4200 MB, and this host offers 1843 MB …` | more heap, or a smaller rung |
 | `this run is clocked at 40x real time, and … costs … refMs` | a cost site too fine for the clock; there is no compression to turn down |
 | `no size on the ladder satisfies every resource at once` | |
 
-[Every refusal, in full ->](/run/when-it-refuses)
+[Every refusal, in full ->](/simulate/when-it-refuses)
 
 ## Exit codes
 
 | | |
 |---|---|
-| `0` | the job completed |
-| `1` | the job did not complete, or scaled mode found no feasible size |
-| `2` | the scenario is wrong. Nothing ran. |
+| `0` | `Job.Run` completed |
+| `1` | it did not, or the engine found no feasible size |
+| `2` | the simulation is wrong. Nothing ran. |
 | `3` | something inside losim. `LOSIM_DEBUG=1` prints the stack. |

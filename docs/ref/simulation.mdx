@@ -1,0 +1,150 @@
+---
+title: "The simulation file"
+description: "Every top-level key, and the rule that governs all of them."
+icon: "file-lines"
+---
+
+A distributed system, its weather and its bad afternoon — as data. Nothing here is
+authored that the file could find out for itself. Everything that needs code points
+at a `.java` file, so the simulation stays diffable, sweepable and readable by
+someone who did not write it.
+
+## Every top-level key
+
+```yaml
+seed: 7                    # long,   default 1
+scale: 5000                # number, default 1, at least 1
+
+nodes:             { … }   # required, at least one
+input:             { … }
+network:           { … }
+retries:           [ … ]
+simulatedDuration: { … }
+```
+
+Seven, and any other key at this level is refused with the line it was written on.
+There is no `job:`, because the node that runs `losim.Job` is the one that starts
+the work; no `mode:`, because `scale: 1` needs no model and anything above it does;
+and no `faults:` or `chaos:` — the two keys that named what goes wrong are one
+`failures:` list, written inside whatever it happens to.
+
+<ParamField path="seed" type="long" default="1">
+  Everything random draws from it: when failures fire, network jitter, packet
+  loss, which calls an rpc failure hits, and your own workload through
+  `Losim.current().seed()`. `--seed` overrides it.
+</ParamField>
+
+<ParamField path="scale" type="number" default="1">
+  How many times bigger the design is than the simulation measuring it. At 1 there
+  is no model: the input is exactly what `input:` says and every number is what
+  happened. See [scale](/ref/scale).
+</ParamField>
+
+<ParamField path="nodes" type="map" required>
+  The system. One entry is one node, or — with `count:` — a pool of them. Exactly
+  one node in the file must run `losim.Job`. See [nodes](/ref/nodes).
+</ParamField>
+
+<ParamField path="input" type="map">
+  The workload at full size: a `source:`, what one `unit:` is, and how many.
+  Omitted entirely, the simulation runs one unit of nothing in particular. See
+  [input](/ref/input).
+</ParamField>
+
+## The rule that governs the whole file
+
+<Warning>
+**Everything that can be wrong is refused at load, with the line it was written
+on** — an unknown key, an unknown instance type, a duration that forgot its unit, a
+`runs:` value that is not a `.java` file or names one that is not there, a
+partition aimed at a node the system does not have, a failure that says both when
+and how often, a retry policy the schema does not support, two nodes with the same
+name.
+
+Nothing runs, and the exit code is 2. None of these should be discovered halfway
+through as a puzzling number.
+</Warning>
+
+Three questions cannot be answered at load, because the loader loads no classes:
+whether the class in a file really serves the service it is filed under, whether
+that service has an rpc a `failures:` block names, and whether it has one
+`simulatedDuration:` prices. Those are asked once the nodes are up and their
+servers can answer, and refused there with the line from this file. See
+[when it refuses](/simulate/when-it-refuses).
+
+## The sections
+
+<CardGroup cols={2}>
+  <Card title="Durations" icon="clock" href="/ref/durations">
+    Why `900` and `900ms` are both refused.
+  </Card>
+  <Card title="nodes" icon="server" href="/ref/nodes">
+    Single nodes, pools, overrides, caps, zones, and `runs:`.
+  </Card>
+  <Card title="network" icon="network-wired" href="/ref/network">
+    Latency, jitter and loss.
+  </Card>
+  <Card title="failures" icon="bolt" href="/ref/failures">
+    What goes wrong, written inside the thing it happens to.
+  </Card>
+  <Card title="retries" icon="rotate" href="/ref/retries">
+    And the gate the schema holds.
+  </Card>
+  <Card title="simulatedDuration" icon="stopwatch" href="/ref/simulated-duration">
+    What an rpc costs, keyed by the file that serves it.
+  </Card>
+  <Card title="input" icon="inbox" href="/ref/input">
+    A source, a unit, and a count.
+  </Card>
+  <Card title="scale" icon="chart-line" href="/ref/scale">
+    One number, and what the engine derives from it.
+  </Card>
+</CardGroup>
+
+## A complete example
+
+```yaml
+seed: 7
+scale: 500
+
+nodes:
+  coordinator:
+    instance: m5.large
+    zone: eu-central-1a
+    runs: { losim.Job: src/RenderJob.java }
+
+  workers:
+    count: 4
+    prefix: w
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b]
+    runs: { Thumbnailer: src/Shrinker.java }
+    failures:
+      - { degrade: 4, per: 2 refSeconds }
+    overrides:
+      w3:
+        instance: a1.medium
+        memoryMb: 512
+        failures:
+          - { kill: true, at: 900 refMs, restartAfter: 400 refMs }
+          - { partition: coordinator, at: 1600 refMs }
+          - { heal: coordinator, at: 2400 refMs }
+
+input:
+  source: data/frames/
+  unit:   frame
+  count:  30000
+
+network:
+  sameZone:  0.4 refMs
+  crossZone: 3 refMs
+  jitter:    0.5 refMs
+  loss:      0.01
+
+retries:
+  - { method: Thumbnail, attempts: 3, backoff: 50 refMs, multiplier: 2 }
+
+simulatedDuration:
+  src/Shrinker.java:
+    Thumbnail: { fixed: 3 refMs, perUnit: 240000 refNs }
+```

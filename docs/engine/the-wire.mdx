@@ -10,7 +10,7 @@ separate transport and no message bus.
 ```text
 caller                                                   callee
   │
-  ├─ Retrying          (only if the scenario declared a policy)
+  ├─ Retrying          (only if the simulation declared a policy)
   │    └─ ClientSide   the network, byte counts, spans, deadlines
   │         │
   │         ├──── in-process transport ────────────────┐
@@ -25,7 +25,7 @@ Three ways a message never arrives, checked in order:
 
 | | `why` |
 |---|---|
-| the target machine is not alive | `unreachable` |
+| the target node is not alive | `unreachable` |
 | the two ends cannot reach each other | `partitioned` |
 | the draw against `loss` came up | `lost` |
 
@@ -37,7 +37,7 @@ then fails with `DEADLINE_EXCEEDED`.
 The caller cannot tell the three apart. Modelling any of them as an immediate
 `UNAVAILABLE` would turn a distributed-systems failure into one tidy error code.
 
-A call with no deadline waits five reference seconds, so a scenario that forgot one
+A call with no deadline waits five reference seconds, so a simulation that forgot one
 still terminates.
 </Note>
 
@@ -55,7 +55,7 @@ still terminates.
   </Step>
   <Step title="The request is weighed">
     Serialized size plus five bytes of framing. Counted against the caller's
-    `bytesOut`, and separately against `crossZoneBytes` if the two machines are in
+    `bytesOut`, and separately against `crossZoneBytes` if the two nodes are in
     different zones.
   </Step>
   <Step title="The response is weighed too">
@@ -76,18 +76,18 @@ still terminates.
 
 <Steps>
   <Step title="The parent is read from the header, not from the context">
-    It arrived from another machine. Read it from the ambient context instead and
+    It arrived from another node. Read it from the ambient context instead and
     every server span hangs off the root.
   </Step>
-  <Step title="A frozen machine holds the call">
-    The call waits at the door on the machine's own thread. That is why a freeze is
+  <Step title="A frozen node holds the call">
+    The call waits at the door on the node's own thread. That is why a freeze is
     harder to diagnose than a crash.
   </Step>
   <Step title="`handler_start`, then the fixed cost is slept">
     In that order, or every gantt block in the trace collapses.
   </Step>
   <Step title="Your handler runs">
-    With the machine ambient, so `Losim.current()` works.
+    With the node ambient, so `Losim.current()` works.
   </Step>
   <Step title="The per-unit cost is slept before the response leaves">
     Not after. By then the handler has already said how much there was via

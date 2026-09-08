@@ -1,114 +1,163 @@
 ---
 title: "Writing a job"
-description: "The one thing in a scenario that is code, and the narrow surface it gets."
+description: "The service losim calls to start the work, and the surface it gets."
 icon: "diagram-project"
 ---
 
 ```java
-public final class MyJob implements Job {
-    @Override public void run(Cluster cluster) throws Exception { … }
+public final class MyJob extends JobGrpc.JobImplBase {
+    @Override public void load(Input in, StreamObserver<Workload> out) { … }
+    @Override public void run(Workload work, StreamObserver<Result> out) { … }
 }
 ```
 
-Returning normally ends the run. Throwing ends it too, and the trace says which and
-why — a run that failed is a result, not an absence of one.
+An ordinary gRPC service, implementing a schema losim ships rather than one you
+wrote. [`losim.Job`](/ref/losim-proto) has the whole of it.
 
-The job runs on the **first machine in the scenario file**, on that machine's own
-threads, so everything it does is attributed to that machine like any other work.
+`Run` returning ends the simulation. Throwing ends it too, and the trace says which
+and why — a run that failed is a result, not an absence of one.
 
-## `Cluster`'s surface, and its limits
+## Where it runs
+
+```yaml
+nodes:
+  coordinator:
+    instance: m5.large
+    runs: { losim.Job: src/lab/MyJob.java }
+```
+
+**Exactly one node**, named by the same `runs:` key everything else uses. Zero is
+refused; two is refused naming the second. It is an ordinary node otherwise: `Run`
+occupies one of its pool threads, queues behind its other work, and is charged for
+what it allocates. Give it headroom.
+
+## Two rpcs, and the line between them
+
+<Columns cols={2}>
+  <Card title="Load — off the clock" icon="inbox">
+    ```java
+    @Override public void load(Input in, StreamObserver<Workload> out) {
+        var album = Albums.of(in.getCount(), Losim.current().seed());
+        out.onNext(Workload.newBuilder()
+                .setCount(album.getFrameCount())
+                .setType(Album.getDescriptor().getFullName())
+                .setPayload(album.toByteString())
+                .build());
+        out.onCompleted();
+    }
+    ```
+    No clock, no sampler, no span, no events — and every node's ledger is reset
+    afterwards. Reading a file is not part of the design being measured.
+  </Card>
+  <Card title="Run — the simulation" icon="play">
+    ```java
+    @Override public void run(Workload work, StreamObserver<Result> out) {
+        var album = Album.parseFrom(work.getPayload());
+        …
+        out.onNext(Result.newBuilder().putAnswer("thumbnails", "4000").build());
+        out.onCompleted();
+    }
+    ```
+    Everything measured. Its handler span is the trace's root, and everything else
+    nests beneath it.
+  </Card>
+</Columns>
+
+<Warning>
+**`Run` never sees `Input`.** It gets a count and some bytes. It cannot read
+`input:`, cannot see the `source:`, and cannot tell which rung of a ladder it is on
+— which is the property every projection depends on, stated in the signature rather
+than asked for here.
+</Warning>
+
+## `Losim.current()`'s surface, and its limits
 
 <AccordionGroup>
-  <Accordion title="machines() and serving(service)" icon="magnifying-glass">
-    Every machine by name; and the machines serving a named service, live ones
+  <Accordion title="peers() and peersServing(service)" icon="magnifying-glass">
+    Every other node by name; and the nodes serving a named service, live ones
     only. [Finding peers ->](/write/finding-peers)
   </Accordion>
-  <Accordion title="channelTo(machine)" icon="plug">
+  <Accordion title="channelTo(node)" icon="plug">
     A channel with losim on it. Build whatever stub your `.proto` generated on top.
   </Accordion>
   <Accordion title="seed()" icon="dice">
-    The scenario's seed. A job that generates its own input needs one, and it has to
-    come from the scenario: a workload that draws from a constant of its own is a
+    The simulation's seed. A `Load` that generates its own workload needs one, and
+    it has to come from here: a workload that draws from a constant of its own is a
     workload whose every run is the same afternoon.
 
-    **How much work there is does not come from here.** A job with a size implements
-    [`Scalable`](/ref/api-scalable) and is handed an [`Input`](/ref/input).
+    **How much work there is does not come from here.** It comes in `Input.count`,
+    already shrunk to this run's size. [input ->](/ref/input)
+  </Accordion>
+  <Accordion title="local()" icon="box-archive">
+    A `ConcurrentMap` owned by this node, shared by every service on it, reachable
+    from no other, and emptied by a restart. Free in time, charged in memory.
   </Accordion>
   <Accordion title="clockMs()" icon="clock">
     Simulated milliseconds since the run began.
 
-    A job whose shape is *keep going until the run is over* — a load generator, a
+    A design whose shape is *keep going until the run is over* — a load generator, a
     poller — rather than *do this much work* names its own stretch against it. The
-    scenario cannot name one for you: how long a run takes is what the run is for.
+    simulation cannot name one for you: how long a run takes is what the run is for.
 
     ```java
-    while (cluster.clockMs() < 20_000) {
+    var here = Losim.current();
+    while (here.clockMs() < 20_000) {
         fireOneRequest();
-        Losim.current().sleep(50);
+        here.sleep(50);
     }
     ```
   </Accordion>
-  <Accordion title="phase(label) and compute(label, body)" icon="bars-staggered">
-    Two ways to put something bigger than a call in the trace, and the difference
-    between them matters — see below.
-  </Accordion>
-  <Accordion title="log(message) and done(answer)" icon="flag-checkered">
-    A line of narration, and the job's answer recorded structurally rather than as
-    a line of text.
+  <Accordion title="reveal(key, value) and log(message)" icon="comment">
+    A named value and a line of narration, both landing inside the span they were
+    called from. [Telemetry ->](/write/telemetry)
   </Accordion>
   <Accordion title="Its limits" icon="ban">
-    It cannot reach into another machine's memory, start a thread nothing accounts
+    It cannot reach into another node's memory, start a thread nothing accounts
     for, or ask whether a peer is alive. The last one because no real network
     offers it, and a design that depends on knowing is a design that will not
     survive contact with one.
   </Accordion>
 </AccordionGroup>
 
-## `phase` versus `compute`, and why it is not a style question
+## Naming a stretch of work
 
-<Columns cols={2}>
-  <Card title="phase — a stretch of the job" icon="bars-staggered">
-    ```java
-    try (var p = cluster.phase("thumbnails")) {
-        …
-        p.note("batches", 40);
-    }
-    ```
-    Opens a span. Does **not** mark the machine busy.
+There is no `phase` and no `compute`. Both existed because the job was a Java object
+running outside any call, with no span of its own and nothing to nest under.
 
-    A coordinator waiting on four workers is not using a core. Reporting that it is
-    would make every occupancy figure in the run a lie.
-  </Card>
-  <Card title="compute — work with no RPC to carry it" icon="microchip">
-    ```java
-    var album = cluster.compute("read the album",
-            () -> Album.of(at.count("frames"), cluster.seed()));
-    ```
-    Opens a span **and** marks the machine busy.
+`Run` is a handler. It has a span — the root — and it occupies a core while it
+works, so local work is already covered and already counted. A coordinator that
+spends four hundred milliseconds folding replies is not idle in the trace: it is
+inside its own root span, with the node's occupancy showing it.
 
-    Without it, a coordinator doing expensive local work is indistinguishable from
-    one doing nothing: no span covers it, and the busiest stretch of the run reads
-    as idle.
-  </Card>
-</Columns>
-
-Use `phase` for *waiting on other machines*. Use `compute` for *this machine
-working*. A phase that wraps a `compute` is the normal shape:
+What is gone is the ability to give that stretch a *name of its own* without moving
+it. If a stretch is worth naming, make it an rpc on the node that should be doing
+it:
 
 ```java
-try (var p = cluster.phase("merge")) {
-    var answer = cluster.compute("fold the replies", () -> fold(replies));
-    p.note("bytes", answer.getSerializedSize());
-}
+var stub = FolderGrpc.newBlockingStub(here.channelTo(worker));
+var answer = stub.fold(replies);
 ```
 
-Anything opened inside a phase is attributed beneath it, including every RPC — so
-the phase is what the viewer builds its columns and chapters from.
+Which is not a workaround. A stretch of work worth naming is a stretch worth being
+able to move, price separately, retry, or watch fail — and all four of those need it
+to be an rpc anyway.
 
-## `done`, and why it is not a `log`
+For a value rather than an interval, `reveal` costs nothing and lands in the root
+span:
 
 ```java
-cluster.done(Map.of("thumbnails", 4000, "framesIn", 4000, "batchesLost", 0));
+here.reveal("batches", inflight.size());
+```
+
+## The answer, and why it is not a `log`
+
+```java
+out.onNext(Result.newBuilder()
+        .putAnswer("thumbnails", "4000")
+        .putAnswer("framesIn", "4000")
+        .putAnswer("batchesLost", "0")
+        .build());
+out.onCompleted();
 ```
 
 Recorded structurally, so a later run can be compared to this one without parsing
@@ -124,16 +173,34 @@ print([e['detail']['value'] for e in t['events'] if e['kind'] == 'done'])
 
 ## A job that outstays its welcome
 
-If the job has not returned after **two minutes of real time**, losim stops it:
+If `Run` has not returned after **two minutes of real time**, losim cancels the call:
 
 ```
 thumbs.yaml  seed 7  did not complete in 61042 refMs
-  the job was still running after 120 seconds of real time, which is not a slow
+  losim.Job/Run was still running after 120 seconds of real time, which is not a slow
   run — it is a stuck one
 ```
 
-That is a backstop, not a deadline, and it is in real time on purpose: it is the one
-clock still worth trusting when the simulated one has stopped advancing.
+The handler span closes `CANCELLED` and a `failed` event says why, rather than a
+span that never ends. That is a backstop, not a deadline, and it is in real time on
+purpose: it is the one clock still worth trusting when the simulated one has stopped
+advancing.
+
+## Killing the node it runs on
+
+```yaml
+coordinator:
+  runs: { losim.Job: src/lab/MyJob.java }
+  failures:
+    - { kill: true, at: 400 refMs }
+```
+
+Loads, runs, and **ends the simulation there**. Shutting a node down cancels the
+calls in flight on it, and `Run` is one of them. The trace says so rather than
+reporting a bare `CANCELLED`.
+
+That is not a bug to route around. It is what it costs for the thing that starts the
+work to be an ordinary service, and it is worth doing once deliberately to see it.
 
 <Card title="Next: declaring time" icon="arrow-right" href="/write/declaring-time">
   Why a duration is declared when everything else is measured.

@@ -17,7 +17,7 @@ icon: "cloud"
     With Docker running and the **Dev Containers** extension installed, open the
     repository and accept **Reopen in Container**.
 
-    Same image, same commands, same result as a Codespace. The is the point,
+    Same image, same commands, same result as a Codespace. That is the point,
     and it is checked in CI rather than assumed.
   </Tab>
 </Tabs>
@@ -76,9 +76,9 @@ Each of those builds the simulator first — `bin/losim` is `gradle jar` and the
 JVM — so there is no separate build step to have forgotten.
 
 ```bash your work
-./losim run  mine.yaml --cp build/losim/classes --out build/runs/mine.json
-./losim bill build/runs/mine.json
-./losim diff build/runs/a.json build/runs/b.json
+./losim simulate  mine.yaml --cp build/losim/classes --out build/results/mine.json
+./losim bill build/results/mine.json
+./losim compare build/results/a.json build/results/b.json
 ```
 
 
@@ -104,15 +104,15 @@ They are also VS Code tasks: **Terminal -> Run Task**.
 
 ## The toolchain is vendored on purpose
 
-Two runs of the same scenario on different hosts must be the *same simulator*.
+Two runs of the same simulation on different hosts must be the *same simulator*.
 If the gRPC version could drift between a laptop and a Codespace, a byte count
 would drift with it, and a byte count that depends on where it was computed is
 not a measurement.
 
 CI enforces this rather than trusting it. The reference suite runs twice, once on
 a plain runner and once **inside the image a Codespace boots**, and the two traces
-are then compared with `losim diff`. What has to agree is structure and
-attribution — what kinds of thing happened, what each carried, which machines
+are then compared with `losim compare`. What has to agree is structure and
+attribution — what kinds of thing happened, what each carried, which nodes
 existed, what each resource was found to be a function of. What is allowed to
 differ is the measurements, and those are printed rather than judged, because runs
 are not reproducible and hosts are not identical.
@@ -121,6 +121,6 @@ are not reproducible and hosts are not identical.
 **The one thing a Codespace changes is noise.** A two-core Codespace has more
 timing jitter than a laptop, and the scale engine measures that jitter rather than
 assuming it, so it may refuse to project a timeline in a Codespace that it would
-have projected on a laptop. The is the engine working. See
-[when the engine refuses](/run/when-it-refuses).
+have projected on a laptop. That is the engine working. See
+[when the engine refuses](/simulate/when-it-refuses).
 </Warning>

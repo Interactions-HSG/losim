@@ -1,0 +1,156 @@
+---
+title: "nodes"
+description: "Single nodes, pools, overrides, caps, zones, and what a node runs."
+icon: "server"
+---
+
+```yaml
+nodes:
+  coordinator:                       # one node, named by its key
+    instance: m5.large
+    zone: eu-central-1a
+    runs: { losim.Job: src/RenderJob.java }
+
+  workers:                           # a pool: w0 w1 w2 w3
+    count: 4
+    prefix: w
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b]
+    runs: { Thumbnailer: src/Shrinker.java }
+    memoryMb: 2048
+    diskMb: 8192
+    failures:
+      - { degrade: 3, per: 2 refSeconds }
+    overrides:
+      w3: { instance: a1.medium, memoryMb: 512, zone: eu-central-1c }
+```
+
+At least one node is required, and **exactly one of them must run `losim.Job`**.
+
+## runs
+
+```yaml
+runs: { Thumbnailer: src/Shrinker.java }
+```
+
+A map: the **service name** on the left, the **`.java` file** implementing it on
+the right.
+
+The key is what gRPC puts on the wire and what peers find this node by — the same
+string `peersServing("Thumbnailer")` takes. Write it dotted if your `.proto` has a
+package: `losim.Job`, `render.Thumbnailer`. Both the bare name and the qualified
+one are accepted where they are unambiguous, and a key that disagrees with what the
+class actually serves is refused, because `peersServing` would then find nobody and
+a design that copes with a missing peer would look like one that worked.
+
+The value is a path relative to the project root — the directory holding `proto/`,
+`src/` and the simulations. It must end in `.java`, the file must exist, and it must
+declare a type with its own name. All three are checked **at load**, on the line
+they were written on, before anything is built. losim reads the file's `package`
+line to work out the class, then loads it from what `losim build` compiled.
+
+<Note>
+A path, not a class name, and that is the whole point. A fully qualified class name
+is a string that looks right until a classloader disagrees with it. A path is a
+thing that either exists or does not, and saying so on its own line is the
+difference between a typo and a build that ran for four minutes first.
+</Note>
+
+A node with no `runs:` still exists and still listens. It offers nothing.
+
+### Longhand, when something goes wrong here
+
+```yaml
+runs:
+  Thumbnailer:
+    file: src/Shrinker.java
+    failures:
+      Thumbnail:
+        - { status: UNAVAILABLE, per: 20 calls }
+```
+
+The shorthand above is the same thing with `file:` unwrapped, and it is what almost
+every entry stays. Expand it only when that node's copy of that rpc needs to
+misbehave — see [failures](/ref/failures).
+
+## Keys
+
+<ParamField path="instance" type="instance type" required>
+  From the [catalogue](/ref/instances). Decides vCPU count, memory, disk, network
+  and the on-demand rate the bill uses.
+</ParamField>
+
+<ParamField path="zone" type="string or list" default="default">
+  For a single node, a string. For a pool, a list — zones are dealt **round
+  robin**, so `[a, b]` over four nodes gives `a b a b`.
+</ParamField>
+
+<ParamField path="runs" type="map of service to .java path">
+  What this node offers. See above.
+</ParamField>
+
+<ParamField path="failures" type="list">
+  What happens to this node: `kill`, `freeze`, `degrade`, `spotReclaim`,
+  `partition`, `heal`, `restart`. See [failures](/ref/failures).
+</ParamField>
+
+<ParamField path="count" type="int" default="0">
+  Makes this key a **pool** of `count` nodes. Zero (or absent) means one node named
+  by the key itself.
+</ParamField>
+
+<ParamField path="prefix" type="string" default="the pool's key">
+  Nodes are named `prefix0` … `prefix{count-1}`. A pool called `workers` with
+  `prefix: w` produces `w0 w1 w2 w3` — **not** `workers0`, which matters when you
+  partition one or override it.
+</ParamField>
+
+<ParamField path="memoryMb" type="double" default="the instance type's">
+  The memory cap, enforced against a retained-heap walk.
+</ParamField>
+
+<ParamField path="diskMb" type="double" default="the instance type's storage">
+  The disk cap. `Losim.current().wroteDisk(bytes)` throws past it.
+</ParamField>
+
+<ParamField path="overrides" type="map by node name">
+  Per-node changes within a pool. Accepts `instance`, `zone`, `memoryMb`, `diskMb`
+  and `failures` — not `runs:`; every node in a pool runs the same code.
+</ParamField>
+
+## Making one node the problem
+
+The most useful thing in this section:
+
+```yaml
+overrides:
+  w3: { memoryMb: 4 }                                     # cannot hold its share
+  w2: { instance: a1.medium }                             # half the node its peers are
+  w1: { failures: [ { kill: true, at: 900 refMs } ] }     # the one that dies
+```
+
+A system where every node is identical teaches nothing about placement, and
+placement is most of what a coordinator is for.
+
+An `overrides:` entry **replaces** the pool's `failures:` rather than adding to
+them. Being the one node that dies is the most interesting way to differ from your
+pool, and layering a second kill on top of the pool's would be asking what your
+design does about an afternoon nobody can read off the file.
+
+## Above scale 1
+
+**Do not write caps.** The engine solves for them, per node and per resource, so
+that demand-over-capacity is preserved at both sizes. What you write is the
+system's *shape*; the engine decides its size. [Solving caps ->](/engine/solving-caps)
+
+## A node, at run time
+
+| | |
+|---|---|
+| one in-process gRPC server | named after the node |
+| one thread pool | sized to the instance's vCPU count, platform threads, never `directExecutor` |
+| a memory cap | checked against a retained-heap walk every eighth sampler tick, and once at the end |
+| a disk cap | checked on every `wroteDisk` |
+| a zone | which decides latency, and which bytes are billed |
+| one channel per peer | made once, owned by the node |
+| a local store | `Losim.current().local()`, shared by every service on it, emptied by a restart |

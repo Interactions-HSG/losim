@@ -5,14 +5,14 @@ icon: "table-cells"
 ---
 
 ```
-  data size      x  cluster size  x  fault schedule
-  1k 2k 4k 8k    x  2, 4        x  none | the scenario's      x seeds, median taken
+  data size      x  system size  x  fault schedule
+  1k 2k 4k 8k    x  2, 4        x  none | the simulation's      x seeds, median taken
 ```
 
 ## A grid, not a ladder
 
 <Warning>
-A resource that grows with the **data** and a resource that grows with the **cluster**
+A resource that grows with the **data** and a resource that grows with the **system**
 look identical if the two only ever move together. An engine that folds one into the
 other produces projections that are plausible and wrong — the failure mode hardest to
 notice, because nothing looks broken.
@@ -21,22 +21,22 @@ notice, because nothing looks broken.
 So each axis moves alone:
 
 <Steps>
-  <Step title="The data ladder: the cluster holds still, the weather is off">
-    Four sizes x **six seeds**. Climbed on the cluster the scenario declares — not the
-    largest shape in the cluster ladder. A law fitted on eight workers and applied to a
+  <Step title="The data ladder: the system holds still, the weather is off">
+    Four sizes x **six seeds**. Climbed on the system the simulation declares — not the
+    largest shape in the system ladder. A law fitted on eight workers and applied to a
     run of two describes a differently-shaped system.
   </Step>
-  <Step title="The cluster ladder: the data holds still, the weather is off">
+  <Step title="The system ladder: the data holds still, the weather is off">
     Two shapes x 2 seeds, at the middle data size. Every pool with more than one
-    machine is regenerated at that size, keeping its instance type, zones and
+    node is regenerated at that size, keeping its instance type, zones and
     services. **Singletons — the coordinator — are left alone.**
   </Step>
   <Step title="The fault column: both hold still, the weather moves">
-    The top data size x 2 seeds, with the scenario's own faults and chaos.
+    The top data size x 2 seeds, with the simulation's own failures.
   </Step>
 </Steps>
 
-The cluster ladder and the fault column are **cross-checks** rather than sources of an
+The system ladder and the fault column are **cross-checks** rather than sources of an
 error bar, which is why only the data ladder runs at six seeds: only its exponent has
 to be shown to be reproducible.
 
@@ -51,14 +51,14 @@ uncertainty of a law that was never fitted that way — overstating the error ba
 roughly the square root of the set size. Three sets is the fewest from which a spread
 means anything.
 
-Seeds are derived from the scenario's own: `seed x 1000 + i`. So a plan is
+Seeds are derived from the simulation's own: `seed x 1000 + i`. So a plan is
 reproducible from the file.
 </Note>
 
 ## The fault column is not optional
 
-A killed machine's work is redone elsewhere, so a survivor absorbs its share.
-Measured, that roughly **doubles** peak memory on a machine that accumulates.
+A killed node's work is redone elsewhere, so a survivor absorbs its share.
+Measured, that roughly **doubles** peak memory on a node that accumulates.
 
 A model fitted only on clean runs under-predicts by that much — and it under-predicts
 **optimistically**, which is the worse direction. The engine folds the difference in
@@ -67,8 +67,8 @@ as an amplification term per resource.
 With no weather declared you get a note instead:
 
 ```
-note: this scenario declares no faults, so the model carries no amplification term —
-      a projection from it describes a cluster where nothing goes wrong
+note: nothing in this simulation goes wrong, so the model carries no amplification term —
+      a projection from it describes a system where nothing goes wrong
 ```
 
 ## Four rungs, minimum
@@ -89,7 +89,7 @@ Thirty runs is a real cost, and it is paid **once**:
 [plan cached]
 ```
 
-Cached in `build/.losim-plans/`, keyed on **the scenario, the code it profiles, and
+Cached in `build/.losim-plans/`, keyed on **the simulation, the code it profiles, and
 the telemetry level**.
 
 <Note>

@@ -6,25 +6,37 @@ icon: "bolt"
 
 ```json
 { "t": 61.4, "kind": "rpc_call", "vm": "coordinator",
-  "detail": { "to": "w0", "method": "lab.Thumbnailer.Thumbnail", "call": 14 } }
+  "detail": { "to": "w0", "method": "render.Thumbnailer.Thumbnail", "call": 14 } }
 ```
 
 | field | |
 |---|---|
 | `t` | simulated milliseconds since the run began |
 | `kind` | one of the kinds below |
-| `vm` | the machine it happened on, or `"-"` for the run itself |
+| `vm` | the node it happened on, or `"-"` for the simulation itself |
 | `detail` | key-value pairs; **a key whose value would be null is omitted**, never recorded as null |
 
-## The run
+## The simulation
 
 | kind | `vm` | detail |
 |---|---|---|
-| `scenario` | `-` | `file`, `seed`, `scale`, `machines`, `job`, `tightMargin` |
-| `boot` | machine | `instance`, `zone`, `vcpu`, `memoryMb`, `diskMb` |
-| `done` | job's machine | `value` — the job's answer, rendered |
-| `job_failed` | job's machine | `error` |
-| `trust` / `trust_unchecked` | machine or `-` | what the verifier found before anything ran |
+| `simulation` | `-` | `file`, `seed`, `scale`, `nodes`, `entry`, `unit`, `count`, `loaded` |
+| `boot` | node | `instance`, `zone`, `vcpu`, `memoryMb`, `diskMb` |
+| `done` | the entry node | `value` — the `Result`, rendered |
+| `failed` | the entry node | `error` |
+| `trust` / `trust_unchecked` | node or `-` | what the verifier found before anything ran |
+
+<Note>
+`count` is the file's own number, at **full** size; `loaded` is what `Load`
+produced at the size this run actually measured. At `scale: 1` those two are the
+same number, and a gap between them is your `Load` returning less than it was asked
+for. Above `scale: 1` the gap is the rung, and `scale.units` / `scale.fullUnits`
+say what it was. `entry` is the node running `losim.Job`.
+
+There is no event for `Job.Load` itself. It runs off the clock, before the trace
+opens, and every node's ledger is reset afterwards — so nothing it spent is charged
+to anybody and nothing it did is in here.
+</Note>
 
 ## Calls
 
@@ -41,7 +53,7 @@ icon: "bolt"
 
 <Note>
 `call` is the **same number on both sides** — the caller's span id, sent across in a
-metadata header. The is what lets a reader join the two halves of one call.
+metadata header. That is what lets a reader join the two halves of one call.
 
 `why` on a failure is `unreachable`, `partitioned` or `lost`. The caller could not
 tell them apart; the trace can.
@@ -50,30 +62,45 @@ tell them apart; the trace can.
 that window is metered and subtracted. `grossMs` is open-to-close including it.
 </Note>
 
+The entry node's `losim.Job.Run` is an ordinary call in every one of these
+respects, and it is the only one losim made itself.
+
 ## From your code
 
 | kind | detail | written by |
 |---|---|---|
 | `state` | `key`, `value` | `Losim.current().reveal(k, v)` |
-| `log` | `message` | `Losim.current().log(m)` or `cluster.log(m)` |
+| `log` | `message` | `Losim.current().log(m)` |
 | `sleep` | `refMs` | `Losim.current().sleep(refMs)` |
 
-## Weather
+## What went wrong, to a node
 
 | kind | `vm` | detail |
 |---|---|---|
-| `kill` | victim | `reason` |
-| `freeze` | victim | `forRefMs` |
-| `thaw` | victim | — |
-| `degrade` | victim | `factor` |
-| `restart` | victim | `state` (`kept` or `lost`), `note` |
-| `spot_notice` | victim | `inRefMs` |
+| `kill` | the node | `reason` |
+| `freeze` | the node | `forRefMs` |
+| `thaw` | the node | — |
+| `degrade` | the node | `factor` |
+| `restart` | the node | `state` (`kept` or `lost`), `note` |
+| `spot_notice` | the node | `inRefMs` |
 | `partition` | one end | `from` |
 | `heal` | one end | `with` |
-| `chaos` | victim | `kind`, `among`, `atRefMs` |
+| `failure` | the node | `kind`, `drawn`, `atRefMs` |
 
-A `chaos` event is followed by the ordinary `kill`, `freeze` or `degrade` event for
-that machine, so a scripted fault and a drawn one are otherwise identical.
+A `failure` event is written when the failure was **drawn from a `per:` rate**, and
+is followed by the ordinary `kill`, `freeze` or `degrade` event for that node — so a
+scripted failure and a drawn one are otherwise identical, and a reader can still
+tell which was which.
+
+## What went wrong, to an rpc
+
+| kind | `vm` | detail |
+|---|---|---|
+| `rpc_failure` | the node serving it | `kind` (`status` or `slow`), `method`, `call`, plus `status` or `factor` |
+
+A `status` failure closes the call before the handler is reached, so there is no
+`handler_start` to go with it. A `drop` writes nothing at all: the request never
+arrived, and the caller's `rpc_timeout` is the whole of what happened.
 
 ## Running out
 
@@ -82,7 +109,7 @@ that machine, so a scripted fault and a drawn one are otherwise identical.
 | `oom` | `resource`, `capMb`, `demandMb`, `objects`, `cause` |
 | `disk_full` | `resource`, `capMb`, `demandMb`, `cause` |
 
-Both are recorded **once per machine** — the first time it happens.
+Both are recorded **once per node** — the first time it happens.
 
 ## Counting them
 
@@ -93,7 +120,7 @@ print(collections.Counter(e["kind"] for e in t["events"]))
 ```
 
 ```
-Counter({'state': 320, 'handler_start': 160, 'handler_end': 160,
-         'rpc_call': 160, 'queue_wait': 22, 'boot': 5,
-         'rpc_timeout': 3, 'kill': 1, 'scenario': 1, 'done': 1})
+Counter({'state': 320, 'handler_start': 161, 'handler_end': 161,
+         'rpc_call': 161, 'queue_wait': 22, 'boot': 5,
+         'rpc_timeout': 3, 'kill': 1, 'simulation': 1, 'done': 1})
 ```

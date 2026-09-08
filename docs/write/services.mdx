@@ -1,6 +1,6 @@
 ---
 title: "Writing a service"
-description: "The rules a gRPC service has to follow to be a machine in a cluster, and the reason behind each one."
+description: "The rules a gRPC service has to follow to be a node in a system, and the reason behind each one."
 icon: "server"
 ---
 
@@ -9,20 +9,20 @@ icon: "server"
 <Steps>
   <Step title="Extend the ImplBase protoc generated">
     losim registers your class with an in-process gRPC server. If it is not a
-    `BindableService`, the scenario is refused at load:
+    `BindableService`, the simulation is refused at load:
 
     ```
     thumbs.yaml:14: 'lab.Shrinker' is not a gRPC service. It has to extend the
-    ImplBase that protoc generated — machines talk over gRPC and nothing else.
+    ImplBase that protoc generated — nodes talk over gRPC and nothing else.
     ```
   </Step>
   <Step title="Give it a no-argument constructor">
-    losim builds a fresh instance when a machine restarts, so it must be able to
+    losim builds a fresh instance when a node restarts, so it must be able to
     construct one. Whatever your service needs, it asks `Losim.current()` for.
 
     ```
     thumbs.yaml:14: 'lab.Shrinker' needs a no-argument constructor, because losim
-    builds a fresh one when a machine restarts.
+    builds a fresh one when a node restarts.
     ```
 
     It may be `private`; losim calls `setAccessible`.
@@ -32,7 +32,7 @@ icon: "server"
     can call from a plain unit test and one you cannot.
   </Step>
   <Step title="Keep every losim type out of every signature">
-    `Thumbs thumbnail(Batch)` mentions nothing of losim's. The is what makes the
+    `Thumbs thumbnail(Batch)` mentions nothing of losim's. That is what makes the
     handler an ordinary object.
   </Step>
 </Steps>
@@ -66,15 +66,15 @@ instead — and that only happens if you put the message on the status.
 
 ## Instance lifetime, and what a restart does to it
 
-One instance per machine, built when the machine starts serving. Whatever your
-service holds in fields is that machine's data, and it is exactly what the
+One instance per node, built when the node starts serving. Whatever your
+service holds in fields is that node's data, and it is exactly what the
 retained-heap walk measures.
 
-The has one consequence worth planning for:
+That has one consequence worth planning for:
 
-| how the scenario declares it | what a restart does |
+| how the simulation declares it | what a restart does |
 |---|---|
-| `runs: [lab.Shrinker]` | losim builds a **fresh instance**. Whatever it was holding is gone — which is what a restart is. |
+| `runs: { Thumbnailer: src/lab/Shrinker.java }` | losim builds a **fresh instance**. Whatever it was holding is gone — which is what a restart is. |
 
 The trace says which happened:
 
@@ -84,25 +84,25 @@ The trace says which happened:
               "note": "fresh services: whatever it was holding is gone" } }
 ```
 
-The is what makes "who redoes the work" a real question rather than a formality.
+That is what makes "who redoes the work" a real question rather than a formality.
 
-## Several services on one machine
+## Several services on one node
 
 ```yaml
-machines:
+nodes:
   w0:
     instance: m5.large
-    runs: [lab.Shrinker, lab.Archive]
+    runs: { Thumbnailer: src/lab/Shrinker.java, Archive: src/lab/Archive.java }
 ```
 
 Both are registered on the same server, share the same thread pool, and are found
 independently by whichever service name each `.proto` declares.
 
-## A machine's knowledge of itself
+## A node's knowledge of itself
 
 ```java
 var spec = Losim.current().here();
-spec.machine();       // "w3"
+spec.node();       // "w3"
 spec.instance();      // "a1.medium"
 spec.zone();          // "eu-central-1b"
 spec.vcpu();          // 2
@@ -111,15 +111,15 @@ spec.diskCapMb();
 spec.cores();         // vcpu / 2.0 — how much work it can take, crudely
 ```
 
-Free to call: every field is final on the machine and the record is built once,
+Free to call: every field is final on the node and the record is built once,
 before it boots. Nothing here is measured.
 
 <Note>
-**Local knowledge only.** The machine's, never a peer's. A real process can read
+**Local knowledge only.** The node's, never a peer's. A real process can read
 its own cgroup ceiling and its own instance metadata without a network, and cannot
 read anyone else's at all.
 
-The caps are the **scaled** caps: what this machine is allowed on *this* run, not
+The caps are the **scaled** caps: what this node is allowed on *this* run, not
 what the instance type says at full scale. So a job that places work by comparing
 them places it the same way at either scale, which is the property the whole scale
 model exists to preserve.
@@ -147,7 +147,7 @@ VolleyGrpc.newStub(channel).notify(ping, new StreamObserver<Empty>() {
 ```
 
 An `Empty`-returning method on an async stub does not block its caller — and costs,
-faults, telemetry and byte counts apply to it exactly as to anything else. There is
+failures, telemetry and byte counts apply to it exactly as to anything else. There is
 no messaging path that escapes the model, because there is no second messaging path.
 
 <CardGroup cols={2}>

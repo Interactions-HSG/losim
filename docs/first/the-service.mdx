@@ -83,7 +83,7 @@ public final class Shrinker extends ThumbnailerBase {
     @Override protected Thumbs thumbnail(Batch request) {
         var here = Losim.current();
 
-        // What the scenario's per-unit cost is charged against, and what the
+        // What the simulation's per-unit cost is charged against, and what the
         // scale engine needs to know which variable this call is a function of.
         here.units(request.getFramesCount());
 
@@ -103,10 +103,10 @@ public final class Shrinker extends ThumbnailerBase {
     }
 
     @Override protected Health capacity(Empty request) {
-        // Local knowledge only: this machine's own limits, never a peer's.
+        // Local knowledge only: this node's own limits, never a peer's.
         var spec = Losim.current().here();
         return Health.newBuilder()
-                .setMachine(spec.machine())
+                .setMachine(spec.node())
                 .setInstance(spec.instance())
                 .setZone(spec.zone())
                 .setVcpu(spec.vcpu())
@@ -148,25 +148,25 @@ public final class Shrinker extends ThumbnailerBase {
   </Card>
 </Columns>
 
-### `takes:` — what this call costs
+### `simulatedDuration:` — what this call costs
 
-Not here. It goes in the scenario, under the class that serves it:
+Not here. It goes in the simulation, under the **file** that serves it:
 
 ```yaml
-takes:
-  Shrinker:
-    Thumbnail: { refMs: 3, refNsPerUnit: 240000 }
+simulatedDuration:
+  src/lab/Shrinker.java:
+    Thumbnail: { fixed: 3 refMs, perUnit: 240000 refNs }
 ```
 
 Two terms, answering different questions:
 
 | | |
 |---|---|
-| `refMs` | what one call takes **regardless of what is in it** — the fixed part. Known before the handler runs, and slept before it. |
-| `refNsPerUnit` | what each unit of input adds. Nothing outside the handler can know how much input there was, so the handler declares it with `units(n)` and this part is slept **after the body returns**, before the response leaves. |
+| `fixed` | what one call takes **regardless of what is in it** — the fixed part. Known before the handler runs, and slept before it. |
+| `perUnit` | what each unit of input adds. Nothing outside the handler can know how much input there was, so the handler declares it with `units(n)` and this part is slept **after the body returns**, before the response leaves. |
 
-Both are **reference-machine** time, so they compose with everything else: the
-interceptor sleeps `refMs x machineFactor / k_time`. A machine with half the
+Both are **reference-node** time, so they compose with everything else: the
+interceptor sleeps `fixed x machineFactor / k_time`. A node with half the
 reference's vCPUs takes twice as long, and the whole run is compressed by `k_time`.
 
 <Warning>
@@ -174,19 +174,19 @@ Everything else here is measured; this is declared, because at the scale a lapto
 can hold, your handler is genuinely instant. The host's CPU is not shrunk along
 with the workload, so it runs at full speed on a fraction of the data.
 Without a declared duration there is no queueing, no contention, no deadline
-pressure and no critical path, which is most of what a cluster is interesting for.
+pressure and no critical path, which is most of what a system is interesting for.
 
 Measuring instead does not work: handler durations at probe size sit inside the
 host's own jitter, where the fitted time exponent moves by 0.25 between seed sets
 of an identical workload. [The full argument ->](/write/declaring-time)
 </Warning>
 
-An unannotated method takes **no time**, deliberately, rather than a made-up
+An unpriced rpc takes **no time**, deliberately, rather than a made-up
 amount.
 
 ### `units(n)` — what this call processed
 
-Two things need it. `refNsPerUnit` is charged against it, and the scale engine
+Two things need it. `perUnit` is charged against it, and the scale engine
 needs to know which independent variable a cost site is a function of. A handler
 that never declares a count is charged the fixed part only, and its span says so.
 
@@ -204,7 +204,7 @@ by 0.04, and the exponent is the one number that must not bend.
 
 ## Prove it is an ordinary object
 
-Before any simulation, before any scenario:
+Before any simulation, before any simulation:
 
 ```java test/ShrinkerTest.java
 @Test void makesOneThumbnailPerFrame() {
@@ -220,7 +220,7 @@ Before any simulation, before any scenario:
 }
 ```
 
-No cluster, no scenario, no interceptor, no clock. Set a breakpoint inside
+No system, no simulation, no interceptor, no clock. Set a breakpoint inside
 `shrink` and step into it: it is ordinary Java, and stopping on it stops nothing
 else, because nothing else is running.
 

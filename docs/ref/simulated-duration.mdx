@@ -1,0 +1,115 @@
+---
+title: "simulatedDuration:"
+description: "What each rpc costs on the reference node, under the file that serves it."
+icon: "stopwatch"
+---
+
+```yaml
+simulatedDuration:
+  src/Shrinker.java:
+    Thumbnail: { fixed: 3 refMs, perUnit: 240000 refNs }
+    Capacity:  { fixed: 1 refMs }
+```
+
+A key is a path `runs:` names; under it, an rpc that file's class serves. Both
+numbers default to `0`, and an rpc nobody prices takes **no time** — deliberately,
+rather than a made-up amount.
+
+<ParamField path="fixed" type="duration" default="0">
+  What one call takes **regardless of what is in it**. Known before the handler
+  runs, and slept before it.
+</ParamField>
+
+<ParamField path="perUnit" type="duration" default="0">
+  What each unit processed adds. The handler declares the count with
+  `Losim.current().units(n)`, and this part is slept **after the body returns**,
+  before the response leaves — because a caller waits for work that has not
+  finished, and by then the handler has said how much there was.
+
+  Usually written in `refNs`: a per-unit cost in milliseconds is a very slow unit.
+</ParamField>
+
+Both carry their unit in the value, the way [every other duration](/ref/durations)
+in the file does.
+
+## Why the file and not the rpc
+
+`retries:` names a method — `Thumbnailer.Thumbnail` — because retrying is a decision
+about a *call*. A duration is a property of the *code*: two implementations of one
+rpc, placed on two nodes, is how one design is compared with another, and a table
+keyed on the rpc would say they cost the same.
+
+So the key is the same string `runs:` says. One string for one piece of code, and no
+second vocabulary for naming a class. Move the file and the simulation stops loading
+until the table follows.
+
+## In the simulation, not in the Java
+
+This used to be an annotation on the handler. It is not, and **nothing in a system
+you write names losim at all** for this — the handlers are plain gRPC, they compile
+with losim off the classpath, and they unit-test without it.
+
+What that gives up is drift: an annotation follows a renamed method and a table does
+not. So the table is checked against what the nodes actually serve, before anything
+runs:
+
+```
+thumbs.yaml:31: simulatedDuration names 'src/Shrinker.java Thumbnial', and
+src/Shrinker.java serves no rpc of that name. It serves Capacity, Thumbnail. A cost
+that belongs to nothing is a method that quietly takes no time, so it is a refusal
+rather than a warning.
+```
+
+A system that prices **nothing** is not refused — an unpriced rpc is a legitimate
+thing — but it is said out loud in the trace, because a run where every call is
+instant has no queueing, no contention and no critical path, and from the outside
+looks like a design that is simply very fast.
+
+## The sleep formula
+
+```
+fixed x (2 / vcpu) x degradeFactor x slowFactor / k_time
+```
+
+Reference time is two vCPUs running alone. So a 4-vCPU node takes half as long, a
+node under `degrade: 4` takes four times as long, an rpc under
+[`slow: 6`](/ref/failures) takes six times as long **on that node only**, and the
+whole run is compressed by `k_time`.
+
+## Declared, not measured
+
+losim shrinks the workload **and** the nodes by the same factor, so memory and bytes
+survive it honestly. Time does not, because the host's CPU is not shrunk — it runs
+at full speed on a fraction of the data, so every handler is genuinely instant.
+Without a declared duration there is no queueing, no contention, no deadline
+pressure and no critical path.
+
+Measuring instead does not work at this scale: handler durations at probe size sit
+inside the host's own jitter, where the fitted time exponent moves by 0.25 between
+seed sets of an identical workload.
+
+## Declared work versus a declared wait
+
+| | `simulatedDuration:` | `Losim.current().sleep(refMs)` |
+|---|---|---|
+| what it is | declared **work** | a declared **wait** |
+| fixed per rpc? | yes, it is a table | no, the program decides |
+| stretches on a slow node? | **yes** | no |
+| occupies a vCPU? | **yes** | no |
+
+Measured at 40x on a node at half speed: a declared 500 takes 1019 refMs and
+`sleep(500)` takes 596. A backoff that grows with the attempt cannot be written in a
+table at all, which is the other half of why both exist.
+
+## The floor
+
+The clock cannot express a duration finer than about **0.05 ms** of real time. Below
+that a cost is *owed* rather than slept, and the ledger settles it later — good for
+about fifty times below the floor. Past that the engine refuses to project from it:
+
+```
+this run is clocked at 40x real time, and src/Shrinker.java Capacity costs 0.0004
+refMs — 6x below what the sleep debt can still settle at that compression, so its
+timings would drift rather than be owed. Give that cost site more to do, or lower
+the scale: at scale 1 the clock runs at 20x.
+```

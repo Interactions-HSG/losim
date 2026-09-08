@@ -4,7 +4,7 @@ description: "reveal, log and units — what turns a run that happened into a ru
 icon: "signal"
 ---
 
-losim replaces the debugger for anything involving more than one machine, so the
+losim replaces the debugger for anything involving more than one node, so the
 telemetry has to hold up: **if it cannot answer a question a debugger would have
 answered, that is a bug in the telemetry — and if watching changes what it reports,
 that is a worse one.**
@@ -21,9 +21,9 @@ Losim.current().reveal("strategy", "forwarded");
 ```
 
 Without it, a trace says a handler *happened*. With it, a trace says what it did —
-and the viewer puts real numbers on a machine instead of "it was busy".
+and the viewer puts real numbers on a node instead of "it was busy".
 
-Lands as a `state` event on the machine, inside the handler's span:
+Lands as a `state` event on the node, inside the handler's span:
 
 ```json
 { "t": 71.2, "kind": "state", "vm": "w0",
@@ -50,7 +50,7 @@ Losim.current().units(request.getFramesCount());
 
 Two things need it:
 
-1. the scenario's `refNsPerUnit:` is charged against it. Without it, only the fixed
+1. the simulation's `perUnit:` is charged against it. Without it, only the fixed
    part is slept, and the span says so.
 2. The scale engine needs to know which variable a cost site is a function of.
    Fitting a resource against the wrong variable gives an exponent that will not
@@ -59,19 +59,19 @@ Two things need it:
 ## `log(message)` — narration
 
 ```java
-Losim.current().log("forwarding to a machine with more memory");
-cluster.log(workers.size() + " machines can make thumbnails");
+Losim.current().log("forwarding to a node with more memory");
+here.log(workers.size() + " nodes can make thumbnails");
 ```
 
 For the sentence a reader needs and no key-value pair captures. Use it sparingly;
 `reveal` is what a later run can be compared against, and `log` is not.
 
-## `phase` and `compute` — structure
+## Structure comes from the calls
 
-Covered in [writing a job](/write/jobs), but the summary belongs here too: `phase`
-names a stretch and does **not** mark the machine busy; `compute` names local work
-and does. Between them they are what the viewer's columns and chapters are derived
-from.
+There is no `phase` and no `compute` to add structure with. A span is an rpc or a
+handler, so the shape of the trace is the shape of the call graph — which is the
+honest version: a stretch of work has a name in the trace exactly when it is a thing
+some node was asked to do. [Writing a job ->](/write/jobs)
 
 ## Recorded without being asked
 
@@ -83,14 +83,14 @@ You do not have to ask for any of this:
     opened **under** the first. Byte counts in both directions, the status, the
     round-trip time, and — at `FULL` — the real argument and the real result.
   </Card>
-  <Card title="Every machine, every tick" icon="chart-area">
+  <Card title="Every node, every tick" icon="chart-area">
     Memory held, memory cap, disk, disk percent, calls in flight, calls queued,
     busy percent, alive, frozen, degraded, bytes in and out.
   </Card>
 </Columns>
 
 Plus every fault, every retry, every queue wait, every out-of-memory, every
-timeout, and the boot of every machine.
+timeout, and the boot of every node.
 
 ## Levels, and what they cost
 
@@ -105,10 +105,10 @@ trace worth looking at. The honest way to think about it: `FULL` is for a run yo
 are going to *read*, `NO_PAYLOAD` for a run you are going to *measure*.
 
 <Note>
-Recording runs on the machines' own threads, so what it costs lands on the counters
+Recording runs on the nodes' own threads, so what it costs lands on the counters
 being read. losim therefore meters **its own work** in every one of these calls and
 subtracts it, and publishes the size of the subtraction as `losimMb` and
-`losimStops` in the `machines` channel — because "this is the program's own
+`losimStops` in the `nodes` channel — because "this is the program's own
 allocation" is a claim, and a reader is entitled to see how big the correction was
 before believing it.
 

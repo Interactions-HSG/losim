@@ -6,31 +6,24 @@ icon: "chart-line"
 
 ```yaml
 scale: 5000
-mode: scaled
 ```
 
 One number, because one number is all anybody can honestly supply. Everything
-else the engine needs — the probe ladder, the cluster sizes, how fast the clock is
+else the engine needs — the probe ladder, the system sizes, how fast the clock is
 run — it works out for itself. None of those is knowable before the run, and a
 simulator you have to predict before using is not one.
 
 <ParamField path="scale" type="number" default="1">
   How many times bigger the design is than the biggest run the engine can measure.
 
-  At **1** there is no model at all: the run is the thing, the job is handed exactly
-  the input [`input:`](/ref/input) declares, and every number on screen is what
-  happened. That is what a scenario saying nothing about scale has always got.
+  At **1** there is no model at all: the run is the thing, `Load` is asked for
+  exactly what [`input:`](/ref/input) declares, and every number on screen is what
+  happened. That is what a simulation saying nothing about scale gets.
 
-  Above 1 the scenario is a model, and the engine measures a fraction of the input
+  Above 1 the simulation is a model, and the engine measures a fraction of the input
   and projects from what it saw. The fraction is `units / (scale x 8000)`, eight
   thousand being the top of the engine's own ladder — so `scale: 5000` says a design
   five thousand times larger than the biggest run that can be measured.
-
-  <Warning>
-  Above 1 the job has to implement [`Scalable`](/ref/api-scalable). A plain `Job`
-  keeps its size in its own Java, so there is nothing for the engine to vary, and
-  the scenario is refused with the line `job:` is on.
-  </Warning>
 
   <Warning>
   The step from 1 to anything above it is a step between kinds, not a slider. A run
@@ -38,26 +31,28 @@ simulator you have to predict before using is not one.
   </Warning>
 </ParamField>
 
-<ParamField path="mode" type="direct | scaled" default="direct">
-  `scaled` measures a small run and projects to `scale`; `direct` actually runs all
-  of it.
+<Note>
+**There is no `mode:` key.** There were two modes once, and one of them was always
+implied by this number: a model at `scale: 1` has nothing above the run to project
+to, and a scale above 1 that ran all of it is the thing no laptop can hold. So the
+number says it, and a second key saying it again could only ever disagree.
 
-  Scaled mode at `scale: 1` is refused — there is nothing above the run to project
-  to. Direct mode at a large scale is legal and slow: it is how a projection gets
-  checked against the truth.
-</ParamField>
+Running the full size for real is still how a projection is checked against the
+truth. That is `scale: 1` with `input.count` set to the full number, which is legal
+and slow.
+</Note>
 
 ## What the engine picks, and why it is not yours to pick
 
 <ParamField path="the probe ladder" type="1000, 2000, 4000, 8000">
   Four rungs, because three cannot show whether a law bends and a law that bends
   must be refused rather than extrapolated across. Which four is the engine's
-  business: a scenario that could choose its own could choose a ladder its design
+  business: a simulation that could choose its own could choose a ladder its design
   happens to look linear on.
 </ParamField>
 
-<ParamField path="the cluster sizes" type="max(2, declared/2), max(3, declared)">
-  Derived from the cluster you drew, because that is the cluster the question is about.
+<ParamField path="the system sizes" type="max(2, declared/2), max(3, declared)">
+  Derived from the system you drew, because that is the system the question is about.
   Probing a design at two workers when it is written for eight extrapolates across
   the very thing being measured.
 </ParamField>
@@ -71,21 +66,21 @@ simulator you have to predict before using is not one.
 ## Two ladders, not one
 
 <Warning>
-A resource that grows with the **data** and a resource that grows with the **cluster**
+A resource that grows with the **data** and a resource that grows with the **system**
 look identical if the two only ever move together — and an engine that folds one
 into the other produces projections that are plausible and wrong, which is the
 failure mode hardest to notice because nothing looks broken.
 
-So the grid varies them on separate axes: the data ladder is climbed on the cluster
-that will actually run, and the cluster ladder holds the data still.
+So the grid varies them on separate axes: the data ladder is climbed on the system
+that will actually run, and the system ladder holds the data still.
 </Warning>
 
 ## The grid
 
 ```
-   data ladder    1k 2k 4k 8k    x  6 seeds   on the scenario's own cluster, weather off
-   cluster ladder   derived        x  2 seeds   at the middle data size,   weather off
-   fault column   the top size   x  2 seeds   the scenario's own weather
+   data ladder      1k 2k 4k 8k    x  6 seeds   on the simulation's own system, calm
+   system ladder    derived        x  2 seeds   at the middle data size,        calm
+   weather column   the top size   x  2 seeds   the simulation's own failures
 ```
 
 About thirty runs. Six seeds on the data ladder because the law is fitted on the
@@ -93,7 +88,7 @@ median of all of them and its reproducibility is measured by refitting **indepen
 sets of two** the same way — three sets is the fewest from which a spread means
 anything.
 
-The cluster ladder and the fault column are cross-checks rather than sources of an
+The system ladder and the weather column are cross-checks rather than sources of an
 error bar, so they run at fewer seeds.
 
 <Note>
@@ -104,18 +99,18 @@ in the design, not in the ladder: move the threshold, or accept that the resourc
 is not projectable across it.
 </Note>
 
-## The fault column
+## The weather column
 
-If the scenario declares any `faults:` or `chaos:`, the grid runs a weathered column
-and folds the result in as an **amplification** term. A killed machine's work is
+If any node declares `failures:`, the grid runs a weathered column and folds the
+result in as an **amplification** term. A killed node's work is
 redone elsewhere, so a survivor absorbs its share — measured, that roughly doubles
-peak memory on a machine that accumulates.
+peak memory on a node that accumulates.
 
 With no weather declared, you get a note instead:
 
 ```
-note: this scenario declares no faults, so the model carries no amplification term
-      — a projection from it describes a cluster where nothing goes wrong
+note: nothing in this simulation goes wrong, so the model carries no amplification
+      term — a projection from it describes a system where nothing goes wrong
 ```
 
 A model fitted only on clean runs under-predicts by that much, and it under-predicts

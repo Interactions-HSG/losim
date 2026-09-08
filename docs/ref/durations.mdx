@@ -1,10 +1,10 @@
 ---
 title: "Durations"
-description: "Reference-machine time, and why a bare number is refused."
+description: "Reference-node time, and why a bare number is refused."
 icon: "clock"
 ---
 
-Every duration in a scenario is **reference-machine time** and has to say so.
+Every duration in a simulation is **reference-node time** and has to say so.
 
 ```yaml
 at:          900 refMs
@@ -32,24 +32,24 @@ at: "900 ms"   # refused
 
 ```
 thumbs.yaml:24: '900' does not say what kind of time it is. Durations are
-reference-machine time: write '900 refMs' or '900 refSeconds'. A bare number would
+reference-node time: write '900 refMs' or '900 refSeconds'. A bare number would
 be ambiguous between the simulated world and your afternoon, and those differ by
 k_time.
 ```
 
 <Note>
 **Why this is worth refusing.** A run is compressed by `k_time`, which is a global
-factor whoever writes the scenario never sees at the point of writing a duration. A
+factor whoever writes the simulation never sees at the point of writing a duration. A
 bare `900` could mean 900 milliseconds of the simulated world or 900 of your
 afternoon, and at 40x those differ by a factor of forty.
 
 Writing `refMs` costs five characters and removes the whole class of question.
 </Note>
 
-## The reference machine
+## The reference node
 
 Two vCPUs, running alone, nothing else going on. A duration declared in refMs is a
-claim about how long something takes *there*, which stays true whatever cluster it
+claim about how long something takes *there*, which stays true whatever system it
 lands on:
 
 ```
@@ -58,14 +58,14 @@ actual wall time  =  refMs x (2 / vcpu) x degradeFactor / k_time
 
 | | |
 |---|---|
-| a 2-vCPU machine | x1 |
-| a 4-vCPU machine | x0.5 |
-| a 16-vCPU machine | x0.125 |
-| a machine under `degrade: factor: 4` | x4 on top |
+| a 2-vCPU node | x1 |
+| a 4-vCPU node | x0.5 |
+| a 16-vCPU node | x0.125 |
+| a node under `degrade: factor: 4` | x4 on top |
 
 <Warning>
-The multiplication applies to **work** — what `takes:` declares. It does **not** apply to
-waiting: a machine at half speed computes slower but does not wait longer, so
+The multiplication applies to **work** — what `simulatedDuration:` declares. It does **not** apply to
+waiting: a node at half speed computes slower but does not wait longer, so
 `Losim.current().sleep(refMs)` is divided by `k_time` and nothing else.
 </Warning>
 
@@ -83,4 +83,4 @@ the remaining time by `k_time` in the client interceptor, at the one place where
 your intent is still visible.
 
 `Thread.sleep(200)` is 200 milliseconds of **your afternoon** — the one duration in
-a run that `k_time` never touches. The is why it is flagged.
+a run that `k_time` never touches. That is why it is flagged.

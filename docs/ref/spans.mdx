@@ -1,12 +1,12 @@
 ---
 title: "spans"
-description: "Intervals with parent IDs that cross RPC boundaries."
+description: "Intervals with parent IDs that cross rpc boundaries."
 icon: "bars-staggered"
 ---
 
 ```json
 { "id": 15, "parent": 14, "vm": "w0", "kind": "handler",
-  "label": "lab.Thumbnailer.Thumbnail", "t0": 64.9, "t1": 78.9,
+  "label": "render.Thumbnailer.Thumbnail", "t0": 64.9, "t1": 78.9,
   "status": "OK", "units": 25,
   "detail": { "call": 14, "inBytes": 611432, "outBytes": 41206, "status": "OK" } }
 ```
@@ -15,34 +15,19 @@ icon: "bars-staggered"
 |---|---|
 | `id` | unique within the run |
 | `parent` | the span this one happened under; `0` means the root |
-| `vm` | the machine it happened on |
-| `kind` | `job`, `phase`, `rpc`, `handler` or `compute` |
-| `label` | the method, or the label you passed |
+| `vm` | the node it happened on |
+| `kind` | `rpc` or `handler` |
+| `label` | the method |
 | `t0`, `t1` | simulated milliseconds |
 | `status` | `OK`, a gRPC status code, `FAILED`, `TIMEOUT` or `ABANDONED` |
 | `units` | present only when the handler declared a count |
 | `detail` | see below, sorted by key |
 
-## The five kinds
-
-<ResponseField name="job" type="one per run">
-  The whole job, on the machine it runs on. Its `status` is `OK`, `FAILED` or
-  `TIMEOUT`.
-</ResponseField>
-
-<ResponseField name="phase" type="cluster.phase(label)">
-  A named stretch of the job. Whatever `note(k, v)` added is in `detail`. Does not
-  mark the machine busy.
-</ResponseField>
-
-<ResponseField name="compute" type="cluster.compute(label, body)">
-  Local work with no RPC to carry it. `detail.result` at `FULL`. Marks the machine
-  busy.
-</ResponseField>
+## Two kinds, and that is all
 
 <ResponseField name="rpc" type="on the caller">
-  `detail` carries `to`, `bytes` (the request), `ms`, and `netRefMs` when the network
-  had any latency. At `FULL`, `arg` and `result`.
+  `detail` carries `to`, `bytes` (the request), `ms`, and `netRefMs` when the
+  network had any latency. At `FULL`, `arg` and `result`.
 
   A call that was never delivered carries `delivered: false` and `why`.
 </ResponseField>
@@ -52,11 +37,31 @@ icon: "bars-staggered"
   `outBytes` and `status`; `error` when it failed; `arg` and `result` at `FULL`.
 </ResponseField>
 
+<Note>
+There were five kinds before 3.0 — `job`, `phase` and `compute` besides these two.
+They existed because the thing that started the work was a Java object running
+outside any call, so it had no span of its own and nothing to nest under.
+
+It is a gRPC service now. Its handler span **is** the root, labelled
+`losim.Job.Run`, and everything else nests beneath it through the same parent header
+every other call uses. A named stretch of work is a call to a service that does it,
+which is a thing the trace, the bill and the critical path can all already see.
+</Note>
+
+## The root
+
+The one span with `parent: 0` is the `handler` on the entry node labelled
+`losim.Job.Run`. Its `t0` is zero and its `t1` is when the simulation ended.
+
+A run that ended badly can leave other spans at the root — a handler on a node that
+was killed, whose caller's span went away with it. Those are dangling on purpose and
+carry `ABANDONED`.
+
 ## The parent crosses the wire
 
 <Note>
 The callee's span is opened under a parent id that arrived in a **gRPC metadata
-header**, from a thread on another machine this one has no context from.
+header**, from a thread on another node this one has no context from.
 
 Taking the parent from the ambient context instead would hang every server span off
 the root — which is to say there would be no distributed call stack at all. If you
@@ -83,14 +88,13 @@ show(0)
 ```
 
 ```
-coordinator  job      lab.ThumbnailJob                    0.0 ->   2416.0  OK
-  coordinator  phase    survey                            2.1 ->     28.4  OK
-    coordinator  rpc    lab.Thumbnailer.Capacity          2.4 ->      9.1  OK
-      w0         handler lab.Thumbnailer.Capacity         3.0 ->      8.6  OK
-  coordinator  compute  read the album                   28.9 ->     54.2  OK
-  coordinator  phase    thumbnails                       54.3 ->   2415.0  OK
-    coordinator  rpc    lab.Thumbnailer.Thumbnail        61.4 ->     79.9  OK
-      w0         handler lab.Thumbnailer.Thumbnail        64.9 ->     78.9  OK
+coordinator  handler  losim.Job.Run                       0.0 ->   2416.0  OK
+  coordinator  rpc    render.Thumbnailer.Capacity         2.4 ->      9.1  OK
+    w0         handler render.Thumbnailer.Capacity        3.0 ->      8.6  OK
+  coordinator  rpc    render.Thumbnailer.Thumbnail       61.4 ->     79.9  OK
+    w0         handler render.Thumbnailer.Thumbnail      64.9 ->     78.9  OK
+  coordinator  rpc    render.Thumbnailer.Thumbnail       79.9 ->     98.2  OK
+    w1         handler render.Thumbnailer.Thumbnail      82.6 ->     97.4  OK
 ```
 
 ## Two durations, and the difference is losim's
@@ -110,7 +114,11 @@ would make every projection depend on how much you instrumented it.
 { "status": "ABANDONED", "detail": { "why": "the run ended while this was in flight" } }
 ```
 
-A run can end with work still in flight — a handler whose caller gave up, a machine
+A run can end with work still in flight — a handler whose caller gave up, a node
 killed mid-call. Those spans are real and so is their end. Left open they would be
 indistinguishable from a recorder that lost track, which is the one thing a dangling
 span is supposed to mean.
+
+That includes the root. Kill the entry node and `losim.Job.Run` closes `CANCELLED`,
+with a `failed` event saying which node went away — rather than a span that simply
+never ends.

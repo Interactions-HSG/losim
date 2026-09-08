@@ -589,7 +589,7 @@ public final class Scan {
         if (build.contains("application") && build.contains("mainClass")) {
             findings.add(new Finding(Kind.DEAD, "the application plugin",
                     "the project stops being an application: nothing here has a main to"
-                    + " start, and `losim run` is what runs it.", null));
+                    + " start, and `losim simulate` is what starts one.", null));
         }
         for (Rpc r : rpcs) {
             if (r.streaming()) {

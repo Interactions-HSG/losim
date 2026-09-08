@@ -8,7 +8,7 @@ icon: "hard-drive"
 Losim.current().wroteDisk(bytes);
 ```
 
-The is the whole API. There is no file, no path and no stream. The point is to
+That is the whole API. There is no file, no path and no stream. The point is to
 make a design that does not fit on its disks fail here for the reason it would
 fail there, not to persist anything.
 
@@ -24,24 +24,24 @@ try {
 }
 ```
 
-A machine whose disk is full cannot take the write, so the handler fails the way it
+A node whose disk is full cannot take the write, so the handler fails the way it
 would have failed for real. Recording the write and carrying on would let a design
 that cannot fit on its disks appear to work — the same mistake as an out-of-memory
 that only prints a warning.
 
-The trace records it once per machine:
+The trace records it once per node:
 
 ```json
 { "kind": "disk_full", "vm": "w3", "detail": {
     "resource": "disk", "capMb": 32.0, "demandMb": 33.421,
-    "cause": "the machine was asked to write more than it has" } }
+    "cause": "the node was asked to write more than it has" } }
 ```
 
 <Warning>
 **Do not write a real file.** `Files.write`, `FileOutputStream`, `RandomAccessFile`
 — none of them throw, none of them are seen by the disk model, none of them are
-capped, and all of them write to the host, outside the one-machine boundary. The
-machine's disk figure becomes a lower bound and the verifier says so beside it.
+capped, and all of them write to the host, outside the one-node boundary. The
+node's disk figure becomes a lower bound and the verifier says so beside it.
 </Warning>
 
 ## Declaring the write
@@ -60,7 +60,7 @@ Losim.current().wroteDisk(spill.getSerializedSize());
 ```
 
 <Note>
-Nothing checks that you declared the truth, and nothing can. The is a claim about
+Nothing checks that you declared the truth, and nothing can. That is a claim about
 your design, like a declared duration — and like one, what matters is that it is
 consistent between the designs you are comparing.
 </Note>
@@ -68,21 +68,21 @@ consistent between the designs you are comparing.
 ## Reading back
 
 There is no read side, on purpose. A design that spills and re-reads pays for the
-spill; re-reading costs whatever the scenario says it costs. Adding a read API
+spill; re-reading costs whatever the simulation says it costs. Adding a read API
 would mean modelling a filesystem, and the interesting question — *does this fit,
 and what does the storage cost* — is answered without one.
 
 ## Caps
 
-From the instance type's `storageGb`, or overridden per machine:
+From the instance type's `storageGb`, or overridden per node:
 
 ```yaml
-machines:
+nodes:
   workers:
     count: 4
     prefix: w
     instance: i3.large           # 475 GB of local storage
-    runs: [lab.Spiller]
+    runs: { Spiller: src/lab/Spiller.java }
     overrides:
       w3: { diskMb: 32 }         # deliberately too small
 ```
@@ -94,10 +94,10 @@ Choosing an instance family is itself a design decision, and the bill will price
 
 | where | as |
 |---|---|
-| series | `diskMb`, `diskPct` per machine, per tick |
-| `machines` channel | `diskMb`, the closing total |
+| series | `diskMb`, `diskPct` per node, per tick |
+| `nodes` channel | `diskMb`, the closing total |
 | the bill | a `GB-month` row under **consumption** |
-| scaled mode | a `diskMb` law, fitted against whichever variable it turns out to follow |
+| a scale above 1 | a `diskMb` law, fitted against whichever variable it turns out to follow |
 
 <Tip>
 Disk is often the resource whose law the engine **refuses**, and for an instructive
@@ -114,19 +114,25 @@ A volume too small for what the design writes to it:
 
 ```yaml spill.yaml
 seed: 1
-job: lab.SpillJob
 scale: 6
 
-machines:
-  coordinator: { instance: m5.large, zone: eu-central-1a }
+nodes:
+  coordinator:
+    instance: m5.large
+    zone: eu-central-1a
+    runs: { losim.Job: src/lab/SpillJob.java }
   workers:
     count: 2
     prefix: w
     instance: i3.large            # the storage-shaped instance
     zone: eu-central-1a
-    runs: [lab.Spiller]
+    runs: { Spiller: src/lab/Spiller.java }
     overrides:
       w1: { diskMb: 32 }          # deliberately too small
+
+input:
+  unit:  row
+  count: 60000
 ```
 
 ```java RunExperiments.java
@@ -141,5 +147,5 @@ consumption bucket now has a storage line that climbs as the run goes on — whi
 the line a better algorithm moves.
 
 <Card title="Next: concurrency" icon="arrow-right" href="/write/concurrency">
-  The thread pool is the machine, and that has consequences.
+  The thread pool is the node, and that has consequences.
 </Card>

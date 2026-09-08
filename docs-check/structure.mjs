@@ -59,13 +59,20 @@ for (const page of new Set(nav.filter((p) => nav.filter((q) => q === p).length >
 
 // Internal links. An absolute /path must be a page; an anchor is not checked,
 // because a heading's slug is Mintlify's business rather than ours.
-const LINK = /\]\((\/[^)\s#]*)(#[^)\s]*)?\)/g;
+//
+// Two spellings, because the manual has two. A <Card href="/ref/nodes"> is a link
+// a reader clicks exactly like a markdown one, and checking only the markdown form
+// meant a page rename could leave every card on the site pointing at a 404 while
+// this check said the site held together.
+const LINKS = [/\]\((\/[^)\s#]*)(#[^)\s]*)?\)/g, /href="(\/[^"#]*)(#[^"]*)?"/g];
 for (const page of [...onDisk].sort()) {
   const lines = readFileSync(join(root, `${page}.mdx`), 'utf8').split('\n');
   lines.forEach((line, i) => {
-    for (const [, target] of line.matchAll(LINK)) {
-      if (onDisk.has(target.replace(/\/+$/, '').replace(/^\/+/, ''))) continue;
-      problems.push(`${page}.mdx:${i + 1}: link to ${target}, which is not a page`);
+    for (const link of LINKS) {
+      for (const [, target] of line.matchAll(link)) {
+        if (onDisk.has(target.replace(/\/+$/, '').replace(/^\/+/, ''))) continue;
+        problems.push(`${page}.mdx:${i + 1}: link to ${target}, which is not a page`);
+      }
     }
   });
 }

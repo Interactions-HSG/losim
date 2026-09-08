@@ -39,7 +39,7 @@ public record Retry(String method, int attempts, double backoffRefMs,
         var matched = known.stream().filter(this::matches).toList();
         if (matched.isEmpty())
             throw new IllegalArgumentException(where + ": retry policy names '" + method
-                    + "', which no machine in this cluster serves");
+                    + "', which no node in this simulation serves");
         if (unsafe) return;
         var unsound = matched.stream().filter(md -> !md.isIdempotent()).toList();
         if (unsound.isEmpty()) return;

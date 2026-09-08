@@ -45,16 +45,16 @@ gets an `rpc_timeout` event carrying `why`:
 ```
 
 <Warning>
-**The callee is not told.** A machine that is frozen holds the call on its own
-threads; a machine that is dead never received it. Your handler may well still be
+**The callee is not told.** A node that is frozen holds the call on its own
+threads; a node that is dead never received it. Your handler may well still be
 running, still holding memory, still occupying a core, after the caller has given
-up — which is real, and is one of the more expensive things about a cluster under
+up — which is real, and is one of the more expensive things about a system under
 load.
 </Warning>
 
 ## A call with no deadline
 
-losim waits **five seconds** and then gives up on your behalf, so a scenario that
+losim waits **five seconds** and then gives up on your behalf, so a simulation that
 forgot to set one still terminates.
 
 Five seconds of reference time is enormous — often longer than the whole run's
@@ -67,16 +67,16 @@ A deadline is a claim about how long the callee should take, and the two numbers
 are related:
 
 ```java
-Thumbnail: { refMs: 3, refNsPerUnit: 240000 }   # 25 frames -> 3 + 6 = 9 refMs
+Thumbnail: { fixed: 3 refMs, perUnit: 240000 refNs }   # 25 frames -> 3 + 6 = 9 refMs
 ```
 
-Nine reference milliseconds of work on a two-vCPU machine. On the `c5.large`s in the
-cluster, still 9. But if four calls arrive at once and the machine has two cores,
+Nine reference milliseconds of work on a two-vCPU node. On the `c5.large`s in the
+system, still 9. But if four calls arrive at once and the node has two cores,
 the fourth waits for two others to finish — so the *observed* duration is nearer 27,
 plus the round trip.
 
 <Tip>
-Deadlines that are too tight look exactly like a broken cluster: everything times
+Deadlines that are too tight look exactly like a broken system: everything times
 out, nothing is obviously wrong, and the run is slower than the no-deadline case
 because every attempt is paid for and then thrown away. Set the first one
 generously, look at the `handler` spans in the trace, and tighten it to something
@@ -85,7 +85,7 @@ above what you saw under load.
 
 ## Deadlines and retries interact
 
-The scenario's retry policy sits **outside** the recording interceptor, so each
+The simulation's retry policy sits **outside** the recording interceptor, so each
 attempt is a fresh call — and each gets the *same* `CallOptions`, which means the
 same absolute deadline. A policy of three attempts with a growing backoff can
 therefore exhaust the deadline before it exhausts its attempts, and the trace shows
@@ -103,23 +103,25 @@ The same call, run twice, against a deadline that is and is not enough:
 
 ```yaml patience.yaml
 seed: 3
-job: lab.ThumbnailJob
-
-machines:
-  coordinator: { instance: m5.large, zone: eu-central-1a }
+nodes:
+  coordinator:
+    instance: m5.large
+    zone: eu-central-1a
+    runs: { losim.Job: src/lab/RenderJob.java }
   workers:
     count: 2
     prefix: w
     instance: c5.large
     zone: [eu-central-1a, eu-central-1b]
-    runs: [lab.Shrinker]
+    runs: { Thumbnailer: src/lab/Shrinker.java }
+    overrides:
+      w1:
+        failures:
+          - { freeze: true, at: 500 refMs, for: 900 refMs }
 
 network:
   sameZone:  1 refMs
   crossZone: 40 refMs           # enough that a zone hop matters
-
-faults:
-  - { at: 500 refMs, freeze: w1, for: 900 refMs }
 ```
 
 ```java RunExperiments.java
@@ -128,11 +130,11 @@ Experiments.here()
         .show();
 ```
 
-**What to look for.** The frozen machine does not go red — it stays there, answering
+**What to look for.** The frozen node does not go red — it stays there, answering
 nothing, which is exactly why a freeze is harder to diagnose than a crash. Then watch
 the caller: with a generous deadline it waits the whole 900 refMs; tighten it and the
 `rpc_timeout` markers appear on the bar the moment patience runs out.
 
 <Card title="Next: memory" icon="arrow-right" href="/write/memory">
-  What a machine holds, versus what it allocated.
+  What a node holds, versus what it allocated.
 </Card>

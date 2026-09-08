@@ -12,17 +12,17 @@ var here = Losim.current();
 
 Returns one of **two singletons**, so reaching for it allocates nothing. That
 matters: a handler calling it a thousand times must not thereby allocate a thousand
-objects against the machine whose allocation is being fitted.
+objects against the node whose allocation is being fitted.
 
 | | inside a run | outside one |
 |---|---|---|
-| recording calls | reach the machine serving this call | **silent** |
-| state calls | reach the machine serving this call | **throw** |
+| recording calls | reach the node serving this call | **silent** |
+| state calls | reach the node serving this call | **throw** |
 
 <Note>
 The asymmetry is deliberate. A silent `reveal` lets a handler be called directly
-from a unit test without the test having to know losim exists. A fabricated empty
-cluster would let the same test pass while asserting nothing, which is worse than
+from a unit test without the test having to know losim exists. A fabricated
+system would let the same test pass while asserting nothing, which is worse than
 failing.
 </Note>
 
@@ -33,7 +33,7 @@ boolean isRunning()
 ```
 
 False in a bare unit test. Use it to guard the state calls if a handler genuinely
-needs the machine's identity.
+needs the node's identity.
 
 ## Recording — silent outside a run
 
@@ -60,16 +60,16 @@ needs the machine's identity.
 <ResponseField name="units(long n)" type="void">
   How many units **this call** processed.
 
-  Two things need it: the scenario's `refNsPerUnit:` is charged against it, and the
+  Two things need it: the simulation's `perUnit:` is charged against it, and the
   scale engine needs to know which independent variable a cost site is a function
   of. A handler that never declares a count is charged the fixed part only, and its
   span says so.
 </ResponseField>
 
 <ResponseField name="wroteDisk(long bytes)" type="void — but throws">
-  Records that this call wrote bytes to the machine's disk.
+  Records that this call wrote bytes to the node's disk.
 
-  **Not a recording call, and it does not behave like one.** A machine whose disk is
+  **Not a recording call, and it does not behave like one.** A node whose disk is
   full cannot take the write, so this throws `IllegalStateException` when the cap is
   exceeded and the handler fails the way it would have failed for real. Recording
   the write and carrying on would let a design that cannot fit on its disks appear
@@ -81,11 +81,11 @@ needs the machine's identity.
 ## Time
 
 <ResponseField name="sleep(double refMs)" type="void">
-  Waits, for a duration written in reference-machine time. `sleep(200)` waits two
+  Waits, for a duration written in reference-node time. `sleep(200)` waits two
   hundred milliseconds of the simulated world, whatever the compression is.
 
   **Waiting is not work**, and two things follow: it does not stretch on a degraded
-  machine, where declared work does; and it does not mark the machine busy, because a
+  node, where declared work does; and it does not mark the node busy, because a
   backoff occupies no vCPU.
 
   For a duration only the running program knows — a backoff that grows with the
@@ -94,31 +94,31 @@ needs the machine's identity.
 
 ## State — throws outside a run
 
-<ResponseField name="machine()" type="String">
-  The name of the machine serving this call.
+<ResponseField name="node()" type="String">
+  The name of the node serving this call.
 </ResponseField>
 
 <ResponseField name="here()" type="Spec">
-  What this machine is made of: instance type, zone, vCPUs and caps. Local knowledge
-  only — this machine's, never a peer's. Free to call.
+  What this node is made of: instance type, zone, vCPUs and caps. Local knowledge
+  only — this node's, never a peer's. Free to call.
   [Spec ->](/ref/api-spec)
 </ResponseField>
 
 <ResponseField name="peers()" type="List<String>">
-  Every **other** machine in the cluster, by name.
+  Every **other** node in the system, by name.
 </ResponseField>
 
 <ResponseField name="peersServing(String service)" type="List<String>">
-  The machines serving a given gRPC service, by name — the service's name as written
+  The nodes serving a given gRPC service, by name — the service's name as written
   in the `.proto`, bare (`Thumbnailer`) or qualified (`lab.Thumbnailer`).
 
-  Never includes this machine: a blocking call to itself would occupy one of its own
-  pool threads waiting for another. Dead machines are not listed.
+  Never includes this node: a blocking call to itself would occupy one of its own
+  pool threads waiting for another. Dead nodes are not listed.
 </ResponseField>
 
-<ResponseField name="channelTo(String machine)" type="io.grpc.Channel">
-  A channel to another machine, with losim on it. Made once and owned by the
-  machine, so a handler never sees a lifetime.
+<ResponseField name="channelTo(String node)" type="io.grpc.Channel">
+  A channel to another node, with losim on it. Made once and owned by the
+  node, so a handler never sees a lifetime.
 
   What comes back is an ordinary `io.grpc.Channel` — hand it to a generated stub and
   the call site is plain gRPC. What it is **not** is a channel of your own: losim
@@ -127,8 +127,40 @@ needs the machine's identity.
 </ResponseField>
 
 <ResponseField name="clockMs()" type="double">
-  Simulated milliseconds since the run began — the clock the scenario was written
+  Simulated milliseconds since the run began — the clock the simulation was written
   against, not wall clock.
+</ResponseField>
+
+<ResponseField name="seed()" type="long">
+  The simulation's seed, so a `Job.Load` that generates its own workload draws from
+  the same number everything else does.
+
+  It has to come from here. A workload that draws from a constant of its own is a
+  workload whose every run is the same afternoon, and a sweep of seeds that varies
+  the weather but not the data is measuring half of what it says it is.
+</ResponseField>
+
+<ResponseField name="local()" type="ConcurrentMap<String, Object>">
+  A map owned by **this node**: shared by every service on it, reachable from no
+  other node, and **emptied when the node restarts** — so "a restart loses what it
+  was holding" stays true of a cache as well as of a service instance.
+
+  For the thing a real process does all the time: an index two of your services both
+  read, a pool, a cache. Two services on one node otherwise share nothing but a
+  thread pool, because `runs:` builds one instance per file and no reference connects
+  them.
+
+  **Free in time, charged in memory.** Every operation brackets itself and hands the
+  time back, so a million lookups move `programMs` by nothing. What it holds is
+  walked by the retained-heap measurement and counts against `memoryMb` — a store
+  outside that walk would be a hole in the memory cap, which is worse than not having
+  one.
+
+  ```java
+  @SuppressWarnings("unchecked")
+  var index = (Map<String, Long>) Losim.current().local()
+          .computeIfAbsent("index", k -> new ConcurrentHashMap<String, Long>());
+  ```
 </ResponseField>
 
 ## Outside a run
@@ -136,14 +168,14 @@ needs the machine's identity.
 ```
 no simulation is running, so Losim.current().peers() has no answer here.
 Recording calls (reveal, log, units) are silent outside a run; state calls are
-not, because a fabricated cluster would make a passing test meaningless.
+not, because a fabricated system would make a passing test meaningless.
 ```
 
 ## Every method meters its own body
 
-These run inside your handler, on the machine's own thread, between the two marks
-that measure that machine. So what losim spends here is charged to losim and taken
-back off what the machine reports.
+These run inside your handler, on the node's own thread, between the two marks
+that measure that node. So what losim spends here is charged to losim and taken
+back off what the node reports.
 
 The boundary is exact and worth knowing: in `reveal("keys", map.size())` the
 `size()` is **your** cost and stays with your program; everything after the argument

@@ -1,0 +1,157 @@
+---
+title: "5. The simulation"
+description: "The system, its weather and its bad afternoon — as data."
+icon: "file-lines"
+---
+
+Create `simulations/thumbs.yaml`:
+
+```yaml simulations/thumbs.yaml
+seed: 7
+
+nodes:
+  coordinator:
+    instance: m5.large
+    zone: eu-central-1a
+    runs: { losim.Job: src/lab/RenderJob.java }
+
+  workers:
+    count: 4
+    prefix: w
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b]
+    runs: { Thumbnailer: src/lab/Shrinker.java }
+    overrides:
+      w3: { instance: a1.medium }    # one core against their two, and it will show
+
+input:
+  unit:  frame
+  count: 4000
+
+network:
+  sameZone:  0.4 refMs
+  crossZone: 3 refMs
+  jitter:    0.5 refMs
+
+simulatedDuration:
+  src/lab/Shrinker.java:
+    Thumbnail: { fixed: 3 refMs, perUnit: 240000 refNs }
+    Capacity:  { fixed: 1 refMs }
+```
+
+That is a complete simulation. Simulate it as it stands and everything works; the
+next page does exactly that, and the page after adds the weather.
+
+## Line by line
+
+<ParamField path="seed" type="long" default="1">
+  Everything random in the run is drawn from this: when a drawn failure fires, how
+  jitter falls, and — through `Losim.current().seed()` — a workload your `Load`
+  generates. **One seed shows a design survived an afternoon; twenty show it
+  survives afternoons.**
+</ParamField>
+
+<ParamField path="scale" type="number" default="1">
+  How many times bigger the design is than the run measuring it. At 1 there is no
+  model: `Load` is asked for exactly what `input:` declares, and every number on
+  screen is what happened.
+
+  Above 1 the simulation is a model, and the engine works out for itself how to
+  build it. [scale ->](/ref/scale)
+</ParamField>
+
+<ParamField path="nodes" type="map" required>
+  Each key is either **one node** (no `count:`) or a **pool** (`count: n`, named
+  `prefix0 … prefix{n-1}`). Every pool member gets the same instance type, services
+  and caps unless `overrides:` says otherwise, and zones are dealt round robin from
+  the list.
+</ParamField>
+
+<ParamField path="nodes.*.runs" type="map of service to .java path">
+  The **service name** on the left, the **file** that implements it on the right.
+  Exactly one node in the file runs `losim.Job` — that is where the work starts.
+
+  A node with no `runs:` still exists and still listens; it just offers nothing.
+</ParamField>
+
+<ParamField path="input" type="map">
+  What one `unit:` is, and how many at full size. An optional `source:` names a file
+  or a folder for `Load` to read; leave it out and `Load` generates from the seed.
+  [input ->](/ref/input)
+</ParamField>
+
+<ParamField path="network" type="object">
+  `sameZone` and `crossZone` are one-way latencies; losim charges the round trip.
+  `jitter` spreads uniformly either side. `loss` is a probability from 0 to 1.
+</ParamField>
+
+<ParamField path="simulatedDuration" type="map">
+  What each rpc costs, keyed by the **same path** `runs:` names. An rpc nobody
+  prices takes no time, and a system where nothing is priced has no queueing and no
+  critical path. [simulatedDuration ->](/ref/simulated-duration)
+</ParamField>
+
+## One string for the service, one for the file
+
+<Note>
+| where | what it names | example |
+|---|---|---|
+| the `runs:` **key** | the service in your `.proto` | `Thumbnailer` |
+| the `runs:` **value** | the file that implements it | `src/lab/Shrinker.java` |
+| `peersServing(…)` | the service again | `Thumbnailer` |
+| `simulatedDuration:` | the file again | `src/lab/Shrinker.java` |
+
+Two strings, each written the same way everywhere it appears. The key is what peers
+find a node by; the value is what losim compiles and loads. A key that disagrees
+with what the class actually serves is refused, because `peersServing` would find
+nobody and a design that copes with a missing peer would look like one that worked.
+</Note>
+
+## Every duration says what kind of time it is
+
+```yaml
+crossZone:   3 refMs            # ok
+crossZone:   3                  # refused
+crossZone:   3ms                # refused
+```
+
+```
+thumbs.yaml:18: '3ms' does not say what kind of time it is. Durations are
+reference-node time: write '3 refMs' or '3 refSeconds'. A bare number would be
+ambiguous between the simulated world and your afternoon, and those differ by
+k_time.
+```
+
+Accepted spellings: `refMs`, `refms`, `refSeconds`, `refSec`, `refS`, `refs`.
+
+## Everything else that can be wrong is refused the same way
+
+At load, with the line it was written on, before anything runs:
+
+<CodeGroup>
+```text an unknown key
+thumbs.yaml:12: unknown key 'zones'; expected one of instance, zone, runs,
+failures, count, prefix, memoryMb, diskMb, overrides
+```
+
+```text an unknown instance
+thumbs.yaml:9: unknown instance type 'c5.medium'; known types: a1.nano,
+a1.medium, m5.large, m5.xlarge, m5.2xlarge, c5.large, c5.xlarge, …
+```
+
+```text a file that is not there
+thumbs.yaml:14: there is no file at 'src/lab/Shrinkr.java'. Paths are relative
+to the project — the directory holding proto/, src/ and the simulations.
+```
+
+```text a partition aimed at nothing
+thumbs.yaml:24: there is no node called 'w7'; this simulation has
+coordinator, w0, w1, w2, w3
+```
+</CodeGroup>
+
+None of those should be discovered halfway through a run as a puzzling number.
+
+<Card title="Next: simulate it" icon="arrow-right" href="/first/simulate-it">
+  Compile, simulate, and read what comes out.
+</Card>

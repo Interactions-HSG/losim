@@ -123,12 +123,12 @@ public final class Machines implements AutoCloseable {
             String klass = e.getKey().substring(0, Math.max(0, e.getKey().lastIndexOf('.')));
             throw new IllegalArgumentException(e.getValue().where()
                     + ": simulatedDuration names '"
-                    + e.getKey().replace('.', ' ').trim() + "', and "
+                    + said(e.getKey()) + "', and "
                     + (classes.contains(klass)
                         ? klass + " serves no rpc of that name. It serves "
                           + named(known, klass) + "."
-                        : "no machine in this cluster runs " + (klass.isEmpty() ? "that" : klass)
-                          + ". This cluster runs " + (classes.isEmpty() ? "nothing"
+                        : "no node in this simulation runs " + (klass.isEmpty() ? "that" : klass)
+                          + ". This simulation runs " + (classes.isEmpty() ? "nothing"
                                                     : String.join(", ", classes)) + ".")
                     + " A cost that belongs to nothing is a method that quietly takes no time,"
                     + " so it is a refusal rather than a warning.");
@@ -144,7 +144,7 @@ public final class Machines implements AutoCloseable {
                 if (known.contains(f.getKey())) continue;
                 String klass = f.getKey().substring(0, Math.max(0, f.getKey().lastIndexOf('.')));
                 throw new IllegalArgumentException(f.getValue() + ": failures names '"
-                        + f.getKey().replace('.', ' ').trim() + "', and " + klass
+                        + said(f.getKey()) + "', and " + klass
                         + " serves no rpc of that name. It serves " + named(known, klass) + "."
                         + " A failure that belongs to nothing is a failure that quietly never"
                         + " fires, so it is a refusal rather than a warning.");
@@ -162,6 +162,20 @@ public final class Machines implements AutoCloseable {
                     + " critical path. Add a simulatedDuration: block.");
         }
         return this;
+    }
+
+    /**
+     * A cost key, read back the way the two lines that made it were written.
+     *
+     * <p>The key is a file path and an rpc joined with a dot, and the path has a dot
+     * in it — {@code src/Shrinker.java.Thumbnail}. Splitting at the last one is the
+     * only way back; replacing every dot with a space, which is what this did while
+     * the key was a class name, turns the file the reader has to go and open into
+     * {@code src/Shrinker java Thumbnail}.
+     */
+    private static String said(String key) {
+        int dot = key.lastIndexOf('.');
+        return dot < 0 ? key : key.substring(0, dot) + ' ' + key.substring(dot + 1);
     }
 
     /** The rpcs one placed class serves, for a refusal to list. */

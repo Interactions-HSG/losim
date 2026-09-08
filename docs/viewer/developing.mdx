@@ -16,7 +16,7 @@ Everything here is for whoever *changes* the viewer.
 cd viewer && npm install && cd ..    # once
 
 bin/losim dev viewer dev      # the Next dev server on :8000, with hot reload
-bin/losim dev viewer check    # everything a machine can decide
+bin/losim dev viewer check    # everything a node can decide
 bin/losim dev viewer build    # the static export into viewer/out
 ```
 
@@ -56,7 +56,7 @@ viewer/
   checks/         the checks, and the Python they are checked against
   out/            the committed static export
 build/served/     what the sweep writes and the picker reads — the last sweep, and nothing else
-build/runs/       where a lab's runs land, and what the lab server serves
+build/results/       where a project's runs land, and what the lab server serves
 build/traces/     this repo's own scratch directory, for the sweep below
 
 ```
@@ -67,7 +67,7 @@ the export goes is how the export and the thing serving it drift apart.
 
 ## `losim dev viewer check`
 
-Everything about the viewer that **a machine can decide**, in one command. It needs
+Everything about the viewer that **a node can decide**, in one command. It needs
 `losim dev viewer traces` to have run, because these check against runs that happened rather than against fixtures that agree with them by construction.
 
 | | |
@@ -75,7 +75,7 @@ Everything about the viewer that **a machine can decide**, in one command. It ne
 | `glyphs` | do the glyph paths match the Python, **character for character** |
 | `parity` | does the layout port compute the same layout, on every trace |
 | `ledger` | does the accruing ledger close on `losim bill`, to the rappen |
-| `cost` | is a frame cheap enough to be a frame, at the largest cluster |
+| `cost` | is a frame cheap enough to be a frame, at the largest system |
 | `pace` | is nothing on screen for less than a second, on every trace |
 | `console` | do the console's views render, and does any ruler move under the clock |
 | `author` | does what the designer writes load, and is what it must refuse refused |
@@ -98,12 +98,12 @@ deleting any of the four breaks `losim dev viewer check`.
 sidecar. Nothing imports the last two, `film.py` is imported only by them, and `manim`
 is not installed here — so they cannot run and nothing depends on them.
 
-The is why the glyph paths were authored in SVG's own convention and compared by
+That is why the glyph paths were authored in SVG's own convention and compared by
 **string equality** rather than by looking at two pictures and arguing about them.
 </Note>
 
 What is left over is what a *browser* has to answer — does the MP4 play in a slide
-deck, is a 25-machine cluster legible, does the export serve with no npm. A browser is
+deck, is a 25-node system legible, does the export serve with no npm. A browser is
 where those are answered: `losim dev viewer serve`, then look.
 
 ## Four decisions in the code worth knowing before you change it
@@ -126,13 +126,13 @@ where those are answered: `losim dev viewer serve`, then look.
   </Accordion>
 
   <Accordion title="Attribution is a partition, never a re-price" icon="scale-balanced">
-    Pointing at a machine lights up its money, and that needs a second question
+    Pointing at a node lights up its money, and that needs a second question
     answered — *whose line is this?* The amount never changes; only the claim about
     who is answerable for it.
 
-    Its own (a capacity line names one machine), its share (a cluster total split by a
+    Its own (a capacity line names one node), its share (a system total split by a
     quantity the trace already holds), or **nobody's** (the late penalty
-    belong to the job, and spreading them over nine machines would invent a claim
+    belong to the job, and spreading them over nine nodes would invent a claim
     nothing supports).
 
     The classification is matched against the exact line labels `losim.price.Bill`
@@ -218,7 +218,7 @@ because losim is a library and your traces live in your project, not in this tre
 
 <Warning>
 `build/served` is a **mirror of the last sweep**: anything not swept this time
-is deleted from it. The is what makes a collection un-askable-for once asked for,
+is deleted from it. That is what makes a collection un-askable-for once asked for,
 rather than something that accumulates forever.
 </Warning>
 

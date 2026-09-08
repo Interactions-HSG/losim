@@ -4,15 +4,15 @@ description: "Symptoms, causes, and the line to change."
 icon: "wrench"
 ---
 
-## The scenario is refused, and nothing runs
+## The simulation is refused, and nothing runs
 
 Exit code **2**, with the file and line. These read like compiler errors on purpose.
 
 <AccordionGroup>
   <Accordion title="'900' does not say what kind of time it is">
-    Every duration is reference-machine time and has to say so: `900 refMs` or
+    Every duration is reference-node time and has to say so: `900 refMs` or
     `2 refSeconds`. A bare number is ambiguous between the simulated world and your
-    afternoon, and the two differ by `k_time`, which whoever writes the scenario
+    afternoon, and the two differ by `k_time`, which whoever writes the simulation
     never sees. [Durations ->](/ref/durations)
   </Accordion>
   <Accordion title="unknown key 'zones'; expected one of instance, zone, runs, …">
@@ -22,8 +22,8 @@ Exit code **2**, with the file and line. These read like compiler errors on purp
   <Accordion title="unknown instance type 'c5.medium'">
     The message lists the whole catalogue. [Instances ->](/ref/instances)
   </Accordion>
-  <Accordion title="there is no machine called 'w7' in this scenario">
-    A fault aimed at a machine that does not exist. The message lists the ones that
+  <Accordion title="there is no node called 'w7' in this simulation">
+    A fault aimed at a node that does not exist. The message lists the ones that
     do. Remember a pool named `workers` with `prefix: w` and `count: 4` produces
     `w0 w1 w2 w3` — not `workers0`.
   </Accordion>
@@ -32,22 +32,22 @@ Exit code **2**, with the file and line. These read like compiler errors on purp
     directory you compiled into, and that the name is spelt as the class is.
   </Accordion>
   <Accordion title="'lab.Shrinker' is not a gRPC service">
-    It has to extend the `ImplBase` protoc generated. Machines talk over gRPC and
+    It has to extend the `ImplBase` protoc generated. Nodes talk over gRPC and
     nothing else.
   </Accordion>
   <Accordion title="'lab.Shrinker' needs a no-argument constructor">
-    losim builds a fresh one when a machine restarts. Whatever it needs, it asks
+    losim builds a fresh one when a node restarts. Whatever it needs, it asks
     `Losim.current()` for.
   </Accordion>
   <Accordion title="retrying lab.Volley.Hit is refused">
     The `.proto` declares no `idempotency_level`. Declare it, or write
     `unsafe: true` in the policy if you mean it. [Retries ->](/write/retries)
   </Accordion>
-  <Accordion title="retry policy names 'Thumbnial', which no machine in this cluster serves">
+  <Accordion title="retry policy names 'Thumbnial', which no node in this system serves">
     A typo in a policy would otherwise be a policy that silently does nothing.
   </Accordion>
-  <Accordion title="two machines are both called 'w1'">
-    A pool's generated names collided with an explicitly named machine. Change the
+  <Accordion title="two nodes are both called 'w1'">
+    A pool's generated names collided with an explicitly named node. Change the
     `prefix:`.
   </Accordion>
 </AccordionGroup>
@@ -55,29 +55,29 @@ Exit code **2**, with the file and line. These read like compiler errors on purp
 ## The run happens, but something is wrong
 
 <AccordionGroup>
-  <Accordion title="'none of the classes this scenario names are on the classpath it was given'">
+  <Accordion title="'none of the classes this simulation names are on the classpath it was given'">
     ```
-    A jar is not walked; point --cp at the directory the lab compiles to.
+    A jar is not walked; point --cp at the directory the project compiles to.
     ```
     The verifier reads class files off disk. Everything still ran — but nothing was
     checked, and the trace records that nothing was claimed either way.
   </Accordion>
-  <Accordion title="could not start machine w0: IllegalStateException">
-    A name still held by another server. Closing a cluster now waits for its machines
-    to give their names back, so clusters run back to back in one JVM are fine — as
+  <Accordion title="could not start node w0: IllegalStateException">
+    A name still held by another server. Closing a system now waits for its nodes
+    to give their names back, so systems run back to back in one JVM are fine — as
     long as each one is actually closed. If you see this together with
-    `losim: w0 did not release its name in time`, the previous cluster's shutdown
+    `losim: w0 did not release its name in time`, the previous system's shutdown
     timed out rather than the name being genuinely taken.
 
   </Accordion>
-  <Accordion title="the job was still running after 120 seconds of real time">
+  <Accordion title="losim.Job/Run was still running after 120 seconds of real time">
     A backstop, not a deadline, and the line between *slow* and *stuck*. Look for a
     call with no deadline (five reference seconds each), a coordinator waiting on a
-    machine that was killed, or a loop that never terminates because the
+    node that was killed, or a loop that never terminates because the
     `Input` was ignored.
   </Accordion>
-  <Accordion title="'this thread has no machine'">
-    Work started on a thread the machine did not create. [Concurrency
+  <Accordion title="'this thread has no node'">
+    Work started on a thread the node did not create. [Concurrency
     ->](/write/concurrency)
   </Accordion>
   <Accordion title="w3 has no disk left: 33.4 MB written against a 32.0 MB volume">
@@ -95,9 +95,9 @@ Exit code **2**, with the file and line. These read like compiler errors on purp
 
 | symptom | first thing to check |
 |---|---|
-| every machine has `"calls": 0` except one | the service name passed to `peersServing` — it is the `.proto` name, not the Java class |
+| every node has `"calls": 0` except one | the service name passed to `peersServing` — it is the `.proto` name, not the Java class |
 | handlers never overlap | a blocking stub inside the dispatch loop |
-| timings are implausibly fast | an rpc with no `takes:` entry takes no time, deliberately |
+| timings are implausibly fast | an rpc with no `simulatedDuration:` entry takes no time, deliberately |
 | the per-unit cost seems to do nothing | the handler never called `units(n)` |
 | a deadline fires immediately | it is reference time; at 40x a 200 refMs deadline is 5 real ms — that part is fine, but check the declared cost it is racing |
 | memory is far lower than expected | `memoryMb` is *retained*, not allocated. A streaming design genuinely holds nothing |
@@ -113,8 +113,8 @@ Exit code **2**, with the file and line. These read like compiler errors on purp
     Give the JVM more: `java -Xmx3g …`, which is what the bundled scripts do.
   </Accordion>
   <Accordion title="the scaled run refits its plan every time">
-    The cache is keyed on the scenario, the code and the telemetry level. Changing
-    any class the scenario names invalidates it — which is correct.
+    The cache is keyed on the simulation, the code and the telemetry level. Changing
+    any class the simulation names invalidates it — which is correct.
   </Accordion>
   <Accordion title="exit code 3">
     Something inside losim. `LOSIM_DEBUG=1` prints the stack behind the message.

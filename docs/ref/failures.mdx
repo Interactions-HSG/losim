@@ -1,0 +1,247 @@
+---
+title: "failures"
+description: "What goes wrong, written inside the thing it happens to."
+icon: "bolt"
+---
+
+There is no top-level `failures:` key. A failure is written **inside whatever it
+happens to** — a node, or one rpc on one node — which is what makes its target
+unmissable and what makes it impossible to aim one at something that is not there.
+
+```yaml
+nodes:
+  w9:
+    instance: c5.large
+    runs:
+      Thumbnailer:
+        file: src/Shrinker.java
+        failures:                                        # rpc level
+          Thumbnail:
+            - { status: UNAVAILABLE, per: 20 calls }
+    failures:                                            # node level
+      - { kill: true, at: 400 refMs, restartAfter: 300 refMs }
+      - { degrade: 3, per: 2 refSeconds }
+      - { partition: coordinator, at: 900 refMs }
+```
+
+Every entry does **exactly one** thing. One that does two is refused: *"this failure
+does two things at once (kill and freeze); write them as two."*
+
+## at: or per:, never both, never neither
+
+<ParamField path="at: <duration>" type="an instant">
+  It happens once, then. Not drawn from the seed: a kill at 900 refMs is at 900
+  refMs in every seed, which is what makes it right for a specific lesson — *the
+  coordinator must notice a node that went away after the survey and before the
+  work finished*.
+</ParamField>
+
+<ParamField path="per: <duration> or <N> calls" type="a rate">
+  A **mean** gap, drawn exponentially — `-ln(1 - u) x per` — so the gaps vary the
+  way real bad afternoons do rather than arriving on a metronome. Each firing draws
+  the next, so a rate has no horizon to outlive and no quiet second half that reads
+  as a system behaving well.
+
+  At node level `per:` is a duration; at rpc level it is `N calls`, meaning one call
+  in N.
+</ParamField>
+
+An entry with both is two failures written as one, and one of them would be lost.
+An entry with neither never fires, which reads in a trace exactly like a system that
+survived it. Both are refused with the line.
+
+<Note>
+A simulation with a kill at 900 refMs teaches the system to survive 900 refMs. A
+rate teaches it to survive **whenever**, which is harder and more honest — and it is
+why sweeps exist: one seed shows a design survived an afternoon, twenty show it
+survives afternoons. [Sweeps ->](/simulate/sweeps)
+</Note>
+
+## Node level: seven kinds
+
+Written in the node's own `failures:` list. **None of them takes a target** — the
+node is the block they are in, so there is no name to get wrong.
+
+<ParamField path="kill: true" type="node failure">
+  The node stops answering. Callers find out by running out of time.
+
+  `restartAfter: <duration>` brings it back that long afterwards. A restart due
+  **after the simulation has ended** does not happen, so if a killed node never
+  comes back, check that `at + restartAfter` lands inside the run.
+</ParamField>
+
+<ParamField path="freeze: true" type="node failure">
+  A stop-the-world pause. Calls **do not fail** — they are held at the door, on the
+  node's own threads, so the caller cannot tell it from slowness.
+
+  `for: <duration>` (default `1000 refMs`) says how long. The thaw is scheduled
+  independently, so a pause ends whether or not a call happened to be waiting.
+</ParamField>
+
+<ParamField path="degrade: <factor>" type="node failure">
+  Every declared cost on this node is multiplied. The factor is the value, and it is
+  above 1 — *"a factor of 1 is a node that is not degraded."*
+
+  A straggler rather than a casualty, which is the partial failure most designs
+  handle worst.
+</ParamField>
+
+<ParamField path="spotReclaim: true" type="node failure">
+  A `spot_notice` event fires, then the node is killed `notice:` later (default
+  `0 refMs`). `restartAfter:` works here too.
+
+  The bill prices a node that received a notice at the spot rate — 70% off by
+  default — so this is a genuine trade rather than a hazard.
+</ParamField>
+
+<ParamField path="partition: <other node>" type="node failure">
+  Cuts the link between this node and that one, in **both directions**. Both stay
+  alive and keep serving whoever they can still reach.
+
+  The only kind that names anything, because reachability is a property of a pair
+  and one of the two ends has to be written down. The other end must be a node this
+  simulation has, and it cannot be this node: *"'w1' is partitioned from itself."*
+</ParamField>
+
+<ParamField path="heal: <other node>" type="node failure">
+  Restores it.
+</ParamField>
+
+<ParamField path="restart: true" type="node failure">
+  Brings a node back with **fresh service instances** and an empty
+  `Losim.current().local()`, so whatever it was holding is gone.
+
+  ```json
+  { "kind": "restart", "vm": "w1",
+    "detail": { "state": "lost",
+                "note": "fresh services: whatever it was holding is gone" } }
+  ```
+</ParamField>
+
+### Every field
+
+| field | applies to | default |
+|---|---|---|
+| `at` or `per` | all | one of the two, required |
+| `for` | `freeze` | `1000 refMs` |
+| `notice` | `spotReclaim` | `0 refMs` |
+| `restartAfter` | `kill`, `spotReclaim` | `0 refMs` (never) |
+
+`per:` is only accepted on `kill`, `freeze` and `degrade`. The other four happen
+once — *"partition changes what reaches what, and stays changed until the other one
+undoes it"* — so a rate on one is refused with the line.
+
+### A pool's failures belong to every node in it, separately
+
+A `per: 2 refSeconds` on a pool of six is six nodes each failing every two seconds
+on their own draw, not one of the six failing every two seconds. That follows from
+where it is written — the block is the node — and it survives resizing the pool,
+which is the one thing the probe grid does to it.
+
+For one node of a pool and not its siblings, write it under `overrides:`. Each
+node's rate also draws from its own stream, so adding a rule to one node does not
+shift when the others fail; a sweep that moved every node's afternoon because one
+line was added would be comparing two different questions.
+
+## Rpc level: three kinds
+
+Written inside a `runs:` entry, keyed by the rpc it happens to. Rates only: a
+failure that begins at an instant and stays is a property of the node, and `degrade`
+already says it.
+
+```yaml
+runs:
+  Thumbnailer:
+    file: src/Shrinker.java
+    failures:
+      Thumbnail:
+        - { status: RESOURCE_EXHAUSTED, per: 20 calls }
+        - { slow: 6, per: 50 calls }
+      Pull:
+        - { drop: true, per: 100 calls }
+```
+
+<ParamField path="status: <CODE>" type="rpc failure">
+  The handler is never reached and no span opens; the caller gets that gRPC status.
+  Any code but `OK` — *"OK is what a call that worked returns, so a failure cannot
+  be one."*
+</ParamField>
+
+<ParamField path="slow: <factor>" type="rpc failure">
+  This rpc's declared duration is multiplied on this node. Above 1.
+
+  A straggling **call path** rather than a straggling node, which is the thing a
+  design cannot route around by picking another peer.
+</ParamField>
+
+<ParamField path="drop: true" type="rpc failure">
+  The request never arrives. Decided on the caller's side, so the callee never sees
+  it and the caller finds out by running out of time.
+</ParamField>
+
+Because they nest under one node's `runs:`, an rpc can fail **on one node and not
+its peers** — the one bad replica every design handles worst. `overrides:` does not
+accept `runs:`, so write that node on its own beside the pool:
+
+```yaml
+workers:
+  count: 5
+  prefix: w
+  instance: c5.large
+  runs: { Thumbnailer: src/Shrinker.java }
+
+w9:                                        # the same service, the same file, one bad copy
+  instance: c5.large
+  runs:
+    Thumbnailer:
+      file: src/Shrinker.java
+      failures:
+        Thumbnail:
+          - { status: UNAVAILABLE, per: 20 calls }
+```
+
+`peersServing("Thumbnailer")` finds all six. One of them is lying.
+
+## An rpc that the service does not serve is refused
+
+Three times over, and the first is before you have compiled anything:
+
+```
+thumbs.yaml:19: failures names 'src/Shrinker.java Thumbnil', and src/Shrinker.java
+serves no rpc of that name. It serves Thumbnail, Pull. A failure that belongs to
+nothing is a failure that quietly never fires, so it is a refusal rather than a
+warning.
+```
+
+[`losim check`](/ref/cli-losim) answers while you are still typing, by reading the
+`.proto` text. The loader carries the line but cannot answer — it loads no classes.
+The run asks the bound gRPC server itself, before any call is made, and that one
+cannot be fooled.
+
+## In the trace
+
+A drawn node failure writes its own event first, then the ordinary one:
+
+```json
+{ "kind": "failure", "vm": "w2",
+  "detail": { "kind": "kill", "drawn": true, "atRefMs": 1843.2 } }
+```
+
+so a reader can tell a scripted failure from a drawn one, and both are otherwise
+identical. Rpc failures write `rpc_failure`, naming the method and the call it hit:
+
+```json
+{ "kind": "rpc_failure", "vm": "w3",
+  "detail": { "kind": "status", "method": "Thumbnail",
+              "status": "UNAVAILABLE", "call": "s41" } }
+```
+
+`drop` writes none — the point of it is that nothing on the callee's side happened.
+
+## Failures are scheduled against a clock that starts at zero
+
+Building in-process servers costs real milliseconds, and at 20x that would be
+hundreds of reference milliseconds of a run that has not begun — putting every early
+failure in the past, so they would all fire at once during setup. The clock is
+zeroed after the system is built, so a failure written at 120 refMs lands at 120
+refMs in the trace.

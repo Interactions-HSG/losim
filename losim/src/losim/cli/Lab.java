@@ -530,10 +530,10 @@ public final class Lab {
      * <p>What {@code --cp} falls back to. Without it the fallback is the JVM's own
      * classpath, and the wrapper {@code adopt} writes runs on the classpath the
      * build resolved — the simulator and gRPC, and deliberately <b>not</b> the
-     * lab's own output, because the task that writes that classpath must not depend
+     * project's own output, because the task that writes that classpath must not depend
      * on compiling: compiling needs the generated sources the task's own output is
      * read to produce. So a simulation's class was never on it, and
-     * {@code ./losim run} could not start.
+     * {@code ./losim simulate} could not start.
      *
      * <p>Empty rather than a path that is not there, so a project nobody has built
      * gets the refusal naming the class rather than one naming a directory.

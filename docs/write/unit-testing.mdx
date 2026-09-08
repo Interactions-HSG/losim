@@ -4,7 +4,7 @@ description: "An ordinary object, an ordinary method, and no simulation at all."
 icon: "vial"
 ---
 
-The is what the adapter was for. A handler is a plain method, so it gets a plain
+That is what the adapter was for. A handler is a plain method, so it gets a plain
 test:
 
 ```java test/ShrinkerTest.java
@@ -36,7 +36,7 @@ class ShrinkerTest {
 }
 ```
 
-No cluster. No scenario. No interceptor. No clock. Nothing is running.
+No system. No simulation. No interceptor. No clock. Nothing is running.
 
 ## losim is on the classpath, and does nothing
 
@@ -57,7 +57,7 @@ get the other one.
   </Card>
   <Card title="State calls throw" icon="triangle-exclamation">
     ```java
-    Losim.current().machine();        // throws
+    Losim.current().node();        // throws
     Losim.current().here();           // throws
     Losim.current().peers();          // throws
     Losim.current().peersServing(…);  // throws
@@ -70,12 +70,12 @@ get the other one.
 ```
 no simulation is running, so Losim.current().peers() has no answer here.
 Recording calls (reveal, log, units) are silent outside a run; state calls are
-not, because a fabricated cluster would make a passing test meaningless.
+not, because a fabricated system would make a passing test meaningless.
 ```
 
 <Note>
 **The asymmetry is deliberate.** A silent `reveal` lets a handler be called
-directly from a test. A *fabricated* empty cluster would let the same test pass while
+directly from a test. A *fabricated* system would let the same test pass while
 asserting nothing — which is worse than failing.
 
 `sleep` returning immediately matters for the same reason from the other side:
@@ -94,18 +94,18 @@ be slower for nothing. A handler that waits would then be one nobody unit-tests.
     assertDoesNotThrow(() -> Losim.current().reveal("frames", 3));
 }
 
-@Test void askingAboutAClusterThatIsNotThereFails() {
-    var e = assertThrows(IllegalStateException.class, () -> Losim.current().machine());
+@Test void askingAboutASystemThatIsNotThereFails() {
+    var e = assertThrows(IllegalStateException.class, () -> Losim.current().node());
     assertTrue(e.getMessage().contains("no simulation is running"));
 }
 ```
 
-If a handler genuinely needs the machine's own identity, guard it:
+If a handler genuinely needs the node's own identity, guard it:
 
 ```java
 @Override protected Thumbs thumbnail(Batch request) {
     var here = Losim.current();
-    if (here.isRunning()) here.reveal("on", here.machine());
+    if (here.isRunning()) here.reveal("on", here.node());
     return work(request);
 }
 ```
@@ -136,17 +136,17 @@ java -jar vendor/test-jars/junit-platform-console-standalone-*.jar execute \
 
 ## The limits of a unit test
 
-Everything interesting about a cluster:
+Everything interesting about a system:
 
 | | |
 |---|---|
 | whether the fan-out overlapped | a run, and the span tree |
-| whether a machine ran out of memory | a run, with a cap |
+| whether a node ran out of memory | a run, with a cap |
 | whether the coordinator noticed a dead peer | a run, with a fault |
 | what any of it cost | a run, and the bill |
 
 So the division of labour is: **unit tests for what one handler computes, runs for
-everything about how the machines behave together.** A handler you can only test
+everything about how the nodes behave together.** A handler you can only test
 inside a simulation is a handler you will end up debugging inside a simulation, and
 that is much harder.
 

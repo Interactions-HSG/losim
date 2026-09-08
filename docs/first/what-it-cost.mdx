@@ -8,7 +8,7 @@ icon: "receipt"
 java -cp build/losim.jar losim.cli.Main bill build/thumbs.json
 ```
 
-This is the run you broke on the last page — one machine killed, one slowed down.
+This is the run you broke on the last page — one node killed, one slowed down.
 
 <Note>
 **Your figures will not match these exactly.** losim runs your real code on real
@@ -23,14 +23,14 @@ build/thumbs.json
 
 what happened
   build       services carried                      1.000 services       CHF    0.2500
-  capacity    coordinator (m5.large)              0.01670 machine-hours  CHF    0.0019
-  capacity    w0 (c5.large)                       0.01670 machine-hours  CHF    0.0017
-  capacity    w1 (c5.large)                       0.01670 machine-hours  CHF    0.0017
-  capacity    w2 (c5.large)                       0.01670 machine-hours  CHF    0.0017
-  capacity    w3 (a1.medium)                      0.01670 machine-hours  CHF    0.0004
+  capacity    coordinator (m5.large)              0.01670 node-hours  CHF    0.0019
+  capacity    w0 (c5.large)                       0.01670 node-hours  CHF    0.0017
+  capacity    w1 (c5.large)                       0.01670 node-hours  CHF    0.0017
+  capacity    w2 (c5.large)                       0.01670 node-hours  CHF    0.0017
+  capacity    w3 (a1.medium)                      0.01670 node-hours  CHF    0.0004
   consumption cross-zone egress                   0.02300 GB             CHF    0.0002
   incidents   calls that did not answer in time     40.00 reruns         CHF    0.8000
-  incidents   machines lost                         1.000 failures       CHF    0.2000
+  incidents   nodes lost                         1.000 failures       CHF    0.2000
   ------------------------------------------------------------------------------------
   build        CHF       0.2500
   capacity     CHF       0.0074
@@ -41,18 +41,18 @@ what happened
 
 Three things to notice before the buckets themselves.
 
-**Incidents are 135 times capacity.** `CHF 1.0000` against `CHF 0.0074`. One machine
-killed and one machine slowed down cost more than the entire cluster did, and this is
+**Incidents are 135 times capacity.** `CHF 1.0000` against `CHF 0.0074`. One node
+killed and one node slowed down cost more than the entire system did, and this is
 the ordinary case, not a contrived one. Before you tune anything, look at which bucket
 is actually large.
 
-**Capacity is one line per machine, with the instance type on it.** `w3` is the
-`a1.medium` you gave it in the scenario, and it costs a quarter of what its neighbours
+**Capacity is one line per node, with the instance type on it.** `w3` is the
+`a1.medium` you gave it in the simulation, and it costs a quarter of what its neighbours
 do for exactly the same reserved period. That row is where an instance choice becomes
 money.
 
-**Every machine shows the same `0.01670` machine-hours**, and that is the **billing
-minimum**, not the run. The minimum is 60 seconds, so every machine is billed 60
+**Every node shows the same `0.01670` node-hours**, and that is the **billing
+minimum**, not the run. The minimum is 60 seconds, so every node is billed 60
 seconds — `60 ÷ 3600 = 0.01667` hours.
 
 <Warning>
@@ -63,10 +63,10 @@ or read the `consumption` line instead, which responds immediately.
 </Warning>
 
 <Tip>
-**Comment the `faults:` block out and bill it again.** Same cluster, same work, no
+**Comment the `failures:` blocks out and bill it again.** Same system, same work, no
 weather: the total goes from `1.2576` to `0.2579`. That difference is what one kill
-and one slow machine cost you, and it is the number a fault-tolerance mechanism has
-to beat to be worth building.
+and one slow node cost you, and it is the number a fault-tolerance mechanism has to
+beat to be worth building.
 </Tip>
 
 
@@ -76,7 +76,7 @@ to beat to be worth building.
 
 <Columns cols={2}>
   <Card title="capacity" icon="server">
-    The cluster, for the period. **An idle machine costs exactly as much as a busy
+    The system, for the period. **An idle node costs exactly as much as a busy
     one** — priced in reference time, because the run took a few seconds of your
     afternoon but the job it is a model of takes what the simulated clock says,
     and that is the number anyone would be invoiced for.
@@ -87,7 +87,7 @@ to beat to be worth building.
     counted apart rather than derived afterwards.
   </Card>
   <Card title="incidents" icon="triangle-exclamation">
-    Zero until something breaks, then large. Timeouts, machines lost, machines
+    Zero until something breaks, then large. Timeouts, nodes lost, nodes
     that filled up, and a penalty per second past the service level.
   </Card>
   <Card title="build" icon="hammer">
@@ -126,21 +126,21 @@ java -cp build/losim.jar losim.cli.Main bill build/thumbs.json \
 ```
 
 <Note>
-**What a machine costs to rent is deliberately not in the price list.** That
+**What a node costs to rent is deliberately not in the price list.** That
 belongs to the instance catalogue, beside its vCPUs and its memory, because it is
-a property of the machine rather than a choice the course makes. Two places
+a property of the node rather than a choice the course makes. Two places
 declaring what a `c5.large` costs would be two places to drift apart, and the drift
 would be silent.
 </Note>
 
 ## The bill you cannot always get
 
-Run a scaled scenario and you get **two** bills: one for what happened, and one for
+Run a scaled simulation and you get **two** bills: one for what happened, and one for
 the job it is a model of. The second one is harder to get: a bill is quantities
 times prices, and the engine will not project every quantity:
 
 ```
-  capacity    the cluster, for the period            -             CHF   refused
+  capacity    the system, for the period            -             CHF   refused
       its exponent moves by 0.793 between independent seed sets of the same
       workload, which over a factor of 6 is an error bar of x4.1 — wider than
       anything it would be asked to distinguish
@@ -149,14 +149,14 @@ times prices, and the engine will not project every quantity:
 Capacity depends on the timeline, the timeline is the noisiest thing losim
 measures, and capacity is usually the largest line on the bill. So the honest
 account routinely says: *the bytes cost this much, the storage costs this much, and
-nobody can tell you what the machines cost, because nobody can tell you how long
+nobody can tell you what the nodes cost, because nobody can tell you how long
 the job takes.*
 
 That is a useful answer. It says where the uncertainty in the cost of a design
 sits.
 
 <Note>
-**Incidents are never projected.** A machine either failed or it did not, and an
+**Incidents are never projected.** A node either failed or it did not, and an
 incident bucket extrapolated from one afternoon would be a forecast dressed as an
 observation.
 </Note>
@@ -172,8 +172,8 @@ observation.
     What a job has to do to be projectable, and how the engine decides whether to
     believe itself.
   </Card>
-  <Card title="Compare two designs" icon="code-compare" href="/run/comparing-designs">
-    Sweeps, `losim diff`, and reading two bills against each other.
+  <Card title="Compare two designs" icon="code-compare" href="/simulate/comparing-designs">
+    Sweeps, `losim compare`, and reading two bills against each other.
   </Card>
   <Card title="See it" icon="eye" href="/viewer/index">
     The viewer: Dataflow, Spans, Topology and Ledger.

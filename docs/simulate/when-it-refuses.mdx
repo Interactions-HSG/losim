@@ -7,7 +7,7 @@ icon: "ban"
 <Note>
 **A refusal is an output, not an error.** A projection carries its confidence or it
 is absent; a field filled with a plausible number is indistinguishable from a good
-one until the cluster bill arrives.
+one until the system bill arrives.
 
 Several of these are telling you something true about your design that you would
 otherwise never have learnt. Read them before trying to make them go away.
@@ -63,7 +63,7 @@ The run still happens and everything else is still projected.
     or give the handlers more to do, so the signal rises above the host's jitter:
 
     ```java
-    Thumbnail: { refMs: 20 }      # instead of 0.4
+    Thumbnail: { fixed: 20 refMs }      # instead of 0.4
     ```
   </Accordion>
 
@@ -81,7 +81,7 @@ The run still happens and everything else is still projected.
     memoryMb  REFUSED: nothing measured varied with it, so it has no law here
     ```
 
-    No candidate variable moved. The usual cause is a job that does not read the
+    No candidate variable moved. The usual cause is a `Load` that does not read the
     `Input` it was handed and does a fixed amount of work regardless — so the whole
     probe ladder measured the same thing four times.
     [Writing to scale ->](/write/writing-to-scale)
@@ -109,21 +109,21 @@ Nothing runs and nothing is projected.
     the workload, which is a true statement about your system and worth knowing.
   </Accordion>
 
-  <Accordion title="the cluster would not fit this host" icon="server">
+  <Accordion title="the system would not fit this host" icon="server">
     ```
-    at 8000 units the cluster would hold 4200 MB, and this host offers 1843 MB to
+    at 8000 units the system would hold 4200 MB, and this host offers 1843 MB to
     work in — the run does not fit the laptop it is meant to fit on
     ```
 
     The engine will use at most **60%** of the JVM's max heap. Either raise it:
 
     ```bash
-    java -Xmx6g -cp "$CP" losim.cli.Main run …
+    java -Xmx6g -cp "$CP" losim.cli.Main simulate …
     ```
 
     The ladder is not yours to shorten, so the other way out is a design that holds
     less per unit — which is the same thing this refusal is telling you about the
-    machine you would have had to buy.
+    node you would have had to buy.
   </Accordion>
 
   <Accordion title="a cost site too fine for the clock to express" icon="stopwatch">
@@ -160,12 +160,12 @@ Nothing runs and nothing is projected.
 Printed under the projections, and worth reading:
 
 ```
-  note: this scenario declares no faults, so the model carries no amplification
-        term — a projection from it describes a cluster where nothing goes wrong
+  note: nothing in this simulation goes wrong, so the model carries no amplification
+        term — a projection from it describes a system where nothing goes wrong
 ```
 
-A killed machine's work is redone elsewhere, so a survivor absorbs its share —
-measured, that roughly doubles peak memory on a machine that accumulates. A model
+A killed node's work is redone elsewhere, so a survivor absorbs its share —
+measured, that roughly doubles peak memory on a node that accumulates. A model
 fitted only on clean runs under-predicts by that much, and it under-predicts
 **optimistically**. Declare some weather.
 
@@ -182,6 +182,6 @@ reproducible), not a tunable confidence level. A projection that only appears
 because a check was loosened is worth less than no projection.
 </Warning>
 
-<Card title="Next: troubleshooting" icon="arrow-right" href="/run/troubleshooting">
+<Card title="Next: troubleshooting" icon="arrow-right" href="/simulate/troubleshooting">
   Everything else that goes wrong.
 </Card>

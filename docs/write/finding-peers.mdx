@@ -10,22 +10,24 @@ icon: "magnifying-glass"
 ```java inside a handler
 var here = Losim.current();
 List<String> workers = here.peersServing("Thumbnailer");   // never includes itself
-List<String> everyone = here.peers();                      // every other machine
+List<String> everyone = here.peers();                      // every other node
 ```
 
-```java inside the job
-List<String> workers = cluster.serving("Thumbnailer");     // may include the job's machine
-List<String> everyone = cluster.machines();
+```java inside Job.Run
+var here = Losim.current();
+List<String> workers = here.peersServing("Thumbnailer");   // never includes itself
+List<String> everyone = here.peers();
 ```
 </CodeGroup>
 
 <Warning>
-`peersServing` excludes **this** machine, on purpose: a blocking call to itself
-would occupy one of its own pool threads waiting for another of its own pool
-threads, and on a two-vCPU machine that is one deadlock away from being a habit.
+`peersServing` excludes **this** node, on purpose: a blocking call to itself would
+occupy one of its own pool threads waiting for another of its own pool threads, and
+on a two-vCPU node that is one deadlock away from being a habit.
 
-`cluster.serving` does not exclude anything, because the job's machine is usually
-the coordinator and usually serves nothing anyway.
+`Job.Run` is a handler like any other, so the same rule applies to it — which is
+rarely a constraint, because the node running `losim.Job` is usually the coordinator
+and usually serves nothing else.
 </Warning>
 
 ## The argument is the service name from the `.proto`
@@ -41,55 +43,61 @@ here.peersServing("lab.Thumbnailer");    // works — the fully qualified name
 here.peersServing("Shrinker");           // finds nothing: that is your Java class
 ```
 
-Both forms are registered. The Java class name is what the **scenario** names in
-`runs:`, and it is a different string — which is why the scenario key is called
-`runs:` and not `serves:`. A machine **runs** your class; it **serves** the
-service that class implements. Two words, because they are two things.
+Both forms are registered, and this is the same string a `runs:` **key** carries:
 
-## Dead machines are not listed, and that is not a liveness check
+```yaml
+runs: { lab.Thumbnailer: src/lab/Shrinker.java }
+```
+
+The key is the service, the value is the file. A key that disagrees with what the
+class actually serves is refused at run start, because `peersServing` would then
+find nobody and a design that copes with a missing peer would look like one that
+worked.
+
+## Dead nodes are not listed, and that is not a liveness check
 
 ```java
-cluster.serving("Thumbnailer")   // ["w0", "w2", "w3"] — w1 was killed
+here.peersServing("Thumbnailer")   // ["w0", "w2", "w3"] — w1 was killed
 ```
 
 <Note>
-The is **discovery working**, not a health API. losim deliberately offers no way
+That is **discovery working**, not a health API. losim deliberately offers no way
 to ask "is `w1` alive?", because no real network offers one, and a design that
 depends on knowing is a design that will not survive contact with one.
 
-A machine that has gone is a machine that has stopped answering. Finding that out
+A node that has gone is a node that has stopped answering. Finding that out
 still costs a call and a deadline — and it will, because between your last call to
-`serving()` and your next dispatch, a machine can leave.
+`serving()` and your next dispatch, a node can leave.
 </Note>
 
 The distinction has a practical consequence. Compare:
 
 <CodeGroup>
 ```java asks once
-var workers = cluster.serving("Thumbnailer");     // before the loop
+var workers = here.peersServing("Thumbnailer");     // before the loop
 for (var batch : batches)
     dispatch(workers.get(i++ % workers.size()), batch);
 ```
 
 ```java asks again
 for (var batch : batches) {
-    var workers = cluster.serving("Thumbnailer"); // each time round
+    var workers = here.peersServing("Thumbnailer"); // each time round
     if (workers.isEmpty()) throw new IllegalStateException("nobody left");
     dispatch(workers.get(i++ % workers.size()), batch);
 }
 ```
 </CodeGroup>
 
-The first keeps sending work to a machine that died at 900 refMs, and pays a full
+The first keeps sending work to a node that died at 900 refMs, and pays a full
 deadline for each batch. The second stops after the first failure. Neither is
 *wrong* — the second costs a lookup per batch — but only one of them is a design
 that noticed.
 
 ## Registration, when discovery is not enough
 
-Discovery tells you a machine serves something. It does not tell you how big it is,
+Discovery tells you a node serves something. It does not tell you how big it is,
 what zone it is in, or how loaded it is — and there is no API for asking about
-someone else's machine.
+someone else's node.
 
 So a real resource manager has a registration call, and yours will too:
 
@@ -106,7 +114,7 @@ if (announced.compareAndSet(false, true)) {
     var desk = Losim.current().peersServing("Registry").get(0);
     RegistryGrpc.newBlockingStub(Losim.current().channelTo(desk))
         .announce(Health.newBuilder()
-            .setMachine(spec.machine()).setVcpu(spec.vcpu())
+            .setMachine(spec.node()).setVcpu(spec.vcpu())
             .setMemoryCapMb(spec.memoryCapMb()).build());
 }
 ```
@@ -122,7 +130,7 @@ Losim.current().here().zone()      // "eu-central-1b"
 
 Only your own — but a peer will tell you its zone if you ask it, and that is worth
 asking. Traffic **between** availability zones is billed and traffic inside one is
-free, and cross-zone latency in a scenario is typically five to ten times
+free, and cross-zone latency in a simulation is typically five to ten times
 same-zone. A coordinator that ignores zones is a coordinator whose bill has a line
 on it that need not have been there.
 

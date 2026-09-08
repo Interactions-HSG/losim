@@ -853,8 +853,8 @@ public final class Machine implements Bound, Telemetry.Sampled {
      */
     @Override public io.grpc.Channel dial(String peer) {
         if (machines.machine(peer) == null)
-            throw new IllegalArgumentException("there is no machine called '" + peer
-                    + "'; this cluster has " + String.join(", ", machines.names()));
+            throw new IllegalArgumentException("there is no node called '" + peer
+                    + "'; this simulation has " + String.join(", ", machines.names()));
         return dialled.computeIfAbsent(peer, this::channelTo);
     }
 

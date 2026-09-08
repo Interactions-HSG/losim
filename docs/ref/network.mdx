@@ -16,12 +16,12 @@ All four are optional; the default is a network with no latency, no jitter and n
 loss.
 
 <ParamField path="sameZone" type="duration" default="0 refMs">
-  One-way latency between two machines in the same zone. losim charges the **round
+  One-way latency between two nodes in the same zone. losim charges the **round
   trip**, so this is doubled.
 </ParamField>
 
 <ParamField path="crossZone" type="duration" default="0 refMs">
-  One-way latency between machines in different zones. Typically five to ten times
+  One-way latency between nodes in different zones. Typically five to ten times
   `sameZone`, which is what makes zone placement a decision.
 </ParamField>
 
@@ -60,7 +60,7 @@ Paying the network after the fact without this check would let a call succeed th
 the wire had already outrun. So `crossZone: 30 refMs` and
 `withDeadlineAfter(50, MILLISECONDS)` mean exactly what they look like.
 
-## Loss, partitions and dead machines are one event from the caller
+## Loss, partitions and dead nodes are one event from the caller
 
 ```java
 catch (StatusRuntimeException e) {
@@ -70,14 +70,14 @@ catch (StatusRuntimeException e) {
 
 Nothing answers, and the caller finds out by running out of time. The is
 deliberately **not** modelled as an immediate `UNAVAILABLE`: a socket that refuses
-is a machine that answered, and the interesting failure is the one where nothing
+is a node that answered, and the interesting failure is the one where nothing
 answers at all — where you cannot tell a slow peer from a gone one.
 
 The trace *can* tell them apart, in `why`:
 
 | `why` | what it was |
 |---|---|
-| `unreachable` | the machine is dead |
+| `unreachable` | the node is dead |
 | `partitioned` | the link between these two is cut |
 | `lost` | the draw against `loss` came up |
 
@@ -93,11 +93,11 @@ and is sent a megabyte back travels almost entirely in the direction that was no
 counted.
 
 <Note>
-**Both directions are charged to the machine that made the call**, not to the one that
-answered. A machine whose only cross-zone traffic is other people's requests therefore
+**Both directions are charged to the node that made the call**, not to the one that
+answered. A node whose only cross-zone traffic is other people's requests therefore
 shows `crossZoneMb: 0`.
 
-The is the reading you want when the question is *which design is expensive*: the
+That is the reading you want when the question is *which design is expensive*: the
 egress on the bill follows whoever decided to reach across a zone, so it changes when
 you change the placement, and not when you change who happens to hold the data.
 </Note>
@@ -105,13 +105,21 @@ you change the placement, and not when you change who happens to hold the data.
 
 ## Cutting a link
 
-Not here — a partition is an event, so it goes under [`faults`](/ref/faults):
+Not here — a partition happens to a pair of nodes, so it goes in one of their
+[`failures:`](/ref/failures) lists:
 
 ```yaml
-faults:
-  - { at: 900 refMs,  partition: [coordinator, w1] }
-  - { at: 2500 refMs, heal:      [coordinator, w1] }
+nodes:
+  w1:
+    instance: c5.large
+    runs: { Thumbnailer: src/lab/Shrinker.java }
+    failures:
+      - { partition: coordinator, at: 900 refMs }
+      - { heal: coordinator, at: 2500 refMs }
 ```
+
+The block it is written in is one end; `partition:` names the other. It is the only
+kind of failure that names anything, because reachability is a property of a pair.
 
 Cut in **both directions**, and only between that pair. `w1` stays alive, stays
 listed by discovery, and keeps serving anyone who can still reach it.

@@ -1,6 +1,6 @@
 ---
 title: "Spec"
-description: "What the machine serving this call is made of — and why it is only ever this machine's."
+description: "What the node serving this call is made of — and why it is only ever this node's."
 icon: "id-card"
 ---
 
@@ -9,13 +9,13 @@ losim.api.Spec spec = Losim.current().here();
 ```
 
 ```java
-public record Spec(String machine, String instance, String zone, int vcpu,
+public record Spec(String node, String instance, String zone, int vcpu,
                    double memoryCapMb, double diskCapMb) {
     public double cores();      // vcpu / 2.0
 }
 ```
 
-<ResponseField name="machine()" type="String">The machine's name, e.g. `"w3"`.</ResponseField>
+<ResponseField name="node()" type="String">The node's name, e.g. `"w3"`.</ResponseField>
 <ResponseField name="instance()" type="String">Its instance type, e.g. `"a1.medium"`.</ResponseField>
 <ResponseField name="zone()" type="String">Its availability zone.</ResponseField>
 <ResponseField name="vcpu()" type="int">How many threads its pool has.</ResponseField>
@@ -26,11 +26,11 @@ public record Spec(String machine, String instance, String zone, int vcpu,
   The disk cap it is under on this run.
 </ResponseField>
 <ResponseField name="cores()" type="double">
-  `vcpu / 2.0` — how much work this machine can be given relative to a two-core one.
+  `vcpu / 2.0` — how much work this node can be given relative to a two-core one.
 
   Deliberately crude, and deliberately **not** a score losim computes for you.
   Placing work well is the exercise, and a ready-made ranking is the exercise
-  already done. The is the obvious first thing to try, which is what makes it a
+  already done. That is the obvious first thing to try, which is what makes it a
   useful thing to beat.
 </ResponseField>
 
@@ -41,7 +41,7 @@ There is no way to read a **peer's** `Spec`. Not by design accident — by desig
 
 A real process can read its own limits and its own instance metadata without a
 network, and cannot read anyone else's at all. An orchestrator that wants to send
-small work to small machines therefore has to **ask** them, over gRPC, which is the
+small work to small nodes therefore has to **ask** them, over gRPC, which is the
 whole reason a resource manager has a registration call and why that call is worth
 writing.
 
@@ -56,7 +56,7 @@ So a service that wants to be placed well answers a question about itself:
 @Override protected Health capacity(Empty request) {
     var spec = Losim.current().here();
     return Health.newBuilder()
-            .setMachine(spec.machine())
+            .setMachine(spec.node())
             .setInstance(spec.instance())
             .setZone(spec.zone())
             .setVcpu(spec.vcpu())
@@ -67,17 +67,17 @@ So a service that wants to be placed well answers a question about itself:
 
 ## The caps are the scaled caps
 
-`memoryCapMb()` and `diskCapMb()` are what this machine is allowed **on this run**,
-not what the instance type says at full scale. In scaled mode the engine has solved
+`memoryCapMb()` and `diskCapMb()` are what this node is allowed **on this run**,
+not what the instance type says at full scale. Above `scale: 1` the engine has solved
 for them.
 
-The is deliberate, and it matters: a job that places work by comparing them places
+That is deliberate, and it matters: a job that places work by comparing them places
 it the **same way at either scale**, which is the property the whole scale model
 exists to preserve.
 
 ## Free to call
 
-Every field is final on the machine and the record is built once, before it boots.
+Every field is final on the node and the record is built once, before it boots.
 Nothing here is measured, and nothing is charged for asking.
 
 ## Outside a run

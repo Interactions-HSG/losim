@@ -10,7 +10,7 @@ java -jar losim.jar adopt [<dir>] [--force] [--dirty]
 ```
 
 The migration page has the whole story: [adopting a gRPC system ->](/start/adopt).
-The is the surface.
+That is the surface.
 
 ## `adopt`
 
@@ -22,11 +22,11 @@ The is the surface.
 
 **It never edits a `.java`.** It moves `src/main/proto` to `proto/` and
 `src/main/java` to `src/`, writes `build.gradle.kts`, `./losim`, `AGENTS.md`,
-`scenarios/1-one-call.yaml` and two lines of `.gitignore`, moves `build.gradle`
+`simulations/1-one-call.yaml` and two lines of `.gitignore`, moves `build.gradle`
 aside to `build.gradle.bak`, and prints what is left.
 
 <Note>
-The scenario it writes names the classes it expects **after** you split the
+The simulation it writes names the classes it expects **after** you split the
 handler out — so it fails at load with a message naming the class, which is a
 better first failure than one that silently runs against
 `HelloWorldServer$GreeterImpl` and marks every number untrustworthy.
@@ -55,8 +55,8 @@ The same detector, run again, on a project that has already been adopted.
 
   dead rather than wrong, and no run will ever say so
       src/io/grpc/examples/helloworld/HelloWorldServer.java
-       :48    main(String[]) and its arguments  a machine has no command line
-       :26    addShutdownHook                   a machine is killed by a fault, not by SIGTERM
+       :48    main(String[]) and its arguments  a node has no command line
+       :26    addShutdownHook                   a node is killed by a fault, not by SIGTERM
 ```
 
 It compiles nothing and runs nothing, which is the point: it answers before the

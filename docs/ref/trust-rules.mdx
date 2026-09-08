@@ -5,7 +5,7 @@ icon: "shield-halved"
 ---
 
 The verifier reads your compiled classes **before anything runs**, walking outward
-from the job and the services the scenario names. It never fails a run.
+from the classes the simulation's `runs:` paths name. It never fails a run.
 
 <Note>
 Each rule names something that yields a **wrong number** rather than a broken run.
@@ -13,7 +13,7 @@ Code that reads the real clock still works; it simply reports the host's afterno
 though it were the simulated world, and the two differ by `k_time`.
 
 So the useful output is not *"this code is bad"* but *"this number is a lower
-bound"*, attached to the machine and to the figure it undermines.
+bound"*, attached to the node and to the figure it undermines.
 </Note>
 
 ## The eight rules
@@ -48,8 +48,8 @@ bound"*, attached to the machine and to the figure it undermines.
     see which run that is.
   </Accordion>
 
-  <Accordion title="UNATTRIBUTED_THREAD — work on a thread the machine did not create" icon="ghost">
-    A machine **is** its pool: every thread in it belongs to exactly one machine,
+  <Accordion title="UNATTRIBUTED_THREAD — work on a thread the node did not create" icon="ghost">
+    A node **is** its pool: every thread in it belongs to exactly one node,
     which is how allocation is attributed at all. A thread outside it is summed by
     nobody and contends for nobody's cores.
 
@@ -60,16 +60,16 @@ bound"*, attached to the machine and to the figure it undermines.
     Virtual threads are here rather than in a rule of their own, because the failure
     is the same one and switching to a platform thread would not fix it.
 
-    **Instead:** spread work by **calling more machines**, and let each machine's own
+    **Instead:** spread work by **calling more nodes**, and let each node's own
     concurrency come from serving several calls at once on its pool. Raw threads are
-    not banned — real concurrency inside a machine is a feature. What is flagged is
+    not banned — real concurrency inside a node is a feature. What is flagged is
     work that is attributed to nobody.
   </Accordion>
 
   <Accordion title="FILE_IO — writes to a real disk" icon="hard-drive">
     losim accounts disk through `Losim.current().wroteDisk(n)` and caps it per
-    machine. Bytes written past that are invisible to the cap and to every projection
-    of it — and they are written to the host, outside the one-machine boundary.
+    node. Bytes written past that are invisible to the cap and to every projection
+    of it — and they are written to the host, outside the one-node boundary.
 
     `java.nio.file.Files.*`, `FileOutputStream.*`, `FileInputStream.*`,
     `FileWriter.*`, `FileReader.*`, `RandomAccessFile.*`, `File.delete`, `File.mkdir`,
@@ -77,7 +77,7 @@ bound"*, attached to the machine and to the figure it undermines.
   </Accordion>
 
   <Accordion title="OUTSIDE_THE_JVM — reaches outside the JVM" icon="globe">
-    *On one machine* is the boundary the whole design rests on. Anything that leaves
+    *On one node* is the boundary the whole design rests on. Anything that leaves
     the JVM is neither simulated, nor measured, nor reproducible on the next host.
 
     `java.net.Socket.*`, `ServerSocket.*`, `DatagramSocket.*`, `URL.openStream`,
@@ -85,7 +85,7 @@ bound"*, attached to the machine and to the figure it undermines.
     `ServerSocketChannel.*`, `ProcessBuilder.*`, `Runtime.exec`
   </Accordion>
 
-  <Accordion title="OWN_CHANNEL — a channel or server the cluster did not make" icon="plug">
+  <Accordion title="OWN_CHANNEL — a channel or server the system did not make" icon="plug">
     losim is on both sides of every call as gRPC's own interceptors: that is where
     latency, loss, partitions, cost, spans and byte counts come from. A channel built
     by hand has none of them attached, so the call happens and nothing in the trace
@@ -95,31 +95,31 @@ bound"*, attached to the machine and to the figure it undermines.
     `Grpc.newServerBuilder*`, `io.grpc.inprocess.*`, `io.grpc.netty.*`,
     `io.grpc.okhttp.*`
 
-    **Instead:** `Losim.current().channelTo(peer)` or `cluster.channelTo(machine)`.
+    **Instead:** `Losim.current().channelTo(peer)` or `here.channelTo(node)`.
 
     <Note>
-    The is exactly what a [level-3 debugging harness](/write/debugging) uses — and
+    That is exactly what a [level-3 debugging harness](/write/debugging) uses — and
     correctly, because there is no simulation to be wrong about. Keep such code in a
     test source set that no service or job references, and the walk never reaches it.
     </Note>
   </Accordion>
 
   <Accordion title="SHARED_STATE — mutable state in a static field" icon="share-nodes">
-    A static field is one field for the whole cluster, so a cluster of eight "machines"
+    A static field is one field for the whole system, so a system of eight "nodes"
     holding a static map holds **one map**. It is the one flag that undermines every
-    per-machine figure at once.
+    per-node figure at once.
 
     **Constants are not this.** `static final String[] WORDS = {"a", "the"}` is a
     table and is not flagged; `static final Map M = new HashMap<>()` is one map for
-    eight machines and is. The difference is that nothing is *called* to build the
+    eight nodes and is. The difference is that nothing is *called* to build the
     second — the class initialiser is read, rather than the declaration guessed at.
   </Accordion>
 
-  <Accordion title="MACHINES_TOUCHING — one machine reaching into another" icon="hand">
+  <Accordion title="MACHINES_TOUCHING — one node reaching into another" icon="hand">
     The sharpest form of the above, and worth saying separately because it is not a
-    measurement problem but a modelling one. A static handle on another machine's
+    measurement problem but a modelling one. A static handle on another node's
     service is a call that crosses no network, waits out no latency, survives a
-    partition, and keeps working after the machine at the other end is killed.
+    partition, and keeps working after the node at the other end is killed.
   </Accordion>
 </AccordionGroup>
 
@@ -130,8 +130,8 @@ bound"*, attached to the machine and to the figure it undermines.
 identity-hash iteration order are all fine, because runs are not reproducible anyway
 and a sweep of seeds is the answer to that.
 
-**Raw threads are not banned.** Real concurrency inside a machine is a feature. Work
-outside the machine's own pool is merely attributed to nobody, and that is what gets
+**Raw threads are not banned.** Real concurrency inside a node is a feature. Work
+outside the node's own pool is merely attributed to nobody, and that is what gets
 said.
 </Note>
 
@@ -148,7 +148,7 @@ meaningless:
 | `wire` | its wire bytes are a lower bound | `wireMb` |
 | `isolation` | its figures are not only its own | **all of them** |
 
-In scaled mode the caveat is printed **beside the projection it undermines** — because
+Above `scale: 1` the caveat is printed **beside the projection it undermines** — because
 an error bar says how well a law was fitted, and says nothing about whether what it
 was fitted to meant anything.
 
@@ -157,7 +157,7 @@ was fitted to meant anything.
 The rules are applied to a class **and every class it is declared inside**. So a
 service written as a nested class carries whatever its enclosing class does.
 
-The is the finding most likely to surprise somebody who has adopted an
+That is the finding most likely to surprise somebody who has adopted an
 existing project, because the grpc-java quickstart puts the handler exactly there:
 
 ```java
@@ -172,14 +172,14 @@ Placed as it stands, every run reports
 srv  built its own channel or server, which no interceptor is attached to
 ```
 
-— and the machine's wire figures are marked, though the handler itself does
-nothing wrong. **Move the service to a file of its own.** The is edit one on the
+— and the node's wire figures are marked, though the handler itself does
+nothing wrong. **Move the service to a file of its own.** That is edit one on the
 [adoption page](/start/adopt), and it is the whole of the fix.
 
 <Note>
 Walking the enclosing class is not an over-approximation to be tuned away. A
 handler that reaches an enclosing class's static field really is sharing state
-across machines, and the walk is what sees it.
+across nodes, and the walk is what sees it.
 </Note>
 
 ## Generated code is skipped

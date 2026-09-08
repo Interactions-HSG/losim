@@ -1,10 +1,10 @@
 ---
 title: "Comparing two designs"
-description: "Two scenarios, two sweeps, two bills — and the one thing losim diff is for."
+description: "Two simulations, two sweeps, two bills — and the one thing losim compare is for."
 icon: "code-compare"
 ---
 
-The scenario is data precisely so that two designs can be compared by comparing two
+The simulation is data precisely so that two designs can be compared by comparing two
 files. Nothing in it is computed; anything that needs code points at a class by
 name.
 
@@ -12,9 +12,9 @@ name.
 
 <Steps>
   <Step title="Change one thing">
-    Two scenarios that differ in the cluster **and** the job are two experiments, not
-    a comparison. If you are comparing jobs, hold the cluster identical; if you are
-    comparing clusters, hold the job identical.
+    Two simulations that differ in the system **and** the job are two experiments, not
+    a comparison. If you are comparing jobs, hold the system identical; if you are
+    comparing systems, hold the job identical.
   </Step>
   <Step title="Use the same declared costs">
     A handler declared at 3 refMs in one design and 30 in the other is not a
@@ -33,8 +33,8 @@ name.
 ## Two films, side by side
 
 ```bash
-java -cp "$CP" losim.cli.Main run design-a.yaml --cp build/losim/classes --out build/runs/a.json
-java -cp "$CP" losim.cli.Main run design-b.yaml --cp build/losim/classes --out build/runs/b.json
+java -cp "$CP" losim.cli.Main simulate design-a.yaml --cp build/losim/classes --out build/results/a.json
+java -cp "$CP" losim.cli.Main simulate design-b.yaml --cp build/losim/classes --out build/results/b.json
 ```
 
 Open `a`, then pick `b` from **`compare with…`**. Both run on
@@ -77,14 +77,14 @@ re-run. A design whose ranking flips is a design whose advantage was a price
 assumption.
 </Tip>
 
-## The purpose of `losim diff` — and its limit
+## The purpose of `losim compare` — and its limit
 
 ```bash
-java -cp "$CP" losim.cli.Main diff build/a.json build/b.json
+java -cp "$CP" losim.cli.Main compare build/a.json build/b.json
 ```
 
 <Warning>
-`diff` answers **"are these two the same simulator?"** It does not answer "which of
+`compare` answers **"are these two the same simulator?"** It does not answer "which of
 these designs is better". It is the tool for checking that a laptop, the devcontainer
 and a Codespace produce the same thing — which is exactly what CI uses it for.
 </Warning>
@@ -93,8 +93,8 @@ It splits everything it compares into two kinds:
 
 <Columns cols={2}>
   <Card title="Structural — must agree" icon="lock">
-    The schema version. The scenario, job, seed, `scale`, telemetry level, mode.
-    Which machines existed. Which sampled channels exist. What each kind of event
+    The schema version. The simulation, job, seed, `scale`, telemetry level, mode.
+    Which nodes existed. Which sampled channels exist. What each kind of event
     **carries**. What each span kind is labelled. **What each resource was found to
     be a function of**, and what the engine refused.
 
@@ -110,11 +110,11 @@ It splits everything it compares into two kinds:
 </Columns>
 
 ```
-build/runs-runner/t10.json
-build/runs-codespace/t10.json
+build/results-runner/t10.json
+build/results-codespace/t10.json
 
   same    schema
-  same    meta.scenario
+  same    meta.simulation
   same    what each event kind carries
   same    what each resource is a function of
   same    what the engine refused
@@ -131,7 +131,7 @@ and the size of the movement is worth seeing rather than judging.
 
 ## Comparing designs properly
 
-Since `diff` is not the tool, here is one:
+Since `compare` is not the tool, here is one:
 
 ```python compare.py
 import glob, json, statistics, sys
@@ -144,9 +144,9 @@ def summarise(pattern):
         "completed": len(ok),
         "medianRefMs": statistics.median([t["meta"]["durationRefMs"] for t in ok]) if ok else None,
         "p90RefMs":  sorted(t["meta"]["durationRefMs"] for t in ok)[int(len(ok) * 0.9)] if ok else None,
-        "peakHeldMb": max((m["memoryMb"] for t in ok for m in t["machines"]), default=0),
+        "peakHeldMb": max((m["memoryMb"] for t in ok for m in t["nodes"]), default=0),
         "crossZoneMb": statistics.median(
-            [sum(m["crossZoneMb"] for m in t["machines"]) for t in ok]) if ok else 0,
+            [sum(m["crossZoneMb"] for m in t["nodes"]) for t in ok]) if ok else 0,
         "timeouts":  sum(1 for t in runs for e in t["events"] if e["kind"] == "rpc_timeout"),
     }
 
@@ -165,9 +165,9 @@ for k in a:
   timeouts                   41                4
 ```
 
-Design B is slower at the median and **much** better everywhere else. The is a
+Design B is slower at the median and **much** better everywhere else. That is a
 normal shape for this trade-off, and it is not visible from one run of each.
 
-<Card title="Next: scaled mode" icon="arrow-right" href="/run/scaled-mode">
+<Card title="Next: a scale above 1" icon="arrow-right" href="/simulate/scaled">
   Comparing designs at a size no laptop can hold.
 </Card>

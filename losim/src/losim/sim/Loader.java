@@ -210,7 +210,7 @@ public final class Loader {
                         spec.where()));
                 continue;
             }
-            if (count < 0) throw spec.at("count").fail("a pool cannot have " + count + " machines");
+            if (count < 0) throw spec.at("count").fail("a pool cannot have " + count + " nodes");
             String prefix = spec.opt("prefix").str(poolName);
             for (int i = 0; i < count; i++) {
                 String name = prefix + i;

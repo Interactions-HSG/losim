@@ -75,7 +75,7 @@ public final class Trust {
         if (unavailable == null && walked.isEmpty() && generated.isEmpty())
             unavailable = "none of the classes this simulation names are on the classpath it was"
                     + " given, so nothing was read. A jar is not walked; point --cp at the"
-                    + " directory the lab compiles to.";
+                    + " directory the project compiles to.";
         return new Trust(byMachine, List.copyOf(walked), List.copyOf(generated),
                          unavailable, true);
     }

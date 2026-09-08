@@ -1,11 +1,11 @@
 ---
 title: "1. The plan"
-description: "The cluster built in this tutorial and its four files."
+description: "The system built in this tutorial and its four files."
 icon: "list-check"
 ---
 
-Build a small cluster that makes thumbnails: a coordinator reads an
-album, hands batches of frames to whichever machines can shrink them, and collects
+Build a small system that makes thumbnails: a coordinator reads an
+album, hands batches of frames to whichever nodes can shrink them, and collects
 the results. Then we are going to make its afternoon go badly and watch what
 happens.
 
@@ -19,7 +19,7 @@ yours to write.
 <Steps>
   <Step title="thumbs.proto — the schema">
     Two messages in, two messages out, one service with two methods. gRPC is the
-    only way machines talk, so everything a machine can ask another machine is
+    only way nodes talk, so everything a node can ask another node is
     here and nowhere else.
 
     [Write it ->](/first/the-schema)
@@ -30,41 +30,42 @@ yours to write.
 
     [Write it ->](/first/the-service)
   </Step>
-  <Step title="ThumbnailJob.java — the job">
-    One class with a `run(Cluster)` method. It finds peers by what they serve,
-    asks each one how big it is, fans work out, and says what the answer was.
+  <Step title="RenderJob.java — the job">
+    One class implementing `losim.Job`. Its `Load` builds the album off the clock;
+    its `Run` finds peers by what they serve, asks each one how big it is, fans work
+    out, and says what the answer was.
 
     [Write it ->](/first/the-job)
   </Step>
-  <Step title="thumbs.yaml — the scenario">
-    Five machines, two zones, some latency, and something that goes wrong at 900
+  <Step title="thumbs.yaml — the simulation">
+    Five nodes, two zones, some latency, and something that goes wrong at 900
     reference milliseconds. Data, not code.
 
-    [Write it ->](/first/the-scenario)
+    [Write it ->](/first/the-simulation)
   </Step>
 </Steps>
 
-## The cluster's shape
+## The system's shape
 
 ```
-  coordinator (m5.large, eu-central-1a)   runs the job
+  coordinator (m5.large, eu-central-1a)   runs losim.Job
       │
       ├── w0  c5.large  eu-central-1a  ┐
       ├── w1  c5.large  eu-central-1b  │  all four serve Thumbnailer
-      ├── w2  c5.large  eu-central-1a  │  so the job finds them by that,
+      ├── w2  c5.large  eu-central-1a  │  so the Job finds them by that,
       └── w3  a1.medium eu-central-1b  ┘  never by name
 ```
 
 `w3` is deliberately the odd one out — **one core against everyone else's two**,
-so it does half the work in the same time and costs a quarter as much. A cluster
-where every machine is identical teaches nothing about placement, and placement
+so it does half the work in the same time and costs a quarter as much. A system
+where every node is identical teaches nothing about placement, and placement
 is most of what a coordinator is for.
 
 ## By the end
 
 By the end you will have a trace with a few hundred events in it, a picture of
-which machine did what and when, and a bill in four buckets. You will also have
-watched a machine be killed halfway through and seen exactly how your coordinator
+which node did what and when, and a bill in four buckets. You will also have
+watched a node be killed halfway through and seen exactly how your coordinator
 found out — which, if you wrote it the obvious way, is *by waiting*.
 
 <Note>

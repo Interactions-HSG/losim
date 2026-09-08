@@ -24,7 +24,7 @@ memoryMb = 0.0597 + 0.00187 * revealed.distinctItems^1.013  (R2 1.0000, wobble 0
 
 Every quantity that **varied** across the ladder and could plausibly drive something:
 
-- `units` — what the scenario declared
+- `units` — what the simulation declared
 - every numeric `Losim.current().reveal(key, value)` your code made
 
 Each resource is fitted against **every** candidate, and the best is kept.
@@ -101,7 +101,7 @@ both.
 ## A law per cost site, not one for the whole run
 
 A hash lookup is flat in `n`; a per-unit scan is linear; a sort is `n log n`; a
-fan-out is quadratic in the cluster. One exponent for all of them would be wrong for
+fan-out is quadratic in the system. One exponent for all of them would be wrong for
 most.
 
 Cost-site laws are kept only where they would **survive being measured again**. On

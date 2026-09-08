@@ -1,29 +1,29 @@
 ---
 title: "Declaring what work costs"
-description: "The takes: block, reference time, and why the one thing losim does not measure is time."
+description: "The simulatedDuration: block, reference time, and why the one thing losim does not measure is time."
 icon: "stopwatch"
 ---
 
 ```yaml
-takes:
-  Shrinker:
-    Thumbnail: { refMs: 3, refNsPerUnit: 240000 }
+simulatedDuration:
+  src/lab/Shrinker.java:
+    Thumbnail: { fixed: 3 refMs, perUnit: 240000 refNs }
 ```
 
-**In the scenario, not in the handler.** A duration is a claim about the machine a
-design would run on, which is the scenario's subject — and it leaves your Java with
+**In the simulation, not in the handler.** A duration is a claim about the node a
+design would run on, which is the simulation's subject — and it leaves your Java with
 no losim symbol in it at all.
 
 ## Time is declared, not measured
 
-losim shrinks the workload **and** the machines by the same factor, so memory and
-bytes survive it honestly: a machine that would exhaust 16 GiB at full scale
+losim shrinks the workload **and** the nodes by the same factor, so memory and
+bytes survive it honestly: a node that would exhaust 16 GiB at full scale
 exhausts 16 MiB here, in your own code, for the same reason.
 
 Time does not survive it, because **the host's CPU is not shrunk**. It runs at full
 speed on a five-thousandth of the data, so every handler is genuinely instant.
 Without a declared duration there is no queueing, no contention, no deadline
-pressure and no critical path — which is most of what a cluster is interesting for.
+pressure and no critical path — which is most of what a system is interesting for.
 
 Measuring instead does not work at this scale either. Handler durations at probe
 size sit inside the host's own jitter, where the fitted time exponent moves by 0.25
@@ -38,7 +38,7 @@ at whatever speed it runs, not at a speed somebody guessed.
 
 ## Reference time
 
-`refMs` is time on a **reference machine**: two vCPUs, running alone. That is the
+`refMs` is time on a **reference node**: two vCPUs, running alone. That is the
 unit, and it is the unit precisely so that the declaration composes with everything
 else. The server interceptor sleeps:
 
@@ -48,22 +48,22 @@ refMs x machineFactor / k_time
 
 | | |
 |---|---|
-| `machineFactor` | `2 / vcpu`, from the instance catalogue. A 2-vCPU machine takes 1x; a 4-vCPU machine takes 0.5x; a degraded machine multiplies on top. |
+| `machineFactor` | `2 / vcpu`, from the instance catalogue. A 2-vCPU node takes 1x; a 4-vCPU node takes 0.5x; a degraded node multiplies on top. |
 | `k_time` | the run's global compression. |
 
 A declaration of `refMs = 3` therefore means *three milliseconds of work on a
-two-core machine*, which is a claim about your code that stays true whatever cluster
+two-core node*, which is a claim about your code that stays true whatever system
 it lands on and however compressed the run is.
 
 ## The two terms
 
 <ParamField path="refMs" type="double" default="0">
   What one call takes **regardless of what is in it** — the fixed part. Known
-  before the handler runs, and slept **before** it, on the machine's own pool
+  before the handler runs, and slept **before** it, on the node's own pool
   thread. Marshalling, setup, a lookup: the cost of being called at all.
 </ParamField>
 
-<ParamField path="refNsPerUnit" type="double" default="0">
+<ParamField path="perUnit" type="double" default="0">
   What each unit of input adds, in reference **nanoseconds**. Nothing outside the
   handler can know how much input there was, so the handler declares it with
   `Losim.current().units(n)` and this part is slept **after the body returns**,
@@ -94,7 +94,7 @@ Some anchors:
 | something you would put on a dashboard | 50 refMs and up |
 
 <Tip>
-Two designs are compared by comparing scenarios, so what matters is that your
+Two designs are compared by comparing simulations, so what matters is that your
 declarations are **consistent between the designs you are comparing**. A handler
 declared at 3 refMs in one design and 30 in the other is not a comparison of
 designs.
@@ -122,27 +122,27 @@ site too small to be timed, and that was true of the design before losim said it
 
 ## Where the numbers go
 
-Under the class `runs:` names, and then the rpc — not under the rpc alone:
+Under the **path** `runs:` names, and then the rpc — not under the rpc alone:
 
 ```yaml
-machines:
-  workers: { count: 4, prefix: w, instance: c5.large, zone: eu-central-1a, runs: [Shrinker] }
+nodes:
+  workers: { count: 4, prefix: w, instance: c5.large, zone: eu-central-1a, runs: { Thumbnailer: src/lab/Shrinker.java } }
 
-takes:
-  Shrinker:
-    Thumbnail: { refMs: 3, refNsPerUnit: 240000 }
+simulatedDuration:
+  src/lab/Shrinker.java:
+    Thumbnail: { fixed: 3 refMs, perUnit: 240000 refNs }
 ```
 
 A duration belongs to the **code**, not to the operation. Two implementations of
-one rpc, on two machines, is how one design is compared with another — and a table
+one rpc, on two nodes, is how one design is compared with another — and a table
 keyed on the rpc would say they take the same time.
 
-Written under a class nothing places, or an rpc that class does not serve, it is
+Written under a path no node runs, or an rpc that file does not serve, it is
 refused before anything runs, with the line it was written on. That is what stands
 in for the annotation's one advantage: an annotation followed a renamed method, and
-a table cannot, so the scenario stops loading instead of quietly costing nothing.
+a table cannot, so the simulation stops loading instead of quietly costing nothing.
 
-[The full grammar ->](/ref/takes)
+[The full grammar ->](/ref/simulated-duration)
 
 <Card title="Next: waiting" icon="arrow-right" href="/write/waiting">
   A backoff is not work, and the difference is measurable.

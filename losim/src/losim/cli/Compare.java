@@ -39,9 +39,24 @@ public final class Compare {
         var right = JsonReader.readObject(Files.readString(b));
         var aspects = new ArrayList<Aspect>();
 
+        // Said first and alone, because everything below it is read against a shape
+        // both files are assumed to share. Two schemas disagree about what a
+        // channel is called and what a span kind is, so carrying on would print a
+        // wall of differences whose one cause is this line — and a reader who
+        // scrolled past it would go looking for a defect in the simulator.
+        if (!Objects.equals(left.get("schema"), right.get("schema"))) {
+            System.out.printf("%s%n%s%n%n", a, b);
+            System.out.printf("  DIFFER  schema%n            %s%n            %s%n%n",
+                    brief(left.get("schema")), brief(right.get("schema")));
+            System.out.println("  These two traces are different formats, so there is nothing"
+                    + " below this worth\n  comparing: every other aspect would differ, and all"
+                    + " of it for this one reason.\n  Simulate the file again with the losim that"
+                    + " wrote the other.");
+            return 1;
+        }
         aspects.add(new Aspect("schema", true, left.get("schema"), right.get("schema")));
         for (String key : List.of("simulation", "entry", "seed", "scale", "unit", "count",
-                                  "loaded", "telemetry", "mode",
+                                  "telemetry", "mode",
                                   "schemaVersion", "trusted", "completed"))
             if (meta(left).containsKey(key) || meta(right).containsKey(key))
                 aspects.add(new Aspect("meta." + key, true, meta(left).get(key), meta(right).get(key)));
@@ -64,7 +79,14 @@ public final class Compare {
                 attribution(left), attribution(right)));
         aspects.add(new Aspect("what the engine refused", true, refused(left), refused(right)));
 
-        for (String key : List.of("durationRefMs"))
+        // Measured, not structural, and `loaded` is the one that is easy to get
+        // wrong. It is what Load produced at the rung this run measured — and the
+        // rung is chosen against the host's own heap (Solve.java:89), so a smaller
+        // host legitimately measures a smaller size and legitimately loads fewer
+        // units. Held as structural it would report "these are not the same
+        // simulator" every time the two hosts differed in memory, which is the one
+        // thing this comparison exists to tolerate.
+        for (String key : List.of("durationRefMs", "loaded"))
             if (meta(left).containsKey(key))
                 aspects.add(new Aspect("meta." + key, false, meta(left).get(key), meta(right).get(key)));
         aspects.add(new Aspect("run size chosen", false,
