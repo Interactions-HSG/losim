@@ -1,0 +1,176 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "io.github.interactions-hsg",
+    "module": "losim",
+    "version": "2.0.2",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.2.0"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 21,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api"
+      },
+      "dependencies": [
+        {
+          "group": "io.grpc",
+          "module": "grpc-protobuf",
+          "version": {
+            "requires": "1.83.1"
+          }
+        },
+        {
+          "group": "io.grpc",
+          "module": "grpc-stub",
+          "version": {
+            "requires": "1.83.1"
+          }
+        },
+        {
+          "group": "io.grpc",
+          "module": "grpc-inprocess",
+          "version": {
+            "requires": "1.83.1"
+          }
+        },
+        {
+          "group": "io.grpc",
+          "module": "grpc-core",
+          "version": {
+            "requires": "1.83.1"
+          }
+        },
+        {
+          "group": "com.google.protobuf",
+          "module": "protobuf-java",
+          "version": {
+            "requires": "4.36.0"
+          }
+        },
+        {
+          "group": "com.google.code.gson",
+          "module": "gson",
+          "version": {
+            "requires": "2.14.0"
+          }
+        },
+        {
+          "group": "com.google.guava",
+          "module": "guava",
+          "version": {
+            "requires": "33.6.0-jre"
+          }
+        },
+        {
+          "group": "com.google.android",
+          "module": "annotations",
+          "version": {
+            "requires": "4.1.1.4"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "losim-2.0.2.jar",
+          "url": "losim-2.0.2.jar",
+          "size": 990435,
+          "sha512": "81f8a13b632e2195cdbac21080f9c3115c8c71f52a2fb4165601ad3829657944ee25c04c4393852616bbd039d6be26e1efa4cc4741c046fc7257acef5c943275",
+          "sha256": "749657a86ce16345cab377d52b7d8fbfb6fda843053624c5c74a48d7fd086fca",
+          "sha1": "75888ea081dc2d76d88d7e1996013d0b90039d02",
+          "md5": "6b58a0d1345dd305432aa11e41a50c1e"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 21,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "io.grpc",
+          "module": "grpc-protobuf",
+          "version": {
+            "requires": "1.83.1"
+          }
+        },
+        {
+          "group": "io.grpc",
+          "module": "grpc-stub",
+          "version": {
+            "requires": "1.83.1"
+          }
+        },
+        {
+          "group": "io.grpc",
+          "module": "grpc-inprocess",
+          "version": {
+            "requires": "1.83.1"
+          }
+        },
+        {
+          "group": "io.grpc",
+          "module": "grpc-core",
+          "version": {
+            "requires": "1.83.1"
+          }
+        },
+        {
+          "group": "com.google.protobuf",
+          "module": "protobuf-java",
+          "version": {
+            "requires": "4.36.0"
+          }
+        },
+        {
+          "group": "com.google.code.gson",
+          "module": "gson",
+          "version": {
+            "requires": "2.14.0"
+          }
+        },
+        {
+          "group": "com.google.guava",
+          "module": "guava",
+          "version": {
+            "requires": "33.6.0-jre"
+          }
+        },
+        {
+          "group": "com.google.android",
+          "module": "annotations",
+          "version": {
+            "requires": "4.1.1.4"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "losim-2.0.2.jar",
+          "url": "losim-2.0.2.jar",
+          "size": 990435,
+          "sha512": "81f8a13b632e2195cdbac21080f9c3115c8c71f52a2fb4165601ad3829657944ee25c04c4393852616bbd039d6be26e1efa4cc4741c046fc7257acef5c943275",
+          "sha256": "749657a86ce16345cab377d52b7d8fbfb6fda843053624c5c74a48d7fd086fca",
+          "sha1": "75888ea081dc2d76d88d7e1996013d0b90039d02",
+          "md5": "6b58a0d1345dd305432aa11e41a50c1e"
+        }
+      ]
+    }
+  ]
+}
