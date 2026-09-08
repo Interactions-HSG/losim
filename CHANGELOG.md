@@ -6,6 +6,32 @@ A version is what a lab resolves from Gradle, so it is a fact about a jar rather
 than about a branch. Every release is cut from a tag whose name and `./VERSION`
 are checked against each other before anything is built.
 
+## 2.0.2
+
+**`./losim run <scenario>` could not find the lab's own classes.**
+
+```
+no class called 'thumbs.Shrinker' is on the classpath to run as the job
+```
+
+The wrapper `losim adopt` writes runs on the classpath the build resolved, which is
+the simulator and gRPC and deliberately **not** the project's own output — the task
+that writes that classpath must not depend on compiling, because compiling needs
+the generated sources that same task's output is read to produce. `--cp` then
+defaulted to the JVM's own classpath, which is that same list. So the class the
+scenario named was never anywhere, and the only way through was to type
+`--cp build/losim/classes` yourself.
+
+The arrow in the lab always worked, because the console passes `--cp` itself. That
+is why this survived a release: every test exercised the path that already said it.
+
+`--cp` now defaults to `build/losim/classes` when that directory is there, so
+`./losim build && ./losim run thumbs.yaml` works. A project that has not been built
+yet gets the refusal about the class, which is the true one, and it now says to
+compile first.
+
+Present since 1.5.0, which is when the wrapper was introduced.
+
 ## 2.0.1
 
 **A text repair. No behaviour, no API and no scenario changes.**

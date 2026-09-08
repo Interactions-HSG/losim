@@ -5,23 +5,28 @@ icon: "terminal"
 ---
 
 ```bash
-java -cp build/losim.jar losim.cli.Main run <scenario.yaml> [options]
+./losim run <scenario.yaml> [options]
 ```
 
-In practice the classpath needs the vendored jars and your classes too:
+The wrapper `losim adopt` wrote resolves the simulator, so there is no classpath to
+assemble. Without it, the same thing by hand:
 
 ```bash
-CP=$(ls vendor/jars/*.jar | tr '\n' ':')
-java -Xmx3g -cp "${CP}build/losim.jar:build/losim/classes" \
-     losim.cli.Main run thumbs.yaml --cp build/losim/classes --out build/thumbs.json
+java -cp "$(cat build/losim/classpath)" \
+     losim.cli.Main run thumbs.yaml --out build/thumbs.json
 ```
 
 ## Options
 
-<ParamField path="--cp <paths>" type="path list" default="the JVM's own classpath">
+<ParamField path="--cp <paths>" type="path list" default="build/losim/classes">
   Colon-separated **directories** where the job and the services are compiled to.
   losim loads the classes the scenario names from here, and the trust verifier
   reads their bytecode from here.
+
+  Defaults to where `./losim build` compiles to, when that directory is there. It
+  has to: the classpath the build resolves is the simulator and gRPC and
+  deliberately not the lab's own output, so the JVM running this has never heard of
+  the class the scenario names.
 
   A jar is not walked. If you point this at one, the run happens and the trace
   records that nothing was checked:

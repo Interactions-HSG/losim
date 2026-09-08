@@ -212,7 +212,11 @@ public final class Main {
         Path file = Path.of(positional(args, "which scenario?"));
         if (!Files.exists(file)) throw new IllegalArgumentException("no such scenario: " + file);
 
-        String cp = option(args, "--cp", "");
+        // Not the JVM's own classpath, which is what the wrapper hands it and holds
+        // no class of the lab's. See Lab.classesIfBuilt.
+        String cp = option(args, "--cp",
+                new Lab(Path.of(option(args, "--root", ".")).toAbsolutePath().normalize())
+                        .classesIfBuilt());
         String out = option(args, "--out", null);
         String seed = option(args, "--seed", null);
         var level = Telemetry.Level.valueOf(option(args, "--telemetry", "FULL"));

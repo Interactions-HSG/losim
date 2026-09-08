@@ -24,6 +24,32 @@ class LabTest {
     static Path root;
     static Lab lab;
 
+    @Test
+    @DisplayName("a run with no --cp falls back to the lab's own classes, never to the JVM's")
+    void classesAreTheFallback() throws Exception {
+        // The reason there is a fallback at all: the classpath the build resolves is
+        // the simulator and gRPC, and the lab's own output is deliberately not on it,
+        // so the JVM running `losim run` has never heard of the class a scenario
+        // names. Nothing caught that for a release, because the console passes --cp
+        // itself and every test went through the console.
+        var log = new StringBuilder();
+        assertNotNull(lab.compile(log::append), log.toString());
+        assertFalse(lab.cp().contains(lab.classes().toString()),
+                "the resolved classpath does not carry the lab's own output, by design");
+        assertEquals(lab.classes().toString(), lab.classesIfBuilt(),
+                "so a run with no --cp has to be sent there");
+
+        // And a project nobody has built yet says so about the class, not about a
+        // directory: "" leaves the refusal naming what the scenario asked for.
+        Path fresh = Files.createTempDirectory(Path.of("build"), "unbuilt-lab-");
+        try {
+            assertEquals("", new Lab(fresh).classesIfBuilt(),
+                    "nothing compiled yet is not a classpath");
+        } finally {
+            Fixture.delete(fresh);
+        }
+    }
+
     @BeforeAll
     static void build() throws Exception {
         root = Fixture.build();

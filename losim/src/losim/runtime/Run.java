@@ -376,7 +376,8 @@ public final class Run {
             return c.newInstance();
         } catch (ClassNotFoundException e) {
             throw new IllegalArgumentException("no class called '" + className + "' is on the"
-                    + " classpath to run as the job");
+                    + " classpath to run as the job. Compile the project first; --cp says which"
+                    + " directory the classes are in.");
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("could not build the job '" + className + "'", e);
         }
