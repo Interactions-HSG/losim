@@ -48,7 +48,7 @@ public record Probe(
         var resources = new TreeMap<String, Double>();
 
         variables.put("units", (double) s.units());
-        variables.put("workers", (double) s.machines().stream()
+        variables.put("workers", (double) s.nodes().stream()
                 .filter(m -> !m.runs().isEmpty()).count());
 
         long calls = tel.spans().stream().filter(sp -> sp.kind.equals("handler")).count();

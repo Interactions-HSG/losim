@@ -439,7 +439,7 @@ public final class Main {
     /** How many machines the largest pool has, which is what `+1` is one more than. */
     private static int biggestPool(Scenario s) {
         var byPool = new java.util.LinkedHashMap<String, Integer>();
-        for (var m : s.machines()) byPool.merge(m.pool(), 1, Integer::sum);
+        for (var m : s.nodes()) byPool.merge(m.pool(), 1, Integer::sum);
         int most = 1;
         for (int n : byPool.values()) most = Math.max(most, n);
         return most;

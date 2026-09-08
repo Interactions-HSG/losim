@@ -5,7 +5,7 @@
 seed: 7
 job: WordCountJob
 
-machines:
+nodes:
   master:
     instance: m5.large
     zone: eu-central-1a
@@ -28,7 +28,7 @@ faults:
 # The handlers declare nothing: a duration is a claim about the machine a design
 # would run on, so it belongs to the scenario — and a system stays plain gRPC
 # with no losim in it.
-takes:
+simulatedDuration:
   Counter:
-    Map: { refMs: 15 }
-    Reduce: { refMs: 100 }
+    Map: { fixed: 15 refMs }
+    Reduce: { fixed: 100 refMs }

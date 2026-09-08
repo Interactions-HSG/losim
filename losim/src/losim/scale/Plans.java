@@ -43,7 +43,7 @@ public final class Plans {
         sb.append(level).append('|').append(s.job()).append('|').append(s.units())
           .append('|').append(s.seed())
           .append('|').append(s.scale());
-        for (var m : s.machines())
+        for (var m : s.nodes())
             sb.append('|').append(m.name()).append(':').append(m.instance())
               .append(':').append(m.zone()).append(':').append(m.runs());
         sb.append('|').append(s.net()).append('|').append(s.faults()).append('|').append(s.chaos())

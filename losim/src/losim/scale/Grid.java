@@ -95,7 +95,7 @@ public record Grid(List<List<Probe>> dataLadder,
 
     /** The cluster the scenario declares: every machine that serves something. */
     static int workersIn(Scenario s) {
-        long serving = s.machines().stream().filter(m -> !m.runs().isEmpty()).count();
+        long serving = s.nodes().stream().filter(m -> !m.runs().isEmpty()).count();
         return (int) Math.max(1, serving);
     }
 

@@ -105,7 +105,8 @@ public final class Node {
     public double refMs() {
         String s = str().trim();
         java.util.regex.Matcher m = java.util.regex.Pattern
-                .compile("^([0-9]*\\.?[0-9]+)\\s*(refMs|refms|refSeconds|refSec|refS|refs)$")
+                .compile("^([0-9]*\\.?[0-9]+)\\s*"
+                       + "(refNs|refns|refMs|refms|refSeconds|refSec|refS|refs)$")
                 .matcher(s);
         if (!m.matches())
             throw fail("'" + s + "' does not say what kind of time it is. Durations are"
@@ -113,8 +114,13 @@ public final class Node {
                      + " A bare number would be ambiguous between the simulated world and your"
                      + " afternoon, and those differ by k_time.");
         double v = Double.parseDouble(m.group(1));
-        return m.group(2).toLowerCase().startsWith("refs") && !m.group(2).equalsIgnoreCase("refMs")
-                ? v * 1000 : v;
+        String unit = m.group(2).toLowerCase();
+        // Everything is kept in reference milliseconds, so the per-unit term of a
+        // cost — nanoseconds, because a unit is small — is the same kind of number
+        // as everything else rather than a second scale to remember.
+        if (unit.equals("refns")) return v / 1e6;
+        if (unit.equals("refms")) return v;
+        return v * 1000;
     }
 
     public double refMs(double fallback) { return present() ? refMs() : fallback; }

@@ -3,7 +3,7 @@
 seed: 1
 job: Rally
 
-machines:
+nodes:
   umpire: { instance: m5.large, zone: eu-central-1a }
   left:   { instance: m5.large, zone: eu-central-1a, runs: [Volleyer] }
   right:  { instance: m5.large, zone: eu-central-1a, runs: [Volleyer] }
@@ -12,6 +12,6 @@ machines:
 # The handlers declare nothing: a duration is a claim about the machine a design
 # would run on, so it belongs to the scenario — and a system stays plain gRPC
 # with no losim in it.
-takes:
+simulatedDuration:
   Volleyer:
-    Hit: { refMs: 200 }
+    Hit: { fixed: 200 refMs }

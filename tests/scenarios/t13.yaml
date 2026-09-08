@@ -9,7 +9,7 @@ seed: 13
 job: Elastic
 scale: 6
 
-machines:
+nodes:
   master: { instance: m5.2xlarge, zone: eu-central-1a }
   workers:
     count: 4
@@ -29,7 +29,7 @@ input:
 # The handlers declare nothing: a duration is a claim about the machine a design
 # would run on, so it belongs to the scenario — and a system stays plain gRPC
 # with no losim in it.
-takes:
+simulatedDuration:
   Combiner:
-    Map: { refMs: 2, refNsPerUnit: 360000 }
-    Reduce: { refMs: 5 }
+    Map: { fixed: 2 refMs, perUnit: 360000 refNs }
+    Reduce: { fixed: 5 refMs }

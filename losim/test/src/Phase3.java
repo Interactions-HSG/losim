@@ -34,7 +34,7 @@ public class Phase3 {
             seed: 9
             job: ScalableWordCount
             scale: %s
-            machines:
+            nodes:
               master: { instance: m5.2xlarge, zone: z }
               workers:
                 count: 4
@@ -46,8 +46,8 @@ public class Phase3 {
               lines:        %d
               wordsPerLine: 8
               vocabulary:   200000
-            takes:
-              %s: { Map: { refMs: 2, refNsPerUnit: 20000 }, Reduce: { refMs: 5 } }
+            simulatedDuration:
+              %s: { Map: { fixed: 2 refMs, perUnit: 20000 refNs }, Reduce: { fixed: 5 refMs } }
             """.formatted(trim(scale), service, Math.round(scale * Scenario.BASE), service);
     }
 
@@ -87,7 +87,7 @@ public class Phase3 {
         String cluster = """
             seed: 1
             job: Sizer
-            machines:
+            nodes:
               master: { instance: m5.large, zone: z }
             """;
         var s = Loader.of(Yaml.parse("sized.yaml", cluster + """
@@ -128,7 +128,7 @@ public class Phase3 {
             seed: 1
             job: NoopJob
             scale: 6
-            machines:
+            nodes:
               master: { instance: m5.large, zone: z }
             """)), ":2:").contains("has to implement losim.api.Scalable"),
               "backwards: a scenario that asks for a model of six times the run, and names a "
@@ -137,7 +137,7 @@ public class Phase3 {
         check(refusedBy(Loader.of(Yaml.parse("sized.yaml", """
             seed: 1
             job: NoopJob
-            machines:
+            nodes:
               master: { instance: m5.large, zone: z }
             input:
               items: 240
@@ -336,7 +336,7 @@ public class Phase3 {
             seed: 4
             job: BatchJob
             scale: %d
-            machines:
+            nodes:
               master: { instance: m5.2xlarge, zone: z }
               workers:
                 count: 4
@@ -346,8 +346,8 @@ public class Phase3 {
                 runs: [Slow]
             input:
               calls: %d
-            takes:
-              Slow: { Hit: { refMs: 200 }, Poll: { refMs: 200 } }
+            simulatedDuration:
+              Slow: { Hit: { fixed: 200 refMs }, Poll: { fixed: 200 refMs } }
             """;
         // Four 2-vCPU machines: eight cores. Observed under-saturated, projected
         // saturated. Four calls fit under eight cores; thirty-two are four waves of
@@ -368,7 +368,7 @@ public class Phase3 {
         var tasks = new ArrayList<Schedule.Task>();
         var perCall = Schedule.tasksOf(observed.telemetry(), projected);
         var vcpus = new HashMap<String, Integer>();
-        for (var m : big.machines()) vcpus.put(m.name(), 2);
+        for (var m : big.nodes()) vcpus.put(m.name(), 2);
         // Replay the observed graph at the size being asked about: the same shape,
         // eight times as many calls, dealt the same way round the same cluster.
         for (int repeat = 0; repeat < 8; repeat++)

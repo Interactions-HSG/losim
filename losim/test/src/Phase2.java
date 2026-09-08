@@ -46,11 +46,11 @@ public class Phase2 {
 
     static final String CLUSTER = """
         job: NoopJob
-        machines:
+        nodes:
           master: { instance: m5.large, zone: z }
           workers: { count: 2, prefix: w, instance: m5.large, zone: z, runs: [Pinger] }
-        takes:
-          Pinger: { Hit: { refMs: 1 } }
+        simulatedDuration:
+          Pinger: { Hit: { fixed: 1 refMs } }
         """;
 
     /**
@@ -69,13 +69,13 @@ public class Phase2 {
             seed: 3
             job: ForwardJob
             network: { sameZone: 20 refMs }
-            machines:
+            nodes:
               master: { instance: m5.large, zone: z }
               front:  { instance: m5.large, zone: z, runs: [Forwarder] }
               back:   { instance: m5.large, zone: z, runs: [Counter] }
-            takes:
-              Forwarder: { Map: { refMs: 1 } }
-              Counter:   { Map: { refMs: 15 }, Reduce: { refMs: 100 } }
+            simulatedDuration:
+              Forwarder: { Map: { fixed: 1 refMs } }
+              Counter:   { Map: { fixed: 15 refMs }, Reduce: { fixed: 100 refMs } }
             """)));
         var tel = result.telemetry();
         check(result.completed(), "the job finished: master called front, and front called back");
@@ -160,14 +160,14 @@ public class Phase2 {
         refuses("a probability outside zero and one",
                 CLUSTER + "network: { loss: 4 }\n",
                 "a probability");
-        refuses("the same machine declared twice",
+        refuses("the same node declared twice",
                 """
                 job: NoopJob
-                machines:
+                nodes:
                   w0: { instance: m5.large, zone: z }
                   pool: { count: 1, prefix: w, instance: m5.large, zone: z }
                 """,
-                "two machines are both called 'w0'");
+                "two nodes are both called 'w0'");
         System.out.println();
     }
 
@@ -198,7 +198,7 @@ public class Phase2 {
         System.out.println("=== pools, and the deliberate straggler ===");
         var s = Loader.of(Yaml.parse("scenario.yaml", """
                 job: NoopJob
-                machines:
+                nodes:
                   master: { instance: m5.large, zone: eu-a }
                   workers:
                     count: 6
@@ -210,8 +210,8 @@ public class Phase2 {
                       w3: { instance: a1.nano }
                       w4: { memoryMb: 16 }
                 """));
-        var byName = new LinkedHashMap<String, Scenario.MachineSpec>();
-        s.machines().forEach(m -> byName.put(m.name(), m));
+        var byName = new LinkedHashMap<String, Scenario.NodeSpec>();
+        s.nodes().forEach(m -> byName.put(m.name(), m));
         check(byName.keySet().equals(new LinkedHashSet<>(
                       List.of("master", "w0", "w1", "w2", "w3", "w4", "w5"))),
               "a pool of six is six machines, named from its prefix");
@@ -268,13 +268,13 @@ public class Phase2 {
         Pinger.failFirst = 2;
         var result = Run.of(Loader.of(Yaml.parse("scenario.yaml", """
                 job: RetryJob
-                machines:
+                nodes:
                   master: { instance: m5.large, zone: z }
                   workers: { count: 1, prefix: w, instance: m5.large, zone: z, runs: [Pinger] }
                 retries:
                   - { method: Volley.Poll, attempts: 4, backoff: 20 refMs, multiplier: 2 }
-                takes:
-                  Pinger: { Hit: { refMs: 1 } }
+                simulatedDuration:
+                  Pinger: { Hit: { fixed: 1 refMs } }
                 """)));
         Pinger.failFirst = 0;
         var retries = result.telemetry().events().stream()
@@ -310,7 +310,7 @@ public class Phase2 {
         var result = Run.of(Loader.of(Yaml.parse("scenario.yaml", """
                 job: WaitJob
                 seed: 3
-                machines:
+                nodes:
                   master: { instance: m5.large, zone: z }
                   workers: { count: 4, prefix: w, instance: m5.large, zone: z, runs: [Pinger] }
                 faults:
@@ -320,8 +320,8 @@ public class Phase2 {
                   - { at: 400 refMs, partition: [master, w3] }
                   - { at: 700 refMs, kill: w3, restart_after: 300 refMs }
                   - { at: 1200 refMs, heal: [master, w3] }
-                takes:
-                  Pinger: { Hit: { refMs: 1 } }
+                simulatedDuration:
+                  Pinger: { Hit: { fixed: 1 refMs } }
                 """)));
         var tel = result.telemetry();
         var at = new LinkedHashMap<String, Double>();
@@ -359,13 +359,13 @@ public class Phase2 {
         String yaml = """
                 job: WaitJob
                 seed: %d
-                machines:
+                nodes:
                   master: { instance: m5.large, zone: z }
                   workers: { count: 6, prefix: w, instance: m5.large, zone: z, runs: [Pinger] }
                 chaos:
                   - { kill: { every: 3 refSeconds, among: workers } }
-                takes:
-                  Pinger: { Hit: { refMs: 1 } }
+                simulatedDuration:
+                  Pinger: { Hit: { fixed: 1 refMs } }
                 """;
         var afternoons = new ArrayList<List<String>>();
         for (long seed : new long[]{1, 1, 2}) {
@@ -393,7 +393,7 @@ public class Phase2 {
         System.out.println("=== a full disk refuses the write ===");
         var result = Run.of(Loader.of(Yaml.parse("scenario.yaml", """
                 job: WordCountJob
-                machines:
+                nodes:
                   master: { instance: m5.large, zone: z }
                   workers:
                     count: 2
@@ -403,8 +403,8 @@ public class Phase2 {
                     runs: [Counter]
                     overrides:
                       w1: { diskMb: 1 }
-                takes:
-                  Counter: { Map: { refMs: 15 }, Reduce: { refMs: 100 } }
+                simulatedDuration:
+                  Counter: { Map: { fixed: 15 refMs }, Reduce: { fixed: 100 refMs } }
                 """)));
         var tel = result.telemetry();
         var full = tel.events().stream().filter(e -> e.kind().equals("disk_full")).findFirst();

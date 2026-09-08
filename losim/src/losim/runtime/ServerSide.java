@@ -76,10 +76,10 @@ final class ServerSide implements ServerInterceptor {
                 // The variable part of the cost is paid before the response
                 // leaves, not after: a caller waits for work that has not
                 // finished, and by now the handler has said how much there was.
-                if (takes != null && takes.refNsPerUnit() > 0) {
+                if (takes != null && takes.perUnitRefMs() > 0) {
                     long n = span.units.get();
                     if (n > 0) node.machines().clock
-                            .spend(takes.refNsPerUnit() * n / 1e6 * node.effectiveFactor());
+                            .spend(takes.perUnitRefMs() * n * node.effectiveFactor());
                 }
                 long b0 = Meter.allocNow(), n0 = System.nanoTime();
                 if (tel.payloads()) span.detail.put("result", Values.render(message));
@@ -108,8 +108,8 @@ final class ServerSide implements ServerInterceptor {
                     // whether the answer arrived in time, late, or not at all.
                     if (takes != null && deadlineRefMs != null) {
                         long n = span.units.get();
-                        double declared = takes.refMs();
-                        if (n > 0 && takes.refNsPerUnit() > 0) declared += takes.refNsPerUnit() * n / 1e6;
+                        double declared = takes.fixedRefMs();
+                        if (n > 0 && takes.perUnitRefMs() > 0) declared += takes.perUnitRefMs() * n;
                         declared *= node.effectiveFactor();
                         span.detail.put("declaredRefMs", Machine.round(declared));
                         span.detail.put("deadlineRefMs", Machine.round(deadlineRefMs));
@@ -167,8 +167,8 @@ final class ServerSide implements ServerInterceptor {
                 tel.event(node.name, "handler_start", "method", method, "call", callId);
                 node.chargeTo(span, Meter.allocNow() - b0, System.nanoTime() - n0);
 
-                if (takes != null && takes.refMs() > 0)
-                    node.machines().clock.spend(takes.refMs() * node.effectiveFactor());
+                if (takes != null && takes.fixedRefMs() > 0)
+                    node.machines().clock.spend(takes.fixedRefMs() * node.effectiveFactor());
 
                 // The handler runs inside this call, on this thread, and so does
                 // some of losim's own work — `sendMessage` and `close` are both

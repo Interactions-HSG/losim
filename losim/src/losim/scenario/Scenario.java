@@ -40,7 +40,7 @@ public record Scenario(
          * the job does not consume is refused with its line rather than ignored.
          */
         List<InputSize> input,
-        List<MachineSpec> machines,
+        List<NodeSpec> nodes,
         NetSpec net,
         List<Fault> faults,
         List<Chaos> chaos,
@@ -55,7 +55,7 @@ public record Scenario(
          * why a key naming a method the cluster does not serve is refused at load
          * with the line it was written on.
          */
-        Map<String, Cost> takes,
+        Map<String, Cost> simulatedDuration,
         boolean tightMargin,
         Mode mode) {
 
@@ -121,7 +121,7 @@ public record Scenario(
     public long fullUnits() { return scale <= 1 ? 1 : Math.round(scale * BASE); }
 
     /**
-     * How many machines to put in each multi-machine pool, varied on its own.
+     * How many nodes to put in each multi-machine pool, varied on its own.
      *
      * <p>Derived from the cluster that was drawn, because that is the cluster the
      * question is about: probing a design at two workers when it is written for
@@ -130,7 +130,7 @@ public record Scenario(
      * to whichever one happened to move with it.
      */
     public List<Integer> workerCounts() {
-        int declared = (int) machines.stream().filter(m -> !m.runs().isEmpty()).count();
+        int declared = (int) nodes.stream().filter(m -> !m.runs().isEmpty()).count();
         return List.of(Math.max(2, declared / 2), Math.max(3, declared));
     }
 
@@ -141,25 +141,25 @@ public record Scenario(
     // system is — in one place, and makes the grid's axes explicit.
 
     public Scenario withSeed(long seed) {
-        return new Scenario(file, seed, job, jobWhere, scale, units, input, machines, net,
-                faults, chaos, retries, takes, tightMargin, mode);
+        return new Scenario(file, seed, job, jobWhere, scale, units, input, nodes, net,
+                faults, chaos, retries, simulatedDuration, tightMargin, mode);
     }
 
     /** The run size the engine solved for, replacing the full-scale one. */
     public Scenario withUnits(long n) {
-        return new Scenario(file, seed, job, jobWhere, scale, n, input, machines, net,
-                faults, chaos, retries, takes, tightMargin, mode);
+        return new Scenario(file, seed, job, jobWhere, scale, n, input, nodes, net,
+                faults, chaos, retries, simulatedDuration, tightMargin, mode);
     }
 
     public Scenario withMode(Mode m) {
-        return new Scenario(file, seed, job, jobWhere, scale, units, input, machines, net,
-                faults, chaos, retries, takes, tightMargin, m);
+        return new Scenario(file, seed, job, jobWhere, scale, units, input, nodes, net,
+                faults, chaos, retries, simulatedDuration, tightMargin, m);
     }
 
     /** The same scenario with no weather at all — the clean column of the grid. */
     public Scenario withoutWeather() {
-        return new Scenario(file, seed, job, jobWhere, scale, units, input, machines, net,
-                List.of(), List.of(), retries, takes, tightMargin, mode);
+        return new Scenario(file, seed, job, jobWhere, scale, units, input, nodes, net,
+                List.of(), List.of(), retries, simulatedDuration, tightMargin, mode);
     }
 
     /**
@@ -172,38 +172,38 @@ public record Scenario(
      * that only works if resizing means resizing the workers.
      */
     public Scenario withWorkers(int n) {
-        var out = new java.util.ArrayList<MachineSpec>();
+        var out = new java.util.ArrayList<NodeSpec>();
         var seen = new java.util.LinkedHashSet<String>();
-        for (MachineSpec m : machines) {
+        for (NodeSpec m : nodes) {
             if (!seen.add(m.pool())) continue;
-            var pool = machines.stream().filter(x -> x.pool().equals(m.pool())).toList();
+            var pool = nodes.stream().filter(x -> x.pool().equals(m.pool())).toList();
             if (pool.size() == 1) { out.add(m); continue; }
             String prefix = m.name().replaceAll("\\d+$", "");
-            var zones = pool.stream().map(MachineSpec::zone).distinct().toList();
+            var zones = pool.stream().map(NodeSpec::zone).distinct().toList();
             for (int i = 0; i < n; i++)
-                out.add(new MachineSpec(prefix + i, m.pool(), m.instance(),
+                out.add(new NodeSpec(prefix + i, m.pool(), m.instance(),
                         zones.get(i % zones.size()), m.runs(),
                         m.memoryCapMb(), m.diskCapMb(), m.where()));
         }
         // Weather aimed at a machine the resize removed would be aimed at nothing.
-        var kept = out.stream().map(MachineSpec::name).toList();
+        var kept = out.stream().map(NodeSpec::name).toList();
         var stillThere = faults.stream()
                 .filter(f -> kept.contains(f.target()) && (f.other() == null || kept.contains(f.other())))
                 .toList();
         return new Scenario(file, seed, job, jobWhere, scale, units, input, out, net,
-                stillThere, chaos, retries, takes, tightMargin, mode);
+                stillThere, chaos, retries, simulatedDuration, tightMargin, mode);
     }
 
     /** The same cluster with caps the engine solved for, per machine, per resource. */
     public Scenario withCaps(java.util.Map<String, double[]> byMachine) {
-        var out = new java.util.ArrayList<MachineSpec>();
-        for (MachineSpec m : machines) {
+        var out = new java.util.ArrayList<NodeSpec>();
+        for (NodeSpec m : nodes) {
             double[] caps = byMachine.get(m.name());
-            out.add(caps == null ? m : new MachineSpec(m.name(), m.pool(), m.instance(),
+            out.add(caps == null ? m : new NodeSpec(m.name(), m.pool(), m.instance(),
                     m.zone(), m.runs(), caps[0], caps[1], m.where()));
         }
         return new Scenario(file, seed, job, jobWhere, scale, units, input, out, net,
-                faults, chaos, retries, takes, tightMargin, mode);
+                faults, chaos, retries, simulatedDuration, tightMargin, mode);
     }
 
     /**
@@ -222,7 +222,7 @@ public record Scenario(
      *             saying {@code [lab.Combiner]} produced a trace saying
      *             {@code ["Worker"]} under the same heading.
      */
-    public record MachineSpec(String name, String pool, String instance, String zone,
+    public record NodeSpec(String name, String pool, String instance, String zone,
                               List<String> runs, Double memoryCapMb, Double diskCapMb,
                               String where) {}
 

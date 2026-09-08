@@ -42,7 +42,7 @@ package losim.runtime;
  *
  * @param where the file and line it was written on, for a refusal to name
  */
-public record Cost(double refMs, double refNsPerUnit, String where) {
+public record Cost(double fixedRefMs, double perUnitRefMs, String where) {
 
-    public Cost(double refMs, double refNsPerUnit) { this(refMs, refNsPerUnit, ""); }
+    public Cost(double fixedRefMs, double perUnitRefMs) { this(fixedRefMs, perUnitRefMs, ""); }
 }

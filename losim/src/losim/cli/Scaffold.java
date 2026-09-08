@@ -242,7 +242,7 @@ final class Scaffold {
             seed: 1
             job: %s
 
-            machines:
+            nodes:
               # The job runs on the first machine in the file.
               coordinator: { instance: m5.large, zone: eu-central-1a }
               worker:      { instance: c5.large, zone: eu-central-1a, runs: [%s] }
@@ -275,13 +275,13 @@ final class Scaffold {
             # contention, no deadline pressure and no critical path. Nothing measures
             # this for you and nothing can, so these are yours to fill in. See
             # /ref/takes.
-            takes:
+            simulatedDuration:
             """);
         String last = "";
         for (String[] row : takes) {
             if (!row[0].equals(last)) sb.append("  ").append(row[0]).append(":\n");
             last = row[0];
-            sb.append("    ").append(row[1]).append(": { refMs: 0 }\n");
+            sb.append("    ").append(row[1]).append(": { fixed: 0 refMs }\n");
         }
         return sb.toString();
     }

@@ -157,7 +157,7 @@ public final class Run {
 
         try (var machines = new Machines(tel, net, s.seed())) {
             var byName = new LinkedHashMap<String, Machine>();
-            for (MachineSpec m : s.machines()) {
+            for (NodeSpec m : s.nodes()) {
                 var spec = InstanceCatalog.get(m.instance());
                 var machine = machines.machine(m.name(), m.instance(), m.zone(),
                         m.memoryCapMb() != null ? m.memoryCapMb() : spec.memoryMb(),
@@ -174,12 +174,12 @@ public final class Run {
             // And what each of them costs, checked the same way and for the same
             // reason: a takes: line naming nothing is a method that quietly takes
             // no time, which comes out as a fast run rather than as an error.
-            machines.costing(s.takes());
+            machines.costing(s.simulatedDuration());
 
 
             machines.begin();
             tel.event("-", "scenario", "file", s.file(), "seed", s.seed(), "scale", s.scale(),
-                      "machines", s.machines().size(), "job", s.job(),
+                      "machines", s.nodes().size(), "job", s.job(),
                       "tightMargin", s.tightMargin() ? true : null);
 
             // On the machines, at the start, before anything they do is measured: a
@@ -492,9 +492,9 @@ public final class Run {
         int rule = 0;
         for (Chaos c : s.chaos()) {
             var rng = new Random(s.seed() * 31 + 7 + rule++);
-            var pool = s.machines().stream()
+            var pool = s.nodes().stream()
                     .filter(m -> m.pool().equals(c.among()) || m.name().equals(c.among()))
-                    .map(MachineSpec::name).toList();
+                    .map(NodeSpec::name).toList();
             var next = new Runnable[1];
             var at = new double[]{0};
             next[0] = () -> {

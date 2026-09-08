@@ -88,7 +88,7 @@ public final class Solve {
         }
         double heapMb = Runtime.getRuntime().maxMemory() / 1048576.0 * HOST_HEAP_SHARE;
         double demand = laws.project(Probe.MEMORY, n).orElse(0)
-                * Math.max(1, s.machines().size() - 1);
+                * Math.max(1, s.nodes().size() - 1);
         if (demand > heapMb)
             return String.format("at %d units the cluster would hold %.0f MB, and this host"
                     + " offers %.0f MB to work in — the run does not fit the laptop it is"
@@ -110,7 +110,7 @@ public final class Solve {
         double memFixed = laws.has(Probe.MEMORY) ? laws.law(Probe.MEMORY).fixed() : 0;
         double diskFixed = laws.has(Probe.DISK) ? laws.law(Probe.DISK).fixed() : 0;
 
-        for (var m : s.machines()) {
+        for (var m : s.nodes()) {
             var spec = InstanceCatalog.get(m.instance());
             double declaredMem = m.memoryCapMb() != null ? m.memoryCapMb() : spec.memoryMb();
             double declaredDisk = m.diskCapMb() != null ? m.diskCapMb() : spec.storageGb() * 1024.0;

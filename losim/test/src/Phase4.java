@@ -176,11 +176,11 @@ public class Phase4 {
         return """
             seed: 4
             job: WordCountJob
-            machines:
+            nodes:
               master: { instance: m5.large, zone: z }
               w0: { instance: m5.large, zone: z, runs: [%s] }
               w1: { instance: m5.large, zone: z, runs: [%s] }
-            takes:
+            simulatedDuration:
             %s""".formatted(w0, w1, costs(w0, w1));
     }
 
@@ -192,9 +192,9 @@ public class Phase4 {
         var out = new java.util.LinkedHashSet<String>();
         for (String c : classes) {
             out.add(switch (c) {
-                case "Counter" -> "  Counter: { Map: { refMs: 15 }, Reduce: { refMs: 100 } }";
-                case "Peeker"  -> "  Peeker: { Map: { refMs: 5 } }";
-                default        -> "  " + c + ": { Map: { refMs: 2 } }";
+                case "Counter" -> "  Counter: { Map: { fixed: 15 refMs }, Reduce: { fixed: 100 refMs } }";
+                case "Peeker"  -> "  Peeker: { Map: { fixed: 5 refMs } }";
+                default        -> "  " + c + ": { Map: { fixed: 2 refMs } }";
             });
         }
         return String.join("\n", out) + "\n";
@@ -260,7 +260,7 @@ public class Phase4 {
         var byJob = Loader.of(Yaml.parse("trust.yaml", """
             seed: 4
             job: ClockingJob
-            machines:
+            nodes:
               master: { instance: m5.large, zone: z }
               w0: { instance: m5.large, zone: z, runs: [Counter] }
             """));

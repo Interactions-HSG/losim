@@ -63,7 +63,7 @@ class ExperimentsTest {
     void chainsMultipleRuns() throws Exception {
         Files.writeString(root.resolve("scenarios/second.yaml"), """
                 job: WordCountJob
-                machines:
+                nodes:
                   a: { instance: m5.large, zone: eu-central-1a }
                   b: { instance: c5.large, zone: eu-central-1a, count: 2, prefix: b, runs: [Counter] }
                 """);
@@ -95,7 +95,7 @@ class ExperimentsTest {
     void runsEverything() throws Exception {
         Files.writeString(root.resolve("scenarios/third.yaml"), """
                 job: WordCountJob
-                machines:
+                nodes:
                   a: { instance: m5.large, zone: eu-central-1a }
                   b: { instance: c5.large, zone: eu-central-1a, count: 2, prefix: b, runs: [Counter] }
                 """);

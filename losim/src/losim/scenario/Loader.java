@@ -48,7 +48,7 @@ public final class Loader {
         Node over = Yaml.parse(file);
         over.onlyAllows("seed", "network", "faults", "chaos", "retries", "tightMargin");
         var names = new LinkedHashSet<String>();
-        for (MachineSpec m : base.machines()) names.add(m.name());
+        for (NodeSpec m : base.nodes()) names.add(m.name());
 
         return new Scenario(
                 base.file(),
@@ -58,19 +58,20 @@ public final class Loader {
                 base.scale(),
                 base.units(),
                 base.input(),
-                base.machines(),
+                base.nodes(),
                 over.opt("network").present() ? network(over.opt("network")) : base.net(),
                 over.opt("faults").present() ? faults(over.opt("faults"), names, over) : base.faults(),
-                over.opt("chaos").present() ? chaos(over.opt("chaos"), base.machines()) : base.chaos(),
+                over.opt("chaos").present() ? chaos(over.opt("chaos"), base.nodes()) : base.chaos(),
                 over.opt("retries").present() ? retries(over.opt("retries")) : base.retries(),
-                base.takes(),
+                base.simulatedDuration(),
                 over.opt("tightMargin").present() ? over.at("tightMargin").bool(false) : base.tightMargin(),
                 base.mode());
     }
 
     public static Scenario of(Node root) {
-        root.onlyAllows("seed", "job", "scale", "machines", "input",
-                        "network", "faults", "chaos", "retries", "takes", "tightMargin", "mode");
+        root.onlyAllows("seed", "job", "scale", "nodes", "input",
+                        "network", "faults", "chaos", "retries", "simulatedDuration",
+                        "tightMargin", "mode");
 
         long seed = (long) root.opt("seed").num(1);
         String job = root.at("job").str();
@@ -80,17 +81,17 @@ public final class Loader {
                 + " starts at 1. A scale below one would be a design smaller than the thing"
                 + " already being run, which is the run itself.");
 
-        var machines = machines(root.at("machines"));
+        var machines = machines(root.at("nodes"));
         var names = new LinkedHashSet<String>();
-        for (MachineSpec m : machines)
-            if (!names.add(m.name())) throw root.at("machines").fail(
-                    "two machines are both called '" + m.name() + "'");
+        for (NodeSpec m : machines)
+            if (!names.add(m.name())) throw root.at("nodes").fail(
+                    "two nodes are both called '" + m.name() + "'");
 
         var net = network(root.opt("network"));
         var faults = faults(root.opt("faults"), names, root);
         var chaos = chaos(root.opt("chaos"), machines);
         var retries = retries(root.opt("retries"));
-        var takes = takes(root.opt("takes"));
+        var takes = simulatedDuration(root.opt("simulatedDuration"));
         var input = input(root.opt("input"));
 
         var mode = mode(root.opt("mode"));
@@ -118,8 +119,8 @@ public final class Loader {
 
     // ----------------------------------------------------------------- machines
 
-    private static List<MachineSpec> machines(Node node) {
-        var out = new ArrayList<MachineSpec>();
+    private static List<NodeSpec> machines(Node node) {
+        var out = new ArrayList<NodeSpec>();
         for (var entry : node.map().entrySet()) {
             String poolName = entry.getKey();
             Node spec = entry.getValue();
@@ -134,7 +135,7 @@ public final class Loader {
             int count = spec.opt("count").integer(0);
 
             if (count == 0) {                              // a single, named machine
-                out.add(new MachineSpec(poolName, poolName, instance, zones.get(0), runs,
+                out.add(new NodeSpec(poolName, poolName, instance, zones.get(0), runs,
                         capOf(spec, "memoryMb"), capOf(spec, "diskMb"), spec.where()));
                 continue;
             }
@@ -152,7 +153,7 @@ public final class Loader {
                 }
                 String zone = over.present() && over.opt("zone").present()
                         ? over.at("zone").str() : zones.get(i % zones.size());
-                out.add(new MachineSpec(name, poolName, inst, zone, runs,
+                out.add(new NodeSpec(name, poolName, inst, zone, runs,
                         over.present() && over.opt("memoryMb").present()
                                 ? capOf(over, "memoryMb") : capOf(spec, "memoryMb"),
                         over.present() && over.opt("diskMb").present()
@@ -234,9 +235,9 @@ public final class Loader {
 
     // -------------------------------------------------------------------- chaos
 
-    private static List<Chaos> chaos(Node node, List<MachineSpec> machines) {
+    private static List<Chaos> chaos(Node node, List<NodeSpec> nodes) {
         var out = new ArrayList<Chaos>();
-        var pools = machines.stream().map(MachineSpec::pool).distinct().toList();
+        var pools = nodes.stream().map(NodeSpec::pool).distinct().toList();
         for (Node c : node.list()) {
             for (var entry : c.map().entrySet()) {
                 Kind kind;
@@ -252,7 +253,7 @@ public final class Loader {
                 Node body = entry.getValue();
                 body.onlyAllows("every", "among", "factor", "for");
                 String among = body.at("among").str();
-                if (!pools.contains(among) && machines.stream().noneMatch(m -> m.name().equals(among)))
+                if (!pools.contains(among) && nodes.stream().noneMatch(m -> m.name().equals(among)))
                     throw body.at("among").fail("'" + among + "' is neither a pool nor a machine; "
                             + "this scenario has pools " + String.join(", ", pools));
                 out.add(new Chaos(kind, body.at("every").refMs(), among,
@@ -335,18 +336,19 @@ public final class Loader {
      * {@link losim.runtime.Machines} once the machines are up, and refused there with
      * this line.
      */
-    private static Map<String, Cost> takes(Node node) {
+    private static Map<String, Cost> simulatedDuration(Node node) {
         var out = new LinkedHashMap<String, Cost>();
         if (!node.present()) return out;
         for (var runs : node.map().entrySet()) {
             for (var rpc : runs.getValue().map().entrySet()) {
                 Node body = rpc.getValue();
-                body.onlyAllows("refMs", "refNsPerUnit");
-                // Plain numbers: the key already says which unit each one is in.
-                // A duration written as `2 refMs` elsewhere has to say so because
-                // nothing around it does.
-                double refMs = body.opt("refMs").num(0);
-                double perRecord = body.opt("refNsPerUnit").num(0);
+                body.onlyAllows("fixed", "perUnit");
+                // Durations, saying what kind of time they are, like every other
+                // duration in the file. The unit used to be in the key — refMs,
+                // refNsPerUnit — which made these the only two numbers in a
+                // scenario whose kind of time was a spelling rather than a value.
+                double refMs = body.opt("fixed").refMs(0);
+                double perRecord = body.opt("perUnit").refMs(0);
                 if (refMs < 0 || perRecord < 0) throw body.fail("a call cannot take negative time");
                 out.put(runs.getKey().trim() + "." + rpc.getKey().trim(),
                         new Cost(refMs, perRecord, body.where()));

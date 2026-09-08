@@ -545,12 +545,12 @@ public final class Serve {
         }
 
         List<Object> takes = new ArrayList<>();
-        for (Draft.Takes c : d.takes()) {
+        for (Draft.Duration c : d.simulatedDuration()) {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("runs", c.runs());
             row.put("rpc", c.rpc());
-            row.put("refMs", c.refMs());
-            row.put("refNsPerUnit", c.refNsPerUnit());
+            row.put("fixed", c.fixedRefMs());
+            row.put("perUnit", c.perUnitRefMs());
             takes.add(row);
         }
 

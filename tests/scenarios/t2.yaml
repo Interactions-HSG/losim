@@ -3,7 +3,7 @@
 seed: 1
 job: OneCall
 
-machines:
+nodes:
   client: { instance: m5.large, zone: eu-central-1a }
   srv:    { instance: m5.large, zone: eu-central-1a, runs: [Mapper] }
 
@@ -11,7 +11,7 @@ machines:
 # The handlers declare nothing: a duration is a claim about the machine a design
 # would run on, so it belongs to the scenario — and a system stays plain gRPC
 # with no losim in it.
-takes:
+simulatedDuration:
   Mapper:
-    Map: { refMs: 20 }
-    Note: { refMs: 1 }
+    Map: { fixed: 20 refMs }
+    Note: { fixed: 1 refMs }

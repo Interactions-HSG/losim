@@ -42,7 +42,7 @@ public class Phase1 {
     /** What the scenario says an rpc costs, for a cluster built without a scenario. */
     static final Map<String, Cost> COSTED = Map.of("Costed.Map", new Cost(500, 0));
     static final Map<String, Cost> PER_RECORD =
-            Map.of("PerRecord.Map", new Cost(0, 1_000_000));   // 1 refMs a record
+            Map.of("PerRecord.Map", new Cost(0, 1));   // 1 refMs a record
 
     /** A handler with a declared cost, so the interceptor has something to sleep. */
     static final class Costed extends WorkerBase {

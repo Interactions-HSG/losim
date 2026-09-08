@@ -26,7 +26,7 @@ final class Fixture {
             seed: 1
             job: WordCountJob
 
-            machines:
+            nodes:
               coordinator:
                 instance: m5.large
                 zone: eu-central-1a

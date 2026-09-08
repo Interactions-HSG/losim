@@ -23,7 +23,7 @@ class DraftTest {
     void poolOfOne() {
         var d = Draft.of("main.yaml", """
                 job: WordCountJob
-                machines:
+                nodes:
                   master:
                     instance: m5.large
                     zone: eu-central-1a
@@ -44,7 +44,7 @@ class DraftTest {
     void poolOverZones() {
         var d = Draft.of("spread.yaml", """
                 job: WordCountJob
-                machines:
+                nodes:
                   coordinator: { instance: m5.large, zone: eu-central-1a }
                   workers: { instance: c5.large, zone: [eu-central-1a, eu-central-1b, eu-central-1c], count: 6, prefix: workers, runs: [Counter] }
                 """);
@@ -61,7 +61,7 @@ class DraftTest {
     void killFault() {
         var d = Draft.of("main.yaml", """
                 job: J
-                machines:
+                nodes:
                   a: { instance: m5.large, zone: eu-central-1a }
                 faults:
                   - { at: 300 refMs, kill: a, restart_after: 2000 refMs }
@@ -79,7 +79,7 @@ class DraftTest {
     void freezeFault() {
         var d = Draft.of("main.yaml", """
                 job: J
-                machines:
+                nodes:
                   a: { instance: m5.large, zone: eu-central-1a }
                 faults:
                   - { at: 300 refMs, freeze: a, for: 800 refMs }
@@ -99,7 +99,7 @@ class DraftTest {
     void degradeFault() {
         var d = Draft.of("main.yaml", """
                 job: J
-                machines:
+                nodes:
                   a: { instance: m5.large, zone: eu-central-1a }
                 faults:
                   - { at: 300 refMs, degrade: a, factor: 4 }
@@ -117,7 +117,7 @@ class DraftTest {
         var d = Draft.of("main.yaml", """
                 job: J
                 network: { sameZone: 0.5 refMs, crossZone: 30 refMs, jitter: 2 refMs, loss: 0.01 }
-                machines:
+                nodes:
                   a: { instance: m5.large, zone: eu-central-1a }
                 """);
         assertEquals(0.5, d.net().sameZoneRefMs(), 1e-9);
@@ -131,7 +131,7 @@ class DraftTest {
     void networkAbsent() {
         var d = Draft.of("main.yaml", """
                 job: J
-                machines:
+                nodes:
                   a: { instance: m5.large, zone: eu-central-1a }
                 """);
         assertEquals(0.0, d.net().sameZoneRefMs());
@@ -146,7 +146,7 @@ class DraftTest {
         var d = Draft.of("main.yaml", """
                 job: J
                 network: { loss: 0.2 }
-                machines:
+                nodes:
                   a: { instance: m5.large, zone: eu-central-1a }
                 """);
         assertEquals(0.2, d.net().loss(), 1e-9);
@@ -158,7 +158,7 @@ class DraftTest {
     void chaosRules() {
         var d = Draft.of("main.yaml", """
                 job: J
-                machines:
+                nodes:
                   a: { instance: m5.large, zone: eu-central-1a, count: 3, prefix: a, runs: [Counter] }
                 chaos:
                   - { freeze: { every: 700 refMs, among: a, for: 150 refMs } }
@@ -176,7 +176,7 @@ class DraftTest {
     void retryRule() {
         var d = Draft.of("main.yaml", """
                 job: J
-                machines:
+                nodes:
                   a: { instance: m5.large, zone: eu-central-1a, count: 2, prefix: a, runs: [Counter] }
                 retries:
                   - { method: lab.Worker.Map, attempts: 3, backoff: 40 refMs, unsafe: true }
@@ -209,12 +209,12 @@ class DraftTest {
         assertTrue(Draft.of("main.yaml", """
                 job: J
                 tightMargin: true
-                machines:
+                nodes:
                   a: { instance: m5.large, zone: eu-central-1a }
                 """).tightMargin());
         assertFalse(Draft.of("main.yaml", """
                 job: J
-                machines:
+                nodes:
                   a: { instance: m5.large, zone: eu-central-1a }
                 """).tightMargin(), "false is what a scenario gets by saying nothing");
     }
@@ -225,7 +225,7 @@ class DraftTest {
         var d = Draft.of("main.yaml", """
                 job: J
                 scale: 6
-                machines:
+                nodes:
                   a: { instance: m5.large, zone: eu-central-1a, runs: [Counter] }
                 """);
         assertEquals("direct", d.mode());
@@ -233,7 +233,7 @@ class DraftTest {
 
         var e = Draft.of("main.yaml", """
                 job: J
-                machines:
+                nodes:
                   a: { instance: m5.large, zone: eu-central-1a, runs: [Counter] }
                 """);
         assertEquals(1.0, e.scale(), 1e-9,
@@ -248,7 +248,7 @@ class DraftTest {
                 job: J
                 mode: scaled
                 scale: 125
-                machines:
+                nodes:
                   a: { instance: m5.large, zone: eu-central-1a, runs: [Counter] }
                 """);
         assertEquals("scaled", d.mode());
@@ -260,7 +260,7 @@ class DraftTest {
     void poolCaps() {
         var d = Draft.of("main.yaml", """
                 job: J
-                machines:
+                nodes:
                   a: { instance: m5.large, zone: eu-central-1a, memoryMb: 4096, diskMb: 1024 }
                   b: { instance: m5.large, zone: eu-central-1a }
                 """);
@@ -278,7 +278,7 @@ class DraftTest {
     void poolOverrides() {
         var d = Draft.of("main.yaml", """
                 job: J
-                machines:
+                nodes:
                   workers:
                     instance: c5.large
                     zone: eu-central-1a
@@ -304,7 +304,7 @@ class DraftTest {
         // entry per machine.
         assertTrue(Draft.of("main.yaml", """
                 job: J
-                machines:
+                nodes:
                   a: { instance: m5.large, zone: eu-central-1a }
                 """).pools().get(0).overrides().isEmpty());
     }
@@ -318,7 +318,7 @@ class DraftTest {
         // it without saying so.
         String said = refusal("""
                 job: J
-                machines:
+                nodes:
                   workers:
                     instance: c5.large
                     zone: eu-central-1a
@@ -335,7 +335,7 @@ class DraftTest {
     void poolWithNoZone() {
         assertTrue(refusal("""
                 job: J
-                machines:
+                nodes:
                   a: { instance: m5.large }
                 """).contains("zone"));
     }
@@ -345,7 +345,7 @@ class DraftTest {
     void prefixReadsBack() {
         var d = Draft.of("main.yaml", """
                 job: J
-                machines:
+                nodes:
                   mappers: { instance: c5.large, zone: eu-central-1a, count: 4, prefix: m }
                 """);
         assertEquals("mappers", d.pools().get(0).name());
@@ -356,7 +356,7 @@ class DraftTest {
         // loader does with it.
         var e = Draft.of("main.yaml", """
                 job: J
-                machines:
+                nodes:
                   workers: { instance: c5.large, zone: eu-central-1a, count: 2 }
                 """);
         assertEquals("workers", e.pools().get(0).prefix());
@@ -370,7 +370,7 @@ class DraftTest {
         // every fault points at a name.
         String said = refusal("""
                 job: J
-                machines:
+                nodes:
                   a: { instance: m5.large, zone: eu-central-1a, count: 1 }
                 """);
         assertTrue(said.contains("a0") && said.contains("count"), said);
@@ -381,7 +381,7 @@ class DraftTest {
     void everyFaultKindOpens() {
         var d = Draft.of("main.yaml", """
                 job: J
-                machines:
+                nodes:
                   a: { instance: m5.large, zone: eu-central-1a }
                   b: { instance: m5.large, zone: eu-central-1b }
                 faults:
@@ -421,7 +421,7 @@ class DraftTest {
         // `for:` on a kill: the loader takes it, and nothing ever reads it.
         String said = refusal("""
                 job: J
-                machines:
+                nodes:
                   a: { instance: m5.large, zone: eu-central-1a }
                 faults:
                   - { at: 100 refMs, kill: a, for: 500 refMs }
@@ -431,7 +431,7 @@ class DraftTest {
         // A freeze thaws on its own, so `restart_after:` means nothing to it.
         assertTrue(refusal("""
                 job: J
-                machines:
+                nodes:
                   a: { instance: m5.large, zone: eu-central-1a }
                 faults:
                   - { at: 100 refMs, freeze: a, restart_after: 200 refMs }
@@ -442,7 +442,7 @@ class DraftTest {
         // ignored, and the machine stays slow for the rest of the run.
         String degrade = refusal("""
                 job: J
-                machines:
+                nodes:
                   a: { instance: m5.large, zone: eu-central-1a }
                 faults:
                   - { at: 100 refMs, degrade: a, factor: 3, for: 500 refMs }
@@ -452,7 +452,7 @@ class DraftTest {
         // `notice:` belongs to spot_reclaim, which has no control of its own either.
         assertTrue(refusal("""
                 job: J
-                machines:
+                nodes:
                   a: { instance: m5.large, zone: eu-central-1a }
                 faults:
                   - { at: 100 refMs, kill: a, notice: 50 refMs }
@@ -464,7 +464,7 @@ class DraftTest {
     void retryMultiplier() {
         var d = Draft.of("main.yaml", """
                 job: J
-                machines:
+                nodes:
                   a: { instance: m5.large, zone: eu-central-1a }
                 retries:
                   - { method: lab.Worker.Map, attempts: 5, backoff: 20 refMs, multiplier: 2 }

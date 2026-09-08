@@ -34,7 +34,7 @@ public final class T14 {
         // 2 refMs fixed plus 40000 at 0.02 refMs. Neither deadline is under the
         // fixed part, so nothing the caller could inspect would have shown this.
         double declared = handlers.isEmpty() ? -1 : Expect.num(Expect.detail(handlers.get(0)).get("declaredRefMs"));
-        e.note(String.format("the handler declared %.0f refMs: 2 fixed, and 40,000 units at 0.02", declared));
+        e.note(String.format("the handler declared %.0f fixed: 2 refMs fixed, and 40,000 units at 0.02", declared));
         e.check(declared > 790 && declared < 815,
                 "the declared cost is the fixed part plus the per-unit part, counted — "
                 + "not the 2 refMs the annotation shows before a call is made");

@@ -110,7 +110,7 @@ public final class Draft {
      * control would be a form where the heading can be edited into naming
      * nothing.
      */
-    public record Takes(String runs, String rpc, double refMs, double refNsPerUnit) {}
+    public record Duration(String runs, String rpc, double fixedRefMs, double perUnitRefMs) {}
 
     /**
      * One part of the input, at full size.
@@ -124,7 +124,7 @@ public final class Draft {
     public record Of(String name, String job, long seed, double scale,
                       boolean tightMargin, String mode,
                       Net net, List<Pool> pools, List<Fault> faults, List<Chaos> chaos,
-                      List<Retry> retries, List<Takes> takes, List<Part> input) {}
+                      List<Retry> retries, List<Duration> simulatedDuration, List<Part> input) {}
 
     /**
      * Every fault kind, and for each the keys it does not obey.
@@ -175,7 +175,7 @@ public final class Draft {
         // loader's own already-resolved answer and there is nothing to walk.
 
         var pools = new ArrayList<Pool>();
-        for (var entry : root.at("machines").map().entrySet()) {
+        for (var entry : root.at("nodes").map().entrySet()) {
             String poolName = entry.getKey();
             Node spec = entry.getValue();
             var overrides = new ArrayList<Override>();
@@ -275,15 +275,15 @@ public final class Draft {
                     r.opt("unsafe").bool(false)));
         }
 
-        var takes = new ArrayList<Takes>();
+        var durations = new ArrayList<Duration>();
         // Absent is not empty to `map()`, which refuses anything that is not a
         // block — and a scenario with no costs in it is the ordinary case.
-        Node priced = root.opt("takes");
+        Node priced = root.opt("simulatedDuration");
         for (var runs : (priced.present() ? priced.map() : java.util.Map.<String, Node>of()).entrySet()) {
             for (var rpc : runs.getValue().map().entrySet()) {
                 Node body = rpc.getValue();
-                takes.add(new Takes(runs.getKey(), rpc.getKey(),
-                        body.opt("refMs").num(0), body.opt("refNsPerUnit").num(0)));
+                durations.add(new Duration(runs.getKey(), rpc.getKey(),
+                        body.opt("fixed").refMs(0), body.opt("perUnit").refMs(0)));
             }
         }
 
@@ -297,6 +297,6 @@ public final class Draft {
         return new Of(name.replaceAll("\\.ya?ml$", ""), sc.job(), sc.seed(), sc.scale(),
                 sc.tightMargin(), sc.mode().name().toLowerCase(),
                 net, List.copyOf(pools), List.copyOf(faults),
-                List.copyOf(chaos), List.copyOf(retries), List.copyOf(takes), input);
+                List.copyOf(chaos), List.copyOf(retries), List.copyOf(durations), input);
     }
 }
