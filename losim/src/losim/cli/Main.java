@@ -8,9 +8,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import losim.scale.Scaled;
-import losim.runtime.Run;
-import losim.scenario.Loader;
-import losim.scenario.Scenario;
+import losim.runtime.Simulate;
+import losim.sim.Loader;
+import losim.sim.Simulation;
 import losim.trace.Telemetry;
 import losim.verify.Trust;
 
@@ -135,33 +135,45 @@ public final class Main {
         if (args.length > 0 && args[0].equals("dev")) {
             return Dev.main(args);
         }
-        if (args.length > 0 && args[0].equals("diff")) {
+        if (args.length > 0 && args[0].equals("compare")) {
             List<String> two = positionals(args);
-            if (two.size() < 2) throw new IllegalArgumentException("diff needs two traces");
-            return Diff.run(Path.of(two.get(0)), Path.of(two.get(1)));
+            if (two.size() < 2) throw new IllegalArgumentException("compare needs two results");
+            return Compare.of(Path.of(two.get(0)), Path.of(two.get(1)));
         }
-        if (args.length == 0 || !args[0].equals("run")) {
+        // Refused with the new name rather than aliased. An alias is a second
+        // spelling that keeps working, and two spellings of one verb is how a
+        // vocabulary comes apart again a year later.
+        if (args.length > 0 && (args[0].equals("run") || args[0].equals("diff"))) {
+            System.err.println(args[0].equals("run")
+                    ? "losim run is losim simulate. A simulation is simulated and yields one"
+                      + " result; there is no comparison inside one, which is what `run` used to"
+                      + " leave open."
+                    : "losim diff is losim compare. It takes two results, which is the only way"
+                      + " two designs are ever compared.");
+            return 2;
+        }
+        if (args.length == 0 || !args[0].equals("simulate")) {
             System.err.println("""
-                usage: losim run <scenario.yaml> [options]
+                usage: losim simulate <simulation.yaml> [options]
 
-                  --cp <paths>       where the job and the services are compiled to
-                  --out <file>       where to write the trace (default: build/<scenario>.json)
-                  --seed <n>         override the scenario's seed, for a sweep
-                  --workers <n|+n>   resize every pool that has more than one machine
-                  --overlay <file>   lay a second file's weather over this one. Faults,
-                                     failures, retries, network, seed and clock only — the
-                                     cluster and the job stay theirs
+                  --cp <paths>       where the services are compiled to
+                  --out <file>       where to write the trace (default: build/<name>.json)
+                  --seed <n>         override the simulation's seed, for a sweep
+                  --workers <n|+n>   resize every pool that has more than one node
+                  --overlay <file>   lay a second file's weather over this one. Failures,
+                                     retries, network and seed only — the system itself
+                                     stays theirs
                   --telemetry <lvl>  FULL (default), NO_PAYLOAD or OFF
                   --no-view          write the trace and stop, without the viewer
 
-                  At a terminal this opens the viewer on what it just ran and keeps
-                  it open. Run several scenarios into one --out directory and they
-                  are all in the picker, side by side.
+                  At a terminal this opens the viewer on what it just simulated and
+                  keeps it open. Simulate several files into one --out directory and
+                  they are all in the picker, side by side.
 
                        losim serve [--port 8000] [--root .]
 
-                  The lab, and it keeps running: the viewer, the runs on disk, and a
-                  way to build and run each system in the project. This is what a
+                  The lab, and it keeps running: the viewer, the results on disk, and
+                  a way to build and simulate each system in the project. This is what a
                   devcontainer starts, so that nobody has to type any of the rest of
                   this.
 
@@ -174,7 +186,7 @@ public final class Main {
                        losim adopt [<dir>] [--force] [--dirty]
 
                   Put losim under a gRPC project that already works. Moves files,
-                  writes a build, a launcher and a first scenario — and never
+                  writes a build, a launcher and a first simulation — and never
                   touches a .java, because guessing what a program means produces a
                   system its author did not write. It prints what is left, with a
                   line number for each, and writes the same list into AGENTS.md.
@@ -186,14 +198,15 @@ public final class Main {
                        losim build [--root .]
 
                   Generate from the schema and compile, and stop there. The arrow
-                  in the lab does this before every run; this is the same thing
-                  when what you want is the compiler's answer rather than a run.
+                  in the lab does this before every simulation; this is the same
+                  thing when what you want is the compiler's answer and no more.
 
-                       losim diff <a.json> <b.json>
+                       losim compare <a.json> <b.json>
 
-                  Whether two traces are the same simulator. Structure and attribution
-                  have to agree; measurements are printed rather than judged, because
-                  runs are not reproducible and hosts are not identical.
+                  Whether two results came from the same simulator. Structure and
+                  attribution have to agree; measurements are printed rather than
+                  judged, because runs are not reproducible and hosts are not
+                  identical. Two designs are two files, and this is how they meet.
 
                        losim version [--check]
 
@@ -204,13 +217,13 @@ public final class Main {
 
                        losim bill <trace.json> [--prices <file>] [--json]
 
-                  What the run cost, in four buckets. A scaled run is billed twice:
-                  once for what happened, and once for the job it is a model of —
+                  What it cost, in four buckets. A scaled simulation is billed twice:
+                  once for what happened, and once for the system it is a model of —
                   with the lines the engine could not project absent, and said so.""");
             return 2;
         }
-        Path file = Path.of(positional(args, "which scenario?"));
-        if (!Files.exists(file)) throw new IllegalArgumentException("no such scenario: " + file);
+        Path file = Path.of(positional(args, "which simulation?"));
+        if (!Files.exists(file)) throw new IllegalArgumentException("no such simulation: " + file);
 
         // Not the JVM's own classpath, which is what the wrapper hands it and holds
         // no class of the lab's. See Lab.classesIfBuilt.
@@ -221,7 +234,7 @@ public final class Main {
         String seed = option(args, "--seed", null);
         var level = Telemetry.Level.valueOf(option(args, "--telemetry", "FULL"));
 
-        Scenario scenario = Loader.load(file);
+        Simulation scenario = Loader.load(file);
         // A second file's weather over somebody else's cluster, for running their
         // design in a world they did not write. It may not touch the cluster.
         String over = option(args, "--overlay", null);
@@ -244,13 +257,13 @@ public final class Main {
         Path target = Path.of(out != null ? out
                 : "build/" + file.getFileName().toString().replaceAll("\\.ya?ml$", "") + ".json");
 
-        if (scenario.mode() == Scenario.Mode.SCALED) {
+        if (scenario.mode() == Simulation.Mode.SCALED) {
             int code = scaled(scenario, loader, level, cp, target);
             show(args, target);
             return code;
         }
 
-        var result = Run.of(scenario, loader, level, Trust.of(scenario, paths(cp)));
+        var result = Simulate.of(scenario, loader, level, Trust.of(scenario, paths(cp)));
         result.trace().writeTo(target);
 
         System.out.printf("%s  seed %d  %s in %.0f refMs%n", file.getFileName(), scenario.seed(),
@@ -303,7 +316,7 @@ public final class Main {
      * That is the whole discipline: a projection carries its confidence, or it is
      * absent — never filled in with something plausible.
      */
-    private static int scaled(Scenario s, ClassLoader loader, Telemetry.Level level,
+    private static int scaled(Simulation s, ClassLoader loader, Telemetry.Level level,
                               String cp, Path target) throws Exception {
         var code = paths(cp);
 
@@ -361,7 +374,7 @@ public final class Main {
         return String.format("%.3f", v);
     }
 
-    private static Scenario withSeed(Scenario s, long seed) {
+    private static Simulation withSeed(Simulation s, long seed) {
         return s.withSeed(seed);
     }
 
@@ -437,7 +450,7 @@ public final class Main {
     }
 
     /** How many machines the largest pool has, which is what `+1` is one more than. */
-    private static int biggestPool(Scenario s) {
+    private static int biggestPool(Simulation s) {
         var byPool = new java.util.LinkedHashMap<String, Integer>();
         for (var m : s.nodes()) byPool.merge(m.pool(), 1, Integer::sum);
         int most = 1;
@@ -460,7 +473,7 @@ public final class Main {
      * report, the way the money and the clock are. Where a job's correctness
      * begins is where this stops.
      */
-    private static String wire(Run.Result result) {
+    private static String wire(Simulate.Result result) {
         long calls = 0, timeouts = 0, errors = 0;
         for (var e : result.telemetry().events()) {
             switch (e.kind()) {

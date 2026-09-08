@@ -3,7 +3,7 @@ package losim.scale;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import losim.scenario.Scenario;
+import losim.sim.Simulation;
 import losim.trace.Telemetry;
 
 /**
@@ -38,9 +38,9 @@ public record Grid(List<List<Probe>> dataLadder,
         return out;
     }
 
-    public static Grid run(Scenario s, ClassLoader loader, Telemetry.Level level, int seedCount)
+    public static Grid run(Simulation s, ClassLoader loader, Telemetry.Level level, int seedCount)
             throws Exception {
-        var sizes = Scenario.LADDER;
+        var sizes = Simulation.LADDER;
         var counts = s.workerCounts();
         long[] seeds = seedsFrom(s.seed(), seedCount);
         var notes = new ArrayList<String>();
@@ -95,7 +95,7 @@ public record Grid(List<List<Probe>> dataLadder,
     }
 
     /** The cluster the scenario declares: every machine that serves something. */
-    static int workersIn(Scenario s) { return s.workers(); }
+    static int workersIn(Simulation s) { return s.workers(); }
 
     /** How many runs this grid cost. Worth saying out loud, since the plan is cached on it. */
     public int runs() {

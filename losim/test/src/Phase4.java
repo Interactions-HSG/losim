@@ -1,9 +1,9 @@
 import java.nio.file.Path;
 import java.util.*;
-import losim.runtime.Run;
-import losim.scenario.Loader;
-import losim.scenario.Scenario;
-import losim.scenario.Yaml;
+import losim.runtime.Simulate;
+import losim.sim.Loader;
+import losim.sim.Simulation;
+import losim.sim.Yaml;
 import losim.trace.Telemetry;
 import losim.verify.*;
 
@@ -203,9 +203,9 @@ public class Phase4 {
         return String.join("\n", out) + "\n";
     }
 
-    static Run.Result run(String yaml) throws Exception {
-        Scenario s = Loader.of(Yaml.parse("trust.yaml", yaml));
-        return Run.of(s, Phase4.class.getClassLoader(), Telemetry.Level.FULL,
+    static Simulate.Result run(String yaml) throws Exception {
+        Simulation s = Loader.of(Yaml.parse("trust.yaml", yaml));
+        return Simulate.of(s, Phase4.class.getClassLoader(), Telemetry.Level.FULL,
                       Trust.of(s, List.of(CODE)));
     }
 

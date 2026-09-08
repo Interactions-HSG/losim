@@ -4,8 +4,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import losim.scenario.Loader;
-import losim.scenario.Yaml;
+import losim.sim.Loader;
+import losim.sim.Yaml;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +34,7 @@ class GalleryTest {
      * the ones that must never be empty — if they are, the scenarios moved and
      * this test would otherwise sit here passing on nothing at all.
      */
-    private static final List<String> TRACKED = List.of("tests/scenarios", "losim/test/scenarios");
+    private static final List<String> TRACKED = List.of("tests/simulations", "losim/test/simulations");
     private static final String UNTRACKED = "demo";
 
     private static List<Path> yamlUnder(Path dir) throws Exception {

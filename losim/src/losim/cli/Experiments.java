@@ -60,7 +60,7 @@ public final class Experiments {
     public Experiments run(String scenario) {
         if (lab.scenario(scenario) == null) {
             System.out.println("there is no scenario called " + scenario + " in this lab");
-            System.out.println("  there is: " + lab.scenarioNames());
+            System.out.println("  there is: " + lab.simulationNames());
             failed++;
             return this;
         }
@@ -79,7 +79,7 @@ public final class Experiments {
 
     /** Every scenario in the lab, one after another. */
     public Experiments runAll() {
-        for (String name : lab.scenarioNames()) run(name);
+        for (String name : lab.simulationNames()) run(name);
         return this;
     }
 
@@ -105,7 +105,7 @@ public final class Experiments {
             // Codespace as often as it is a laptop. A viewer bound to 127.0.0.1
             // in a container is a forwarded port with nothing behind it, so the
             // run succeeded and the browser said connection refused.
-            Serve.main(lab.root().toString(), null, lab.root().resolve(Lab.RUNS).toString(),
+            Serve.main(lab.root().toString(), null, lab.root().resolve(Lab.RESULTS).toString(),
                        port, Main.host(), true, false);
         } catch (IOException e) {
             System.out.println("the runs are written; the viewer would not start: " + e.getMessage());
@@ -115,6 +115,6 @@ public final class Experiments {
     /** Everything is written; do not open anything. For a run you only want the traces from. */
     public void done() {
         System.out.println(ran.size() + " run" + (ran.size() == 1 ? "" : "s") + " -> "
-                + lab.root().resolve(Lab.RUNS));
+                + lab.root().resolve(Lab.RESULTS));
     }
 }

@@ -1,4 +1,4 @@
-package losim.scenario;
+package losim.sim;
 
 import java.io.IOException;
 import java.nio.file.Files;

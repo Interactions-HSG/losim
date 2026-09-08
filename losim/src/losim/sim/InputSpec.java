@@ -1,4 +1,4 @@
-package losim.scenario;
+package losim.sim;
 
 /**
  * The workload a simulation declares, at full size.

@@ -91,12 +91,12 @@ class LabTest {
     }
 
     @Test
-    @DisplayName("scenarios come from scenarios/, and from a loose file at the root")
+    @DisplayName("scenarios come from simulations/, and from a loose file at the root")
     void findsScenariosInTheFolderAndAtTheRoot() throws Exception {
         Path loose = root.resolve("loose.yaml");
         Files.writeString(loose, "nodes:\n  a: { instance: m5.large, zone: eu-central-1a }\n");
         try {
-            var names = lab.scenarioNames();
+            var names = lab.simulationNames();
             assertTrue(names.contains("main.yaml"));
             assertTrue(names.contains("loose.yaml"));
         } finally {
@@ -107,12 +107,12 @@ class LabTest {
     @Test
     @DisplayName("numbered scenarios list in their numbers' order, not their digits'")
     void ordersScenariosTheWayAPersonNumbersThem() throws Exception {
-        Path dir = root.resolve("scenarios");
+        Path dir = root.resolve("simulations");
         String[] made = {"2-two.yaml", "10-ten.yaml", "1-one.yaml", "9-nine.yaml", "01-one.yaml",
                          "2-two-slow.yaml"};
         for (String n : made) Files.writeString(dir.resolve(n), Fixture.SCENARIO);
         try {
-            var names = new java.util.ArrayList<>(lab.scenarioNames());
+            var names = new java.util.ArrayList<>(lab.simulationNames());
             names.retainAll(java.util.List.of(made));
             assertEquals(
                     java.util.List.of("1-one.yaml", "01-one.yaml", "2-two.yaml", "2-two-slow.yaml",

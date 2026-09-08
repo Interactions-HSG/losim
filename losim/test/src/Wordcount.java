@@ -1,6 +1,6 @@
 import java.nio.file.Path;
-import losim.runtime.Run;
-import losim.scenario.Loader;
+import losim.runtime.Simulate;
+import losim.sim.Loader;
 import losim.trace.Telemetry;
 
 /**
@@ -13,10 +13,10 @@ import losim.trace.Telemetry;
  */
 public final class Wordcount {
 
-    public static final Path SCENARIO = Path.of("losim/test/scenarios/wordcount.yaml");
+    public static final Path SCENARIO = Path.of("losim/test/simulations/wordcount.yaml");
 
-    public static Run.Result result() throws Exception {
-        return Run.of(Loader.load(SCENARIO), Wordcount.class.getClassLoader());
+    public static Simulate.Result result() throws Exception {
+        return Simulate.of(Loader.load(SCENARIO), Wordcount.class.getClassLoader());
     }
 
     public static Telemetry run() throws Exception { return result().telemetry(); }

@@ -1,4 +1,4 @@
-package losim.scenario;
+package losim.sim;
 
 import java.util.List;
 import java.util.Map;
@@ -17,7 +17,7 @@ import losim.runtime.Retry;
  * <p>Every duration is reference-machine time (D3), which is why they are
  * {@code double refMs} throughout and why the file has to say so.
  */
-public record Scenario(
+public record Simulation(
         String file,
         long seed,
         double scale,
@@ -172,19 +172,19 @@ public record Scenario(
     // Producing those here rather than by editing files keeps one fact — what this
     // system is — in one place, and makes the grid's axes explicit.
 
-    public Scenario withSeed(long seed) {
-        return new Scenario(file, seed, scale, units, input, nodes,
+    public Simulation withSeed(long seed) {
+        return new Simulation(file, seed, scale, units, input, nodes,
                 net, retries, simulatedDuration, mode);
     }
 
     /** The run size the engine solved for, replacing the full-scale one. */
-    public Scenario withUnits(long n) {
-        return new Scenario(file, seed, scale, n, input, nodes,
+    public Simulation withUnits(long n) {
+        return new Simulation(file, seed, scale, n, input, nodes,
                 net, retries, simulatedDuration, mode);
     }
 
-    public Scenario withMode(Mode m) {
-        return new Scenario(file, seed, scale, units, input, nodes,
+    public Simulation withMode(Mode m) {
+        return new Simulation(file, seed, scale, units, input, nodes,
                 net, retries, simulatedDuration, m);
     }
 
@@ -196,7 +196,7 @@ public record Scenario(
      * thing written in two places, and a clean column that still had one of them
      * would be measuring a system nobody declared.
      */
-    public Scenario withoutWeather() {
+    public Simulation withoutWeather() {
         var out = new java.util.ArrayList<NodeSpec>();
         for (NodeSpec m : nodes) {
             var runs = new java.util.LinkedHashMap<String, ServiceSpec>();
@@ -204,7 +204,7 @@ public record Scenario(
             out.add(new NodeSpec(m.name(), m.pool(), m.instance(), m.zone(), runs,
                     List.of(), m.memoryCapMb(), m.diskCapMb(), m.where()));
         }
-        return new Scenario(file, seed, scale, units, input, out,
+        return new Simulation(file, seed, scale, units, input, out,
                 net, retries, simulatedDuration, mode);
     }
 
@@ -217,7 +217,7 @@ public record Scenario(
      * independently is what lets a resource be attributed to the right one, and
      * that only works if resizing means resizing the workers.
      */
-    public Scenario withWorkers(int n) {
+    public Simulation withWorkers(int n) {
         var out = new java.util.ArrayList<NodeSpec>();
         var seen = new java.util.LinkedHashSet<String>();
         for (NodeSpec m : nodes) {
@@ -250,19 +250,19 @@ public record Scenario(
                     : new NodeSpec(m.name(), m.pool(), m.instance(), m.zone(), m.runs(),
                             live, m.memoryCapMb(), m.diskCapMb(), m.where());
         });
-        return new Scenario(file, seed, scale, units, input, out,
+        return new Simulation(file, seed, scale, units, input, out,
                 net, retries, simulatedDuration, mode);
     }
 
     /** The same cluster with caps the engine solved for, per machine, per resource. */
-    public Scenario withCaps(java.util.Map<String, double[]> byMachine) {
+    public Simulation withCaps(java.util.Map<String, double[]> byMachine) {
         var out = new java.util.ArrayList<NodeSpec>();
         for (NodeSpec m : nodes) {
             double[] caps = byMachine.get(m.name());
             out.add(caps == null ? m : new NodeSpec(m.name(), m.pool(), m.instance(),
                     m.zone(), m.runs(), m.failures(), caps[0], caps[1], m.where()));
         }
-        return new Scenario(file, seed, scale, units, input, out,
+        return new Simulation(file, seed, scale, units, input, out,
                 net, retries, simulatedDuration, mode);
     }
 

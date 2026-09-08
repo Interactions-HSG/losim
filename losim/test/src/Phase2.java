@@ -1,10 +1,10 @@
 import io.grpc.StatusRuntimeException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import losim.runtime.Run;
-import losim.scenario.Loader;
-import losim.scenario.Scenario;
-import losim.scenario.Yaml;
+import losim.runtime.Simulate;
+import losim.sim.Loader;
+import losim.sim.Simulation;
+import losim.sim.Yaml;
 import losim.t.*;
 import losim.trace.Telemetry;
 
@@ -84,7 +84,7 @@ public class Phase2 {
      */
     static void forwarding() throws Exception {
         System.out.println("=== a handler calling another machine ===");
-        var result = Run.of(Loader.of(Yaml.parse("forward.yaml", """
+        var result = Simulate.of(Loader.of(Yaml.parse("forward.yaml", """
             seed: 3
             network: { sameZone: 20 refMs }
             nodes:
@@ -253,7 +253,7 @@ public class Phase2 {
                       w3: { instance: a1.nano }
                       w4: { memoryMb: 16 }
                 """));
-        var byName = new LinkedHashMap<String, Scenario.NodeSpec>();
+        var byName = new LinkedHashMap<String, Simulation.NodeSpec>();
         s.nodes().forEach(m -> byName.put(m.name(), m));
         check(byName.keySet().equals(new LinkedHashSet<>(
                       List.of("master", "w0", "w1", "w2", "w3", "w4", "w5"))),
@@ -278,7 +278,7 @@ public class Phase2 {
                   - { method: Volley.Hit, attempts: 3, backoff: 10 refMs }
                 """;
         String message = null;
-        try { Run.of(Loader.of(Yaml.parse("scenario.yaml", unsafe))); }
+        try { Simulate.of(Loader.of(Yaml.parse("scenario.yaml", unsafe))); }
         catch (RuntimeException e) { message = e.getMessage(); }
         check(message != null && message.contains("is refused")
               && message.contains("idempotency_level")
@@ -298,7 +298,7 @@ public class Phase2 {
               "and 'unsafe: true' allows it — one visible line in a diff, which is the point");
 
         String missing = null;
-        try { Run.of(Loader.of(Yaml.parse("scenario.yaml", CLUSTER + """
+        try { Simulate.of(Loader.of(Yaml.parse("scenario.yaml", CLUSTER + """
                 retries:
                   - { method: Worker.Map, attempts: 2 }
                 """))); }
@@ -309,7 +309,7 @@ public class Phase2 {
         // And it actually retries.
         Pinger.HITS.set(0);
         Pinger.failFirst = 2;
-        var result = Run.of(Loader.of(Yaml.parse("scenario.yaml", """
+        var result = Simulate.of(Loader.of(Yaml.parse("scenario.yaml", """
                 nodes:
                   master: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/RetryJob.java } }
                   workers: { count: 1, prefix: w, instance: m5.large, zone: z, runs: { Volley: losim/test/src/Pinger.java } }
@@ -337,7 +337,7 @@ public class Phase2 {
 
     static boolean runs(String yaml) {
         try {
-            Run.of(Loader.of(Yaml.parse("scenario.yaml", yaml)));
+            Simulate.of(Loader.of(Yaml.parse("scenario.yaml", yaml)));
             return true;
         } catch (Exception e) {
             System.out.println("    unexpectedly refused: " + e.getMessage());
@@ -349,7 +349,7 @@ public class Phase2 {
 
     static void failures() throws Exception {
         System.out.println("=== every failure lands where the simulation put it ===");
-        var result = Run.of(Loader.of(Yaml.parse("scenario.yaml", """
+        var result = Simulate.of(Loader.of(Yaml.parse("scenario.yaml", """
                 seed: 3
                 nodes:
                   master: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/WaitJob.java } }
@@ -435,7 +435,7 @@ public class Phase2 {
                     + "  losim/test/src/Pinger.java: { Hit: { fixed: 1 refMs } }\n";
         var afternoons = new ArrayList<List<String>>();
         for (long seed : new long[]{1, 1, 2}) {
-            var tel = Run.of(Loader.of(Yaml.parse("scenario.yaml", yaml.formatted(seed))))
+            var tel = Simulate.of(Loader.of(Yaml.parse("scenario.yaml", yaml.formatted(seed))))
                     .telemetry();
             afternoons.add(tel.events().stream().filter(e -> e.kind().equals("failure"))
                     .map(e -> e.vm() + "@" + Math.round((Double) e.detail().get("atRefMs")))
@@ -511,7 +511,7 @@ public class Phase2 {
         // before a single call is made.
         boolean caught = false;
         try {
-            Run.of(Loader.of(Yaml.parse("scenario.yaml",
+            Simulate.of(Loader.of(Yaml.parse("scenario.yaml",
                     badRpc("          Hitt:\n            - { drop: true, per: 3 calls }\n"))));
         } catch (Exception e) {
             caught = e.getMessage() != null && e.getMessage().contains("serves no rpc of that name");
@@ -520,7 +520,7 @@ public class Phase2 {
         check(caught, "an rpc the service does not serve is refused with its line, because a "
               + "failure that belongs to nothing quietly never fires");
 
-        var tel = Run.of(Loader.of(Yaml.parse("scenario.yaml",
+        var tel = Simulate.of(Loader.of(Yaml.parse("scenario.yaml",
                 badRpc("          Hit:\n            - { status: UNAVAILABLE, per: 2 calls }\n"))))
                 .telemetry();
         var refused = tel.events().stream().filter(e -> e.kind().equals("rpc_failure")).toList();
@@ -539,7 +539,7 @@ public class Phase2 {
 
     static void disk() throws Exception {
         System.out.println("=== a full disk refuses the write ===");
-        var result = Run.of(Loader.of(Yaml.parse("scenario.yaml", """
+        var result = Simulate.of(Loader.of(Yaml.parse("scenario.yaml", """
                 nodes:
                   master: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/WordCountJob.java } }
                   workers:

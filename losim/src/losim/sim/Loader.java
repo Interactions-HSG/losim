@@ -1,4 +1,4 @@
-package losim.scenario;
+package losim.sim;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -11,7 +11,7 @@ import java.util.Map;
 import losim.res.InstanceCatalog;
 import losim.runtime.Cost;
 import losim.runtime.Retry;
-import losim.scenario.Scenario.*;
+import losim.sim.Simulation.*;
 
 /**
  * A scenario file, checked before anything runs.
@@ -25,7 +25,7 @@ import losim.scenario.Scenario.*;
 public final class Loader {
     private Loader() {}
 
-    public static Scenario load(Path file) throws IOException {
+    public static Simulation load(Path file) throws IOException {
         return of(Yaml.parse(file));
     }
 
@@ -50,13 +50,13 @@ public final class Loader {
      * layered a second kill on top of theirs would be asking what their design
      * does about a bad afternoon nobody can read off either file.
      */
-    public static Scenario overlay(Scenario base, Path file) throws IOException {
-        Node over = Yaml.parse(file);
+    public static Simulation overlay(Simulation base, Path file) throws IOException {
+        Field over = Yaml.parse(file);
         over.onlyAllows("seed", "network", "nodes", "retries");
 
         var nodes = base.nodes();
         if (over.opt("nodes").present()) {
-            var byName = new LinkedHashMap<String, Node>();
+            var byName = new LinkedHashMap<String, Field>();
             for (var e : over.at("nodes").map().entrySet()) {
                 e.getValue().onlyAllows("failures");
                 byName.put(e.getKey(), e.getValue());
@@ -71,7 +71,7 @@ public final class Loader {
                         + " only name nodes that system already has.");
             var out = new ArrayList<NodeSpec>();
             for (NodeSpec m : base.nodes()) {
-                Node o = byName.get(m.name());
+                Field o = byName.get(m.name());
                 out.add(o == null ? m : new NodeSpec(m.name(), m.pool(), m.instance(), m.zone(),
                         m.runs(), failures(o.opt("failures")), m.memoryCapMb(), m.diskCapMb(),
                         m.where()));
@@ -80,7 +80,7 @@ public final class Loader {
             nodes = List.copyOf(out);
         }
 
-        return new Scenario(
+        return new Simulation(
                 base.file(),
                 over.opt("seed").present() ? (long) over.at("seed").num(base.seed()) : base.seed(),
                 base.scale(),
@@ -93,7 +93,7 @@ public final class Loader {
                 base.mode());
     }
 
-    public static Scenario of(Node root) {
+    public static Simulation of(Field root) {
         root.onlyAllows("seed", "scale", "nodes", "input", "network", "retries",
                         "simulatedDuration");
 
@@ -121,9 +121,9 @@ public final class Loader {
         // something bigger and there is nothing else it could be; at scale 1 there
         // is nothing above the run to project to. A `mode:` key was a second way
         // to say what `scale:` already says, and the two could disagree.
-        var mode = scale > 1 ? Scenario.Mode.SCALED : Scenario.Mode.DIRECT;
+        var mode = scale > 1 ? Simulation.Mode.SCALED : Simulation.Mode.DIRECT;
 
-        var s = new Scenario(root.where().split(":")[0], seed, scale, 0,
+        var s = new Simulation(root.where().split(":")[0], seed, scale, 0,
                 input, machines, net, retries, takes, mode);
         return s.withUnits(s.fullUnits());
     }
@@ -144,8 +144,8 @@ public final class Loader {
      * asked once the node has a bound server to answer it — the same discipline
      * {@code simulatedDuration:} is under.
      */
-    private static Map<String, Scenario.ServiceSpec> runs(Node node) {
-        var out = new LinkedHashMap<String, Scenario.ServiceSpec>();
+    private static Map<String, Simulation.ServiceSpec> runs(Field node) {
+        var out = new LinkedHashMap<String, Simulation.ServiceSpec>();
         if (!node.present()) return out;
         if (!node.isMap()) throw node.fail(
                 "runs: names a service and the .java file that implements it —"
@@ -153,13 +153,13 @@ public final class Loader {
                 + " and the half it leaves out is the one peers find a node by.");
         for (var e : node.map().entrySet()) {
             String service = e.getKey().trim();
-            Node entry = e.getValue();
+            Field entry = e.getValue();
             // Shorthand when nothing goes wrong here, which is almost every entry;
             // longhand when something does, and then the file: is the same string
             // the shorthand would have been.
             boolean longhand = entry.isMap();
             if (longhand) entry.onlyAllows("file", "failures");
-            Node value = longhand ? entry.at("file") : entry;
+            Field value = longhand ? entry.at("file") : entry;
             String said = value.str().trim();
             if (!said.endsWith(".java")) throw value.fail(
                     "'" + said + "' is not a .java file. runs: names the file that implements a"
@@ -183,17 +183,17 @@ public final class Loader {
                     "this node runs '" + service + "' twice");
             var failures = longhand ? rpcFailures(entry.opt("failures"))
                                     : Map.<String, List<RpcFailure>>of();
-            out.put(service, new Scenario.ServiceSpec(service, said, className,
+            out.put(service, new Simulation.ServiceSpec(service, said, className,
                     failures, value.where()));
         }
         return out;
     }
 
-    private static List<NodeSpec> machines(Node node) {
+    private static List<NodeSpec> machines(Field node) {
         var out = new ArrayList<NodeSpec>();
         for (var entry : node.map().entrySet()) {
             String poolName = entry.getKey();
-            Node spec = entry.getValue();
+            Field spec = entry.getValue();
             spec.onlyAllows("instance", "zone", "runs", "failures", "count", "prefix",
                             "memoryMb", "diskMb", "overrides");
 
@@ -214,7 +214,7 @@ public final class Loader {
             String prefix = spec.opt("prefix").str(poolName);
             for (int i = 0; i < count; i++) {
                 String name = prefix + i;
-                Node over = spec.opt("overrides").present()
+                Field over = spec.opt("overrides").present()
                         ? spec.at("overrides").opt(name) : spec.opt("overrides");
                 String inst = over.present() && over.opt("instance").present()
                         ? over.at("instance").str() : instance;
@@ -243,11 +243,11 @@ public final class Loader {
         return out;
     }
 
-    private static Double capOf(Node spec, String key) {
+    private static Double capOf(Field spec, String key) {
         return spec.opt(key).present() ? spec.at(key).num() : null;
     }
 
-    private static void checkInstance(Node where, String name) {
+    private static void checkInstance(Field where, String name) {
         if (!InstanceCatalog.has(name))
             throw where.fail("unknown instance type '" + name + "'; known types: "
                     + String.join(", ", InstanceCatalog.all().keySet()));
@@ -255,7 +255,7 @@ public final class Loader {
 
     // ------------------------------------------------------------------ network
 
-    private static NetSpec network(Node node) {
+    private static NetSpec network(Field node) {
         if (!node.present()) return NetSpec.none();
         node.onlyAllows("sameZone", "crossZone", "jitter", "loss");
         double loss = node.opt("loss").num(0);
@@ -315,9 +315,9 @@ public final class Loader {
      * failures written as one, and an entry with neither is a failure that never
      * happens — which reads in a trace exactly like a system that survived it.
      */
-    private static List<Failure> failures(Node node) {
+    private static List<Failure> failures(Field node) {
         var out = new ArrayList<Failure>();
-        for (Node f : node.list()) {
+        for (Field f : node.list()) {
             for (RpcKind r : RpcKind.values()) {
                 String key = r.name().toLowerCase();
                 if (f.opt(key).present()) throw f.at(key).fail(
@@ -396,7 +396,7 @@ public final class Loader {
      * carried instead, and {@link losim.runtime.Machines} asks the bound server
      * once there is one.
      */
-    private static Map<String, List<RpcFailure>> rpcFailures(Node node) {
+    private static Map<String, List<RpcFailure>> rpcFailures(Field node) {
         var out = new LinkedHashMap<String, List<RpcFailure>>();
         if (!node.present()) return out;
         if (!node.isMap()) throw node.fail(
@@ -405,7 +405,7 @@ public final class Loader {
         for (var e : node.map().entrySet()) {
             String rpc = e.getKey().trim();
             var here = new ArrayList<RpcFailure>();
-            for (Node f : e.getValue().list()) {
+            for (Field f : e.getValue().list()) {
                 for (Kind k : Kind.values()) {
                     String key = k.key();
                     if (f.opt(key).present()) throw f.at(key).fail(
@@ -514,7 +514,7 @@ public final class Loader {
      * spends its setup reading a file that is not there should say so on the line
      * naming it.
      */
-    private static InputSpec input(Node node) {
+    private static InputSpec input(Field node) {
         if (!node.present()) return InputSpec.none(node.where());
         node.onlyAllows("source", "unit", "count");
 
@@ -571,12 +571,12 @@ public final class Loader {
      * {@link losim.runtime.Machines} once the machines are up, and refused there with
      * this line.
      */
-    private static Map<String, Cost> simulatedDuration(Node node) {
+    private static Map<String, Cost> simulatedDuration(Field node) {
         var out = new LinkedHashMap<String, Cost>();
         if (!node.present()) return out;
         for (var runs : node.map().entrySet()) {
             for (var rpc : runs.getValue().map().entrySet()) {
-                Node body = rpc.getValue();
+                Field body = rpc.getValue();
                 body.onlyAllows("fixed", "perUnit");
                 // Durations, saying what kind of time they are, like every other
                 // duration in the file. The unit used to be in the key — refMs,
@@ -594,9 +594,9 @@ public final class Loader {
 
     // ------------------------------------------------------------------ retries
 
-    private static List<Retry> retries(Node node) {
+    private static List<Retry> retries(Field node) {
         var out = new ArrayList<Retry>();
-        for (Node r : node.list()) {
+        for (Field r : node.list()) {
             r.onlyAllows("method", "attempts", "backoff", "multiplier", "unsafe");
             int attempts = r.at("attempts").integer();
             if (attempts < 1) throw r.at("attempts").fail("a call is attempted at least once");

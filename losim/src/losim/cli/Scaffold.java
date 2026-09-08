@@ -204,7 +204,7 @@ final class Scaffold {
     static String launcher() {
         return """
             #!/usr/bin/env sh
-            # losim, in this project. `./losim run scenarios/1-one-call.yaml`, `./losim serve`.
+            # losim, in this project. `./losim simulate simulations/1-one-call.yaml`, `./losim serve`.
             #
             # It builds before it runs, so there is no separate step to have forgotten
             # and no stale classpath to explain. Written by `losim adopt`; commit it.

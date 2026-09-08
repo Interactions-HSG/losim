@@ -2,7 +2,7 @@ package losim.verify;
 
 import java.nio.file.Path;
 import java.util.*;
-import losim.scenario.Scenario;
+import losim.sim.Simulation;
 import losim.trace.Telemetry;
 
 /**
@@ -45,7 +45,7 @@ public final class Trust {
      * <p>The job is attributed to the machine it runs on — the first in the file —
      * because that is whose pool executes it and whose counters it lands on.
      */
-    public static Trust of(Scenario s, List<Path> code) {
+    public static Trust of(Simulation s, List<Path> code) {
         if (code.isEmpty()) return unchecked();
         var verifier = Verifier.over(code);
         var services = new HashSet<String>();

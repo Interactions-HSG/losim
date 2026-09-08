@@ -2,8 +2,8 @@ package losim.price;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import losim.scenario.Node;
-import losim.scenario.Yaml;
+import losim.sim.Field;
+import losim.sim.Yaml;
 
 /**
  * Prices are course data, never library data.
@@ -109,7 +109,7 @@ public final class PriceList {
         }
     }
 
-    public static PriceList of(Node root) {
+    public static PriceList of(Field root) {
         root.onlyAllows("region", "currency", "spot_discount", "egress_per_gb",
                 "egress_cross_region_per_gb", "egress_intercontinental_per_gb",
                 "storage_per_gb_month",

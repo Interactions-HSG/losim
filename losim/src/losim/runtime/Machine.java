@@ -55,7 +55,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
     /** A service this node serves, and the line of the simulation that placed it. */
     private record Offered(java.util.function.Supplier<? extends BindableService> factory,
                            String named,
-                           java.util.Map<String, List<losim.scenario.Scenario.RpcFailure>> failures,
+                           java.util.Map<String, List<losim.sim.Simulation.RpcFailure>> failures,
                            String where) {}
 
     private final List<Offered> factories = new CopyOnWriteArrayList<>();
@@ -164,7 +164,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
     private int sinceWalk = WALK_EVERY_TICKS;            // walk on the very first tick
 
     /** One declared rpc failure and the stream it fires from. */
-    record Drawn(losim.scenario.Scenario.RpcFailure spec, java.util.Random rng) {
+    record Drawn(losim.sim.Simulation.RpcFailure spec, java.util.Random rng) {
         /** Whether this call is the one in {@code perCalls}. */
         boolean fires() {
             synchronized (rng) { return rng.nextInt(spec.perCalls()) == 0; }
@@ -306,7 +306,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
      */
     public Machine serves(java.util.function.Supplier<? extends BindableService> factory,
                           String named,
-                          java.util.Map<String, List<losim.scenario.Scenario.RpcFailure>> failures,
+                          java.util.Map<String, List<losim.sim.Simulation.RpcFailure>> failures,
                           String where) {
         factories.add(new Offered(factory, named, failures, where));
         rebuildable = true;

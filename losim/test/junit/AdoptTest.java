@@ -138,7 +138,7 @@ class AdoptTest {
     void vendored(@TempDir Path root) throws Exception {
         Files.createDirectories(root.resolve("lib"));
         Files.createDirectories(root.resolve("proto"));
-        Files.createDirectories(root.resolve("scenarios"));
+        Files.createDirectories(root.resolve("simulations"));
         Files.writeString(root.resolve("lib/losim.jar"), "stands in for the simulator");
         Files.writeString(root.resolve("proto/lab.proto"), """
                 syntax = "proto3";
@@ -146,7 +146,7 @@ class AdoptTest {
                 message Chunk { string text = 1; }
                 service Worker { rpc Map (Chunk) returns (Chunk); }
                 """);
-        Files.writeString(root.resolve("scenarios/mine.yaml"), "job: Mine\n");
+        Files.writeString(root.resolve("simulations/mine.yaml"), "job: Mine\n");
         git(root, "init", "-q");
         git(root, "add", "-A");
         git(root, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "a lab as it was");
@@ -161,8 +161,8 @@ class AdoptTest {
         assertTrue(Files.readString(root.resolve(".gitignore")).contains("lib/"));
         // A lab has scenarios of its own. Writing a first one into it would be a
         // file nobody asked for, beside the ones they wrote.
-        assertFalse(Files.exists(root.resolve("scenarios/1-one-call.yaml")));
-        assertEquals("job: Mine\n", Files.readString(root.resolve("scenarios/mine.yaml")));
+        assertFalse(Files.exists(root.resolve("simulations/1-one-call.yaml")));
+        assertEquals("job: Mine\n", Files.readString(root.resolve("simulations/mine.yaml")));
     }
 
     private static String git(Path root, String... argv) throws Exception {

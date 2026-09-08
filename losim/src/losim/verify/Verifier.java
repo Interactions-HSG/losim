@@ -46,7 +46,7 @@ public final class Verifier {
      * its own classes in a package of that name.
      */
     private static final Set<String> OURS = Set.of("losim.api", "losim.cli", "losim.res",
-            "losim.runtime", "losim.scale", "losim.scenario", "losim.time", "losim.trace",
+            "losim.runtime", "losim.scale", "losim.sim", "losim.time", "losim.trace",
             "losim.verify");
 
     private final List<Path> code;

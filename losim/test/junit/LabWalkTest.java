@@ -12,7 +12,7 @@ import org.junit.jupiter.api.io.TempDir;
  * Which directories the source walk enters, and which it refuses.
  *
  * <p>{@code NOT_CODE} names the furniture at a lab root — {@code build/},
- * {@code gen/}, {@code scenarios/}, a data directory called {@code input/}. It was
+ * {@code gen/}, {@code simulations/}, a data directory called {@code input/}. It was
  * once applied at every depth, which made it a list of forbidden <i>package</i>
  * names as well, and {@code input} is an ordinary word that a lab handing students
  * a corpus generator will reasonably use.
@@ -55,7 +55,7 @@ class LabWalkTest {
         java(root, "src/Coordinator.java");
         // Every other word on the list, as a package. None of them is losim's to
         // refuse once it is inside the source tree.
-        for (String name : List.of("build", "docs", "out", "corpus", "scenarios", "gen")) {
+        for (String name : List.of("build", "docs", "out", "corpus", "simulations", "gen")) {
             java(root, "src/" + name + "/Thing.java");
         }
         List<String> found = names(lab, root);
@@ -73,7 +73,7 @@ class LabWalkTest {
         java(root, "gen/Generated.java");
         java(root, "build/classes/Stale.java");
         java(root, "input/NotCode.java");
-        java(root, "scenarios/NotCode.java");
+        java(root, "simulations/NotCode.java");
         java(root, ".hidden/Nested.java");
         assertEquals(List.of("src/Coordinator.java"), names(lab, root));
     }

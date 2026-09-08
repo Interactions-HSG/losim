@@ -1,4 +1,4 @@
-package losim.scenario;
+package losim.sim;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -16,16 +16,16 @@ import java.util.List;
  * readable.
  *
  * <p>Refusing them is also what keeps this small enough to carry a line number on
- * every value, which is what {@link Node#where()} needs.
+ * every value, which is what {@link Field#where()} needs.
  */
 public final class Yaml {
     private Yaml() {}
 
-    public static Node parse(Path file) throws IOException {
+    public static Field parse(Path file) throws IOException {
         return parse(file.getFileName().toString(), Files.readString(file));
     }
 
-    public static Node parse(String name, String text) {
+    public static Field parse(String name, String text) {
         var lines = new ArrayList<Line>();
         int no = 0;
         for (String raw : text.split("\n", -1)) {
@@ -35,7 +35,7 @@ public final class Yaml {
             lines.add(new Line(no, indentOf(stripped), stripped.trim()));
         }
         var cursor = new int[]{0};
-        Node root = Node.map(name, 1);
+        Field root = Field.map(name, 1);
         if (lines.isEmpty()) return root;
         readBlock(name, lines, cursor, lines.get(0).indent(), root);
         if (cursor[0] < lines.size())
@@ -49,7 +49,7 @@ public final class Yaml {
     /**
      * Reads every line at one indentation into {@code into}, recursing for deeper ones.
      */
-    private static void readBlock(String file, List<Line> lines, int[] at, int indent, Node into) {
+    private static void readBlock(String file, List<Line> lines, int[] at, int indent, Field into) {
         while (at[0] < lines.size()) {
             Line line = lines.get(at[0]);
             if (line.indent() < indent) return;
@@ -81,12 +81,12 @@ public final class Yaml {
     }
 
     /** The value after a key, which is either on this line or in the block below it. */
-    private static Node readValue(String file, List<Line> lines, int[] at, Line line,
+    private static Field readValue(String file, List<Line> lines, int[] at, Line line,
                                   int indent, String rest, boolean inList) {
         if (!rest.isEmpty()) {
             // A list item may itself be a key: value pair, and may open a block.
             if (inList && colonAt(rest) >= 0 && !rest.startsWith("{") && !rest.startsWith("[")) {
-                Node m = Node.map(file, line.no());
+                Field m = Field.map(file, line.no());
                 int colon = colonAt(rest);
                 String key = unquote(rest.substring(0, colon).trim());
                 String tail = rest.substring(colon + 1).trim();
@@ -104,23 +104,23 @@ public final class Yaml {
     }
 
     /** The indented block beneath a key with no value on its own line. */
-    private static Node childBlock(String file, List<Line> lines, int[] at, int indent, Line line) {
+    private static Field childBlock(String file, List<Line> lines, int[] at, int indent, Line line) {
         if (at[0] >= lines.size() || lines.get(at[0]).indent() <= indent)
             throw new IllegalArgumentException(file + ":" + line.no()
                     + ": '" + line.text() + "' has no value and nothing indented under it");
         Line first = lines.get(at[0]);
-        Node child = first.text().startsWith("-") ? Node.list(file, first.no())
-                                                  : Node.map(file, first.no());
+        Field child = first.text().startsWith("-") ? Field.list(file, first.no())
+                                                  : Field.map(file, first.no());
         readBlock(file, lines, at, first.indent(), child);
         return child;
     }
 
     // ------------------------------------------------------------------- inline
 
-    private static Node inline(String file, int no, String text) {
+    private static Field inline(String file, int no, String text) {
         String t = text.trim();
         if (t.startsWith("{") && t.endsWith("}")) {
-            Node m = Node.map(file, no);
+            Field m = Field.map(file, no);
             for (String part : split(t.substring(1, t.length() - 1))) {
                 if (part.isBlank()) continue;
                 int colon = colonAt(part);
@@ -133,12 +133,12 @@ public final class Yaml {
             return m;
         }
         if (t.startsWith("[") && t.endsWith("]")) {
-            Node l = Node.list(file, no);
+            Field l = Field.list(file, no);
             for (String part : split(t.substring(1, t.length() - 1)))
                 if (!part.isBlank()) l.add(inline(file, no, part.trim()));
             return l;
         }
-        return Node.scalar(file, no, unquote(t));
+        return Field.scalar(file, no, unquote(t));
     }
 
     /** Splits on commas that are not inside braces, brackets or quotes. */

@@ -1,4 +1,4 @@
-package losim.scenario;
+package losim.sim;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -6,23 +6,27 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * One piece of a scenario, and the line it was written on.
+ * One piece of a simulation file, and the line it was written on.
  *
  * <p>Carrying the line everywhere is the whole reason this exists rather than a
- * plain {@code Map<String, Object>}. A scenario is the instructor's surface, and
- * an error in it should read like a compiler error — {@code wordcount.yaml:14:
+ * plain {@code Map<String, Object>}. A simulation is the instructor's surface,
+ * and an error in it should read like a compiler error — {@code wordcount.yaml:14:
  * unknown instance type 'm5.mega'} — not like a stack trace from inside a parser.
+ *
+ * <p>Called a field rather than a node, which is what it was: a node is a
+ * computer, and one package cannot have the word mean both a machine and a
+ * fragment of the file describing one.
  */
-public final class Node {
+public final class Field {
 
     /** Nothing at all: an absent key, so callers can ask before they insist. */
     static final Object MISSING = new Object();
 
     private final String file;
     private final int line;
-    private final Object value;               // Map<String,Node> | List<Node> | String | MISSING
+    private final Object value;               // Map<String,Field> | List<Field> | String | MISSING
 
-    Node(String file, int line, Object value) {
+    Field(String file, int line, Object value) {
         this.file = file; this.line = line; this.value = value;
     }
 
@@ -39,27 +43,27 @@ public final class Node {
     // ------------------------------------------------------------------ reading
 
     @SuppressWarnings("unchecked")
-    public Map<String, Node> map() {
+    public Map<String, Field> map() {
         if (!(value instanceof Map)) throw fail("expected a block of keys here");
-        return (Map<String, Node>) value;
+        return (Map<String, Field>) value;
     }
 
     @SuppressWarnings("unchecked")
-    public List<Node> list() {
-        if (value instanceof List) return (List<Node>) value;
+    public List<Field> list() {
+        if (value instanceof List) return (List<Field>) value;
         if (value == MISSING) return List.of();
         return List.of(this);                 // one item is a list of one, which reads better
     }
 
     /** A child, or an absent node that still knows where it should have been. */
-    public Node opt(String key) {
+    public Field opt(String key) {
         if (value == MISSING) return this;
-        Node n = map().get(key);
-        return n == null ? new Node(file, line, MISSING) : n;
+        Field n = map().get(key);
+        return n == null ? new Field(file, line, MISSING) : n;
     }
 
-    public Node at(String key) {
-        Node n = opt(key);
+    public Field at(String key) {
+        Field n = opt(key);
         if (!n.present()) throw fail("'" + key + "' is required here");
         return n;
     }
@@ -159,26 +163,26 @@ public final class Node {
     /** Every value in this node, as strings — for a list that may have been written as one item. */
     public List<String> strings() {
         var out = new ArrayList<String>();
-        for (Node n : list()) out.add(n.str());
+        for (Field n : list()) out.add(n.str());
         return out;
     }
 
-    static Node map(String file, int line) {
-        return new Node(file, line, new LinkedHashMap<String, Node>());
+    static Field map(String file, int line) {
+        return new Field(file, line, new LinkedHashMap<String, Field>());
     }
 
-    static Node list(String file, int line) {
-        return new Node(file, line, new ArrayList<Node>());
+    static Field list(String file, int line) {
+        return new Field(file, line, new ArrayList<Field>());
     }
 
-    static Node scalar(String file, int line, String text) { return new Node(file, line, text); }
+    static Field scalar(String file, int line, String text) { return new Field(file, line, text); }
 
     @SuppressWarnings("unchecked")
-    void put(String key, Node child) {
+    void put(String key, Field child) {
         if (map().containsKey(key)) throw child.fail("'" + key + "' is set twice");
-        ((Map<String, Node>) value).put(key, child);
+        ((Map<String, Field>) value).put(key, child);
     }
 
     @SuppressWarnings("unchecked")
-    void add(Node child) { ((List<Node>) value).add(child); }
+    void add(Field child) { ((List<Field>) value).add(child); }
 }

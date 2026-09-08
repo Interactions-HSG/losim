@@ -286,8 +286,8 @@ public final class Dev {
          */
         private void run(String name, String scenario, String... extra) throws Exception {
             List<String> argv = new ArrayList<>(List.of(java(), "-Xmx3g", "-cp", lab,
-                    "losim.cli.Main", "run", "--no-view",
-                    root.resolve("tests/scenarios/" + scenario).toString(),
+                    "losim.cli.Main", "simulate", "--no-view",
+                    root.resolve("tests/simulations/" + scenario).toString(),
                     "--cp", out.resolve("classes").toString(),
                     "--out", trace(name)));
             argv.addAll(List.of(extra));

@@ -2,7 +2,7 @@ package losim.scale;
 
 import java.util.*;
 import losim.res.InstanceCatalog;
-import losim.scenario.Scenario;
+import losim.sim.Simulation;
 import losim.time.Clock;
 
 /**
@@ -27,7 +27,7 @@ public final class Solve {
     /** How much of the host's heap a scaled cluster may ask for. */
     static final double HOST_HEAP_SHARE = 0.6;
 
-    public static ScalePlan of(Scenario s, Grid grid, Laws laws) {
+    public static ScalePlan of(Simulation s, Grid grid, Laws laws) {
         long full = s.units();
         var notes = new ArrayList<>(grid.notes());
         var rungs = grid.dataLadder().stream().map(Probe::medianOf).toList();
@@ -71,7 +71,7 @@ public final class Solve {
      * ladder satisfies both, the engine names the resource and stops rather than
      * producing a projection nobody should use.
      */
-    private static String whyNot(long n, Scenario s, Laws laws, Grid grid) {
+    private static String whyNot(long n, Simulation s, Laws laws, Grid grid) {
         // Only the resources the solve actually caps. A large fixed term elsewhere —
         // allocation carries the JVM's own warm-up, which is real at every scale —
         // says the law for that resource is weak, not that the run size is wrong, and
@@ -103,7 +103,7 @@ public final class Solve {
      * scale)}. The ratio is what preserves demand-over-capacity; the fixed term is
      * what stops a machine being given less baseline than a JVM needs to exist.
      */
-    private static Map<String, double[]> solveCaps(Scenario s, Laws laws, long n, long full) {
+    private static Map<String, double[]> solveCaps(Simulation s, Laws laws, long n, long full) {
         var caps = new LinkedHashMap<String, double[]>();
         double memRatio = ratio(laws, Probe.MEMORY, n, full);
         double diskRatio = ratio(laws, Probe.DISK, n, full);
@@ -132,7 +132,7 @@ public final class Solve {
     /**
      * Whether the clock the engine is running can still express this run's costs.
      *
-     * <p>The compression follows the scale (see {@code Scenario.kTime}), and it has
+     * <p>The compression follows the scale (see {@code Simulation.kTime}), and it has
      * to be global — there is one wall clock, and two machines sleeping under
      * different factors would disagree about when now is — and the same for the
      * probe grid as for the run it fits, or the fit describes a differently
@@ -144,7 +144,7 @@ public final class Solve {
      * not a smaller number somewhere — there is no such number to write any more —
      * it is a cost site with enough to do to be timed at all.
      */
-    private static String tooFineToExpress(Scenario s, Laws laws, long n) {
+    private static String tooFineToExpress(Simulation s, Laws laws, long n) {
         double finest = Double.MAX_VALUE;
         String site = null;
         for (var e : laws.byCostSite().entrySet()) {
@@ -158,6 +158,6 @@ public final class Solve {
                 + " %.0fx below what the sleep debt can still settle at that compression, so its"
                 + " timings would drift rather than be owed. Give that cost site more to do, or"
                 + " lower the scale: at scale 1 the clock runs at %.0fx.",
-                s.kTime(), site, finest, s.kTime() / usable, Scenario.BASE_COMPRESSION);
+                s.kTime(), site, finest, s.kTime() / usable, Simulation.BASE_COMPRESSION);
     }
 }

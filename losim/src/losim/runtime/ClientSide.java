@@ -94,7 +94,7 @@ final class ClientSide implements ClientInterceptor {
         // time ran out, which is what makes a deadline the only defence.
         if (target != null)
             for (Machine.Drawn f : target.failuresOn(md.getFullMethodName()))
-                if (f.spec().kind() == losim.scenario.Scenario.RpcKind.DROP && f.fires())
+                if (f.spec().kind() == losim.sim.Simulation.RpcKind.DROP && f.fires())
                     return new Dropped<>(from, to, method, call, "dropped by " + to);
 
         final double rttRefMs = net.roundTripRefMs(from.zone, target == null ? from.zone : target.zone);

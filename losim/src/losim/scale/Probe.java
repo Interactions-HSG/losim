@@ -1,8 +1,8 @@
 package losim.scale;
 
 import java.util.*;
-import losim.runtime.Run;
-import losim.scenario.Scenario;
+import losim.runtime.Simulate;
+import losim.sim.Simulation;
 import losim.trace.Telemetry;
 
 /**
@@ -37,12 +37,12 @@ public record Probe(
     public static final String ALLOC  = "allocMb";
     public static final String TIME   = "makespanRefMs";
 
-    public static Probe run(Scenario s, ClassLoader loader, Telemetry.Level level) throws Exception {
-        var result = Run.of(s, loader, level);
+    public static Probe run(Simulation s, ClassLoader loader, Telemetry.Level level) throws Exception {
+        var result = Simulate.of(s, loader, level);
         return of(s, result);
     }
 
-    public static Probe of(Scenario s, Run.Result result) {
+    public static Probe of(Simulation s, Simulate.Result result) {
         var tel = result.telemetry();
         var variables = new TreeMap<String, Double>();
         var resources = new TreeMap<String, Double>();

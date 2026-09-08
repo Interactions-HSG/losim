@@ -9,8 +9,8 @@ import losim.pb.Input;
 import losim.pb.JobGrpc;
 import losim.pb.Workload;
 import losim.res.InstanceCatalog;
-import losim.scenario.Scenario;
-import losim.scenario.Scenario.*;
+import losim.sim.Simulation;
+import losim.sim.Simulation.*;
 import losim.time.Clock;
 import losim.time.Dispatcher;
 import losim.trace.Telemetry;
@@ -19,7 +19,7 @@ import losim.trace.Values;
 import losim.verify.Trust;
 
 /**
- * A scenario, actually run.
+ * A simulation, simulated.
  *
  * <p>Everything the file declared is assembled here in one order that matters:
  * the nodes and their services first, because the retry gate has to be checked
@@ -32,7 +32,7 @@ import losim.verify.Trust;
  * welcome. All three are recorded — a run that failed is a result, not an absence
  * of one.
  */
-public final class Run {
+public final class Simulate {
 
     /**
      * What a run produced. A failure is part of the result, not an exception thrown past it.
@@ -70,17 +70,17 @@ public final class Run {
         }
     }
 
-    private Run() {}
+    private Simulate() {}
 
-    public static Result of(Scenario s) throws Exception {
+    public static Result of(Simulation s) throws Exception {
         return of(s, Thread.currentThread().getContextClassLoader());
     }
 
-    public static Result of(Scenario s, ClassLoader loader) throws Exception {
+    public static Result of(Simulation s, ClassLoader loader) throws Exception {
         return of(s, loader, Telemetry.Level.FULL);
     }
 
-    public static Result of(Scenario s, ClassLoader loader, Telemetry.Level level) throws Exception {
+    public static Result of(Simulation s, ClassLoader loader, Telemetry.Level level) throws Exception {
         return of(s, loader, level, Trust.unchecked());
     }
 
@@ -137,7 +137,7 @@ public final class Run {
      */
     public static final long WATCHDOG_SECONDS = 120;
 
-    public static Result of(Scenario s, ClassLoader loader, Telemetry.Level level, Trust trust)
+    public static Result of(Simulation s, ClassLoader loader, Telemetry.Level level, Trust trust)
             throws Exception {
         // Before anything: the JVM's first gRPC call costs sixty times what the
         // ones after it cost, and whichever handler happens to be first would be
@@ -388,7 +388,7 @@ public final class Run {
      * one file that has to pick. There is no key that picks, which is the point:
      * the system's shape is the design.
      */
-    private static String entryNode(Scenario s) {
+    private static String entryNode(Simulation s) {
         var found = new ArrayList<NodeSpec>();
         for (NodeSpec m : s.nodes())
             if (m.runs().containsKey(JobGrpc.SERVICE_NAME)) found.add(m);
@@ -414,7 +414,7 @@ public final class Run {
      * probe run from the full one could behave differently at the two sizes, and
      * then the ladder would be a ladder of different designs.
      */
-    private static Input input(Scenario s) {
+    private static Input input(Simulation s) {
         var spec = s.input();
         long count = Math.round(spec.count() * (s.units() / (double) s.fullUnits()));
         if (count < 1) throw new IllegalArgumentException(spec.where() + ": count is "
@@ -491,7 +491,7 @@ public final class Run {
 
     // ------------------------------------------------------------------- weather
 
-    private static void schedule(Scenario s, Machines machines, Map<String, Machine> byName,
+    private static void schedule(Simulation s, Machines machines, Map<String, Machine> byName,
                                  Dispatcher d, Telemetry tel) {
         // The stream a drawn failure fires from. One per node and rule rather than
         // one per simulation, so adding a rule to one node does not shift when the
@@ -561,7 +561,7 @@ public final class Run {
      * wrong, because it is indistinguishable from a finding. A rate that
      * reschedules itself has no end to outlive.
      */
-    private static void drawn(Scenario s, Failure f, Machine target,
+    private static void drawn(Simulation s, Failure f, Machine target,
                               Map<String, Machine> byName, Dispatcher d,
                               Telemetry tel, int rule) {
         var rng = Machines.stream(s.seed(), target.name + '/' + f.kind() + '/' + rule);

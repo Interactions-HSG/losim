@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.security.MessageDigest;
 import java.util.*;
-import losim.scenario.Scenario;
+import losim.sim.Simulation;
 import losim.trace.Json;
 import losim.trace.Telemetry;
 import losim.trace.JsonReader;
@@ -44,7 +44,7 @@ public final class Plans {
      * off — the same mistake as fitting on clean runs and predicting a faulty one,
      * and silent in exactly the same way.
      */
-    public static String key(Scenario s, Telemetry.Level level, List<Path> code) {
+    public static String key(Simulation s, Telemetry.Level level, List<Path> code) {
         var sb = new StringBuilder();
         sb.append(level).append('|').append(s.input()).append('|').append(s.units())
           .append('|').append(s.seed())

@@ -38,17 +38,17 @@ import java.util.stream.Stream;
 public final class Lab {
 
     /** Where the student's own runs land, and where the viewer looks for them. */
-    public static final String RUNS = "build/runs";
+    public static final String RESULTS = "build/results";
 
     private final Path root;
     private final Path runs;
 
     public Lab(Path root) {
-        this(root, root.resolve(RUNS));
+        this(root, root.resolve(RESULTS));
     }
 
     /**
-     * A lab whose runs are written somewhere other than {@code build/runs}.
+     * A lab whose results are written somewhere other than {@code build/results}.
      *
      * <p>The server takes {@code --runs}, and a server that listed one directory
      * while its run button wrote into another would show a student a picker their
@@ -204,7 +204,7 @@ public final class Lab {
      */
     private static final List<String> NOT_CODE =
             List.of("build", "docs", "viewer", "node_modules", "presentation",
-                    "gen", "out", "classes", "input", "corpus", "scenarios");
+                    "gen", "out", "classes", "input", "corpus", "simulations");
 
     /**
      * The reserved names losim writes into itself.
@@ -287,8 +287,8 @@ public final class Lab {
         return sb.toString();
     }
 
-    /** Where scenarios live, and where the console writes a new one. */
-    public static final String SCENARIOS = "scenarios";
+    /** Where simulations live, and where the console writes a new one. */
+    public static final String SIMULATIONS = "simulations";
 
     /**
      * Everything in this lab that compiles, as one unit.
@@ -305,7 +305,7 @@ public final class Lab {
     /**
      * Every scenario in the lab, by name.
      *
-     * <p>{@code scenarios/} is the home and the place the console writes to. A
+     * <p>{@code simulations/} is the home and the place the console writes to. A
      * {@code .yaml} sitting loose in the lab root counts too, so that a lab which
      * has one does not show an empty list and leave a student wondering where it
      * went.
@@ -316,9 +316,9 @@ public final class Lab {
      * and {@code 2-}, and the numbering that was meant to teach an order would
      * teach the wrong one.
      */
-    public List<Path> scenarios() {
+    public List<Path> simulations() {
         List<Path> out = new ArrayList<>();
-        Path dir = root.resolve(SCENARIOS);
+        Path dir = root.resolve(SIMULATIONS);
         for (Path p : children(dir)) if (yaml(p)) out.add(p);
         for (Path p : children(root)) if (yaml(p)) out.add(p);
         out.sort(Lab::byName);
@@ -386,14 +386,14 @@ public final class Lab {
     }
 
     /** What the picker offers. */
-    public List<String> scenarioNames() {
-        return scenarios().stream().map(p -> p.getFileName().toString()).toList();
+    public List<String> simulationNames() {
+        return simulations().stream().map(p -> p.getFileName().toString()).toList();
     }
 
     /** A scenario by its file name, or null. */
     public Path scenario(String name) {
-        if (name == null || name.isBlank()) return scenarios().isEmpty() ? null : scenarios().get(0);
-        for (Path p : scenarios()) if (p.getFileName().toString().equals(name)) return p;
+        if (name == null || name.isBlank()) return simulations().isEmpty() ? null : simulations().get(0);
+        for (Path p : simulations()) if (p.getFileName().toString().equals(name)) return p;
         return null;
     }
 
@@ -407,7 +407,7 @@ public final class Lab {
      *
      * <p>{@link #NOT_CODE} applies at the lab root and nowhere below it, because
      * that is where the things it names actually are: {@code build/}, {@code gen/}
-     * and {@code scenarios/} are all resolved against the root, and a data
+     * and {@code simulations/} are all resolved against the root, and a data
      * directory called {@code input/} sits beside them. Below the root there are
      * only Java packages, and a package is free to be called {@code input} — it is
      * an ordinary word, and a lab that hands students a corpus generator will very
@@ -644,7 +644,7 @@ public final class Lab {
         Path trace = trace(scenario);
         log.accept("\n");
         // `--no-view`: this run already has a viewer — the one that started it.
-        int code = exec(List.of(java(), "-cp", cp(), "losim.cli.Main", "run", "--no-view",
+        int code = exec(List.of(java(), "-cp", cp(), "losim.cli.Main", "simulate", "--no-view",
                 chosen.toString(), "--cp", classes.toString(), "--out", trace.toString()), log);
 
         // The bill is part of the run, not a second command: a design decision

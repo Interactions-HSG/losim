@@ -73,8 +73,8 @@ final class Fixture {
                 }
                 """.formatted(markerPath));
 
-        Files.createDirectories(root.resolve("scenarios"));
-        Files.writeString(root.resolve("scenarios/main.yaml"), SCENARIO);
+        Files.createDirectories(root.resolve("simulations"));
+        Files.writeString(root.resolve("simulations/main.yaml"), SCENARIO);
 
         return root;
     }

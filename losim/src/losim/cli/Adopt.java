@@ -40,7 +40,7 @@ import java.util.Map;
  * <p>Labs from before 1.5.0 carry the simulator as jars in {@code lib/}, and the
  * viewer and the manual as directories beside them. Those are the same 23 MB the
  * jar now holds, and losim no longer reads any of it. Such a repository is already
- * the right shape — {@code proto/}, {@code src/}, {@code scenarios/} — so nothing
+ * the right shape — {@code proto/}, {@code src/}, {@code simulations/} — so nothing
  * moves and no scenario is rewritten: the build file is written, and {@code lib/},
  * {@code viewer/} and {@code docs/} are untracked and ignored.
  *
@@ -203,7 +203,7 @@ public final class Adopt {
         writes.put("AGENTS.md", "what is left, for your agent");
         // A lab from before 1.5.0 has scenarios of its own, and a first scenario
         // written into it would be a file nobody asked for beside the ones they wrote.
-        if (!vendored) writes.put("scenarios/1-one-call.yaml", "two machines and one call");
+        if (!vendored) writes.put("simulations/1-one-call.yaml", "two machines and one call");
         writes.put(".gitignore", "+= gen/ build/" + (vendored ? " lib/ viewer/ docs/" : ""));
 
         var untracked = new ArrayList<String>();
@@ -240,7 +240,7 @@ public final class Adopt {
                 Scaffold.build(shape.grpcVersion(), shape.protobufVersion()), force);
         put(root, "losim", Scaffold.launcher(), force);
         put(root, "AGENTS.md", Agents.forProject(shape, root), force);
-        if (!vendored) put(root, "scenarios/1-one-call.yaml", firstScenario(shape), force);
+        if (!vendored) put(root, "simulations/1-one-call.yaml", firstScenario(shape), force);
 
         // Appended rather than written: a project's own ignore file is its own.
         Path ignore = root.resolve(".gitignore");

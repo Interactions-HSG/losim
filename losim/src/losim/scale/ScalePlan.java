@@ -1,7 +1,7 @@
 package losim.scale;
 
 import java.util.*;
-import losim.scenario.Scenario;
+import losim.sim.Simulation;
 
 /**
  * How the world was shrunk, and how to unshrink an answer.
@@ -83,7 +83,7 @@ public record ScalePlan(long units, long fullUnits,
     private static double round(double x) { return Math.round(x * 1000) / 1000.0; }
 
     /** The scenario the plan says to run: the chosen size and every solved cap. */
-    public Scenario applyTo(Scenario s) {
+    public Simulation applyTo(Simulation s) {
         return s.withUnits(units).withCaps(caps);
     }
 }

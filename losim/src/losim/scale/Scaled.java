@@ -2,8 +2,8 @@ package losim.scale;
 
 import java.nio.file.Path;
 import java.util.*;
-import losim.runtime.Run;
-import losim.scenario.Scenario;
+import losim.runtime.Simulate;
+import losim.sim.Simulation;
 import losim.trace.Telemetry;
 import losim.verify.Trust;
 
@@ -36,13 +36,13 @@ public final class Scaled {
      * @param run  the scaled run, or null when the engine found no feasible size and
      *             said so instead of producing one anyway
      */
-    public record Result(Run.Result run, ScalePlan plan, boolean planWasCached,
+    public record Result(Simulate.Result run, ScalePlan plan, boolean planWasCached,
                          List<ScalePlan.Projection> projections, Trust trust) {
 
         public boolean feasible() { return plan.feasible(); }
     }
 
-    public static Result of(Scenario s, ClassLoader loader, Telemetry.Level level,
+    public static Result of(Simulation s, ClassLoader loader, Telemetry.Level level,
                             List<Path> code) throws Exception {
         if (s.scale() <= 1)
             throw new IllegalArgumentException("scaled mode needs a scale above 1 to project to");
@@ -72,7 +72,7 @@ public final class Scaled {
         // probes, deliberately: a fit that described a differently-watched system
         // would be the same mistake as fitting on clean runs and predicting a
         // faulty one.
-        var result = Run.of(plan.applyTo(s), loader, level, trust);
+        var result = Simulate.of(plan.applyTo(s), loader, level, trust);
 
         var probe = Probe.of(plan.applyTo(s), result);
         var projections = new ArrayList<ScalePlan.Projection>();

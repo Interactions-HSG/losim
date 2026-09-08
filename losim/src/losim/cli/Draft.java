@@ -2,9 +2,9 @@ package losim.cli;
 
 import java.util.ArrayList;
 import java.util.List;
-import losim.scenario.Loader;
-import losim.scenario.Node;
-import losim.scenario.Yaml;
+import losim.sim.Loader;
+import losim.sim.Field;
+import losim.sim.Yaml;
 
 /**
  * What an existing scenario looks like to the authoring form.
@@ -76,7 +76,7 @@ public final class Draft {
     /**
      * One thing that happens to the node it is written in.
      *
-     * <p>{@code kind} is any of {@link losim.scenario.Scenario.Kind}, spelled the
+     * <p>{@code kind} is any of {@link losim.sim.Simulation.Kind}, spelled the
      * way the file spells it. Which of the remaining fields means anything depends
      * on it, and only those are written back — a kill's {@code restartAfterRefMs},
      * a freeze's {@code forRefMs}, a degrade's {@code factor}, a spot reclaim's
@@ -152,7 +152,7 @@ public final class Draft {
      *         both {@code file:line: message}, indistinguishable to whoever reads it
      */
     public static Of of(String name, String text) {
-        Node root = Yaml.parse(name, text);
+        Field root = Yaml.parse(name, text);
         var sc = Loader.of(root);   // the real check, first — baseline correctness is never re-done below
 
         // The form has a control for every key `Loader.of` allows at the top
@@ -163,11 +163,11 @@ public final class Draft {
         var pools = new ArrayList<Pool>();
         for (var entry : root.at("nodes").map().entrySet()) {
             String poolName = entry.getKey();
-            Node spec = entry.getValue();
+            Field spec = entry.getValue();
             var overrides = new ArrayList<Override>();
             if (spec.opt("overrides").present()) {
                 for (var o : spec.at("overrides").map().entrySet()) {
-                    Node body = o.getValue();
+                    Field body = o.getValue();
                     // The loader checks this only for overrides that name a machine
                     // it expands, and silently ignores one that names nothing. This
                     // has to check every entry, because what it cannot read it
@@ -192,7 +192,7 @@ public final class Draft {
             var runs = new java.util.LinkedHashMap<String, Runs>();
             if (spec.opt("runs").present())
                 for (var r : spec.at("runs").map().entrySet()) {
-                    Node body = r.getValue();
+                    Field body = r.getValue();
                     boolean longhand = body.isMap();
                     runs.put(r.getKey(), new Runs(
                             (longhand ? body.at("file") : body).str().trim(),
@@ -224,7 +224,7 @@ public final class Draft {
         }
 
         var retries = new ArrayList<Retry>();
-        for (Node r : root.opt("retries").list()) {
+        for (Field r : root.opt("retries").list()) {
             retries.add(new Retry(r.at("method").str(), r.at("attempts").integer(),
                     r.opt("backoff").refMs(0), r.opt("multiplier").num(1),
                     r.opt("unsafe").bool(false)));
@@ -233,10 +233,10 @@ public final class Draft {
         var durations = new ArrayList<Duration>();
         // Absent is not empty to `map()`, which refuses anything that is not a
         // block — and a scenario with no costs in it is the ordinary case.
-        Node priced = root.opt("simulatedDuration");
-        for (var runs : (priced.present() ? priced.map() : java.util.Map.<String, Node>of()).entrySet()) {
+        Field priced = root.opt("simulatedDuration");
+        for (var runs : (priced.present() ? priced.map() : java.util.Map.<String, Field>of()).entrySet()) {
             for (var rpc : runs.getValue().map().entrySet()) {
-                Node body = rpc.getValue();
+                Field body = rpc.getValue();
                 durations.add(new Duration(runs.getKey(), rpc.getKey(),
                         body.opt("fixed").refMs(0), body.opt("perUnit").refMs(0)));
             }
@@ -267,11 +267,11 @@ public final class Draft {
      * for. The table of which key belongs to which kind used to live here too, and
      * two copies of it were two things to keep in step.
      */
-    private static List<Failure> failures(Node node) {
+    private static List<Failure> failures(Field node) {
         var out = new ArrayList<Failure>();
-        for (Node f : node.list()) {
+        for (Field f : node.list()) {
             String kind = null;
-            for (var k : losim.scenario.Scenario.Kind.values())
+            for (var k : losim.sim.Simulation.Kind.values())
                 if (f.opt(k.key()).present()) kind = k.key();
             String other = "";
             double factor = 2;
@@ -288,12 +288,12 @@ public final class Draft {
     }
 
     /** What happens to one service's rpcs on one node, keyed by rpc. */
-    private static java.util.Map<String, List<RpcFailure>> rpcFailures(Node node) {
+    private static java.util.Map<String, List<RpcFailure>> rpcFailures(Field node) {
         var out = new java.util.LinkedHashMap<String, List<RpcFailure>>();
         if (!node.present()) return out;
         for (var e : node.map().entrySet()) {
             var here = new ArrayList<RpcFailure>();
-            for (Node f : e.getValue().list()) {
+            for (Field f : e.getValue().list()) {
                 String kind = f.opt("status").present() ? "status"
                             : f.opt("slow").present() ? "slow" : "drop";
                 here.add(new RpcFailure(kind,

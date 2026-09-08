@@ -67,7 +67,7 @@ for g in $(seq 1 "$ROUNDS"); do
     # end is a job nobody can tell apart from a hung one — which is exactly how the
     # first run of this was watched for half an hour before being abandoned blind.
     started=$(date +%s)
-    java -Xmx3g -cp "$LAB" losim.cli.Main run --no-view tests/scenarios/t13.yaml \
+    java -Xmx3g -cp "$LAB" losim.cli.Main simulate --no-view tests/simulations/t13.yaml \
          --cp "$OUT/classes" --out "$OUT/traces/g$g-r$r.json" --telemetry "$LEVEL" \
          > "$OUT/traces/g$g-r$r.out" 2>&1 || true
     printf '    g%s r%s  %ss\n' "$g" "$r" "$(( $(date +%s) - started ))"

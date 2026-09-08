@@ -1,9 +1,9 @@
 import java.nio.file.Path;
 import java.util.*;
 import losim.scale.*;
-import losim.scenario.Loader;
-import losim.scenario.Scenario;
-import losim.scenario.Yaml;
+import losim.sim.Loader;
+import losim.sim.Simulation;
+import losim.sim.Yaml;
 import losim.trace.Telemetry;
 
 /**
@@ -52,7 +52,7 @@ public class Phase3 {
             simulatedDuration:
               %s: { Map: { fixed: 2 refMs, perUnit: 20000 refNs }, Reduce: { fixed: 5 refMs } }
             """.formatted(trim(scale), src("ScalableWordCount"), src(service),
-                          Math.round(scale * Scenario.BASE), src(service));
+                          Math.round(scale * Simulation.BASE), src(service));
     }
 
     /** A scale that reads as `6` rather than `6.0` in a file a person has to read. */
@@ -192,8 +192,8 @@ public class Phase3 {
     }
 
     /** What {@link Sizer} answered, which is the only thing it does. */
-    static String ran(Scenario s) throws Exception {
-        var result = losim.runtime.Run.of(s, loader());
+    static String ran(Simulation s) throws Exception {
+        var result = losim.runtime.Simulate.of(s, loader());
         if (!result.completed()) throw new IllegalStateException(
                 "the run did not finish: " + result.failure());
         var done = result.telemetry().events().stream()
@@ -205,9 +205,9 @@ public class Phase3 {
     }
 
     /** The refusal a scenario earns, checked to carry the line it is about. */
-    static String refusedBy(Scenario s, String line) throws Exception {
+    static String refusedBy(Simulation s, String line) throws Exception {
         try {
-            losim.runtime.Run.of(s, loader());
+            losim.runtime.Simulate.of(s, loader());
         } catch (IllegalArgumentException e) {
             String said = e.getMessage();
             System.out.println("    " + said);
@@ -388,8 +388,8 @@ public class Phase3 {
         var small = Loader.of(Yaml.parse("sched.yaml", yaml.formatted(2, 4)));
         var big = Loader.of(Yaml.parse("sched.yaml", yaml.formatted(16, 32)));
 
-        var observed = losim.runtime.Run.of(small, loader(), Telemetry.Level.NO_PAYLOAD);
-        var truth = losim.runtime.Run.of(big, loader(), Telemetry.Level.NO_PAYLOAD);
+        var observed = losim.runtime.Simulate.of(small, loader(), Telemetry.Level.NO_PAYLOAD);
+        var truth = losim.runtime.Simulate.of(big, loader(), Telemetry.Level.NO_PAYLOAD);
 
         // Every call costs the same 200 refMs whatever the run size, so the cost
         // site's law is flat and the whole question is the schedule.

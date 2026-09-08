@@ -54,14 +54,14 @@ class ExperimentsTest {
     @DisplayName("run(scenario).done() writes a trace and says so")
     void runsAScenarioAndWritesATrace() {
         String out = captured(() -> Experiments.in(root.toString()).run("main.yaml").done());
-        assertTrue(Files.exists(root.resolve(Lab.RUNS).resolve("main.json")), out);
+        assertTrue(Files.exists(root.resolve(Lab.RESULTS).resolve("main.json")), out);
         assertTrue(out.contains("1 run"), out);
     }
 
     @Test
     @DisplayName("two scenarios chained are two runs, not one overwriting the other")
     void chainsMultipleRuns() throws Exception {
-        Files.writeString(root.resolve("scenarios/second.yaml"), """
+        Files.writeString(root.resolve("simulations/second.yaml"), """
                 nodes:
                   a: { instance: m5.large, zone: eu-central-1a, runs: { losim.Job: src/WordCountJob.java } }
                   b: { instance: c5.large, zone: eu-central-1a, count: 2, prefix: b, runs: { Worker: src/Counter.java } }
@@ -69,11 +69,11 @@ class ExperimentsTest {
         try {
             String out = captured(() ->
                     Experiments.in(root.toString()).run("main.yaml").run("second.yaml").done());
-            assertTrue(Files.exists(root.resolve(Lab.RUNS).resolve("main.json")), out);
-            assertTrue(Files.exists(root.resolve(Lab.RUNS).resolve("second.json")), out);
+            assertTrue(Files.exists(root.resolve(Lab.RESULTS).resolve("main.json")), out);
+            assertTrue(Files.exists(root.resolve(Lab.RESULTS).resolve("second.json")), out);
             assertTrue(out.contains("2 runs"), out);
         } finally {
-            Files.deleteIfExists(root.resolve("scenarios/second.yaml"));
+            Files.deleteIfExists(root.resolve("simulations/second.yaml"));
         }
     }
 
@@ -83,7 +83,7 @@ class ExperimentsTest {
         String out = captured(() ->
                 Experiments.in(root.toString()).run("ghost.yaml").run("main.yaml").done());
         assertTrue(out.contains("there is no scenario called ghost.yaml"), out);
-        assertTrue(Files.exists(root.resolve(Lab.RUNS).resolve("main.json")), out);
+        assertTrue(Files.exists(root.resolve(Lab.RESULTS).resolve("main.json")), out);
         // Only the scenario that actually ran counts toward the total — the
         // refusal above never reaches Lab.run, so there is nothing to have failed.
         assertTrue(out.contains("1 run"), out);
@@ -92,18 +92,18 @@ class ExperimentsTest {
     @Test
     @DisplayName("runAll() runs every scenario the lab has")
     void runsEverything() throws Exception {
-        Files.writeString(root.resolve("scenarios/third.yaml"), """
+        Files.writeString(root.resolve("simulations/third.yaml"), """
                 nodes:
                   a: { instance: m5.large, zone: eu-central-1a, runs: { losim.Job: src/WordCountJob.java } }
                   b: { instance: c5.large, zone: eu-central-1a, count: 2, prefix: b, runs: { Worker: src/Counter.java } }
                 """);
         try {
             captured(() -> Experiments.in(root.toString()).runAll().done());
-            var written = Files.list(root.resolve(Lab.RUNS)).map(p -> p.getFileName().toString()).toList();
+            var written = Files.list(root.resolve(Lab.RESULTS)).map(p -> p.getFileName().toString()).toList();
             assertTrue(written.contains("main.json"), written::toString);
             assertTrue(written.contains("third.json"), written::toString);
         } finally {
-            Files.deleteIfExists(root.resolve("scenarios/third.yaml"));
+            Files.deleteIfExists(root.resolve("simulations/third.yaml"));
         }
     }
 }

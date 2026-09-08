@@ -22,8 +22,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import losim.res.InstanceCatalog;
 import losim.res.InstanceSpec;
 import losim.res.Regions;
-import losim.scenario.Loader;
-import losim.scenario.Yaml;
+import losim.sim.Loader;
+import losim.sim.Yaml;
 import losim.trace.Json;
 import losim.trace.JsonReader;
 
@@ -171,7 +171,7 @@ public final class Serve {
         Path base = Path.of(root).toAbsolutePath().normalize();
         // One runs directory, given to both: the picker lists it and the run
         // button writes into it, and `--runs` has to move both or neither.
-        Path where = runs == null ? base.resolve(Lab.RUNS)
+        Path where = runs == null ? base.resolve(Lab.RESULTS)
                                   : Path.of(runs).toAbsolutePath().normalize();
         Serve s = new Serve(new Lab(base, where), siteIn(base, site), where);
 
@@ -211,7 +211,7 @@ public final class Serve {
             java.lang.System.out.println("           so " + base + " is not a lab. Run ./losim, or");
             java.lang.System.out.println("           point --root at a lab.");
         } else {
-            java.lang.System.out.printf("  scenarios  %d in %s%n", s.lab.scenarios().size(), base);
+            java.lang.System.out.printf("  scenarios  %d in %s%n", s.lab.simulations().size(), base);
         }
         java.lang.System.out.printf("  runs     %s%n", s.runs);
         java.lang.System.out.println("  leave this running; press the arrow beside a scenario to run it.");
@@ -259,7 +259,7 @@ public final class Serve {
 
     private void scenarios(HttpExchange x) throws IOException {
         List<Object> out = new ArrayList<>();
-        for (Path sc : lab.scenarios()) {
+        for (Path sc : lab.simulations()) {
             String name = sc.getFileName().toString();
             Path trace = lab.trace(name);
             Map<String, Object> row = new LinkedHashMap<>();
@@ -271,7 +271,7 @@ public final class Serve {
         Lab.Code code = lab.code();
         Run r = current;
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("scenarios", out);
+        body.put("simulations", out);
         body.put("started", code.started());
         body.put("files", code.sources().size());
         body.put("schema", !code.protos().isEmpty());
@@ -294,7 +294,7 @@ public final class Serve {
      */
     private void classes(HttpExchange x) throws IOException {
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("scenarios", lab.scenarioNames());
+        body.put("simulations", lab.simulationNames());
         body.put("instances", instances());
         body.put("regions", regions());
 
@@ -429,7 +429,7 @@ public final class Serve {
             return;
         }
 
-        Path into = lab.root().resolve(Lab.SCENARIOS);
+        Path into = lab.root().resolve(Lab.SIMULATIONS);
         Path file = into.resolve(name).normalize();
         if (!file.startsWith(into.toAbsolutePath().normalize())) {
             fail(x, 400, "a scenario belongs in the lab's scenarios folder");

@@ -26,15 +26,15 @@ import losim.trace.JsonReader;
  * defect — the two environments are not running the same simulator. A measured
  * difference is information, and the size of it is worth seeing.
  */
-public final class Diff {
-    private Diff() {}
+public final class Compare {
+    private Compare() {}
 
     /** One thing compared, and whether disagreeing about it is a defect. */
     private record Aspect(String what, boolean structural, Object left, Object right) {
         boolean agrees() { return Objects.equals(left, right); }
     }
 
-    public static int run(Path a, Path b) throws Exception {
+    public static int of(Path a, Path b) throws Exception {
         var left = JsonReader.readObject(Files.readString(a));
         var right = JsonReader.readObject(Files.readString(b));
         var aspects = new ArrayList<Aspect>();
