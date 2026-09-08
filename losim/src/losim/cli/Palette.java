@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
+import losim.api.Input;
 import losim.api.Job;
 import losim.api.Scalable;
 
@@ -80,7 +81,23 @@ public final class Palette {
      *                 difference between "nothing here is a service" and "nothing
      *                 here compiled"
      */
-    public record Offer(List<String> jobs, List<Service> services, int other) {}
+    /**
+     * What one job's input is made of, in the order it declares the parts.
+     *
+     * <p>So the form can draw a row per part and nothing else: a scenario sizing a
+     * part the job does not consume is refused at the run, and a form that could
+     * write one would be a form that produces files the run rejects.
+     *
+     * <p>{@code noun} is the singular of the thing being counted, and {@code null}
+     * for a constant — which is the difference between a part that shrinks with the
+     * run and one that is held.
+     */
+    public record Consumes(String cls, List<Part> parts) {
+        public record Part(String name, String noun) {}
+    }
+
+    public record Offer(List<String> jobs, List<Consumes> consumes,
+                        List<Service> services, int other) {}
 
     private Palette() {}
 
@@ -93,6 +110,7 @@ public final class Palette {
      */
     public static Offer of(Path classes, Lab lab, List<Path> sources) throws IOException {
         List<String> jobs = new ArrayList<>();
+        List<Consumes> shapes = new ArrayList<>();
         List<Service> services = new ArrayList<>();
         int other = 0;
 
@@ -112,7 +130,7 @@ public final class Palette {
             } catch (ClassNotFoundException e) {
                 // No gRPC on the lab's classpath at all. Nothing here can be a
                 // service, and saying that is better than saying nothing.
-                return new Offer(List.of(), List.of(), 0);
+                return new Offer(List.of(), List.of(), List.of(), 0);
             }
             for (String name : names(classes)) {
                 Class<?> type;
@@ -128,7 +146,9 @@ public final class Palette {
                     continue;
                 }
                 if (Job.class.isAssignableFrom(type) || Scalable.class.isAssignableFrom(type)) {
-                    jobs.add(name); continue;
+                    jobs.add(name);
+                    if (Scalable.class.isAssignableFrom(type)) consumes(type, name, shapes);
+                    continue;
                 }
                 if (!bindable.isAssignableFrom(type)) { other++; continue; }
                 Object d = describe(type);
@@ -148,8 +168,32 @@ public final class Palette {
             }
         }
         jobs.sort(Comparator.naturalOrder());
+        shapes.sort(Comparator.comparing(Consumes::cls));
         services.sort(Comparator.comparing(Service::cls));
-        return new Offer(List.copyOf(jobs), List.copyOf(services), other);
+        return new Offer(List.copyOf(jobs), List.copyOf(shapes), List.copyOf(services), other);
+    }
+
+    /**
+     * What a {@link Scalable} job says its input is made of.
+     *
+     * <p>The one place here that builds a student's class. It is the same thing the
+     * run does a moment before it starts, and for the same reason: {@code shape()}
+     * is an instance method because a job is an ordinary object, and a declaration
+     * cannot be read without one. A constructor that throws costs the form its rows
+     * and nothing else — the run then refuses with the parts it wanted, which is a
+     * better first failure than a form guessing at names.
+     */
+    private static void consumes(Class<?> type, String name, List<Consumes> into) {
+        try {
+            var c = type.getDeclaredConstructor();
+            c.setAccessible(true);
+            var parts = new ArrayList<Consumes.Part>();
+            for (Input.Shape.Part p : ((Scalable) c.newInstance()).shape().parts())
+                parts.add(new Consumes.Part(p.name(), p.noun()));
+            into.add(new Consumes(name, List.copyOf(parts)));
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            // Not a job the form can help with. It is still in the list.
+        }
     }
 
     /**

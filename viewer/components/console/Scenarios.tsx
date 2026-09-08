@@ -27,7 +27,7 @@ import { Head, Panel } from './Shell.tsx';
 import { useConsole } from '../../lib/console.tsx';
 import { Lab } from '../Lab.tsx';
 import {
-  distances, expand, firstDraft, perHour, toYaml, unplaced,
+  distances, expand, firstDraft, inputFor, perHour, toYaml, unplaced,
   BASE_UNITS, FAULT_KINDS, PAIRED,
   type Chaos, type CostRule, type Draft, type Fault, type Pool,
 } from '../../lib/author.ts';
@@ -265,6 +265,7 @@ export function Scenarios() {
             <Machines draft={draft} palette={palette} machines={machines} edit={edit} />
             <Scale draft={draft} edit={edit} />
             <Network draft={draft} palette={palette} edit={edit} />
+            <TheInput draft={draft} palette={palette} edit={edit} />
             <Costs draft={draft} palette={palette} edit={edit} />
             <Retries draft={draft} palette={palette} edit={edit} />
           </div>
@@ -769,6 +770,10 @@ function PoolCard({
             title="the job drives the run, and losim starts it on the first machine in the file"
             onClick={() => edit((d) => {
               d.job = j;
+              // The parts are the job's own, so changing the job changes them.
+              // Sizes for a part the new job also has are kept: switching between
+              // two word counts should not throw away the corpus you sized.
+              d.input = inputFor(palette.consumes, j, d.input);
               // The job is not placed — it runs on the first machine there is. So
               // saying "it starts here" is saying "this pool is first", and the
               // form moves it rather than writing a key the loader does not have.
@@ -1415,6 +1420,56 @@ function count(names: string[]): string {
   return names.length === 1
     ? names[0]
     : `any of ${names[0]}…${names[names.length - 1]}`;
+}
+
+/* ----------------------------------------------------------------- the input
+ *
+ * How big each part of the job's input is, at full size. The rows come from the
+ * job's own `shape()`, so the form cannot write a part the job does not consume —
+ * and cannot leave one out, both of which the run refuses.
+ *
+ * A count shrinks with the run and a constant does not, which is the one thing the
+ * panel has to teach: a rung of the ladder is a tenth as many lines of the same
+ * length, not a tenth of everything.
+ */
+function TheInput({
+  draft, palette, edit,
+}: {
+  draft: Draft;
+  palette: Palette;
+  edit: (f: (d: Draft) => void) => void;
+}) {
+  const shape = palette.consumes.find((c) => c.cls === draft.job);
+  if (!shape) return null;
+  const rows = inputFor(palette.consumes, draft.job, draft.input);
+  const set = (name: string, n: number) => edit((d) => {
+    d.input = inputFor(palette.consumes, d.job, d.input).map(
+      (p) => (p.name === name ? { name, n } : p));
+  });
+  const counts = shape.parts.filter((p) => p.noun);
+
+  return (
+    <Panel title="What the input is made of" note={`${draft.job} says; this file sizes`}>
+      {rows.map((r) => {
+        const part = shape.parts.find((p) => p.name === r.name)!;
+        return (
+          <div className="rule" key={r.name}>
+            <span><code>{r.name}</code></span>
+            <input type="number" min={1} step={1} value={r.n}
+                   onChange={(e) => set(r.name, Math.max(1, Math.round(Number(e.target.value) || 1)))} />
+            <span>{part.noun ? `${part.noun}s, at full size` : 'held at this, whatever the run size'}</span>
+          </div>
+        );
+      })}
+      {draft.scale > 1 && counts.length > 0 && (
+        <p className="aside">
+          A model of {draft.scale}× the run: the engine measures a fraction of{' '}
+          {counts.map((p) => p.name).join(' and ')} and projects from what it saw. Everything
+          else here is held.
+        </p>
+      )}
+    </Panel>
+  );
 }
 
 /* ----------------------------------------------------------------- the costs

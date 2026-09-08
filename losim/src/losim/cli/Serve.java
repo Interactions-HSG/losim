@@ -339,6 +339,21 @@ public final class Serve {
         }
         body.put("compiled", true);
         body.put("jobs", offer.jobs());
+        List<Object> consumes = new ArrayList<>();
+        for (Palette.Consumes c : offer.consumes()) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("cls", c.cls());
+            List<Object> parts = new ArrayList<>();
+            for (Palette.Consumes.Part p : c.parts()) {
+                Map<String, Object> one = new LinkedHashMap<>();
+                one.put("name", p.name());
+                one.put("noun", p.noun());
+                parts.add(one);
+            }
+            row.put("parts", parts);
+            consumes.add(row);
+        }
+        body.put("consumes", consumes);
         body.put("services", services);
         body.put("other", offer.other());
         send(x, 200, "application/json", Json.write(body).getBytes(StandardCharsets.UTF_8));

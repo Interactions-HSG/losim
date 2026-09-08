@@ -181,6 +181,24 @@ export interface InputPart {
   n: number;
 }
 
+/**
+ * The input rows a job's shape asks for, keeping whatever the draft already said.
+ *
+ * The names are the job's, so this is the only thing that can produce them: a form
+ * that let somebody type a part name would be a form that writes files the run
+ * refuses. A part with nothing said about it starts at 1, which is the smallest
+ * legal size and the run a scenario used to get by saying nothing.
+ */
+export function inputFor(
+  consumes: { cls: string; parts: { name: string; noun: string | null }[] }[],
+  job: string,
+  had: InputPart[],
+): InputPart[] {
+  const shape = consumes.find((c) => c.cls === job);
+  if (!shape) return [];
+  return shape.parts.map((p) => ({ name: p.name, n: had.find((x) => x.name === p.name)?.n ?? 1 }));
+}
+
 /** The biggest run the engine can measure — the top of its own probe ladder. */
 export const BASE_UNITS = 8000;
 
@@ -538,9 +556,8 @@ export function firstDraft(palette: Palette): Draft {
     takes: (worker?.methods ?? []).map((m) => ({
       runs: worker!.cls, rpc: m.name, refMs: 0, refNsPerUnit: 0,
     })),
-    // Nothing, because the palette does not yet say what any job's input is made
-    // of. A job that has one is refused at the run with the parts it wanted,
-    // which is a better first failure than a form guessing at names.
-    input: [],
+    // Whatever the chosen job says its input is made of, each part at 1. A job
+    // with no input gets no block, which is the file a plain Job has always had.
+    input: inputFor(palette.consumes, palette.jobs[0] ?? '', []),
   };
 }

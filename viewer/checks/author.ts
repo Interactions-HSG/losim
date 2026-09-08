@@ -54,6 +54,15 @@ function lab(): string {
 const PALETTE: Palette = {
   compiled: true,
   jobs: ['lab.Elastic', 'lab.WordCount'],
+  // `lab.Elastic` has an input and `lab.WordCount` does not, so the panel is
+  // exercised both ways by the drafts below.
+  consumes: [
+    { cls: 'lab.Elastic', parts: [
+      { name: 'lines', noun: 'line' },
+      { name: 'wordsPerLine', noun: null },
+      { name: 'vocabulary', noun: null },
+    ] },
+  ],
   services: [
     { cls: 'lab.Combiner', service: 'Worker', qualified: 'lab.Worker',
       methods: [{ name: 'Map', idempotent: true }, { name: 'Reduce', idempotent: true },

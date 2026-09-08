@@ -158,6 +158,15 @@ export interface Palette {
   compiled: boolean;
   log?: string;
   jobs: string[];
+  /**
+   * What each `Scalable` job's input is made of, in the order it declares the
+   * parts. Absent for a plain `Job`, which is never given one.
+   *
+   * `noun` is the singular of the thing being counted, and null for a constant —
+   * a part that is held at what the scenario said rather than shrinking with the
+   * run.
+   */
+  consumes: { cls: string; parts: { name: string; noun: string | null }[] }[];
   services: Offered[];
   /** How many other classes there are — so "nothing is a service" reads differently from "nothing compiled". */
   other: number;
@@ -175,6 +184,7 @@ export async function palette(): Promise<Palette | null> {
     compiled: body.compiled ?? false,
     log: body.log,
     jobs: body.jobs ?? [],
+    consumes: body.consumes ?? [],
     services: body.services ?? [],
     other: body.other ?? 0,
     instances: body.instances ?? [],
