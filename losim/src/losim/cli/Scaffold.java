@@ -247,6 +247,25 @@ final class Scaffold {
               coordinator: { instance: m5.large, zone: eu-central-1a }
               worker:      { instance: c5.large, zone: eu-central-1a, runs: [%s] }
             """.formatted(job, String.join(", ", runs)));
+        // Commented, not written. A plain Job is never handed an input, so a live
+        // block here would refuse the first run — and the first run is the one
+        // thing this file has to do. It is uncommented at the same moment the job
+        // becomes Scalable, which is edit 4.
+        sb.append("""
+
+            # How big the input is, once the job has one. A job whose input has a
+            # size implements losim.api.Scalable, declares what it is made of, and
+            # is handed it — so the number lives here rather than in the Java,
+            # where no sweep could reach it. Above scale: 1 it is required.
+            #
+            # The names are your job's, from its shape(). One it does not declare
+            # is refused with the line it is on, and so is one it declares and this
+            # file leaves out.
+            #
+            # input:
+            #   items:      240      # a count: the engine shrinks these
+            #   valueBytes: 65536    # a constant: held at every size
+            """);
         if (takes.isEmpty()) return sb.toString();
         sb.append("""
 

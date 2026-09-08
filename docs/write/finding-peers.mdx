@@ -1,6 +1,6 @@
 ---
 title: "Finding peers"
-description: "By what they serve, never by hostname — and why there is no liveness check."
+description: "By what they serve, never by hostname ;  and why there is no liveness check."
 icon: "magnifying-glass"
 ---
 
@@ -32,24 +32,24 @@ the coordinator and usually serves nothing anyway.
 
 ```proto
 package lab;
-service Thumbnailer { … }
+service Thumbnailer { ... }
 ```
 
 ```java
-here.peersServing("Thumbnailer");        // works — the bare name
-here.peersServing("lab.Thumbnailer");    // works — the fully qualified name
+here.peersServing("Thumbnailer");        // works ;  the bare name
+here.peersServing("lab.Thumbnailer");    // works ;  the fully qualified name
 here.peersServing("Shrinker");           // finds nothing: that is your Java class
 ```
 
 Both forms are registered. The Java class name is what the **scenario** names in
-`runs:`, and it is a different string — which is why the scenario key is called
+`runs:`, and it is a different string ;  which is why the scenario key is called
 `runs:` and not `serves:`. A machine **runs** your class; it **serves** the
 service that class implements. Two words, because they are two things.
 
 ## Dead machines are not listed, and that is not a liveness check
 
 ```java
-cluster.serving("Thumbnailer")   // ["w0", "w2", "w3"] — w1 was killed
+cluster.serving("Thumbnailer")   // ["w0", "w2", "w3"] ;  w1 was killed
 ```
 
 <Note>
@@ -58,7 +58,7 @@ to ask "is `w1` alive?", because no real network offers one, and a design that
 depends on knowing is a design that will not survive contact with one.
 
 A machine that has gone is a machine that has stopped answering. Finding that out
-still costs a call and a deadline — and it will, because between your last call to
+still costs a call and a deadline ;  and it will, because between your last call to
 `serving()` and your next dispatch, a machine can leave.
 </Note>
 
@@ -82,13 +82,13 @@ for (var batch : batches) {
 
 The first keeps sending work to a machine that died at 900 refMs, and pays a full
 deadline for each batch. The second stops after the first failure. Neither is
-*wrong* — the second costs a lookup per batch — but only one of them is a design
+*wrong* ;  the second costs a lookup per batch ;  but only one of them is a design
 that noticed.
 
 ## Registration, when discovery is not enough
 
 Discovery tells you a machine serves something. It does not tell you how big it is,
-what zone it is in, or how loaded it is — and there is no API for asking about
+what zone it is in, or how loaded it is ;  and there is no API for asking about
 someone else's machine.
 
 So a real resource manager has a registration call, and yours will too:
@@ -120,7 +120,7 @@ what makes placement interesting.
 Losim.current().here().zone()      // "eu-central-1b"
 ```
 
-Only your own — but a peer will tell you its zone if you ask it, and that is worth
+Only your own ;  but a peer will tell you its zone if you ask it, and that is worth
 asking. Traffic **between** availability zones is billed and traffic inside one is
 free, and cross-zone latency in a scenario is typically five to ten times
 same-zone. A coordinator that ignores zones is a coordinator whose bill has a line

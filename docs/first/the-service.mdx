@@ -143,12 +143,12 @@ public final class Shrinker extends ThumbnailerBase {
     simulating anything. That is what the adapter bought.
   </Card>
   <Card title="Three lines that are losim's" icon="circle-info">
-    One `records(…)` and two `reveal(…)`. All three are optional and all three
+    One `records(...)` and two `reveal(...)`. All three are optional and all three
     earn their place. The next sections say what each is for.
   </Card>
 </Columns>
 
-### `takes:` — what this call costs
+### `takes:` ;  what this call costs
 
 Not here. It goes in the scenario, under the class that serves it:
 
@@ -162,11 +162,11 @@ Two terms, answering different questions:
 
 | | |
 |---|---|
-| `refMs` | what one call takes **regardless of what is in it** — the fixed part. Known before the handler runs, and slept before it. |
+| `refMs` | what one call takes **regardless of what is in it** ;  the fixed part. Known before the handler runs, and slept before it. |
 | `refNsPerUnit` | what each unit of input adds. Nothing outside the handler can know how much input there was, so the handler declares it with `units(n)` and this part is slept **after the body returns**, before the response leaves. |
 
 Both are **reference-machine** time, so they compose with everything else: the
-interceptor sleeps `refMs × machineFactor ÷ k_time`. A machine with half the
+interceptor sleeps `refMs x machineFactor / k_time`. A machine with half the
 reference's vCPUs takes twice as long, and the whole run is compressed by `k_time`.
 
 <Warning>
@@ -184,19 +184,19 @@ of an identical workload. [The full argument ->](/write/declaring-time)
 An unannotated method takes **no time**, deliberately, rather than a made-up
 amount.
 
-### `units(n)` — what this call processed
+### `units(n)` ;  what this call processed
 
 Two things need it. `refNsPerUnit` is charged against it, and the scale engine
 needs to know which independent variable a cost site is a function of. A handler
 that never declares a count is charged the fixed part only, and its span says so.
 
-### `reveal(key, value)` — what the computation was doing
+### `reveal(key, value)` ;  what the computation was doing
 
 Without it, a trace says a handler *happened*. With it, a trace says what it did.
 
 <Tip>
 **Prefer the primitive overloads.** `reveal(String, Object)` boxes an `int` at the
-call site — before losim's accounting can open — so the box is charged to your
+call site ;  before losim's accounting can open ;  so the box is charged to your
 program though it exists only because the parameter is an `Object`. At one call
 per handler that is invisible. At a thousand it bends the fitted memory exponent
 by 0.04, and the exponent is the one number that must not bend.
@@ -224,7 +224,7 @@ No cluster, no scenario, no interceptor, no clock. Set a breakpoint inside
 `shrink` and step into it: it is ordinary Java, and stopping on it stops nothing
 else, because nothing else is running.
 
-losim is on the classpath only because `Losim.current()` has to resolve — and it
+losim is on the classpath only because `Losim.current()` has to resolve ;  and it
 does nothing here. Recording calls are silent; state calls throw.
 [Why that asymmetry ->](/write/unit-testing)
 

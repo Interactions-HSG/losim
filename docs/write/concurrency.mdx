@@ -24,7 +24,7 @@ clock, and a handler really can race with itself.
 ```
 
 Recorded when a call waited more than a microsecond for a core. Without it, a
-queued call would be indistinguishable from a slow one — which is the single most
+queued call would be indistinguishable from a slow one ;  which is the single most
 common misreading of a cluster under load.
 
 The series carries both halves per machine:
@@ -33,7 +33,7 @@ The series carries both halves per machine:
 |---|---|
 | `inflight` | handlers **using** a core right now |
 | `queued` | handlers **waiting** for one |
-| `busyPct` | `inflight ÷ vcpu`, capped at 100 |
+| `busyPct` | `inflight / vcpu`, capped at 100 |
 
 A machine at `busyPct: 100` with a growing `queued` is a machine you are sending
 too much to. A machine at `busyPct: 0` with work left to do is a machine your
@@ -52,8 +52,8 @@ the machine reads cheaper and less busy than it is.
 ```java
 new Thread(() -> heavyWork()).start();                    // flagged
 Executors.newFixedThreadPool(4).submit(this::heavyWork);  // flagged
-CompletableFuture.supplyAsync(this::heavyWork);           // flagged — common pool
-list.parallelStream().map(this::heavyWork).toList();      // flagged — common pool
+CompletableFuture.supplyAsync(this::heavyWork);           // flagged ;  common pool
+list.parallelStream().map(this::heavyWork).toList();      // flagged ;  common pool
 Thread.ofVirtual().start(() -> heavyWork());              // flagged
 ```
 
@@ -75,7 +75,7 @@ Wrap the machine's executor with Context.currentContextExecutor.
   <Card title="Serve more calls at once" icon="arrows-split-up-and-left">
     A machine's concurrency comes from its pool serving several calls
     simultaneously. Batch smaller, dispatch more calls, and the pool does the rest
-    — that is what the pool is.
+    ;  that is what the pool is.
   </Card>
   <Card title="Call more machines" icon="server">
     Work is spread by **calling peers**, not by starting threads. That is the
@@ -87,14 +87,14 @@ Wrap the machine's executor with Context.currentContextExecutor.
 Raw threads are **not banned**, and real concurrency inside a machine is a feature.
 What is flagged is work outside the machine's own pool, because that work is
 attributed to nobody. If you genuinely need to fan out inside one machine, the
-mechanism exists — but for almost everything a course asks for, more concurrent
+mechanism exists ;  but for almost everything a course asks for, more concurrent
 calls is the answer, and it is the answer that scales.
 </Note>
 
 ## Concurrency inside a handler is real
 
 Two calls into the same service instance run on two threads against the same
-fields. If your service holds a `HashMap`, two handlers can corrupt it — and
+fields. If your service holds a `HashMap`, two handlers can corrupt it ;  and
 losim will not save you, because that is your program behaving exactly as it would.
 
 ```java

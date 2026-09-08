@@ -35,7 +35,7 @@ boolean isRunning()
 False in a bare unit test. Use it to guard the state calls if a handler genuinely
 needs the machine's identity.
 
-## Recording — silent outside a run
+## Recording ;  silent outside a run
 
 <ResponseField name="reveal(String key, int value)" type="void">
   Also `long`, `double`, `boolean`, `String`, and an `Object` fallback.
@@ -46,7 +46,7 @@ needs the machine's identity.
 
   <Warning>
   **Prefer the primitive overloads.** `reveal(String, Object)` boxes an `int` at the
-  call site — before losim's accounting can open — so the box is charged to your
+  call site ;  before losim's accounting can open ;  so the box is charged to your
   program though it exists only because the parameter is an `Object`. At one call
   per handler that is invisible; at a thousand it bends the fitted memory exponent
   by 0.04, and the exponent is the one number that must not bend.
@@ -66,7 +66,7 @@ needs the machine's identity.
   span says so.
 </ResponseField>
 
-<ResponseField name="wroteDisk(long bytes)" type="void — but throws">
+<ResponseField name="wroteDisk(long bytes)" type="void ;  but throws">
   Records that this call wrote bytes to the machine's disk.
 
   **Not a recording call, and it does not behave like one.** A machine whose disk is
@@ -75,7 +75,7 @@ needs the machine's identity.
   the write and carrying on would let a design that cannot fit on its disks appear
   to work.
 
-  Silent outside a run — a unit test has no disk to fill.
+  Silent outside a run ;  a unit test has no disk to fill.
 </ResponseField>
 
 ## Time
@@ -88,11 +88,11 @@ needs the machine's identity.
   machine, where declared work does; and it does not mark the machine busy, because a
   backoff occupies no vCPU.
 
-  For a duration only the running program knows — a backoff that grows with the
+  For a duration only the running program knows ;  a backoff that grows with the
   attempt, a poll interval, a lease. Returns immediately outside a run.
 </ResponseField>
 
-## State — throws outside a run
+## State ;  throws outside a run
 
 <ResponseField name="machine()" type="String">
   The name of the machine serving this call.
@@ -100,7 +100,7 @@ needs the machine's identity.
 
 <ResponseField name="here()" type="Spec">
   What this machine is made of: instance type, zone, vCPUs and caps. Local knowledge
-  only — this machine's, never a peer's. Free to call.
+  only ;  this machine's, never a peer's. Free to call.
   [Spec ->](/ref/api-spec)
 </ResponseField>
 
@@ -109,7 +109,7 @@ needs the machine's identity.
 </ResponseField>
 
 <ResponseField name="peersServing(String service)" type="List<String>">
-  The machines serving a given gRPC service, by name — the service's name as written
+  The machines serving a given gRPC service, by name ;  the service's name as written
   in the `.proto`, bare (`Thumbnailer`) or qualified (`lab.Thumbnailer`).
 
   Never includes this machine: a blocking call to itself would occupy one of its own
@@ -120,14 +120,14 @@ needs the machine's identity.
   A channel to another machine, with losim on it. Made once and owned by the
   machine, so a handler never sees a lifetime.
 
-  What comes back is an ordinary `io.grpc.Channel` — hand it to a generated stub and
+  What comes back is an ordinary `io.grpc.Channel` ;  hand it to a generated stub and
   the call site is plain gRPC. What it is **not** is a channel of your own: losim
   rides on gRPC's own interceptors, and a channel built by hand has none of them
   attached.
 </ResponseField>
 
 <ResponseField name="clockMs()" type="double">
-  Simulated milliseconds since the run began — the clock the scenario was written
+  Simulated milliseconds since the run began ;  the clock the scenario was written
   against, not wall clock.
 </ResponseField>
 

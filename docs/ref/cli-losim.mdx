@@ -22,7 +22,7 @@ exec java -cp "$CP" losim.cli.Main "$@"
 
 **It builds before it runs**, so there is no separate step to have forgotten and
 no stale classpath to explain. There is also no path to a `losim.jar` anywhere in
-it — the jar is wherever Gradle put it, which is a package cache under a name the
+it ;  the jar is wherever Gradle put it, which is a package cache under a name the
 build chose.
 
 ## The toolchain file
@@ -32,9 +32,9 @@ build chose.
 
 ```
 losim=1.5.0
-classpath=/…/losim-1.5.0.jar:/…/grpc-api-1.83.1.jar:…
-protoc=/…/build/losim/bin/protoc
-protoc-gen-grpc-java=/…/build/losim/bin/protoc-gen-grpc-java
+classpath=/.../losim-1.5.0.jar:/.../grpc-api-1.83.1.jar:...
+protoc=/.../build/losim/bin/protoc
+protoc-gen-grpc-java=/.../build/losim/bin/protoc-gen-grpc-java
 ```
 
 That file **is** what losim knows about this project. There is no `lib/` to look
@@ -42,7 +42,7 @@ in and nothing to configure: a directory is a lab if a build here declared a
 classpath, and it is that classpath that gets compiled and run against.
 
 <Warning>
-It names absolute paths on one machine, so it is generated and never committed —
+It names absolute paths on one machine, so it is generated and never committed ; 
 `build/` is gitignored. Copy a working directory to another machine (which is what
 marking a submission is) and the file arrives naming a laptop that is not there.
 losim disregards it and says so, rather than reporting the code as broken; the fix
@@ -58,7 +58,7 @@ line.
 ## Pinning what it resolved
 
 A lab's classpath used to be jars committed to its repository. It is a resolved
-graph now, and locking is what puts back what that cost — that the same build
+graph now, and locking is what puts back what that cost ;  that the same build
 tomorrow resolves the same bytes, and that a number a run produces does not depend
 on what a package manager felt like today.
 
@@ -71,7 +71,7 @@ but that line on its own does nothing until the file exists.
 
 <Warning>
 The task has to be named. Gradle locks the configurations an invocation actually
-resolves, and a bare `gradle --write-locks` resolves none — so it succeeds, prints
+resolves, and a bare `gradle --write-locks` resolves none ;  so it succeeds, prints
 nothing, and writes no lockfile. `losimToolchain` resolves the three that decide
 what a run sees: the classpath, `protoc`, and the gRPC plugin.
 </Warning>

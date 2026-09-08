@@ -32,7 +32,7 @@ At least one machine is required.
 </ParamField>
 
 <ParamField path="zone" type="string or list" default="default">
-  For a single machine, a string. For a pool, a list — zones are dealt **round
+  For a single machine, a string. For a pool, a list ;  zones are dealt **round
   robin**, so `[a, b]` over four machines gives `a b a b`.
 </ParamField>
 
@@ -41,7 +41,7 @@ At least one machine is required.
   generated and each having a no-argument constructor. losim builds one instance
   per machine.
 
-  A machine with no `runs` still exists and still listens — it offers nothing.
+  A machine with no `runs` still exists and still listens ;  it offers nothing.
   That is what a coordinator usually is.
 </ParamField>
 
@@ -51,8 +51,8 @@ At least one machine is required.
 </ParamField>
 
 <ParamField path="prefix" type="string" default="the pool's key">
-  Machines are named `prefix0` … `prefix{count-1}`. A pool called `workers` with
-  `prefix: w` produces `w0 w1 w2 w3` — **not** `workers0`, which matters when you
+  Machines are named `prefix0` ... `prefix{count-1}`. A pool called `workers` with
+  `prefix: w` produces `w0 w1 w2 w3` ;  **not** `workers0`, which matters when you
   aim a fault at one.
 </ParamField>
 
@@ -66,7 +66,7 @@ At least one machine is required.
 
 <ParamField path="overrides" type="map by machine name">
   Per-machine changes within a pool. Accepts `instance`, `zone`, `memoryMb` and
-  `diskMb` — not `runs`; every machine in a pool runs the same code.
+  `diskMb` ;  not `runs`; every machine in a pool runs the same code.
 </ParamField>
 
 ## Runs, and serves
@@ -75,11 +75,11 @@ At least one machine is required.
 | | names | example |
 |---|---|---|
 | `runs:` | your **Java class** | `lab.Shrinker` |
-| `peersServing(…)`, `cluster.serving(…)` | the **service in your `.proto`** | `Thumbnailer` |
+| `peersServing(...)`, `cluster.serving(...)` | the **service in your `.proto`** | `Thumbnailer` |
 
 Two different strings, and now two different words for them. A machine **runs**
 a class, because that is what losim constructs; it **serves** the service that
-class implements, because that is what peers find it by. The trace says both —
+class implements, because that is what peers find it by. The trace says both ; 
 `runs` is what you wrote, `serves` is what it turned out to offer.
 
 This key was called `serves:` once, which meant a scenario saying
@@ -93,7 +93,7 @@ The most useful thing in this section:
 ```yaml
 overrides:
   w3: { memoryMb: 4 }         # cannot hold its share, and will say so
-  w2: { instance: a1.medium } # one core against the pool's two — half the machine
+  w2: { instance: a1.medium } # one core against the pool's two ;  half the machine
 ```
 
 A cluster where every machine is identical teaches nothing about placement, and

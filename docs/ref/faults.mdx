@@ -32,7 +32,7 @@ refused: *"this fault does two things at once (kill and freeze); write them as t
 </ParamField>
 
 <ParamField path="freeze: <machine>" type="fault">
-  A stop-the-world pause. Calls **do not fail** — they are held at the door, on the
+  A stop-the-world pause. Calls **do not fail** ;  they are held at the door, on the
   machine's own threads, so the caller cannot tell it from slowness.
 
   `for: <duration>` (default `1000 refMs`) says how long. The thaw is scheduled
@@ -40,7 +40,7 @@ refused: *"this fault does two things at once (kill and freeze); write them as t
 </ParamField>
 
 <ParamField path="degrade: <machine>" type="fault">
-  Every declared cost is multiplied. `factor:` is **required** — *"degrade needs a
+  Every declared cost is multiplied. `factor:` is **required** ;  *"degrade needs a
   factor: how many times slower the machine becomes."*
 
   A straggler rather than a casualty, which is the failure most designs handle
@@ -51,8 +51,8 @@ refused: *"this fault does two things at once (kill and freeze); write them as t
   A `spot_notice` event fires at `at:`, then the machine is killed `notice:` later
   (default `0 refMs`). `restart_after:` works here too.
 
-  The bill prices a machine that received a notice at the spot rate — 70% off by
-  default — so this is a genuine trade rather than a hazard.
+  The bill prices a machine that received a notice at the spot rate ;  70% off by
+  default ;  so this is a genuine trade rather than a hazard.
 </ParamField>
 
 <ParamField path="partition: [a, b]" type="fault">
@@ -67,7 +67,7 @@ refused: *"this fault does two things at once (kill and freeze); write them as t
 </ParamField>
 
 <ParamField path="restart: <machine>" type="fault">
-  Brings a machine back. What it remembers depends on how it was registered — a
+  Brings a machine back. What it remembers depends on how it was registered ;  a
   machine declared with `runs:` gets **fresh service instances**, so whatever it
   was holding is gone.
 
@@ -105,8 +105,8 @@ this message exists for.
 
 ## Faults are scheduled against a clock that starts at zero
 
-Building in-process servers costs real milliseconds, and at 20× that would
-be hundreds of reference milliseconds of a run that has not begun — putting every
+Building in-process servers costs real milliseconds, and at 20x that would
+be hundreds of reference milliseconds of a run that has not begun ;  putting every
 early fault in the past, so they would all fire at once during setup. The clock is
 zeroed after the cluster is built, so a fault written at 120 refMs lands at 120 refMs
 in the trace.
@@ -114,6 +114,6 @@ in the trace.
 ## Faults do not vary with the seed
 
 A fault at 900 refMs is at 900 refMs in every seed. That is what makes them right
-for a specific lesson — *the coordinator must notice a machine that went away after
-the survey and before the work finished* — and what makes [`chaos`](/ref/chaos) the
+for a specific lesson ;  *the coordinator must notice a machine that went away after
+the survey and before the work finished* ;  and what makes [`chaos`](/ref/chaos) the
 right tool for *does this survive afternoons*.

@@ -22,7 +22,7 @@ icon: "layer-group"
 <Note>
 There are no ports, no containers, no simulated scheduler, and no virtual clock. The
 machines run on real threads against a real wall clock, and losim shapes what happens
-through **gRPC's own extension points** — one in-process server per machine, one
+through **gRPC's own extension points** ;  one in-process server per machine, one
 executor per machine sized to its vCPUs, and an interceptor on each side of every call.
 </Note>
 
@@ -63,8 +63,8 @@ inside the simulator.
 
 | | inside a run | outside one |
 |---|---|---|
-| recording — `reveal`, `log`, `units`, `sleep` | reach the machine | **silent** |
-| state — `machine`, `here`, `peers`, `clockMs`, `channelTo` | reach the machine | **throw** |
+| recording ;  `reveal`, `log`, `units`, `sleep` | reach the machine | **silent** |
+| state ;  `machine`, `here`, `peers`, `clockMs`, `channelTo` | reach the machine | **throw** |
 
 A silent `reveal` lets a handler be called directly from a test. A **fabricated**
 empty cluster would let the same test pass while asserting nothing, which is worse than
@@ -79,7 +79,7 @@ anything the handler does on that thread.
 <Warning>
 The context does **not** follow work onto a thread the machine did not create. Either
 the machine's executor is wrapped once with `Context.currentContextExecutor`, or that
-work loses its machine identity — and is flagged rather than silently attributed to
+work loses its machine identity ;  and is flagged rather than silently attributed to
 nobody.
 </Warning>
 
@@ -92,7 +92,7 @@ exactly one consequence you have to know about:
 <Note>
 **The in-process transport does not serialize.** It hands the receiver the same
 object reference. Protobuf messages are immutable, so passing by reference is
-otherwise harmless — but it means a byte count can never be inferred from the
+otherwise harmless ;  but it means a byte count can never be inferred from the
 transport. It has to come from marshalling the message explicitly, which is what
 losim does, plus the five bytes of framing gRPC would have put around it.
 </Note>
@@ -101,12 +101,12 @@ losim does, plus the five bytes of framing gRPC would have put around it.
 
 | | |
 |---|---|
-| `losim.api` | the facade — all a program can reach |
+| `losim.api` | the facade ;  all a program can reach |
 | `losim.runtime` | the cluster, the machines, the two interceptors |
 | `losim.trace` | the three-channel recorder and the trace it writes |
 | `losim.time` | the compressed clock, and fault placement |
 | `losim.res` | instance types, the heap walk, losim's own meter |
-| `losim.scale` | the probe grid, the laws, the solve — and the refusals |
+| `losim.scale` | the probe grid, the laws, the solve ;  and the refusals |
 | `losim.scenario` | a cluster and its weather, as data |
 | `losim.verify` | what makes a number stop meaning what it says |
 | `losim.price` | four buckets, and what cannot be put in them |

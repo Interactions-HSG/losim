@@ -4,7 +4,7 @@ description: "Every top-level key, and the rule that governs all of them."
 icon: "file-lines"
 ---
 
-A cluster, its weather and its bad afternoon — as data. Nothing here is authored
+A cluster, its weather and its bad afternoon ;  as data. Nothing here is authored
 that the run could find out for itself; anything that needs code points at a class
 by name, so the file stays diffable,
 sweepable and readable by someone who did not write it.
@@ -18,11 +18,11 @@ scale: 5000                   # number,   default 1, at least 1
 tightMargin: false            # bool,     default false
 mode: direct                  # direct | scaled, default direct
 
-machines: { … }               # required, at least one
-network:  { … }
-faults:   [ … ]
-chaos:    [ … ]
-retries:  [ … ]
+machines: { ... }               # required, at least one
+network:  { ... }
+faults:   [ ... ]
+chaos:    [ ... ]
+retries:  [ ... ]
 ```
 
 Any other key at this level is refused with the line it was written on.
@@ -58,7 +58,7 @@ Any other key at this level is refused with the line it was written on.
 
 <Warning>
 **Everything that can be wrong is refused at load, with the line it was written
-on** — an unknown key, an unknown instance type, a duration that forgot its unit, a
+on** ;  an unknown key, an unknown instance type, a duration that forgot its unit, a
 fault aimed at a machine that is not in the cluster, a retry policy the schema does
 not support, two machines with the same name.
 

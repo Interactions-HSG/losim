@@ -1,6 +1,6 @@
 ---
 title: "Writing a job that can be scaled"
-description: "Four things a system has to do before the engine can project it — and what happens when it does not."
+description: "Four things a system has to do before the engine can project it ;  and what happens when it does not."
 icon: "up-right-and-down-left-from-center"
 ---
 
@@ -23,7 +23,7 @@ will say so: the engine varies `units` up the probe ladder, sees nothing move,
 and finds that no resource is a function of anything.
 
 The same goes for the seed. A workload that draws from a constant of its own is a
-workload whose every run is the same afternoon — so the engine's twenty probe runs
+workload whose every run is the same afternoon ;  so the engine's twenty probe runs
 measure one thing twenty times, and the error bar it computes is meaningless.
 </Warning>
 
@@ -46,14 +46,14 @@ Losim.current().reveal("payloadKb", bytes / 1024.0);
 ```
 
 Peak memory on a machine that accumulates is usually **not** a function of how many
-records went past. It is a function of how many *distinct* things it had to hold —
+records went past. It is a function of how many *distinct* things it had to hold ; 
 and that grows at a different rate. Fit against the wrong variable and you get an
 exponent that will not survive a change of input.
 
 <Note>
 Measured on a workload where those two genuinely diverge: fitting memory against
 the revealed distinct count gives R² 1.0000 and a projection within 3% of ground
-truth. Fitting it against units gives a projection **34% out** — which is exactly
+truth. Fitting it against units gives a projection **34% out** ;  which is exactly
 what multiplying the small run by the size ratio would have got you.
 
 Every numeric `reveal` becomes a candidate variable. The engine fits each resource
@@ -72,13 +72,13 @@ var workers = cluster.serving("Thumbnailer");    // however many there are
 ```
 
 A job with `for (int i = 0; i < 4; i++)` hard-coded in it cannot be run at two
-workers or at eight, so the cluster axis collapses — and a resource that grows with
+workers or at eight, so the cluster axis collapses ;  and a resource that grows with
 the cluster becomes indistinguishable from one that grows with the data. That is the
 failure mode that makes every projection plausible and wrong, because nothing looks
 broken.
 
 <Tip>
-Singleton machines — the coordinator — are left alone when the cluster is resized.
+Singleton machines ;  the coordinator ;  are left alone when the cluster is resized.
 Only pools with `count:` are regenerated, so put your workers in a pool.
 </Tip>
 
@@ -115,10 +115,10 @@ thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 units (x5,000)
 
   memoryMb   = 0.0597 + 0.00187 * revealed.distinctItems^1.013  (R2 1.0000, wobble 0.000)
   wireMb     = 0.0    + 0.000151 * units^0.952                (R2 1.0000, wobble 0.004)
-  diskMb       REFUSED: the ladder bends — over the lower half it grows as units^0.59
-               and over the upper half as units^0.87 …
+  diskMb       REFUSED: the ladder bends ;  over the lower half it grows as units^0.59
+               and over the upper half as units^0.87 ...
   makespan     REFUSED: its exponent moves by 0.66 between independent seed sets of the
-               same workload, which over a factor of 5000 is an error bar of x268 …
+               same workload, which over a factor of 5000 is an error bar of x268 ...
 
                      observed              projected
   memoryMb              6.823                34.07 k  +-x1.10
@@ -134,8 +134,8 @@ until the cluster bill arrives.
 
 <AccordionGroup>
   <Accordion title="Avoid thresholds, or expect the disk law to be refused" icon="stairs">
-    Code that switches behaviour above some size — spilling above a count, changing
-    algorithm above a length — makes the ladder **bend**, and no extrapolation
+    Code that switches behaviour above some size ;  spilling above a count, changing
+    algorithm above a length ;  makes the ladder **bend**, and no extrapolation
     across a bend means anything. The engine catches it by splitting the ladder in
     half and comparing the exponents.
 
@@ -158,7 +158,7 @@ until the cluster bill arrives.
     dominated by something the workload does not move.
   </Accordion>
   <Accordion title="Declare faults if you want the projection to survive them" icon="cloud-bolt">
-    A killed machine's work is redone elsewhere, so a survivor absorbs its share —
+    A killed machine's work is redone elsewhere, so a survivor absorbs its share ; 
     measured, that roughly doubles peak memory. A model fitted only on clean runs
     under-predicts by that much, and it under-predicts **optimistically**.
 
@@ -169,7 +169,7 @@ until the cluster bill arrives.
   <Accordion title="Do not expect a timeline" icon="clock">
     The makespan is the noisiest thing losim measures, and on short handlers its
     exponent moves more between seed sets than the effect being measured. It is
-    routinely refused — and because capacity is the largest line on the bill and
+    routinely refused ;  and because capacity is the largest line on the bill and
     depends on the timeline, the projected bill routinely says nobody can tell you
     what the machines cost.
 

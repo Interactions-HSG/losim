@@ -26,7 +26,7 @@ try {
 
 A machine whose disk is full cannot take the write, so the handler fails the way it
 would have failed for real. Recording the write and carrying on would let a design
-that cannot fit on its disks appear to work — the same mistake as an out-of-memory
+that cannot fit on its disks appear to work ;  the same mistake as an out-of-memory
 that only prints a warning.
 
 The trace records it once per machine:
@@ -39,7 +39,7 @@ The trace records it once per machine:
 
 <Warning>
 **Do not write a real file.** `Files.write`, `FileOutputStream`, `RandomAccessFile`
-— none of them throw, none of them are seen by the disk model, none of them are
+;  none of them throw, none of them are seen by the disk model, none of them are
 capped, and all of them write to the host, outside the one-machine boundary. The
 machine's disk figure becomes a lower bound and the verifier says so beside it.
 </Warning>
@@ -61,7 +61,7 @@ Losim.current().wroteDisk(spill.getSerializedSize());
 
 <Note>
 Nothing checks that you declared the truth, and nothing can. This is a claim about
-your design, like a declared duration — and like one, what matters is that it is
+your design, like a declared duration ;  and like one, what matters is that it is
 consistent between the designs you are comparing.
 </Note>
 
@@ -69,8 +69,8 @@ consistent between the designs you are comparing.
 
 There is no read side, on purpose. A design that spills and re-reads pays for the
 spill; re-reading costs whatever the scenario says it costs. Adding a read API
-would mean modelling a filesystem, and the interesting question — *does this fit,
-and what does the storage cost* — is answered without one.
+would mean modelling a filesystem, and the interesting question ;  *does this fit,
+and what does the storage cost* ;  is answered without one.
 
 ## Caps
 
@@ -87,7 +87,7 @@ machines:
       w3: { diskMb: 32 }         # deliberately too small
 ```
 
-The catalogue's storage-shaped instance is `i3.large`; everything else has 8–32 GB.
+The catalogue's storage-shaped instance is `i3.large`; everything else has 8-32 GB.
 Choosing an instance family is itself a design decision, and the bill will price it.
 
 ## Everywhere it appears
@@ -103,8 +103,8 @@ Choosing an instance family is itself a design decision, and the bill will price
 Disk is often the resource whose law the engine **refuses**, and for an instructive
 reason: code that spills only above a threshold behaves differently small than
 large, so the ladder bends between the low end and the high end. R² over the whole
-ladder still scores about 0.74 — which a merely noisy straight line reaches just as
-easily — so no threshold on R² could separate them. The engine splits the ladder
+ladder still scores about 0.74 ;  which a merely noisy straight line reaches just as
+easily ;  so no threshold on R² could separate them. The engine splits the ladder
 instead. [Refusals ->](/engine/refusals)
 </Tip>
 
@@ -137,7 +137,7 @@ Experiments.here()
 
 **What to look for.** `w1` throws where `w0` does not, and the `disk_full` marker is
 on the bar at the instant it happened. In the [ledger](/viewer/views#the-ledger) the
-consumption bucket now has a storage line that climbs as the run goes on — which is
+consumption bucket now has a storage line that climbs as the run goes on ;  which is
 the line a better algorithm moves.
 
 <Card title="Next: concurrency" icon="arrow-right" href="/write/concurrency">

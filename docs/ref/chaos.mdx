@@ -13,7 +13,7 @@ chaos:
 
 <Note>
 A scenario with a fault at 900 refMs teaches the cluster to survive 900 refMs. A rate
-teaches it to survive **whenever**, which is the harder and more honest thing — and
+teaches it to survive **whenever**, which is the harder and more honest thing ;  and
 it is why sweeps exist: one seed shows a design survived an afternoon, twenty show
 it survives afternoons.
 </Note>
@@ -30,7 +30,7 @@ thumbs.yaml:33: chaos cannot 'explode'; it can kill, freeze or degrade
 ## Fields
 
 <ParamField path="every" type="duration" required>
-  The **mean** gap between events. Draws are exponential — `-ln(1 - u) × every` —
+  The **mean** gap between events. Draws are exponential ;  `-ln(1 - u) x every` ; 
   so the gaps vary the way real bad afternoons do rather than arriving on a metronome.
 </ParamField>
 
@@ -57,7 +57,7 @@ thumbs.yaml:33: chaos cannot 'explode'; it can kill, freeze or degrade
   "detail": { "kind": "kill", "among": "workers", "atRefMs": 1843.2 } }
 ```
 
-followed by the ordinary `kill`, `freeze` or `degrade` event for that machine — so a
+followed by the ordinary `kill`, `freeze` or `degrade` event for that machine ;  so a
 reader can tell a scripted fault from a drawn one, and both are otherwise identical.
 
 ## A rate has no horizon

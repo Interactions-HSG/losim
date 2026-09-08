@@ -17,7 +17,7 @@ crossZone:   3 refMs
 | | |
 |---|---|
 | `refMs`, `refms` | reference milliseconds |
-| `refSeconds`, `refSec`, `refS`, `refs` | reference seconds — multiplied by 1000 |
+| `refSeconds`, `refSec`, `refS`, `refs` | reference seconds ;  multiplied by 1000 |
 
 The number may have a decimal point, and whitespace before the unit is optional:
 `0.5 refMs`, `2refSeconds` and `900refMs` are all accepted.
@@ -41,7 +41,7 @@ k_time.
 **Why this is worth refusing.** A run is compressed by `k_time`, which is a global
 factor whoever writes the scenario never sees at the point of writing a duration. A
 bare `900` could mean 900 milliseconds of the simulated world or 900 of your
-afternoon, and at 40× those differ by a factor of forty.
+afternoon, and at 40x those differ by a factor of forty.
 
 Writing `refMs` costs five characters and removes the whole class of question.
 </Note>
@@ -53,18 +53,18 @@ claim about how long something takes *there*, which stays true whatever cluster 
 lands on:
 
 ```
-actual wall time  =  refMs × (2 ÷ vcpu) × degradeFactor ÷ k_time
+actual wall time  =  refMs x (2 / vcpu) x degradeFactor / k_time
 ```
 
 | | |
 |---|---|
-| a 2-vCPU machine | ×1 |
-| a 4-vCPU machine | ×0.5 |
-| a 16-vCPU machine | ×0.125 |
-| a machine under `degrade: factor: 4` | ×4 on top |
+| a 2-vCPU machine | x1 |
+| a 4-vCPU machine | x0.5 |
+| a 16-vCPU machine | x0.125 |
+| a machine under `degrade: factor: 4` | x4 on top |
 
 <Warning>
-That multiplication applies to **work** — what `takes:` declares. It does **not** apply to
+That multiplication applies to **work** ;  what `takes:` declares. It does **not** apply to
 waiting: a machine at half speed computes slower but does not wait longer, so
 `Losim.current().sleep(refMs)` is divided by `k_time` and nothing else.
 </Warning>
@@ -82,5 +82,5 @@ The deadline is written in milliseconds because that is gRPC's API; losim divide
 the remaining time by `k_time` in the client interceptor, at the one place where
 your intent is still visible.
 
-`Thread.sleep(200)` is 200 milliseconds of **your afternoon** — the one duration in
+`Thread.sleep(200)` is 200 milliseconds of **your afternoon** ;  the one duration in
 a run that `k_time` never touches. That is why it is flagged.

@@ -12,18 +12,18 @@ takes:
 ```
 
 A key is a class `runs:` names; under it, an rpc that class serves. Both numbers
-default to `0`, and an rpc nobody prices takes **no time** — deliberately, rather
+default to `0`, and an rpc nobody prices takes **no time** ;  deliberately, rather
 than a made-up amount.
 
 <ParamField path="refMs" type="number" default="0">
-  What one call takes **regardless of what is in it** — the fixed part. Known before
+  What one call takes **regardless of what is in it** ;  the fixed part. Known before
   the handler runs, and slept before it.
 </ParamField>
 
 <ParamField path="refNsPerUnit" type="number" default="0">
   What each record processed adds, in reference **nanoseconds**. The handler
   declares the count with `Losim.current().units(n)`, and this part is slept
-  **after the body returns**, before the response leaves — because a caller waits
+  **after the body returns**, before the response leaves ;  because a caller waits
   for work that has not finished, and by then the handler has said how much there
   was.
 </ParamField>
@@ -37,7 +37,7 @@ would be the unit written twice.
 
 ## Why the class and not the rpc
 
-`retries:` names a method — `lab.Worker.Map` — because retrying is a decision about
+`retries:` names a method ;  `lab.Worker.Map` ;  because retrying is a decision about
 a *call*. A duration is a property of the *code*: two implementations of one rpc,
 placed on two machines, is how one design is compared with another, and a table
 keyed on the rpc would say they take the same time.
@@ -48,7 +48,7 @@ loading until the table follows.
 ## In the scenario, not in the Java
 
 This used to be an annotation on the handler. It is not, and **nothing in a
-system a student writes names losim at all** — the handlers are plain gRPC, they
+system a student writes names losim at all** ;  the handlers are plain gRPC, they
 compile with losim off the classpath, and they unit-test without it.
 
 What that gives up is drift: an annotation followed a renamed method and a table
@@ -61,15 +61,15 @@ that name. It serves Capacity, Thumbnail. A cost that belongs to nothing is a
 method that quietly takes no time, so it is a refusal rather than a warning.
 ```
 
-A cluster that prices **nothing** is not refused — an unpriced rpc is a legitimate
-thing — but it is said out loud in the trace, because a run where every call is
+A cluster that prices **nothing** is not refused ;  an unpriced rpc is a legitimate
+thing ;  but it is said out loud in the trace, because a run where every call is
 instant has no queueing, no contention and no critical path, and from the outside
 looks like a design that is simply very fast.
 
 ## The sleep formula
 
 ```
-refMs × (2 ÷ vcpu) × degradeFactor ÷ k_time
+refMs x (2 / vcpu) x degradeFactor / k_time
 ```
 
 Reference-machine time is two vCPUs running alone. So a 4-vCPU machine takes half as
@@ -79,7 +79,7 @@ run is compressed by `k_time`.
 ## Declared, not measured
 
 losim shrinks the workload **and** the machines by the same factor, so memory and
-bytes survive it honestly. Time does not, because the host's CPU is not shrunk — it
+bytes survive it honestly. Time does not, because the host's CPU is not shrunk ;  it
 runs at full speed on a fraction of the data, so every handler is genuinely instant.
 Without a declared duration there is no queueing, no contention, no deadline
 pressure and no critical path.
@@ -97,19 +97,19 @@ seed sets of an identical workload.
 | stretches on a slow machine? | **yes** | no |
 | occupies a vCPU? | **yes** | no |
 
-Measured at 40× on a machine at half speed: a declared 500 takes 1019 refMs and
+Measured at 40x on a machine at half speed: a declared 500 takes 1019 refMs and
 `sleep(500)` takes 596. A backoff that grows with the attempt cannot be written in
 a table at all, which is the other half of why both exist.
 
 ## The floor
 
 The clock cannot express a duration finer than about **0.05 ms** of real time. Below
-that a cost is *owed* rather than slept, and the ledger settles it later — good for
+that a cost is *owed* rather than slept, and the ledger settles it later ;  good for
 about fifty times below the floor. Past that the engine refuses to project from it:
 
 ```
 this run is clocked at 40x real time, and lab.Thumbnailer.Capacity costs 0.0004
-refMs — 6x below what the sleep debt can still settle at that compression, so its
+refMs ;  6x below what the sleep debt can still settle at that compression, so its
 timings would drift rather than be owed. Give that cost site more to do, or lower
 the scale: at scale 1 the clock runs at 20x.
 ```

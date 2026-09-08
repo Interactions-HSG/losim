@@ -13,7 +13,7 @@ icon: "server"
 
     ```
     thumbs.yaml:14: 'lab.Shrinker' is not a gRPC service. It has to extend the
-    ImplBase that protoc generated — machines talk over gRPC and nothing else.
+    ImplBase that protoc generated ;  machines talk over gRPC and nothing else.
     ```
   </Step>
   <Step title="Give it a no-argument constructor">
@@ -61,7 +61,7 @@ public abstract class ServiceBase extends FooGrpc.FooImplBase {
 **Catch and describe.** Letting a `RuntimeException` escape gives the caller a bare
 `UNKNOWN` with no description, and the trace a blank row where the one call worth
 looking at should be. A call that failed has no result, so it has to carry *why*
-instead — and that only happens if you put the message on the status.
+instead ;  and that only happens if you put the message on the status.
 </Warning>
 
 ## Instance lifetime, and what a restart does to it
@@ -74,7 +74,7 @@ That has one consequence worth planning for:
 
 | how the scenario declares it | what a restart does |
 |---|---|
-| `runs: [lab.Shrinker]` | losim builds a **fresh instance**. Whatever it was holding is gone — which is what a restart is. |
+| `runs: [lab.Shrinker]` | losim builds a **fresh instance**. Whatever it was holding is gone ;  which is what a restart is. |
 
 The trace says which happened:
 
@@ -108,7 +108,7 @@ spec.zone();          // "eu-central-1b"
 spec.vcpu();          // 2
 spec.memoryCapMb();   // the cap it is under on THIS run
 spec.diskCapMb();
-spec.cores();         // vcpu / 2.0 — how much work it can take, crudely
+spec.cores();         // vcpu / 2.0 ;  how much work it can take, crudely
 ```
 
 Free to call: every field is final on the machine and the record is built once,
@@ -146,7 +146,7 @@ VolleyGrpc.newStub(channel).notify(ping, new StreamObserver<Empty>() {
 });
 ```
 
-An `Empty`-returning method on an async stub does not block its caller — and costs,
+An `Empty`-returning method on an async stub does not block its caller ;  and costs,
 faults, telemetry and byte counts apply to it exactly as to anything else. There is
 no messaging path that escapes the model, because there is no second messaging path.
 

@@ -16,7 +16,7 @@ Experiments.here()
 
 <Note>
 **`build/runs` is the place, and nothing sweeps it.** The lab server lists the
-directory on every request, so a run is in the picker because it is on disk — not
+directory on every request, so a run is in the picker because it is on disk ;  not
 because something copied, registered or indexed it. Delete a trace and it is gone from
 the picker; drop one in and it is there.
 
@@ -31,12 +31,12 @@ is how you get exactly two runs side by side.
 <Warning>
 **Nothing in this manual assumes a trace you did not make.** Every page that shows a
 picture also shows the run behind it. If your picker is empty, that is not a broken
-install — it means `build/runs` is empty, and the fix is to run something.
+install ;  it means `build/runs` is empty, and the fix is to run something.
 </Warning>
 
 ## Or just drop it on the page
 
-Drag any `.json` anywhere onto the window. It opens the same way — it is a **raw
+Drag any `.json` anywhere onto the window. It opens the same way ;  it is a **raw
 losim trace**, exactly as `losim run` wrote it, with nothing baked in between. A trace
 a classmate sends you works; so does one from a run that failed.
 
@@ -44,7 +44,7 @@ a classmate sends you works; so does one from a run that failed.
 
 It serves three things on one port: the viewer as static files, the runs under
 `build/runs`, and the list of systems with a way to run each. Written in Java and
-served by the JDK that is already there — **no node and no Python**, so it behaves the
+served by the JDK that is already there ;  **no node and no Python**, so it behaves the
 same in the devcontainer, on a laptop and in a Codespace.
 
 Port 8000 is forwarded automatically in both containers; in a Codespace, use the
@@ -60,8 +60,8 @@ the picker.
 ## The money, when it is there
 
 A bill is written beside each trace as `<name>.bill.json`, from `losim bill --json`,
-at the moment the run is made. The viewer loads it **by convention** — `foo.json` ->
-`foo.bill.json` — and uses it for the [Ledger](/viewer/views#the-ledger).
+at the moment the run is made. The viewer loads it **by convention** ;  `foo.json` ->
+`foo.bill.json` ;  and uses it for the [Ledger](/viewer/views#the-ledger).
 
 
 <Warning>
@@ -81,7 +81,7 @@ http://localhost:8000/?run=mine&t=2400&view=spans&sv=waterfall&fail=1
 ```
 
 The URL carries the run, the instant, the view, the sub-view, a pinned machine, an
-open ledger and the filters — written whenever the clock is parked. So *"look at the
+open ledger and the filters ;  written whenever the clock is parked. So *"look at the
 failures in `mine` at 2,400"* is a link you can paste into an issue, not an
 instruction to go and click four things.
 
@@ -98,7 +98,7 @@ http://localhost:8000/?run=mine&vs=mine-fixed&t=2400
 
 | | |
 |---|---|
-| `build/runs/<name>.json` | the trace — the only artefact that matters |
+| `build/runs/<name>.json` | the trace ;  the only artefact that matters |
 | `build/runs/<name>.bill.json` | what it cost, for the Ledger |
 
 Two files, both under `build/runs`, both gitignored. Nothing is copied anywhere else
@@ -107,7 +107,7 @@ and there is no listing to rebuild.
 
 ## Traces from a run that did not finish
 
-Open them — it is usually the more interesting picture. The trace is written either
+Open them ;  it is usually the more interesting picture. The trace is written either
 way, and `meta.completed: false` shows as a red **did not finish** chip in the header.
 
 

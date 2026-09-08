@@ -4,7 +4,7 @@ description: "A run, watched: the cluster at an instant, a scrubber over the who
 icon: "eye"
 ---
 
-A trace is a few thousand JSON objects. The viewer is how you look at one — and it
+A trace is a few thousand JSON objects. The viewer is how you look at one ;  and it
 opens **a raw `losim run` trace**, with no baking step in between, because the case it
 exists for is a student pointing it at their own run.
 
@@ -12,7 +12,7 @@ exists for is a student pointing it at their own run.
 
 It is already open. In a Codespace or the devcontainer the lab server started when you
 attached, on **http://localhost:8000/**, and every run under `build/runs` is in the
-picker — a run is listed because it is on disk, which is the only fact that cannot go
+picker ;  a run is listed because it is on disk, which is the only fact that cannot go
 stale.
 
 If you would rather say which runs to look at, `show()` opens the viewer on exactly
@@ -26,7 +26,7 @@ Experiments.here()
 
 <Note>
 **Every example in this manual makes its own trace.** There is no shared set of
-prepared runs you are expected to have, and nothing here depends on one existing —
+prepared runs you are expected to have, and nothing here depends on one existing ; 
 each page that shows you a picture also shows you the run that produced it.
 </Note>
 
@@ -41,14 +41,14 @@ laptop and in a Codespace, with no setup step and no first-run download.
 
 ## On screen
 
-The cards below are the *drawings*. Two of them — Spans and Topology — are positions on
+The cards below are the *drawings*. Two of them ;  Spans and Topology ;  are positions on
 the Film page's own switcher rather than pages in the rail, and the ledger is both a
 panel over the film and the whole Cost page. [Which is where ->](/viewer/views)
 
 <Columns cols={2}>
   <Card title="The film" icon="film">
     The cluster at an instant. Zones are bands, roles are columns, and a machine is
-    drawn **the size it is** — wider with more memory, taller with more cores.
+    drawn **the size it is** ;  wider with more memory, taller with more cores.
 
     Each one says **how much is left**, not how much is used: "holding 255 MB"
     predicts nothing on its own, and "180 MB left" is the number the out-of-memory
@@ -56,11 +56,11 @@ panel over the film and the whole Cost page. [Which is where ->](/viewer/views)
   </Card>
   <Card title="The scrubber" icon="sliders">
     Shaped like the control everybody already knows. Its **chapters are the run's own
-    phases**, and its **markers are what went wrong** — every kill, freeze,
+    phases**, and its **markers are what went wrong** ;  every kill, freeze,
     out-of-memory, disk-full, timeout and retry, at the instant it happened.
   </Card>
   <Card title="Spans" icon="bars-staggered">
-    *Inside Film, and on Overview.* The distributed call stack — waterfall, swimlanes and a rollup. Where the wall
+    *Inside Film, and on Overview.* The distributed call stack ;  waterfall, swimlanes and a rollup. Where the wall
     clock actually went, and **most of the time at the top is the bottom waiting**.
   </Card>
   <Card title="Topology" icon="circle-nodes">
@@ -72,7 +72,7 @@ panel over the film and the whole Cost page. [Which is where ->](/viewer/views)
     than discover that it did.
   </Card>
   <Card title="The ledger" icon="receipt">
-    *The Cost page, and a panel over the film.* Four buckets, accruing **while the film plays** — and hovering a machine shows
+    *The Cost page, and a panel over the film.* Four buckets, accruing **while the film plays** ;  and hovering a machine shows
     its share of every one of them.
   </Card>
 </Columns>
@@ -83,14 +83,14 @@ panel over the film and the whole Cost page. [Which is where ->](/viewer/views)
 
 <Note>
 The scrubber reads the clock **the scenario was written in**, not the compressed one
-the host actually ran at — whatever `k_time` happened to be. That is the only reading
+the host actually ran at ;  whatever `k_time` happened to be. That is the only reading
 a student can carry back to the YAML they wrote.
 </Note>
 
 <Warning>
 **The playhead does not move at a constant rate, and `1x` is not one simulated second
 per real second.** A call that took three refMs would be on screen for three
-*thousandths* of a second — and the short, fast control messages are exactly the ones
+*thousandths* of a second ;  and the short, fast control messages are exactly the ones
 carrying the payloads worth reading, so the interesting things were the invisible
 ones.
 
@@ -105,10 +105,10 @@ distortion:
 | | |
 |---|---|
 | **monotone** | trace time never goes backwards, so nothing is reordered and nothing overlaps that did not overlap |
-| **read at the true instant** | every number on screen is taken from the trace at the trace time the playhead is at — a machine's memory at 400 refMs is what it was at 400 refMs |
+| **read at the true instant** | every number on screen is taken from the trace at the trace time the playhead is at ;  a machine's memory at 400 refMs is what it was at 400 refMs |
 | **the scrubber is still refMs** | the axis is unchanged; only the speed along it varies |
 
-**So the film is longer than the run, often much longer** — a five-second run is
+**So the film is longer than the run, often much longer** ;  a five-second run is
 commonly a fifty-second film, and a run full of short messages is longer still. That
 is the price of the guarantee, and the clock says the number: beside the elapsed time
 it prints how long the film itself runs.
@@ -117,12 +117,12 @@ Turn `hold` down, or off, when you want the run back at its own speed.
 
 ### `fit`, and the one place the guarantee lapses
 
-`fit` plays **the whole film in thirty seconds** — the film, not the run. The pacing is
+`fit` plays **the whole film in thirty seconds** ;  the film, not the run. The pacing is
 kept, so the quick parts still get far more than their share of the time; they are
 simply squeezed along with everything else.
 
 Which means the one-second floor is a **`1x` promise**. At `fit`, each moment gets
-`30s ÷ the film's length`:
+`30s / the film's length`:
 
 | | run | film | each moment at `fit` |
 |---|---|---|---|
@@ -141,7 +141,7 @@ in thirty seconds, at a constant rate, short things flashing past.
 
 
 <Tip>
-**Do not judge relative duration from the film** — that is what the pacing trades
+**Do not judge relative duration from the film** ;  that is what the pacing trades
 away. The film answers *what is happening*; the
 [waterfall](/viewer/views#spans) answers *how long did it take*, and it draws
 
@@ -153,14 +153,14 @@ a plain linear axis for exactly that reason. It is deliberately not paced.
 
 The console has a rail of pages. **Runs** is the gallery you land on, **Scenarios**
 lists every scenario in the lab, writes a new one from the palette or edits one
-that already exists, and runs it — pressing ▶ moves you straight to Runs, where
+that already exists, and runs it ;  pressing ▶ moves you straight to Runs, where
 the trace lands when it is ready. **Overview**, **Film**, **Usage** and **Cost**
 all read a single trace, and all four share one clock, so dragging the bar moves
 every one of them to the same instant. **Spans** and **Topology** are sub-views
 inside Film. [What each one shows ->](/viewer/views)
 
 Two runs can also be watched **side by side on one clock**: pick a second from
-`compare with…` and both films run against the same instant, with a line underneath
+`compare with...` and both films run against the same instant, with a line underneath
 saying which is ahead on money and by how much.
 [How that works ->](/viewer/views#two-runs-on-one-clock)
 
@@ -172,10 +172,10 @@ and dropped: a rendered video cannot be hovered, scrubbed or interrogated, and a
 views that matter are interrogation views.
 
 What replaced it keeps the playback and adds everything a video cannot do. Every
-element is a pure function of the frame it is given — no state, no imperative drawing
-— which is what makes **scrubbing, playing and recording one code path**.
+element is a pure function of the frame it is given ;  no state, no imperative drawing
+;  which is what makes **scrubbing, playing and recording one code path**.
 
-Four of its modules survive as the **reference the port is checked against** — glyph
+Four of its modules survive as the **reference the port is checked against** ;  glyph
 path by glyph path, layout by layout. The renderer that produced the video is not one
 of them. [How that is checked ->](/viewer/developing)
 
@@ -190,7 +190,7 @@ make.
 
 | | |
 |---|---|
-| **Next 16** + **React 19** | `output: 'export'` — a static site, no server |
+| **Next 16** + **React 19** | `output: 'export'` ;  a static site, no server |
 | **d3 7** | scales, timers, geometry |
 | **mediabunny** | MP4 export through WebCodecs |
 
@@ -203,7 +203,7 @@ at runtime, so nothing depends on the network being there.
     `build/runs` is the place to point a run at.
   </Card>
   <Card title="The views" icon="table-columns" href="/viewer/views">
-    The film, the scrubber, the panel, the ledger — and the keys.
+    The film, the scrubber, the panel, the ledger ;  and the keys.
   </Card>
   <Card title="Make a run worth looking at" icon="wand-magic-sparkles" href="/viewer/make-it-worth-looking-at">
     Five things your job can do that change the picture.

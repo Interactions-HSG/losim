@@ -1,6 +1,6 @@
 ---
 title: "Scaled mode"
-description: "Declare a size no laptop can hold, run what fits, and project the rest — with error bars."
+description: "Declare a size no laptop can hold, run what fits, and project the rest ;  with error bars."
 icon: "up-right-and-down-left-from-center"
 ---
 
@@ -10,7 +10,7 @@ scale: 5000
 ```
 
 There are exactly **two** modes and no third. Direct mode runs what it declares and
-every number on screen is what happened. Scaled mode always uses the engine — a
+every number on screen is what happened. Scaled mode always uses the engine ;  a
 scenario cannot hand-declare a shrink factor and bypass it, because that would be a
 third mode whose numbers nobody could account for.
 
@@ -31,8 +31,8 @@ thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 units (x5,000)
                                               [plan fitted from 30 probe runs in 41.2s]
 ```
 
-Thirty small runs — four data sizes at six seeds each, two cluster shapes, and a
-fault column — climbed before the real run happens at all. Then:
+Thirty small runs ;  four data sizes at six seeds each, two cluster shapes, and a
+fault column ;  climbed before the real run happens at all. Then:
 
 ```
                                               [plan cached]
@@ -44,7 +44,7 @@ code it profiles, **and the telemetry level**. Change any of those and it refits
 change nothing and a grid of thirty runs is paid for once.
 
 Keyed on the telemetry level because the whole claim of the accounting is that the
-fitted law does not depend on how much you instrumented — and a cache that ignored
+fitted law does not depend on how much you instrumented ;  and a cache that ignored
 the level would make that claim untestable.
 
 ```bash
@@ -57,9 +57,9 @@ rm -rf build/.losim-plans      # force a refit
 ```
   memoryMb   = 0.0597 + 0.00187 * revealed.distinctItems^1.013  (R2 1.0000, wobble 0.000)
   wireMb     = 0.0    + 0.000151 * units^0.952                (R2 1.0000, wobble 0.004)
-  diskMb       REFUSED: the ladder bends — over the lower half it grows as units^0.59
-               and over the upper half as units^0.87 …
-  makespan     REFUSED: its exponent moves by 0.66 between independent seed sets …
+  diskMb       REFUSED: the ladder bends ;  over the lower half it grows as units^0.59
+               and over the upper half as units^0.87 ...
+  makespan     REFUSED: its exponent moves by 0.66 between independent seed sets ...
 
                      observed              projected
   memoryMb              6.823                34.07 k  +-x1.10
@@ -68,18 +68,18 @@ rm -rf build/.losim-plans      # force a refit
 
 <AccordionGroup>
   <Accordion title="The law line" icon="function" defaultOpen>
-    `resource = fixed + coefficient × variable ^ beta`
+    `resource = fixed + coefficient x variable ^ beta`
 
-    The **fixed** term is overhead that is real at every scale — a JVM's baseline
+    The **fixed** term is overhead that is real at every scale ;  a JVM's baseline
     heap does not shrink because the workload did. The **variable** term is what
     grows.
 
     `R2` is how well the line went through the points it was given. `wobble` is how
     far the exponent moves when the whole thing is fitted again on independent
-    seeds — and the second is the number that decides whether the law is kept.
+    seeds ;  and the second is the number that decides whether the law is kept.
   </Accordion>
   <Accordion title="The variable" icon="magnifying-glass">
-    `revealed.distinctItems` means your own `reveal("distinctItems", …)` was chosen
+    `revealed.distinctItems` means your own `reveal("distinctItems", ...)` was chosen
     as the independent variable, over `units`. That is the engine finding what the
     resource is *actually* a function of. Peak memory is a function of how much you
     hold, not of how much went past.
@@ -98,12 +98,12 @@ rm -rf build/.losim-plans      # force a refit
   <Accordion title="The refusals" icon="ban">
     Two different tests, answering two different questions.
 
-    **The ladder bends** — the resource behaves differently small than large, so no
+    **The ladder bends** ;  the resource behaves differently small than large, so no
     extrapolation across means anything. Note that the refusal quotes the R², which
     is still 0.88, precisely because R² is the number a reader would reach for and
     it would not have caught this.
 
-    **The exponent is not reproducible** — refit on independent seed sets, it lands
+    **The exponent is not reproducible** ;  refit on independent seed sets, it lands
     somewhere else. A law whose exponent cannot be reproduced to better than its own
     effect size is a number with a line through it.
 
@@ -117,7 +117,7 @@ rm -rf build/.losim-plans      # force a refit
 java -cp "$CP" losim.cli.Main bill build/scaled.json
 ```
 
-A scaled run is billed twice — for what happened, and for the job it is a model of.
+A scaled run is billed twice ;  for what happened, and for the job it is a model of.
 The second bill is quantities times prices, and the engine will not project every
 quantity:
 
@@ -142,7 +142,7 @@ thumbs-scaled.yaml  scaled mode: no feasible size
   a projection that could not be made must be absent, not guessed.
 ```
 
-Feasibility is checked in both directions — large enough that the variable part
+Feasibility is checked in both directions ;  large enough that the variable part
 dominates the fixed overhead, small enough that the whole scaled cluster fits in the
 host's heap. [What to do about it ->](/run/when-it-refuses)
 

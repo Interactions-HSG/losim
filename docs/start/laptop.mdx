@@ -22,11 +22,11 @@ bin/losim dev suite   # the reference suite
 ```
 
 Both build `build/losim.jar` first, because `bin/losim` is `gradle jar` followed
-by a JVM — which is also why nothing here has a build step of its own to skip.
+by a JVM ;  which is also why nothing here has a build step of its own to skip.
 
 ## Supported platforms for `protoc`
 
-`gradle jar` needs no `protoc` — it only compiles the simulator. Everything that
+`gradle jar` needs no `protoc` ;  it only compiles the simulator. Everything that
 compiles a `.proto` (`dev test`, `dev suite`, your own build) picks a vendored
 binary from `vendor/bin/`:
 
@@ -36,7 +36,7 @@ binary from `vendor/bin/`:
 | Linux, x86-64 | `protoc-linux-x86_64` |
 
 <Warning>
-On anything else — Linux on ARM, Windows, an Intel Mac — those stop with
+On anything else ;  Linux on ARM, Windows, an Intel Mac ;  those stop with
 `no vendored protoc for <uname>`. Use the devcontainer; that is what it is for.
 Adding a third binary means committing it, because fetching one at build time is
 exactly what the vendoring rule exists to prevent.
@@ -50,7 +50,7 @@ the number:
 
 ```
 at 8000 units the cluster would hold 4200 MB, and this host offers 1843 MB to
-work in — the run does not fit the laptop it is meant to fit on
+work in ;  the run does not fit the laptop it is meant to fit on
 ```
 
 If you see that, either give the JVM more heap or let the engine pick a smaller
@@ -61,5 +61,5 @@ rung by adding one to the probe ladder.
 The repository ships `.vscode/settings.json` pointing the Java extension at
 `vendor/jars/*.jar`, so imports resolve before anything has been built. Any editor
 works: `build.gradle.kts` is the build, and it resolves nothing to compile the
-simulator — the compile classpath is those committed jars, which is what keeps a
+simulator ;  the compile classpath is those committed jars, which is what keeps a
 number a run produces independent of what a package manager felt like today.

@@ -105,13 +105,13 @@ questions a debugger answers, one channel answered one and a half out of five.
     "
     ```
 
-    A machine with zero calls is usually a discovery bug — the wrong service name,
+    A machine with zero calls is usually a discovery bug ;  the wrong service name,
     or a coordinator that found peers once and cached them.
   </Step>
 
   <Step title="Did anything queue, or fill up?">
     `queue_wait` events say a call waited for a core. A few are healthy. A wall of
-    them on one machine says your placement is ignoring how big the machines are —
+    them on one machine says your placement is ignoring how big the machines are ; 
     which, with a `a1.medium` in the cluster, is what you should expect on the first
     attempt.
 
@@ -129,7 +129,7 @@ on a dot. If you are matching method names, match the dotted form.
 
 **Payload collections are truncated at 12 entries** with a `"+1106 more"` marker.
 The real count is *kept plus marker*, never the surviving length. A `Batch` of 25
-frames renders as 12 frames and a marker — do not read that as 12.
+frames renders as 12 frames and a marker ;  do not read that as 12.
 </Warning>
 
 ## `machines` says what events do not
@@ -139,13 +139,13 @@ memory, total disk, bytes out and in, cross-zone bytes, calls handled, and the
 caps each machine was under.
 
 It is a separate channel rather than a fifth kind of event because these are not
-moments. Anything that reasons about quantities rather than about what happened —
-the bill, a comparison against ground truth, a machine's row in the viewer — needs
+moments. Anything that reasons about quantities rather than about what happened ; 
+the bill, a comparison against ground truth, a machine's row in the viewer ;  needs
 them without reconstructing a peak from a series that was quantised for scrubbing
 and may have missed the last walk entirely.
 
 <Note>
-`memoryMb` is **peak retained heap** — what the machine was still holding.
+`memoryMb` is **peak retained heap** ;  what the machine was still holding.
 `allocMb` is everything it ever allocated. Those are different numbers and only
 the first one decides an out-of-memory. A design that accumulates and a design
 that streams allocate about the same; only one of them dies.
@@ -160,7 +160,7 @@ java -cp "$CP" losim.cli.Main run thumbs.yaml \
      --cp build/losim/classes --out build/runs/thumbs.json
 ```
 
-Did the work overlap, did every machine get work, did anything queue or fill up — the
+Did the work overlap, did every machine get work, did anything queue or fill up ;  the
 film answers all three at a glance, and the scrubber puts a marker on every moment
 something went wrong. [The viewer ->](/viewer/index)
 

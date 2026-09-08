@@ -1,6 +1,6 @@
 ---
 title: "spans"
-description: "Intervals that carry a parent across the RPC boundary — a real distributed call stack."
+description: "Intervals that carry a parent across the RPC boundary ;  a real distributed call stack."
 icon: "bars-staggered"
 ---
 
@@ -59,7 +59,7 @@ The callee's span is opened under a parent id that arrived in a **gRPC metadata
 header**, from a thread on another machine this one has no context from.
 
 Taking the parent from the ambient context instead would hang every server span off
-the root — which is to say there would be no distributed call stack at all. If you
+the root ;  which is to say there would be no distributed call stack at all. If you
 see spans hanging off `0` that should not be, the call went over a channel losim did
 not make.
 </Note>
@@ -110,7 +110,7 @@ would make every projection depend on how much you instrumented it.
 { "status": "ABANDONED", "detail": { "why": "the run ended while this was in flight" } }
 ```
 
-A run can end with work still in flight — a handler whose caller gave up, a machine
+A run can end with work still in flight ;  a handler whose caller gave up, a machine
 killed mid-call. Those spans are real and so is their end. Left open they would be
 indistinguishable from a recorder that lost track, which is the one thing a dangling
 span is supposed to mean.

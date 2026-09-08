@@ -41,6 +41,15 @@ class AdoptTest {
         return Shape.of(fixture());
     }
 
+    /** A lab written against 1.5.0: it reads its size from the cluster. */
+    private static Shape scaled() throws Exception {
+        for (Path p : List.of(Path.of("losim/test/fixtures/scaled"),
+                              Path.of("../losim/test/fixtures/scaled"))) {
+            if (Files.isDirectory(p)) return Shape.of(p);
+        }
+        throw new IllegalStateException("no scaled fixture beside this test");
+    }
+
     private static boolean saw(Shape s, Shape.Kind kind, String contains) {
         return s.of(kind).stream().anyMatch(f -> f.what().contains(contains));
     }
@@ -88,6 +97,21 @@ class AdoptTest {
         assertTrue(saw(s, Shape.Kind.MISSING, "idempotency_level"));
         assertTrue(s.of(Shape.Kind.REFUSED).isEmpty(),
                 "the quickstart is unary and protoc-generated, so nothing here refuses it");
+    }
+
+    @Test
+    @DisplayName("a call to cluster.records() will not run, and a scaled plain Job merely will not scale")
+    void theBreak() throws Exception {
+        Shape s = scaled();
+        assertTrue(saw(s, Shape.Kind.REFUSED, "cluster.records() no longer exists"),
+                "a method that is gone is a project that will not compile, not a hint");
+        // And the second one is deliberately *not* refused. The run does happen; it
+        // is the model that cannot be built, which is a different sentence and a
+        // different heading in the report.
+        assertTrue(saw(s, Shape.Kind.MISSING, "Filler cannot be run at another size"),
+                "a scenario asking for a model of forty times the run, driven by a plain Job");
+        assertFalse(saw(s, Shape.Kind.REFUSED, "cannot be run at another size"),
+                "a plain Job under a scaled scenario runs — it just cannot be modelled");
     }
 
     @Test

@@ -1,6 +1,6 @@
 ---
 title: "network"
-description: "Latency, jitter and loss — all in reference time."
+description: "Latency, jitter and loss ;  all in reference time."
 icon: "network-wired"
 ---
 
@@ -45,8 +45,8 @@ it. Neither the callee's pool thread nor the handler's measured duration is touc
 <Note>
 The approximation this buys is worth naming: the handler starts one leg earlier than
 it should, because the outbound delay is folded into the return. The alternatives
-all cost something worse — an occupied core, an extra thread per call, or a blocked
-async caller — and spacing is precisely what the scale engine reconstructs rather
+all cost something worse ;  an occupied core, an extra thread per call, or a blocked
+async caller ;  and spacing is precisely what the scale engine reconstructs rather
 than measures.
 </Note>
 
@@ -71,7 +71,7 @@ catch (StatusRuntimeException e) {
 Nothing answers, and the caller finds out by running out of time. That is
 deliberately **not** modelled as an immediate `UNAVAILABLE`: a socket that refuses
 is a machine that answered, and the interesting failure is the one where nothing
-answers at all — where you cannot tell a slow peer from a gone one.
+answers at all ;  where you cannot tell a slow peer from a gone one.
 
 The trace *can* tell them apart, in `why`:
 
@@ -83,7 +83,7 @@ The trace *can* tell them apart, in `why`:
 
 ## Bytes
 
-Counted by marshalling the message explicitly — gRPC's in-process transport passes
+Counted by marshalling the message explicitly ;  gRPC's in-process transport passes
 the object by reference and never serializes, so a byte count can never be inferred
 from the transport. Serialized size plus **five bytes** of gRPC framing per message.
 
@@ -105,7 +105,7 @@ you change the placement, and not when you change who happens to hold the data.
 
 ## Cutting a link
 
-Not here — a partition is an event, so it goes under [`faults`](/ref/faults):
+Not here ;  a partition is an event, so it goes under [`faults`](/ref/faults):
 
 ```yaml
 faults:

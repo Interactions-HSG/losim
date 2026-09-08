@@ -17,11 +17,11 @@ not stop the others, does not stop the clock, does not stop the sampler and does
 stop the fault dispatcher. Every duration, every deadline and every fault time in
 that run is now wrong, and the trace will show a cluster that was never there.
 
-There is a place for it — [level 4](#level-4-inside-a-run) — but it is the last
+There is a place for it ;  [level 4](#level-4-inside-a-run) ;  but it is the last
 resort, not the first.
 </Warning>
 
-## Level 1 — the handler, alone
+## Level 1 ;  the handler, alone
 
 Nothing simulating anything. This is where a breakpoint means exactly what it
 means in any other Java program, because nothing else is running.
@@ -49,7 +49,7 @@ state calls throw. So a handler that reveals and records is testable as it stand
 [The full asymmetry ->](/write/unit-testing)
 </Note>
 
-## Level 2 — two handlers, wired by hand
+## Level 2 ;  two handlers, wired by hand
 
 Still no gRPC. If handler A calls handler B, test the pair by calling the methods
 directly:
@@ -65,16 +65,16 @@ directly:
 }
 ```
 
-This catches protocol logic — *did I put the right thing in the request, do I read
-the right thing out of the reply* — with no transport in the way at all. Most
+This catches protocol logic ;  *did I put the right thing in the request, do I read
+the right thing out of the reply* ;  with no transport in the way at all. Most
 "distributed" bugs are actually here.
 
-## Level 3 — real gRPC, in a test, with no simulator
+## Level 3 ;  real gRPC, in a test, with no simulator
 
 <div id="level-3" />
 
-When you genuinely suspect the wire — a marshalling problem, a status that is not
-what you thought, a `oneof` that renders wrong — stand up a real gRPC server in the
+When you genuinely suspect the wire ;  a marshalling problem, a status that is not
+what you thought, a `oneof` that renders wrong ;  stand up a real gRPC server in the
 test. grpc-java's in-process transport is vendored, so this costs nothing:
 
 ```java test/WireTest.java
@@ -127,7 +127,7 @@ class WireTest {
 This is the level at which you can check things a simulation would only obscure:
 
 - that your **adapter turns an exception into a status with a description**, rather
-  than a bare `UNKNOWN` — which is the difference between a readable trace and a
+  than a bare `UNKNOWN` ;  which is the difference between a readable trace and a
   blank row;
 - that a `oneof` or a `map` field round-trips the way you expect;
 - that a `NO_SIDE_EFFECTS` annotation actually landed on the descriptor:
@@ -140,13 +140,13 @@ This is the level at which you can check things a simulation would only obscure:
 
 <Warning>
 **`ManagedChannelBuilder`, `InProcessServerBuilder` and `directExecutor()` are all
-things the verifier flags** — in a *system*. Here they are correct, because there is
+things the verifier flags** ;  in a *system*. Here they are correct, because there is
 no simulation to be wrong about.
 
 Keep this code in a **test source set that no service or job references.** The
 verifier walks outward from the classes your scenario names; a test nothing points
 at is never reached. If you put a harness like this in a class your service imports,
-it will be walked, and it will be flagged — rightly, because then it could run
+it will be walked, and it will be flagged ;  rightly, because then it could run
 inside a real cluster.
 </Warning>
 
@@ -157,17 +157,17 @@ inside a real cluster.
 | a scenario's `takes:` | does not apply. There is no scenario and no interceptor, so no duration is slept. |
 | `k_time` | does not exist. Everything is your afternoon. |
 | memory and disk caps | not enforced. Nothing is walking the heap. |
-| `peers()`, `channelTo()`, `here()` | throw — there is no cluster. |
+| `peers()`, `channelTo()`, `here()` | throw ;  there is no cluster. |
 | byte counts, spans, faults | not recorded. |
 
 So never conclude anything about *performance* from level 3. It is for behaviour.
 
-## Level 4 — inside a run
+## Level 4 ;  inside a run
 
 <div id="level-4-inside-a-run" />
 
 When the bug is genuinely about how machines behave together, the trace is the
-debugger — that is what the three channels are for. Reach for these in order:
+debugger ;  that is what the three channels are for. Reach for these in order:
 
 <Steps>
   <Step title="Shrink the cluster and stop compressing time">
@@ -214,7 +214,7 @@ debugger — that is what the three channels are for. Reach for these in order:
     ```
 
     A call that hangs off the **root** instead of under its caller means the parent
-    header did not travel — almost always a channel you built yourself. In the
+    header did not travel ;  almost always a channel you built yourself. In the
     waterfall it is the row with no indent that should have had one.
   </Step>
 
@@ -237,7 +237,7 @@ debugger — that is what the three channels are for. Reach for these in order:
   <Step title="Only then, a breakpoint">
     If you must: use **one worker**, no faults, no chaos, and no deadline on the
     call you are stopping inside. Accept that
-    every number in the resulting trace is fiction — you are looking at control
+    every number in the resulting trace is fiction ;  you are looking at control
     flow, not at measurements.
   </Step>
 </Steps>
@@ -247,7 +247,7 @@ debugger — that is what the three channels are for. Reach for these in order:
 <AccordionGroup>
   <Accordion title="Every call times out, and nothing looks wrong">
     Check for a deadline that is too tight for the declared cost plus queueing.
-    Then check `queue_wait` — a two-vCPU machine given eight concurrent calls takes
+    Then check `queue_wait` ;  a two-vCPU machine given eight concurrent calls takes
     four waves, and the fourth wave's caller may have given up before its turn.
   </Accordion>
   <Accordion title="The run takes ten times as long as it should, and ends in timeouts">
@@ -256,19 +256,19 @@ debugger — that is what the three channels are for. Reach for these in order:
   </Accordion>
   <Accordion title="One machine does all the work; the others show zero calls">
     Discovery. You are almost certainly passing the Java class name to
-    `peersServing`, where it wants the **service name from the `.proto`** — or you
+    `peersServing`, where it wants the **service name from the `.proto`** ;  or you
     fetched the peer list once and are indexing it with something that is always
     zero.
   </Accordion>
-  <Accordion title="Handlers never overlap — the span tree is a staircase">
+  <Accordion title="Handlers never overlap ;  the span tree is a staircase">
     A blocking stub inside the dispatch loop. Use `newFutureStub`, dispatch
     everything, then collect. [Calling peers ->](/write/calling-peers)
   </Accordion>
   <Accordion title="`Losim.current()` throws inside a handler">
     ```
-    this thread has no machine: work started on a thread the machine did not create…
+    this thread has no machine: work started on a thread the machine did not create...
     ```
-    Something is running your work on a thread the machine did not create — a raw
+    Something is running your work on a thread the machine did not create ;  a raw
     `Thread`, an `Executors` pool, `CompletableFuture.supplyAsync`, or a
     `parallelStream`. [Concurrency ->](/write/concurrency)
   </Accordion>

@@ -10,7 +10,7 @@ the design that survives all six is not the design that survives any one of them
 ## The assumption each one breaks
 
 <AccordionGroup>
-  <Accordion title="kill — the machine stops answering" icon="skull" defaultOpen>
+  <Accordion title="kill ;  the machine stops answering" icon="skull" defaultOpen>
     ```yaml
     - { at: 900 refMs, kill: w1 }
     - { at: 900 refMs, kill: w1, restart_after: 400 refMs }
@@ -18,7 +18,7 @@ the design that survives all six is not the design that survives any one of them
 
     **Breaks:** the assumption that a peer you found is a peer you can reach.
 
-    You find out by running out of time. `cluster.serving(…)` stops listing it —
+    You find out by running out of time. `cluster.serving(...)` stops listing it ; 
     but only from the next call, so work already dispatched still costs a full
     deadline.
 
@@ -27,7 +27,7 @@ the design that survives all six is not the design that survives any one of them
     and forgets what it handed out cannot recover from this at all.
   </Accordion>
 
-  <Accordion title="freeze — the machine stops, without failing" icon="snowflake">
+  <Accordion title="freeze ;  the machine stops, without failing" icon="snowflake">
     ```yaml
     - { at: 900 refMs, freeze: w1, for: 300 refMs }
     ```
@@ -43,14 +43,14 @@ the design that survives all six is not the design that survives any one of them
     whole cluster.
   </Accordion>
 
-  <Accordion title="degrade — the machine gets slow and stays" icon="gauge-simple-low">
+  <Accordion title="degrade ;  the machine gets slow and stays" icon="gauge-simple-low">
     ```yaml
     - { at: 1200 refMs, degrade: w2, factor: 4 }
     ```
 
     **Breaks:** the assumption that machines of the same type are interchangeable.
 
-    Every declared cost is multiplied. A straggler rather than a casualty — and
+    Every declared cost is multiplied. A straggler rather than a casualty ;  and
     this is **the failure most designs handle worst**, because nothing is wrong
     enough to trigger anything. The job just takes four times as long as it should
     and the cluster waits politely.
@@ -59,7 +59,7 @@ the design that survives all six is not the design that survives any one of them
     each one took, and stop feeding the machine that is behind.
   </Accordion>
 
-  <Accordion title="spot_reclaim — the machine tells you first" icon="bell">
+  <Accordion title="spot_reclaim ;  the machine tells you first" icon="bell">
     ```yaml
     - { at: 900 refMs, spot_reclaim: w0, notice: 200 refMs }
     ```
@@ -71,12 +71,12 @@ the design that survives all six is not the design that survives any one of them
     hazard, and the bill prices it that way.
 
     **Design response:** a design that ignores the warning deserves what happens.
-    There is no API to receive the notice — it is a fact in the trace — so the
+    There is no API to receive the notice ;  it is a fact in the trace ;  so the
     realistic response is *drain work off machines as they finish rather than
     committing everything up front*, which is the shape that survives it.
   </Accordion>
 
-  <Accordion title="partition — the link is cut, both ends alive" icon="scissors">
+  <Accordion title="partition ;  the link is cut, both ends alive" icon="scissors">
     ```yaml
     - { at: 900 refMs,  partition: [coordinator, w1] }
     - { at: 2500 refMs, heal:      [coordinator, w1] }
@@ -92,7 +92,7 @@ the design that survives all six is not the design that survives any one of them
     machine wins, and where one that assumes a single view of the cluster loses.
   </Accordion>
 
-  <Accordion title="loss — messages that never arrive" icon="ghost">
+  <Accordion title="loss ;  messages that never arrive" icon="ghost">
     ```yaml
     network:
       loss: 0.02
@@ -101,7 +101,7 @@ the design that survives all six is not the design that survives any one of them
     **Breaks:** the assumption that a call that failed did not happen.
 
     Two per cent of messages simply vanish. Some of them are **responses** to work
-    that was done — so a retry does the work twice, which is what the
+    that was done ;  so a retry does the work twice, which is what the
     [idempotency gate](/write/retries) is about.
   </Accordion>
 </AccordionGroup>
@@ -120,7 +120,7 @@ teaches it to survive *whenever*, which is the harder and more honest thing.
 
 `among:` is a pool name or one machine's name. Gaps are drawn exponentially from the
 seed, so they vary the way real bad afternoons do. Only `kill`, `freeze` and
-`degrade` can be rates — the others happen at a moment and belong under `faults:`.
+`degrade` can be rates ;  the others happen at a moment and belong under `faults:`.
 
 <Note>
 A rate has no horizon: each firing draws the next one, so it keeps happening for as
@@ -149,7 +149,7 @@ A seed that did not survive prints **why** rather than becoming an indistinguish
 
 
 Twenty seeds turn "it survived an afternoon" into "it survives afternoons", and the
-spread is the answer — not the best run and not the worst.
+spread is the answer ;  not the best run and not the worst.
 
 ## The shape that survives most things
 
@@ -196,7 +196,7 @@ faults:
   - { at: 2400 refMs, heal:      [coordinator, w0] }
 ```
 
-Save a second copy beside it as `calm.yaml` with the `faults:` block removed — the
+Save a second copy beside it as `calm.yaml` with the `faults:` block removed ;  the
 same cluster, the same work, no weather. Then run both:
 
 ```java RunExperiments.java
@@ -207,7 +207,7 @@ Experiments.here()
 ```
 
 
-**What to look for.** Open `weather`, then pick `calm` from `compare with…` so both
+**What to look for.** Open `weather`, then pick `calm` from `compare with...` so both
 run on [one clock](/viewer/views#two-runs-on-one-clock). `w1` goes red and stays red;
 `w2` keeps working and simply falls behind, which is the harder failure to notice; and
 the partition leaves `w0` alive and serving while the coordinator cannot reach it.

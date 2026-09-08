@@ -1,0 +1,6 @@
+# A model of forty times the run, driven by a job that cannot be asked for more.
+seed: 1
+job: Filler
+scale: 40
+machines:
+  only: { instance: m5.large, zone: eu-central-1a }

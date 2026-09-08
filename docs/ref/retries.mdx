@@ -22,7 +22,7 @@ retries:
   | any dotted suffix | `Thumbnailer.Thumbnail` |
   | everything | `*` |
 
-  A policy naming a method **no machine serves** is refused — a typo would
+  A policy naming a method **no machine serves** is refused ;  a typo would
   otherwise be a policy that silently does nothing.
 </ParamField>
 
@@ -49,7 +49,7 @@ retries:
 ## The gate
 
 ```
-thumbs.yaml:22: retrying lab.Volley.Hit is refused — its .proto declares no
+thumbs.yaml:22: retrying lab.Volley.Hit is refused ;  its .proto declares no
 idempotency_level, so running it twice is not known to be safe. Declare
 'option idempotency_level = IDEMPOTENT;' on the rpc if it is, or write
 'unsafe: true' here if you mean to retry it anyway.
@@ -73,7 +73,7 @@ against what the cluster really serves before a single call is made.
 
 | retried | not retried |
 |---|---|
-| `UNAVAILABLE` | everything else — an `INVALID_ARGUMENT` will be invalid the second time too |
+| `UNAVAILABLE` | everything else ;  an `INVALID_ARGUMENT` will be invalid the second time too |
 | `DEADLINE_EXCEEDED` | a call where a message already arrived |
 | `RESOURCE_EXHAUSTED` | a cancelled call |
 | `ABORTED` | any **streaming** call |
@@ -106,6 +106,6 @@ appears on the `retry` event when the policy claimed it.
 <Warning>
 Every attempt shares the **same absolute deadline**, because it is the same
 `CallOptions`. Three attempts with a growing backoff can exhaust the deadline before
-they exhaust the attempts — and the trace will say `"attempts": 2` where you asked
+they exhaust the attempts ;  and the trace will say `"attempts": 2` where you asked
 for 3.
 </Warning>

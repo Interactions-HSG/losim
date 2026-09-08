@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -111,6 +112,7 @@ public final class Shape {
     public static Shape of(Path root) throws IOException {
         Shape s = new Shape(root.toAbsolutePath().normalize());
         s.read();
+        s.scaled();
         s.judge();
         return s;
     }
@@ -141,6 +143,8 @@ public final class Shape {
         }
         walk(".proto", protos);
         walk(".java", sources);
+        walk(".yaml", scenarios);
+        walk(".yml", scenarios);
         for (Path p : protos) proto(p);
         for (Path p : sources) java(p);
     }
@@ -246,6 +250,11 @@ public final class Shape {
     private static final Pattern PACKAGE = Pattern.compile(
             "(?m)^\\s*package\\s+([A-Za-z_$][\\w$.]*)\\s*;");
 
+    /** Classes that implement {@code Job} and not {@code Scalable}, by simple name. */
+    private final Set<String> plainJobs = new LinkedHashSet<>();
+
+    private final List<Path> scenarios = new ArrayList<>();
+
     private void java(Path file) throws IOException {
         String text = Files.readString(file);
         Matcher pkg = PACKAGE.matcher(text);
@@ -256,6 +265,9 @@ public final class Shape {
             services.add(new Service(m.group(2), in, file, lineOf(text, m.start()),
                     !m.group(1).isEmpty(), m.group(3)));
         }
+        Matcher j = PLAIN_JOB.matcher(text);
+        while (j.find()) if (!text.contains("Scalable")) plainJobs.add(j.group(1));
+
         Matcher b = BINDABLE.matcher(text);
         while (b.find()) {
             boolean alsoImplBase = services.stream()
@@ -300,11 +312,56 @@ public final class Shape {
                     new At(file, lineOf(text, at))));
             break;
         }
+        // The 2.0.0 break, caught before the compiler catches it — and with better
+        // words, because javac will only say the method does not exist.
+        for (String gone : List.of("cluster.records()", "cluster.units()")) {
+            int at = text.indexOf(gone);
+            if (at < 0) continue;
+            findings.add(new Finding(Kind.REFUSED, gone + " no longer exists",
+                    "a job that has a size implements losim.api.Scalable: it declares what"
+                    + " its input is made of, and is handed it. The number is then in the"
+                    + " scenario's input: block, where a sweep can vary it — read it with"
+                    + " at.count(\"...\"). AGENTS.md has the conversion.",
+                    new At(file, lineOf(text, at))));
+            break;
+        }
         for (String[] dead : DEAD_GIVEAWAYS) {
             int at = text.indexOf(dead[0]);
             if (at < 0) continue;
             findings.add(new Finding(Kind.DEAD, dead[0], dead[1],
                     new At(file, lineOf(text, at))));
+        }
+    }
+
+    private static final Pattern PLAIN_JOB = Pattern.compile(
+            "class\\s+(\\w+)[^{]*\\bimplements\\b[^{]*\\bJob\\b");
+
+    private static final Pattern SCENARIO_JOB = Pattern.compile("(?m)^job:\\s*(\\S+)");
+    private static final Pattern SCENARIO_SCALE = Pattern.compile("(?m)^scale:\\s*([0-9.]+)");
+
+    /**
+     * A scenario asking for a model, driven by a job that cannot be asked for more.
+     *
+     * <p>Not wrong — it is refused at the run, loudly and with the line. It is here
+     * because {@code losim check} answers before the first build, and this is the
+     * one thing a lab mid-migration will hit that costs it every scaled run it has.
+     */
+    private void scaled() throws IOException {
+        for (Path file : scenarios) {
+            String text = Files.readString(file);
+            Matcher job = SCENARIO_JOB.matcher(text);
+            Matcher scale = SCENARIO_SCALE.matcher(text);
+            if (!job.find() || !scale.find()) continue;
+            if (Double.parseDouble(scale.group(1)) <= 1) continue;
+            String named = job.group(1);
+            String bare = named.substring(named.lastIndexOf('.') + 1);
+            if (!plainJobs.contains(bare)) continue;
+            findings.add(new Finding(Kind.MISSING, bare + " cannot be run at another size",
+                    "this scenario is a model of " + scale.group(1) + " times the run, and a"
+                    + " plain losim.api.Job has no way of being asked to do more — its size"
+                    + " is a constant in its own Java. Implement losim.api.Scalable and put"
+                    + " the sizes in an input: block. AGENTS.md has the conversion.",
+                    new At(file, lineOf(text, job.start()))));
         }
     }
 

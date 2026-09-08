@@ -7,19 +7,19 @@ icon: "chart-area"
 ```json
 "series": {
   "dtMs": 6.0,
-  "t": [0.0, 6.0, 12.0, 18.0, …],
+  "t": [0.0, 6.0, 12.0, 18.0, ...],
   "channels": {
     "w0.busyPct":  { "vm": "w0", "metric": "busyPct", "form": "runs",
                      "ticks": 402, "runs": [[0.0, 11], [100.0, 46], [50.0, 8]] },
     "w0.memCapMb": { "vm": "w0", "metric": "memCapMb", "form": "constant",
                      "ticks": 402, "value": 4096.0 },
     "w0.retainMb": { "vm": "w0", "metric": "retainMb", "form": "raw",
-                     "ticks": 402, "raw": [0.0, 0.12, 1.44, …] }
+                     "ticks": 402, "raw": [0.0, 0.12, 1.44, ...] }
   }
 }
 ```
 
-Channels are keyed `"<vm>.<metric>"`. `t` is shared by every channel — one array of
+Channels are keyed `"<vm>.<metric>"`. `t` is shared by every channel ;  one array of
 simulated times, `dtMs` apart.
 
 ## The point of series
@@ -29,7 +29,7 @@ A change log is **silent exactly when a system is stuck**, which is exactly when
 want to look at it. Series make the trace's size follow the run's **duration** rather
 than its busyness, so a frozen cluster produces as much evidence as a working one.
 
-The sampler starts at its finest — half a real millisecond — and **thins as it
+The sampler starts at its finest ;  half a real millisecond ;  and **thins as it
 goes**: every time the trace fills up, half the samples are dropped and the interval
 doubles. So a run of any length yields a bounded number of ticks, without anyone
 having declared in advance how long the run would be.
@@ -43,15 +43,15 @@ deliberately: what it costs must not land on the counters it is reading.
 | metric | |
 |---|---|
 | `allocMb` | cumulative allocation by this machine's threads, losim's own subtracted |
-| `retainMb` | what the machine is holding now — the retained-heap walk |
+| `retainMb` | what the machine is holding now ;  the retained-heap walk |
 | `memCapMb` | its memory cap |
-| `memPct` | `retainMb / memCapMb × 100` |
+| `memPct` | `retainMb / memCapMb x 100` |
 | `diskMb` | bytes declared through `wroteDisk`, cumulative |
 | `diskPct` | against the disk cap |
 | `inflight` | handlers **using** a core |
 | `queued` | handlers **waiting** for one |
 | `vcpu` | the machine's core count |
-| `busyPct` | `inflight / vcpu × 100`, capped at 100 |
+| `busyPct` | `inflight / vcpu x 100`, capped at 100 |
 | `alive` | 1 or 0 |
 | `frozen` | 1 or 0 |
 | `degraded` | the current degrade factor, 1 when none |
@@ -65,7 +65,7 @@ cadence, not your program.
 
 ## Three encodings
 
-Most channels barely move — a machine is alive for the whole run, idle for most of
+Most channels barely move ;  a machine is alive for the whole run, idle for most of
 it, and its cap never changes at all. So each channel is stored in whichever of three
 forms is smallest:
 
@@ -84,7 +84,7 @@ forms is smallest:
 
 <ResponseField name="raw" type="one number per tick">
   ```json
-  { "form": "raw", "ticks": 402, "raw": [0.0, 0.12, 1.44, …] }
+  { "form": "raw", "ticks": 402, "raw": [0.0, 0.12, 1.44, ...] }
   ```
 </ResponseField>
 
@@ -92,7 +92,7 @@ Choosing the smallest is worth about two orders of magnitude, which is what lets
 richer trace come out **smaller** than the change log it replaced.
 
 <Note>
-Samples are quantised before encoding — a `…Pct` to one decimal place, a `…Mb` to
+Samples are quantised before encoding ;  a `...Pct` to one decimal place, a `...Mb` to
 two. Without that a flat stretch is not flat: it jitters in the sixth decimal, no run
 ever forms, and the encoding saves nothing.
 

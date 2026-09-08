@@ -7,7 +7,7 @@ machines over a simulated network, on one laptop, and tells you what the design
 cost.
 
 `losim adopt` moved files and wrote the build. **It did not touch a single
-`.java`, on purpose** ‚Äî guessing what a program means produces a system its author
+`.java`, on purpose** ; ; ;  guessing what a program means produces a system its author
 did not write. That half is yours, and this file is how it gets done.
 
 Read the section headed **This project** at the bottom first. It is what `adopt`
@@ -29,7 +29,7 @@ priced, delayed, dropped and drawn.
 
 One sentence to keep: **what carries over is your handlers and your schema.**
 Everything that does not is about the transport, the channel or service discovery
-‚Äî none of which losim models, because machines are named and found by what they
+; ; ;  none of which losim models, because machines are named and found by what they
 serve.
 
 ---
@@ -44,7 +44,7 @@ crash, because it is quiet.
 | | |
 |---|---|
 | **Build no channel or server** | `ManagedChannelBuilder`, `Grpc.newChannelBuilder`, `ServerBuilder.forPort`. A peer is found by what it serves: `cluster.channelTo(name)` and `Losim.current().channelTo(name)`. A channel you built carries no interceptor, so its calls are absent from the wire, the bill and the film. |
-| **Start no threads of your own** | a `new Thread`, an executor you created, `directExecutor()`, a virtual thread. Work on a thread the machine did not create belongs to no machine, so its memory and its time land nowhere. Use `Losim.current().submit(‚Ä¶)`. |
+| **Start no threads of your own** | a `new Thread`, an executor you created, `directExecutor()`, a virtual thread. Work on a thread the machine did not create belongs to no machine, so its memory and its time land nowhere. Use `Losim.current().submit(; ; ¶)`. |
 | **Do not sleep in host milliseconds** | `Thread.sleep` is the one duration `k_time` never touches, so at a compression of forty it is forty times too long. `Losim.current().sleep(refMs)` is reference time, like every other duration. |
 | **Do not read the real clock** | `System.nanoTime`, `System.currentTimeMillis`, `Instant.now`. The simulated clock is the one every figure is against. |
 | **Do not touch a real disk** | `Files.write`, `FileOutputStream`. `Losim.current().wroteDisk(bytes)` is the disk model, and it is what fills up and refuses. |
@@ -62,16 +62,16 @@ crash, because it is quiet.
 The quickstart's handler is a **static nested class inside the server**:
 
 ```java
-public class HelloWorldServer {                 // ‚Üê the bootstrap, all of it dead
-  private static final Logger logger = ‚Ä¶;
-  public static void main(String[] args) { ‚Ä¶ }  // a machine has no command line
-  static class GreeterImpl extends GreeterGrpc.GreeterImplBase {   // ‚Üê this is yours
-    @Override public void sayHello(HelloRequest req, StreamObserver<HelloReply> out) { ‚Ä¶ }
+public class HelloWorldServer {                 // ; Üê the bootstrap, all of it dead
+  private static final Logger logger = ; ; ¶;
+  public static void main(String[] args) { ; ; ¶ }  // a machine has no command line
+  static class GreeterImpl extends GreeterGrpc.GreeterImplBase {   // ; Üê this is yours
+    @Override public void sayHello(HelloRequest req, StreamObserver<HelloReply> out) { ; ; ¶ }
   }
 }
 ```
 
-Move `GreeterImpl` to `src/‚Ä¶/Greeter.java` as a **top-level, public, final class
+Move `GreeterImpl` to `src/; ; ¶/Greeter.java` as a **top-level, public, final class
 with a no-argument constructor**, and delete the file it came out of.
 
 Leaving it nested is not enough: the verifier walks a nested class together with
@@ -110,15 +110,54 @@ takes:
     SayHello: { refMs: 3, refNsPerUnit: 240000 }
 ```
 
-`refMs` is time on a reference machine ‚Äî two vCPUs, running alone. Nothing
+`refMs` is time on a reference machine ; ; ;  two vCPUs, running alone. Nothing
 measures this for you and nothing can: at the size a laptop can hold, your handler
 is genuinely instant, because the workload is shrunk and the host's CPU is not.
 Declare what the work would cost at full size.
 
 If a handler's cost depends on how much it was given, call
-`Losim.current().records(n)` in it and use `refNsPerUnit`.
+`Losim.current().units(n)` in it and use `refNsPerUnit`.
 
-### 4. Declare which rpcs are idempotent
+### 4. If the job has a size, it is `Scalable` and the size is in the file
+
+A job that does a fixed amount of work cannot be run at another one, so the scale
+engine has nothing to turn and a scenario above `scale: 1` is refused. The fix is
+one interface and one deletion: whatever constant said how much work there was
+comes out of the Java and goes into the scenario.
+
+```java
+public final class MyJob implements losim.api.Scalable {
+
+    @Override public Input.Shape shape() {                   // what it is made of
+        return Input.Shape.counting("items", "item").with("valueBytes");
+    }
+
+    @Override public void run(Cluster cluster, Input at) throws Exception {
+        byte[] value = new byte[(int) at.value("valueBytes")];
+        for (long i = 0; i < at.count("items"); i++) ; ; ¶        // never a constant
+    }
+}
+```
+
+```yaml
+input:
+  items:      240        # a count: the engine shrinks these, all by one factor
+  valueBytes: 65536      # a constant: shape rather than size, held at every rung
+```
+
+The scenario `adopt` wrote has a placeholder block with one part called `items`.
+Replace its names with the ones your `shape()` declares ; ; ;  a part the job does not
+consume is refused with the line it is on, and so is one it declares and the file
+leaves out.
+
+**A count is what grows with the run** ; ; ;  items, rows, orders. **A constant is
+what does not**: a value's length, a fan-out, a key width. Getting that wrong is
+the only thing here a run cannot tell you about, because both are legal.
+
+`cluster.records()` and `cluster.units()` are gone. Anything that read one of them
+reads `at.count("; ; ¶")` now.
+
+### 5. Declare which rpcs are idempotent
 
 ```proto
 rpc SayHello (HelloRequest) returns (HelloReply) {
@@ -183,7 +222,7 @@ is flagged.
 
 losim refuses what it cannot account for, and a refusal names a line. Do not add
 scenario keys, a shrink factor, a `k_time`, an "expected runtime" or a records
-count to make something pass ‚Äî the engine derives all of those, and a projection
+count to make something pass ; ; ;  the engine derives all of those, and a projection
 that only appears because a check was loosened is worth less than no projection.
 
 If a projection is refused, that is an answer about the design. Read
