@@ -20,7 +20,7 @@ package losim.api;
  * comparing them is therefore placing it the same way at either scale, which is
  * the property the whole scale model exists to preserve.
  */
-public record Spec(String machine, String instance, String zone, int vcpu,
+public record Spec(String node, String instance, String zone, int vcpu,
                    double memoryCapMb, double diskCapMb) {
 
     /**

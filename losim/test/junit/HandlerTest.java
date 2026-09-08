@@ -57,7 +57,7 @@ class HandlerTest {
     @Test
     @DisplayName("but asking about a world that is not there fails, rather than inventing one")
     void stateThrowsOutsideARun() {
-        var e = assertThrows(IllegalStateException.class, () -> Losim.current().machine());
+        var e = assertThrows(IllegalStateException.class, () -> Losim.current().node());
         assertTrue(e.getMessage().contains("no simulation is running"));
         assertThrows(IllegalStateException.class, () -> Losim.current().peers());
         assertThrows(IllegalStateException.class, () -> Losim.current().clockMs());

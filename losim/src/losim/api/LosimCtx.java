@@ -121,8 +121,8 @@ public interface LosimCtx {
 
     // -------------------------------------------------------------------- state
 
-    /** The name of the machine serving this call. */
-    String machine();
+    /** The name of the node serving this call. */
+    String node();
 
     /**
      * What the machine serving this call is made of: its instance type, its zone,

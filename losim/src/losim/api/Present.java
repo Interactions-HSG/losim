@@ -103,7 +103,7 @@ final class Present implements LosimCtx {
 
     // Reads, not units: they allocate nothing worth charging and are cheap
     // enough that bracketing them would cost more than it recovered.
-    @Override public String machine()                    { return bound().name(); }
+    @Override public String node()                       { return bound().name(); }
     @Override public long seed()                         { return bound().seed(); }
     @Override public java.util.concurrent.ConcurrentMap<String, Object> local() {
         return bound().local();

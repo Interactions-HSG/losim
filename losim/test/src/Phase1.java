@@ -80,9 +80,9 @@ public class Phase1 {
     /** A handler that says who served it, so the ambient context can be checked. */
     static final class Reporter extends WorkerBase {
         @Override protected Counts map(Chunk c) {
-            Losim.current().reveal("served-by", Losim.current().machine());
+            Losim.current().reveal("served-by", Losim.current().node());
             return Counts.newBuilder()
-                    .putCounts(Losim.current().machine(), 1)
+                    .putCounts(Losim.current().node(), 1)
                     .putCounts("peers", Losim.current().peersServing("Worker").size())
                     .build();
         }

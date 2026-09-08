@@ -25,7 +25,7 @@ final class Absent implements LosimCtx {
     @Override public void wroteDisk(long bytes)             { }
     @Override public void sleep(double refMs)               { }
 
-    @Override public String machine()                        { throw absent("machine()"); }
+    @Override public String node()                           { throw absent("node()"); }
     @Override public long seed()                             { throw absent("seed()"); }
     @Override public java.util.concurrent.ConcurrentMap<String, Object> local() {
         throw absent("local()");
