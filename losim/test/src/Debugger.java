@@ -76,7 +76,17 @@ public class Debugger {
 
         // ------------------------------------------------------------------ Q3
         System.out.println("\nQ3  why did it stall?");
-        var ev = tel.events().stream().sorted(Comparator.comparingDouble(Telemetry.Event::t)).toList();
+        // Silence *during* the run, which is the only kind that is a stall. Before
+        // the first call there is nothing in flight and nothing to explain: the gap
+        // between the scenario header and the first rpc is the JVM waking up, and on
+        // a slow host it is the widest gap in the trace — wider than the deadline
+        // this question is about. A check that picks the widest gap anywhere is a
+        // check that asks a different question on a two-core runner than on a laptop.
+        double began = tel.events().stream()
+                .filter(e -> e.kind().equals("rpc_call"))
+                .mapToDouble(Telemetry.Event::t).min().orElse(0);
+        var ev = tel.events().stream().filter(e -> e.t() >= began)
+                .sorted(Comparator.comparingDouble(Telemetry.Event::t)).toList();
         double ga = 0, gb = 0;
         for (int i = 1; i < ev.size(); i++)
             if (ev.get(i).t() - ev.get(i - 1).t() > gb - ga) { ga = ev.get(i - 1).t(); gb = ev.get(i).t(); }

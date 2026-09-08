@@ -51,6 +51,15 @@ LC_ALL=C, 2.0.1:  has no way of being asked to do more — its size is a constan
 `Main` installs UTF-8 streams before anything prints. This affects all output, not
 only `adopt`.
 
+### And one test that was asking a different question on a slow host
+
+`Debugger`'s "why did it stall?" took the widest gap between events anywhere in
+the trace. On a two-core runner the widest gap is the JVM waking up — 272 ms
+between the scenario header and the first call — which is wider than the deadline
+the question is about, has nothing open across it, and is not a stall. It now
+measures silence from the first `rpc_call` onward. Reproduced under a saturated
+host before and after: three runs, the real stall found every time.
+
 ## 2.0.0
 
 **Every lab breaks, in two places, and both are one line each.** A workload's size
