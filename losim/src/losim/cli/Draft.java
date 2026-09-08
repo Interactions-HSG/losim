@@ -47,8 +47,19 @@ public final class Draft {
      * means a machine that cannot hold anything.
      */
     public record Pool(String name, int count, String prefix, String instance,
-                       List<String> zones, java.util.Map<String, String> runs,
+                       List<String> zones, java.util.Map<String, Runs> runs,
+                       List<Failure> failures,
                        Double memoryMb, Double diskMb, List<Override> overrides) {}
+
+    /**
+     * One service a node runs, and what goes wrong with it there.
+     *
+     * <p>Two levels in one record because the file has two: a service is a file
+     * that implements it, and a service on a bad node is a file plus a list of
+     * rpcs that misbehave. The form draws the second only when there is one, the
+     * way the file writes the longhand only when there is one.
+     */
+    public record Runs(String file, java.util.Map<String, List<RpcFailure>> failures) {}
 
     /**
      * One machine in a pool, differing from its siblings.
@@ -60,36 +71,37 @@ public final class Draft {
      * neighbours do not.
      */
     public record Override(String machine, String instance, String zone,
-                           Double memoryMb, Double diskMb) {}
+                           Double memoryMb, Double diskMb, List<Failure> failures) {}
 
     /**
-     * One thing that happens at one instant.
+     * One thing that happens to the node it is written in.
      *
-     * <p>{@code kind} is any of {@link losim.scenario.Scenario.Kind}, lowercased.
-     * Which of the remaining fields means anything depends on it, and only those
-     * are written back — a kill's {@code restartAfterRefMs}, a freeze's
-     * {@code forRefMs}, a degrade's {@code factor}, a spot reclaim's
-     * {@code noticeRefMs}.
+     * <p>{@code kind} is any of {@link losim.scenario.Scenario.Kind}, spelled the
+     * way the file spells it. Which of the remaining fields means anything depends
+     * on it, and only those are written back — a kill's {@code restartAfterRefMs},
+     * a freeze's {@code forRefMs}, a degrade's {@code factor}, a spot reclaim's
+     * {@code noticeRefMs}. The loader refuses the rest, so the form has no control
+     * to draw for them.
      *
-     * <p>{@code other} is the second machine, and only {@code partition} and
-     * {@code heal} have one. That is the whole of what those two teach:
-     * reachability is a property of a <i>pair</i>, not of a machine. Both stay
-     * alive, both stay in the registry, both keep serving everyone else, and one
-     * caller sees nothing.
+     * <p>Exactly one of {@code atRefMs} and {@code perRefMs} is above zero.
+     *
+     * <p>{@code other} is the far end, and only {@code partition} and {@code heal}
+     * have one. That is the whole of what those two teach: reachability is a
+     * property of a <i>pair</i>, not of a node. Both stay alive, both stay in the
+     * registry, both keep serving everyone else, and one caller sees nothing.
      */
-    public record Fault(String kind, double atRefMs, String target, String other,
-                        double forRefMs, double factor, double noticeRefMs,
-                        double restartAfterRefMs) {}
+    public record Failure(String kind, double atRefMs, double perRefMs, String other,
+                          double forRefMs, double factor, double noticeRefMs,
+                          double restartAfterRefMs) {}
 
     /**
-     * How much work there is at full scale, and the grid the engine probes with.
+     * One thing that happens to one rpc on one node, one call in {@code perCalls}.
      *
-     * <p>Read back after the loader has filled its own defaults, so what the form
-     * shows is what the run will use rather than what the file happened to spell
-     * out. Null when the file has no {@code workload:} at all. That is different
-     * from one that declares a single record.
+     * <p>{@code status} is a gRPC code name and empty for the other two kinds;
+     * {@code factor} means something only to {@code slow}.
      */
-    public record Chaos(String kind, double everyRefMs, String among, double forRefMs, double factor) {}
+    public record RpcFailure(String kind, String status, double factor, int perCalls) {}
+
     /**
      * @param multiplier what the wait is multiplied by after each attempt. 1 is a
      *                   flat backoff; anything above it is exponential, which is
@@ -123,37 +135,8 @@ public final class Draft {
 
     public record Of(String name, String job, long seed, double scale,
                       boolean tightMargin, String mode,
-                      Net net, List<Pool> pools, List<Fault> faults, List<Chaos> chaos,
+                      Net net, List<Pool> pools,
                       List<Retry> retries, List<Duration> simulatedDuration, List<Part> input) {}
-
-    /**
-     * Every fault kind, and for each the keys it does not obey.
-     *
-     * <p>Read straight off {@code Run.schedule}, which is the only place that
-     * decides what a kind actually does with a key. Refused rather than dropped,
-     * and refused rather than shown, because every one of them either belongs to
-     * a different kind or does nothing at all. {@code for:} on a degrade is the
-     * one worth naming: {@link losim.scenario.Loader} accepts it, and
-     * {@code Run.schedule} schedules no thaw for a one-time degrade, so the
-     * machine stays slow for the rest of the run. A control writing a key the run
-     * ignores is a lie told in a form, so the form does not have one and a file
-     * using it is sent back.
-     *
-     * <p>The two pair faults obey nothing but {@code at:} and their own two
-     * machines. There is no partition that ends after a while — a {@code heal:}
-     * at a later instant is how one ends, and writing both is the exercise.
-     */
-    private static final java.util.Map<String, List<String>> UNUSABLE = java.util.Map.of(
-            "kill",         List.of("notice", "for", "factor"),
-            "freeze",       List.of("notice", "factor", "restart_after"),
-            "degrade",      List.of("notice", "for", "restart_after"),
-            "restart",      List.of("notice", "for", "factor", "restart_after"),
-            "spot_reclaim", List.of("for", "factor"),
-            "partition",    List.of("notice", "for", "factor", "restart_after"),
-            "heal",         List.of("notice", "for", "factor", "restart_after"));
-
-    /** The two whose value is a pair of machines rather than one. */
-    private static final List<String> PAIRED = List.of("partition", "heal");
 
     /**
      * @param name the file's own name, {@code two-machines.yaml} — trimmed to the
@@ -186,12 +169,13 @@ public final class Draft {
                     // it expands, and silently ignores one that names nothing. This
                     // has to check every entry, because what it cannot read it
                     // cannot write back, and a save would drop it without saying so.
-                    body.onlyAllows("instance", "zone", "memoryMb", "diskMb");
+                    body.onlyAllows("instance", "zone", "memoryMb", "diskMb", "failures");
                     overrides.add(new Override(o.getKey(),
                             body.opt("instance").present() ? body.at("instance").str() : "",
                             body.opt("zone").present() ? body.at("zone").str() : "",
                             body.opt("memoryMb").present() ? body.at("memoryMb").num() : null,
-                            body.opt("diskMb").present() ? body.at("diskMb").num() : null));
+                            body.opt("diskMb").present() ? body.at("diskMb").num() : null,
+                            failures(body.opt("failures"))));
                 }
             }
             if (!spec.opt("zone").present()) throw spec.fail(
@@ -202,15 +186,22 @@ public final class Draft {
             // Service to .java path, the same pair the file writes: the form draws two
             // columns because the file has two halves, and a form that drew one would
             // have to invent the other on save.
-            var runs = new java.util.LinkedHashMap<String, String>();
+            var runs = new java.util.LinkedHashMap<String, Runs>();
             if (spec.opt("runs").present())
-                for (var r : spec.at("runs").map().entrySet())
-                    runs.put(r.getKey(), r.getValue().str().trim());
+                for (var r : spec.at("runs").map().entrySet()) {
+                    Node body = r.getValue();
+                    boolean longhand = body.isMap();
+                    runs.put(r.getKey(), new Runs(
+                            (longhand ? body.at("file") : body).str().trim(),
+                            longhand ? rpcFailures(body.opt("failures"))
+                                     : java.util.Map.of()));
+                }
             Double memoryMb = spec.opt("memoryMb").present() ? spec.at("memoryMb").num() : null;
             Double diskMb = spec.opt("diskMb").present() ? spec.at("diskMb").num() : null;
             int count = spec.opt("count").integer(0);
+            var failures = failures(spec.opt("failures"));
             if (count == 0) {
-                pools.add(new Pool(poolName, 1, poolName, instance, zones, runs,
+                pools.add(new Pool(poolName, 1, poolName, instance, zones, runs, failures,
                         memoryMb, diskMb, List.copyOf(overrides)));
                 continue;
             }
@@ -225,53 +216,8 @@ public final class Draft {
                     + " which names it '" + poolName + "' — and a fault pointing at either name"
                     + " would then be pointing at the other. Drop the count:, or give the pool a"
                     + " prefix: of its own, then open it here again.");
-            pools.add(new Pool(poolName, count, prefix, instance, zones, runs,
+            pools.add(new Pool(poolName, count, prefix, instance, zones, runs, failures,
                     memoryMb, diskMb, List.copyOf(overrides)));
-        }
-
-        var faults = new ArrayList<Fault>();
-        for (Node f : root.opt("faults").list()) {
-            String kind = null;
-            for (String k : UNUSABLE.keySet()) if (f.opt(k).present()) kind = k;
-            // Two kinds at once is already the loader's refusal, and UNUSABLE now
-            // names every kind the loader accepts — so this fires only if the
-            // loader has grown one this form has not.
-            if (kind == null) throw f.fail(
-                    "a fault kind this form does not know. It edits "
-                    + String.join(", ", UNUSABLE.keySet()) + ". Edit the file directly,"
-                    + " then open it here again.");
-            for (String key : UNUSABLE.get(kind)) {
-                if (f.opt(key).present()) throw f.at(key).fail(
-                        "this " + kind + " fault uses " + key + ":, which does nothing to a "
-                        + kind + " and which the form has no control for. Edit the file"
-                        + " directly, then open it here again.");
-            }
-            // A pair fault names two machines under one key; every other kind
-            // names one. The loader has already checked the count and that both
-            // exist, so this only has to read them apart.
-            String target, other = "";
-            if (PAIRED.contains(kind)) {
-                var pair = f.at(kind).strings();
-                target = pair.get(0);
-                other = pair.get(1);
-            } else {
-                target = f.at(kind).str();
-            }
-            // Defaults match the loader's own, so a freeze that omits `for:` reads
-            // back as the 1000 refMs it will actually be run with rather than a 0
-            // the form would then write down and change the scenario by.
-            faults.add(new Fault(kind, f.at("at").refMs(), target, other,
-                    f.opt("for").refMs(1000), f.opt("factor").num(2),
-                    f.opt("notice").refMs(0), f.opt("restart_after").refMs(0)));
-        }
-
-        var chaos = new ArrayList<Chaos>();
-        for (Node c : root.opt("chaos").list()) {
-            for (var entry : c.map().entrySet()) {
-                Node body = entry.getValue();
-                chaos.add(new Chaos(entry.getKey(), body.at("every").refMs(), body.at("among").str(),
-                        body.opt("for").refMs(1000), body.opt("factor").num(2)));
-            }
         }
 
         var retries = new ArrayList<Retry>();
@@ -302,7 +248,56 @@ public final class Draft {
 
         return new Of(name.replaceAll("\\.ya?ml$", ""), sc.job(), sc.seed(), sc.scale(),
                 sc.tightMargin(), sc.mode().name().toLowerCase(),
-                net, List.copyOf(pools), List.copyOf(faults),
-                List.copyOf(chaos), List.copyOf(retries), List.copyOf(durations), input);
+                net, List.copyOf(pools),
+                List.copyOf(retries), List.copyOf(durations), input);
+    }
+
+    /**
+     * What happens to a node, read back in the shape the form draws it.
+     *
+     * <p>Nothing is checked here. The loader has already refused a kind this file
+     * does not know, two kinds in one entry, both an {@code at:} and a
+     * {@code per:}, neither, a rate on a kind that happens once, and every key a
+     * kind ignores — so what reaches this walk is a list the form can draw a row
+     * for. The table of which key belongs to which kind used to live here too, and
+     * two copies of it were two things to keep in step.
+     */
+    private static List<Failure> failures(Node node) {
+        var out = new ArrayList<Failure>();
+        for (Node f : node.list()) {
+            String kind = null;
+            for (var k : losim.scenario.Scenario.Kind.values())
+                if (f.opt(k.key()).present()) kind = k.key();
+            String other = "";
+            double factor = 2;
+            if (kind.equals("partition") || kind.equals("heal")) other = f.at(kind).str().trim();
+            else if (kind.equals("degrade")) factor = f.at(kind).num();
+            // Defaults match the loader's own, so a freeze that omits `for:` reads
+            // back as the 1000 refMs it will actually be run with rather than a 0
+            // the form would then write down and change the simulation by.
+            out.add(new Failure(kind, f.opt("at").refMs(0), f.opt("per").refMs(0), other,
+                    f.opt("for").refMs(kind.equals("freeze") ? 1000 : 0), factor,
+                    f.opt("notice").refMs(0), f.opt("restartAfter").refMs(0)));
+        }
+        return out;
+    }
+
+    /** What happens to one service's rpcs on one node, keyed by rpc. */
+    private static java.util.Map<String, List<RpcFailure>> rpcFailures(Node node) {
+        var out = new java.util.LinkedHashMap<String, List<RpcFailure>>();
+        if (!node.present()) return out;
+        for (var e : node.map().entrySet()) {
+            var here = new ArrayList<RpcFailure>();
+            for (Node f : e.getValue().list()) {
+                String kind = f.opt("status").present() ? "status"
+                            : f.opt("slow").present() ? "slow" : "drop";
+                here.add(new RpcFailure(kind,
+                        kind.equals("status") ? f.at("status").str().trim() : "",
+                        kind.equals("slow") ? f.at("slow").num() : 1,
+                        f.at("per").calls()));
+            }
+            out.put(e.getKey(), List.copyOf(here));
+        }
+        return out;
     }
 }

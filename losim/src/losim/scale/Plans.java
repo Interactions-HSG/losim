@@ -45,9 +45,9 @@ public final class Plans {
           .append('|').append(s.scale());
         for (var m : s.nodes())
             sb.append('|').append(m.name()).append(':').append(m.instance())
-              .append(':').append(m.zone()).append(':').append(m.runs());
-        sb.append('|').append(s.net()).append('|').append(s.faults()).append('|').append(s.chaos())
-          .append('|').append(s.retries());
+              .append(':').append(m.zone()).append(':').append(m.runs())
+              .append(':').append(m.failures());
+        sb.append('|').append(s.net()).append('|').append(s.retries());
         sb.append('|').append(s.workerCounts());
         for (Path p : code) sb.append('|').append(fingerprint(p));
         return sha(sb.toString());

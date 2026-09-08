@@ -25,7 +25,7 @@ import losim.verify.Trust;
  *
  * <p>Everything the file declared is assembled here in one order that matters:
  * the machines and their services first, because the retry gate has to be checked
- * against what the cluster really serves; then the faults, which need every machine
+ * against what the cluster really serves; then the failures, which need every node
  * to exist before one can be aimed at; then the sampler; and only then the job.
  *
  * <p>The run ends when the job returns, throws, or outstays its welcome. All three
@@ -164,7 +164,7 @@ public final class Run {
                         m.diskCapMb() != null ? m.diskCapMb() : spec.storageGb() * 1024.0);
                 for (var svc : m.runs().values())
                     machine.serves(factory(svc.className(), loader, svc.where()),
-                                   svc.path(), svc.where());
+                                   svc.path(), svc.failures(), svc.where());
                 if (m.runs().isEmpty()) machine.serving();     // listening, offering nothing
                 byName.put(m.name(), machine);
             }
@@ -446,83 +446,92 @@ public final class Run {
 
     private static void schedule(Scenario s, Machines machines, Map<String, Machine> byName,
                                  Dispatcher d, Telemetry tel) {
-        for (Fault f : s.faults()) {
-            Machine target = byName.get(f.target());
-            switch (f.kind()) {
-                case KILL -> {
-                    d.at(f.atRefMs(), () -> target.kill("killed by the scenario"));
-                    if (f.restartAfterRefMs() > 0)
-                        d.at(f.atRefMs() + f.restartAfterRefMs(), target::restart);
-                }
-                case FREEZE -> {
-                    d.at(f.atRefMs(), () -> target.freeze(f.forRefMs()));
-                    // The thaw is scheduled too: a pause ends whether or not a call
-                    // happened to be waiting at the moment it did.
-                    d.at(f.atRefMs() + f.forRefMs(), target::thaw);
-                }
-                case DEGRADE  -> d.at(f.atRefMs(), () -> target.degrade(f.factor()));
-                case RESTART  -> d.at(f.atRefMs(), target::restart);
-                case SPOT_RECLAIM -> {
-                    // The notice is the whole lesson: a spot machine tells you it is
-                    // going, and a design that ignores the warning deserves what happens.
-                    d.at(f.atRefMs(), () -> tel.event(f.target(), "spot_notice",
-                            "inRefMs", f.noticeRefMs()));
-                    d.at(f.atRefMs() + f.noticeRefMs(), () -> target.kill("spot reclaimed"));
-                    if (f.restartAfterRefMs() > 0)
-                        d.at(f.atRefMs() + f.noticeRefMs() + f.restartAfterRefMs(), target::restart);
-                }
-                case PARTITION -> d.at(f.atRefMs(), () -> {
-                    machines.net().partition(f.target(), f.other());
-                    tel.event(f.target(), "partition", "from", f.other());
-                });
-                case HEAL -> d.at(f.atRefMs(), () -> {
-                    machines.net().heal(f.target(), f.other());
-                    tel.event(f.target(), "heal", "with", f.other());
-                });
+        // The stream a drawn failure fires from. One per node and rule rather than
+        // one per simulation, so adding a rule to one node does not shift when the
+        // other nodes fail — a sweep that moved every other node's afternoon
+        // because one line was added would be comparing two different questions.
+        for (NodeSpec node : s.nodes()) {
+            Machine target = byName.get(node.name());
+            int rule = 0;
+            for (Failure f : node.failures()) {
+                if (f.drawn()) drawn(s, f, target, byName, d, tel, rule++);
+                else d.at(f.atRefMs(), () -> fire(f, target, machines, d, tel, f.atRefMs()));
             }
         }
+    }
 
-        // Chaos is a rate, not a moment, so the draws are exponential: the gaps
-        // vary the way real bad afternoons do, and a sweep of seeds shows the spread.
-        //
-        // Each firing draws the next one. Drawing the whole series up front would
-        // need a horizon to stop at, and a run that outlived its horizon would have
-        // a quiet second half that reads as a cluster behaving well — the worst kind
-        // of wrong, because it is indistinguishable from a finding. A rate that
-        // reschedules itself has no end to outlive.
-        int rule = 0;
-        for (Chaos c : s.chaos()) {
-            var rng = new Random(s.seed() * 31 + 7 + rule++);
-            var pool = s.nodes().stream()
-                    .filter(m -> m.pool().equals(c.among()) || m.name().equals(c.among()))
-                    .map(NodeSpec::name).toList();
-            var next = new Runnable[1];
-            var at = new double[]{0};
-            next[0] = () -> {
-                at[0] += -Math.log(1 - rng.nextDouble()) * c.everyRefMs();
-                final double when = at[0];
-                final long draw = rng.nextLong();
-                d.at(when, () -> {
-                    next[0].run();                     // the rate outlives every firing
-                    var live = pool.stream().map(byName::get)
-                            .filter(m -> m != null && m.alive()).toList();
-                    if (live.isEmpty()) return;
-                    Machine victim = live.get(Math.floorMod(draw, live.size()));
-                    tel.event(victim.name, "chaos", "kind", c.kind().name().toLowerCase(),
-                              "among", c.among(), "atRefMs", Machine.round(when));
-                    switch (c.kind()) {
-                        case KILL    -> victim.kill("chaos");
-                        case FREEZE  -> {
-                            victim.freeze(c.forRefMs());
-                            d.at(when + c.forRefMs(), victim::thaw);
-                        }
-                        case DEGRADE -> victim.degrade(c.factor());
-                        default -> { }
-                    }
-                });
-            };
-            next[0].run();
+    /**
+     * One failure, happening.
+     *
+     * <p>Shared by the scripted and the drawn paths so that a kill at an instant
+     * and a kill at a rate are the same event with the same consequences. They
+     * were two code paths once, and a freeze scheduled its thaw in one of them.
+     */
+    private static void fire(Failure f, Machine target, Machines machines,
+                             Dispatcher d, Telemetry tel, double now) {
+        switch (f.kind()) {
+            case KILL -> {
+                target.kill(f.drawn() ? "killed, drawn from a rate" : "killed by the simulation");
+                if (f.restartAfterRefMs() > 0)
+                    d.at(now + f.restartAfterRefMs(), target::restart);
+            }
+            case FREEZE -> {
+                target.freeze(f.forRefMs());
+                // The thaw is scheduled too: a pause ends whether or not a call
+                // happened to be waiting at the moment it did.
+                d.at(now + f.forRefMs(), target::thaw);
+            }
+            case DEGRADE -> target.degrade(f.factor());
+            case RESTART -> target.restart();
+            case SPOT_RECLAIM -> {
+                // The notice is the whole lesson: a spot node tells you it is
+                // going, and a design that ignores the warning deserves what happens.
+                tel.event(target.name, "spot_notice", "inRefMs", f.noticeRefMs());
+                d.at(now + f.noticeRefMs(), () -> target.kill("spot reclaimed"));
+                if (f.restartAfterRefMs() > 0)
+                    d.at(now + f.noticeRefMs() + f.restartAfterRefMs(), target::restart);
+            }
+            case PARTITION -> {
+                machines.net().partition(target.name, f.other());
+                tel.event(target.name, "partition", "from", f.other());
+            }
+            case HEAL -> {
+                machines.net().heal(target.name, f.other());
+                tel.event(target.name, "heal", "with", f.other());
+            }
         }
+    }
+
+    /**
+     * A standing chance of a bad day, rather than a scripted one.
+     *
+     * <p>The draws are exponential: the gaps vary the way real bad afternoons do,
+     * and a sweep of seeds shows the spread.
+     *
+     * <p>Each firing draws the next one. Drawing the whole series up front would
+     * need a horizon to stop at, and a run that outlived its horizon would have a
+     * quiet second half that reads as a system behaving well — the worst kind of
+     * wrong, because it is indistinguishable from a finding. A rate that
+     * reschedules itself has no end to outlive.
+     */
+    private static void drawn(Scenario s, Failure f, Machine target,
+                              Map<String, Machine> byName, Dispatcher d,
+                              Telemetry tel, int rule) {
+        var rng = Machines.stream(s.seed(), target.name + '/' + f.kind() + '/' + rule);
+        var next = new Runnable[1];
+        var at = new double[]{0};
+        next[0] = () -> {
+            at[0] += -Math.log(1 - rng.nextDouble()) * f.perRefMs();
+            final double when = at[0];
+            d.at(when, () -> {
+                next[0].run();                     // the rate outlives every firing
+                if (!target.alive()) return;
+                tel.event(target.name, "failure", "kind", f.kind().name().toLowerCase(),
+                          "drawn", true, "atRefMs", Machine.round(when));
+                fire(f, target, target.machines(), d, tel, when);
+            });
+        };
+        next[0].run();
     }
 
     // ------------------------------------------------------------------- cluster

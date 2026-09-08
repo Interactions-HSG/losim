@@ -14,6 +14,10 @@ nodes:
     instance: r5.large
     zone: eu-central-1a
     runs: { Worker: tests/systems/Combiner.java }
+    overrides:
+      w1:
+        failures:
+          - { kill: true, at: 400 refMs, restartAfter: 2 refSeconds }
 
 # The corpus, at full size. The job says what its input is made of; this
 # says how much of each part there is.
@@ -21,9 +25,6 @@ input:
   lines:        48000
   wordsPerLine: 8
   vocabulary:   200000
-
-faults:
-  - { at: 400 refMs, kill: w1, restart_after: 2 refSeconds }
 
 # What each rpc costs on the reference machine, under the class that serves it.
 # The handlers declare nothing: a duration is a claim about the machine a design

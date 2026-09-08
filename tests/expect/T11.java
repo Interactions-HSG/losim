@@ -207,7 +207,7 @@ public final class T11 {
                         + "chunks are done again somewhere, and some survivor absorbs its bucket",
                         amplified));
 
-        String warns = "declares no faults";
+        String warns = "declares no failures";
         boolean cleanSaysSo = clean.notes().stream().anyMatch(n -> n.contains(warns));
         // `noneMatch` over an empty list is true, and this deliberately does not
         // guard against that. It was guarded for one run, on the general principle
@@ -223,7 +223,7 @@ public final class T11 {
                 && cells.get("chaos").notes().stream().noneMatch(n -> n.contains(warns));
         e.check(cleanSaysSo && weatheredDoesNot,
                 "and the clean cell says out loud that its model describes a cluster where nothing "
-                + "goes wrong, while the two weathered cells do not — an absent fault column is a "
+                + "goes wrong, while the two weathered cells do not — an absent failure column is a "
                 + "limit of the model, not an absence of one");
         e.done();
     }

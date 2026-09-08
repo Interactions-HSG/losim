@@ -28,6 +28,20 @@ final class ServerSide implements ServerInterceptor {
 
     ServerSide(Machine node) { this.node = node; }
 
+    /**
+     * The call this one is part of, as the caller wrote it into the header.
+     *
+     * <p>Read from the header rather than from the ambient context: this thread
+     * belongs to another node and has no context from the caller, and reading it
+     * from the ambient one would hang every server span off the root, leaving no
+     * distributed call stack at all (D8 rule 2).
+     */
+    private static long parentOf(Metadata headers) {
+        String parent = headers.get(Machines.PARENT);
+        try { return parent == null ? 0 : Long.parseLong(parent); }
+        catch (NumberFormatException ignored) { return 0; }
+    }
+
     @Override public <Q, S> ServerCall.Listener<Q> interceptCall(
             ServerCall<Q, S> call, Metadata headers, ServerCallHandler<Q, S> next) {
 
@@ -37,6 +51,38 @@ final class ServerSide implements ServerInterceptor {
         final String full = call.getMethodDescriptor().getFullMethodName();
         final String method = Wire.dotted(full);
         final Cost takes = node.takenBy(full);
+
+        // What the simulation said goes wrong with this rpc on this node, drawn
+        // once for this call. Both draws happen here, before anything else, so
+        // that a call which is going to be refused is refused without opening a
+        // span or occupying a thread — the caller's whole experience of it is a
+        // status, which is what makes it a failure worth handling rather than a
+        // slow answer.
+        double slower = 1;
+        for (Machine.Drawn f : node.failuresOn(full)) {
+            if (!f.fires()) continue;
+            switch (f.spec().kind()) {
+                case STATUS -> {
+                    var code = f.spec().status();
+                    tel.event(node.name, "rpc_failure", "kind", "status", "method", method,
+                              "status", code.name(), "call", parentOf(headers));
+                    node.charge(Meter.allocNow() - a0, System.nanoTime() - t0);
+                    call.close(code.toStatus().withDescription(
+                            "the simulation fails " + method + " on " + node.name
+                            + " one call in " + f.spec().perCalls()), new Metadata());
+                    return new ServerCall.Listener<Q>() {};
+                }
+                case SLOW -> slower *= f.spec().factor();
+                case DROP -> { }                  // the caller's side; it never got here
+            }
+        }
+        // Multiplied into the sleeps rather than into the node's own factor: a
+        // degraded node is slow at everything, and this is one call path being
+        // slow, which is the thing a design cannot route around by picking another
+        // peer.
+        final double slow = slower;
+        if (slow > 1) tel.event(node.name, "rpc_failure", "kind", "slow", "method", method,
+                                "factor", slow, "call", parentOf(headers));
 
         // What the caller allowed, read on arrival and in reference milliseconds.
         //
@@ -56,14 +102,7 @@ final class ServerSide implements ServerInterceptor {
                 : allowed.timeRemaining(java.util.concurrent.TimeUnit.NANOSECONDS)
                         * node.machines().clock.kTime() / 1e6;
 
-        // The parent arrives in a header, from a thread on another machine this
-        // one has no context from. Reading it from the ambient context instead
-        // would hang every server span off the root, and there would be no
-        // distributed call stack at all (D8 rule 2).
-        final String parent = headers.get(Machines.PARENT);
-        long parentId = 0;
-        try { if (parent != null) parentId = Long.parseLong(parent); }
-        catch (NumberFormatException ignored) { }
+        long parentId = parentOf(headers);
 
         // As a number, because the client side writes it as one: the same call has to
         // be the same value on both sides of it, or nothing downstream can join them.
@@ -79,7 +118,7 @@ final class ServerSide implements ServerInterceptor {
                 if (takes != null && takes.perUnitRefMs() > 0) {
                     long n = span.units.get();
                     if (n > 0) node.machines().clock
-                            .spend(takes.perUnitRefMs() * n * node.effectiveFactor());
+                            .spend(takes.perUnitRefMs() * n * node.effectiveFactor() * slow);
                 }
                 long b0 = Meter.allocNow(), n0 = System.nanoTime();
                 if (tel.payloads()) span.detail.put("result", Values.render(message));
@@ -110,7 +149,7 @@ final class ServerSide implements ServerInterceptor {
                         long n = span.units.get();
                         double declared = takes.fixedRefMs();
                         if (n > 0 && takes.perUnitRefMs() > 0) declared += takes.perUnitRefMs() * n;
-                        declared *= node.effectiveFactor();
+                        declared *= node.effectiveFactor() * slow;
                         span.detail.put("declaredRefMs", Machine.round(declared));
                         span.detail.put("deadlineRefMs", Machine.round(deadlineRefMs));
                         // Sound in one direction only, and that is the useful one. A
@@ -168,7 +207,7 @@ final class ServerSide implements ServerInterceptor {
                 node.chargeTo(span, Meter.allocNow() - b0, System.nanoTime() - n0);
 
                 if (takes != null && takes.fixedRefMs() > 0)
-                    node.machines().clock.spend(takes.fixedRefMs() * node.effectiveFactor());
+                    node.machines().clock.spend(takes.fixedRefMs() * node.effectiveFactor() * slow);
 
                 // The handler runs inside this call, on this thread, and so does
                 // some of losim's own work — `sendMessage` and `close` are both

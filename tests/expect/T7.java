@@ -30,8 +30,8 @@ public final class T7 {
                 String.format("and it fired at about the 200 refMs the scenario wrote, not "
                         + "wherever the host got round to it (%.0f refMs)", at));
 
-        var chaos = e.of("chaos");
-        e.check(!chaos.isEmpty(), "and the standing rate of failure drew too — " + chaos.size()
+        var drawn = e.of("failure");
+        e.check(!drawn.isEmpty(), "and the standing rate of failure drew too — " + drawn.size()
                 + " events, whose spacing comes from the seed, so a sweep shows a distribution "
                 + "rather than one lucky afternoon");
 

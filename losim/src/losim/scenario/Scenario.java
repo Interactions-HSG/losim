@@ -42,8 +42,6 @@ public record Scenario(
         List<InputSize> input,
         List<NodeSpec> nodes,
         NetSpec net,
-        List<Fault> faults,
-        List<Chaos> chaos,
         List<Retry> retries,
         /**
          * What each rpc costs, by dotted {@code Service.Method} name.
@@ -134,6 +132,24 @@ public record Scenario(
         return List.of(Math.max(2, declared / 2), Math.max(3, declared));
     }
 
+    /**
+     * How many things this simulation says can go wrong, at both levels.
+     *
+     * <p>One number, because the model wants one: the amplification term asks how
+     * much weather there is, not what shape it takes. A node killed on a rate and
+     * an rpc that answers UNAVAILABLE one call in twenty both make a run longer
+     * than a clean one, and the fit does not care which did it.
+     */
+    public int failureCount() {
+        int n = 0;
+        for (NodeSpec m : nodes) {
+            n += m.failures().size();
+            for (ServiceSpec svc : m.runs().values())
+                for (var each : svc.failures().values()) n += each.size();
+        }
+        return n;
+    }
+
     // ------------------------------------------------------------------ variants
     //
     // The probe grid needs the same scenario at many sizes, cluster shapes and seeds.
@@ -141,25 +157,39 @@ public record Scenario(
     // system is — in one place, and makes the grid's axes explicit.
 
     public Scenario withSeed(long seed) {
-        return new Scenario(file, seed, job, jobWhere, scale, units, input, nodes, net,
-                faults, chaos, retries, simulatedDuration, tightMargin, mode);
+        return new Scenario(file, seed, job, jobWhere, scale, units, input, nodes,
+                net, retries, simulatedDuration, tightMargin, mode);
     }
 
     /** The run size the engine solved for, replacing the full-scale one. */
     public Scenario withUnits(long n) {
-        return new Scenario(file, seed, job, jobWhere, scale, n, input, nodes, net,
-                faults, chaos, retries, simulatedDuration, tightMargin, mode);
+        return new Scenario(file, seed, job, jobWhere, scale, n, input, nodes,
+                net, retries, simulatedDuration, tightMargin, mode);
     }
 
     public Scenario withMode(Mode m) {
-        return new Scenario(file, seed, job, jobWhere, scale, units, input, nodes, net,
-                faults, chaos, retries, simulatedDuration, tightMargin, m);
+        return new Scenario(file, seed, job, jobWhere, scale, units, input, nodes,
+                net, retries, simulatedDuration, tightMargin, m);
     }
 
-    /** The same scenario with no weather at all — the clean column of the grid. */
+    /**
+     * The same simulation with no weather at all — the clean column of the grid.
+     *
+     * <p>Both levels, because both are weather: a node that is killed on a rate
+     * and an rpc that answers UNAVAILABLE one call in twenty are the same kind of
+     * thing written in two places, and a clean column that still had one of them
+     * would be measuring a system nobody declared.
+     */
     public Scenario withoutWeather() {
-        return new Scenario(file, seed, job, jobWhere, scale, units, input, nodes, net,
-                List.of(), List.of(), retries, simulatedDuration, tightMargin, mode);
+        var out = new java.util.ArrayList<NodeSpec>();
+        for (NodeSpec m : nodes) {
+            var runs = new java.util.LinkedHashMap<String, ServiceSpec>();
+            for (var e : m.runs().entrySet()) runs.put(e.getKey(), e.getValue().calm());
+            out.add(new NodeSpec(m.name(), m.pool(), m.instance(), m.zone(), runs,
+                    List.of(), m.memoryCapMb(), m.diskCapMb(), m.where()));
+        }
+        return new Scenario(file, seed, job, jobWhere, scale, units, input, out,
+                net, retries, simulatedDuration, tightMargin, mode);
     }
 
     /**
@@ -181,17 +211,31 @@ public record Scenario(
             String prefix = m.name().replaceAll("\\d+$", "");
             var zones = pool.stream().map(NodeSpec::zone).distinct().toList();
             for (int i = 0; i < n; i++)
+                // Failures cycle with the pool the way zones do. A pool writes one
+                // list that every node in it draws its own afternoon from, and
+                // `overrides:` is how one node differs — so a resize that copied
+                // node 0's list to all n would silently delete the override, and
+                // the cell that exists to measure a kill would measure a clean run
+                // under the name of a weathered one.
                 out.add(new NodeSpec(prefix + i, m.pool(), m.instance(),
                         zones.get(i % zones.size()), m.runs(),
+                        pool.get(i % pool.size()).failures(),
                         m.memoryCapMb(), m.diskCapMb(), m.where()));
         }
-        // Weather aimed at a machine the resize removed would be aimed at nothing.
+        // A partition names the other end by name, and the resize may have removed
+        // it. Every other failure is aimed at the node it is written in, so it
+        // survives the resize the way the node does — which is the point of
+        // nesting them there.
         var kept = out.stream().map(NodeSpec::name).toList();
-        var stillThere = faults.stream()
-                .filter(f -> kept.contains(f.target()) && (f.other() == null || kept.contains(f.other())))
-                .toList();
-        return new Scenario(file, seed, job, jobWhere, scale, units, input, out, net,
-                stillThere, chaos, retries, simulatedDuration, tightMargin, mode);
+        out.replaceAll(m -> {
+            var live = m.failures().stream()
+                    .filter(f -> f.other() == null || kept.contains(f.other())).toList();
+            return live.size() == m.failures().size() ? m
+                    : new NodeSpec(m.name(), m.pool(), m.instance(), m.zone(), m.runs(),
+                            live, m.memoryCapMb(), m.diskCapMb(), m.where());
+        });
+        return new Scenario(file, seed, job, jobWhere, scale, units, input, out,
+                net, retries, simulatedDuration, tightMargin, mode);
     }
 
     /** The same cluster with caps the engine solved for, per machine, per resource. */
@@ -200,31 +244,32 @@ public record Scenario(
         for (NodeSpec m : nodes) {
             double[] caps = byMachine.get(m.name());
             out.add(caps == null ? m : new NodeSpec(m.name(), m.pool(), m.instance(),
-                    m.zone(), m.runs(), caps[0], caps[1], m.where()));
+                    m.zone(), m.runs(), m.failures(), caps[0], caps[1], m.where()));
         }
-        return new Scenario(file, seed, job, jobWhere, scale, units, input, out, net,
-                faults, chaos, retries, simulatedDuration, tightMargin, mode);
+        return new Scenario(file, seed, job, jobWhere, scale, units, input, out,
+                net, retries, simulatedDuration, tightMargin, mode);
     }
 
     /**
-     * One machine.
-     *
-     * <p>A null cap means "whatever the instance type says". Scaled mode fills them
-     * in instead, per resource, from what the engine solved for.
-     */
-    /**
      * One node, as the simulation declared it.
      *
-     * @param runs what this node serves, keyed by the service's name in the
-     *             {@code .proto} and valued by the {@code .java} file that
-     *             implements it. Both, in one key, because a scenario that named
-     *             only the class produced a trace naming only the service, under
-     *             the same heading, and nothing in the file said they were the same
-     *             thing.
+     * <p>A null cap means "whatever the instance type says". Scaled mode fills
+     * them in instead, per resource, from what the engine solved for.
+     *
+     * @param runs     what this node serves, keyed by the service's name in the
+     *                 {@code .proto} and valued by the {@code .java} file that
+     *                 implements it. Both, in one key, because a scenario that
+     *                 named only the class produced a trace naming only the
+     *                 service, under the same heading, and nothing in the file
+     *                 said they were the same thing.
+     * @param failures what happens to this node. Written inside it, so a failure
+     *                 cannot name a node that is not there — there is no name to
+     *                 get wrong. The one exception is a partition, which is a
+     *                 property of a pair and so has to say the other end.
      */
     public record NodeSpec(String name, String pool, String instance, String zone,
-                           Map<String, ServiceSpec> runs, Double memoryCapMb, Double diskCapMb,
-                           String where) {}
+                           Map<String, ServiceSpec> runs, List<Failure> failures,
+                           Double memoryCapMb, Double diskCapMb, String where) {}
 
     /**
      * One service a node runs: what it is called on the wire, and the file that
@@ -236,35 +281,83 @@ public record Scenario(
      *                  declaration and its own name, derived rather than typed a
      *                  second time
      */
-    public record ServiceSpec(String service, String path, String className, String where) {}
+    public record ServiceSpec(String service, String path, String className,
+                              Map<String, List<RpcFailure>> failures, String where) {
+        /** The same service with nothing wrong with it, for {@link #withoutWeather()}. */
+        public ServiceSpec calm() {
+            return failures.isEmpty() ? this
+                    : new ServiceSpec(service, path, className, Map.of(), where);
+        }
+    }
 
     public record NetSpec(double sameZoneRefMs, double crossZoneRefMs,
                           double jitterRefMs, double loss) {
         public static NetSpec none() { return new NetSpec(0, 0, 0, 0); }
     }
 
-    /** What can be done to a machine, and when. */
-    public enum Kind { KILL, FREEZE, DEGRADE, SPOT_RECLAIM, PARTITION, HEAL, RESTART }
+    /** What can happen to a node. */
+    public enum Kind {
+        KILL, FREEZE, DEGRADE, SPOT_RECLAIM, PARTITION, HEAL, RESTART;
+
+        /**
+         * What this is called in the file: {@code SPOT_RECLAIM} -> {@code spotReclaim}.
+         *
+         * <p>Derived rather than tabulated, and here rather than in the loader,
+         * because the console reads these keys back and a second table would be a
+         * second spelling to keep in step.
+         */
+        public String key() {
+            var parts = name().toLowerCase().split("_");
+            var sb = new StringBuilder(parts[0]);
+            for (int i = 1; i < parts.length; i++)
+                sb.append(Character.toUpperCase(parts[i].charAt(0))).append(parts[i].substring(1));
+            return sb.toString();
+        }
+    }
 
     /**
-     * One thing that happens at one instant.
+     * One thing that happens to the node it is written in — once, or at a rate.
      *
-     * @param restartAfterRefMs if positive, the machine comes back this long after
-     *                          it went away — which is a different exercise from a
-     *                          machine that never returns
+     * <p>Exactly one of {@code atRefMs} and {@code perRefMs} is set, and the
+     * loader refuses an entry that sets both or neither. The distinction is the
+     * whole of what failures teach. A simulation that kills a node at 900 refMs
+     * teaches the system to survive 900 refMs; a rate teaches it to survive
+     * whenever, which is the harder and more honest thing — and it is why sweeps
+     * exist: one seed shows a design survived an afternoon, twenty show it
+     * survives afternoons.
+     *
+     * @param other             the far end of a partition or a heal, and null for
+     *                          every other kind. Reachability is a property of a
+     *                          pair, so one of the two names has to be written
+     *                          down; the block supplies the other.
+     * @param restartAfterRefMs if positive, the node comes back this long after it
+     *                          went away — which is a different exercise from a
+     *                          node that never returns
      */
-    public record Fault(double atRefMs, Kind kind, String target, String other,
-                        double forRefMs, double factor, double noticeRefMs,
-                        double restartAfterRefMs, String where) {}
+    public record Failure(Kind kind, double atRefMs, double perRefMs, String other,
+                          double forRefMs, double factor, double noticeRefMs,
+                          double restartAfterRefMs, String where) {
+
+        /** Whether this one is drawn from a rate rather than scripted at an instant. */
+        public boolean drawn() { return perRefMs > 0; }
+    }
+
+    /** What can happen to one rpc on one node. */
+    public enum RpcKind { STATUS, SLOW, DROP }
 
     /**
-     * A standing chance of a bad day, rather than a scripted one.
+     * One thing that happens to one rpc, one call in {@code perCalls}.
      *
-     * <p>A scenario with a fault at 900 refMs teaches the cluster to survive 900 refMs.
-     * A rate teaches it to survive whenever, which is the harder and more honest
-     * thing — and it is why sweeps exist: one seed shows a design survived an
-     * afternoon, twenty show it survives afternoons.
+     * <p>Rates only, and no instant: a failure that begins at a moment and stays
+     * is a property of the node, and {@code degrade} already says it. What this
+     * says instead is the thing a node-level failure cannot — that a service is
+     * bad <i>here</i> and fine on its peers, which is the one replica every design
+     * handles worst.
+     *
+     * @param status the code the caller gets, for {@link RpcKind#STATUS}
+     * @param factor how many times its declared duration this call takes, for
+     *               {@link RpcKind#SLOW}
      */
-    public record Chaos(Kind kind, double everyRefMs, String among,
-                        double factor, double forRefMs, String where) {}
+    public record RpcFailure(RpcKind kind, io.grpc.Status.Code status, double factor,
+                             int perCalls, String where) {}
 }

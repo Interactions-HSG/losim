@@ -52,9 +52,10 @@ public final class Machine implements Bound, Telemetry.Sampled {
     final double machineFactor;
     private volatile double degraded = 1.0;
     private volatile long frozenUntilNs;
-    /** A service this machine serves, and the line of the scenario that placed it. */
+    /** A service this node serves, and the line of the simulation that placed it. */
     private record Offered(java.util.function.Supplier<? extends BindableService> factory,
                            String named,
+                           java.util.Map<String, List<losim.scenario.Scenario.RpcFailure>> failures,
                            String where) {}
 
     private final List<Offered> factories = new CopyOnWriteArrayList<>();
@@ -81,13 +82,13 @@ public final class Machine implements Bound, Telemetry.Sampled {
      *
      * <p>A fault scheduled inside the run's horizon can still be in flight when the
      * run ends. The dispatcher is stopped before the cluster is torn down, which is
-     * the tidy half, but stopping the thing that schedules faults does not stop a
+     * the tidy half, but stopping the thing that schedules failures does not stop a
      * fault already running — so a {@code restart_after} could land after every
      * machine had given its name back, and bind this one's name into a cluster that
      * no longer exists. Nobody would ever release it, and the <i>next</i> cluster in
      * the same JVM would find the name taken.
      *
-     * <p>This is likeliest under chaos: thirty clusters running back to back in one
+     * <p>This is likeliest under weather: thirty systems running back to back in one
      * JVM, every one of them with a machine called {@code m0}, and enough
      * scheduled restarts for one to fall off the end.
      *
@@ -146,9 +147,29 @@ public final class Machine implements Bound, Telemetry.Sampled {
             new ConcurrentHashMap<>();
     private final Map<String, Cost> declared = new ConcurrentHashMap<>();
     private final Map<String, String> runsAs = new ConcurrentHashMap<>();
+    /**
+     * What goes wrong with each rpc here, by full method name, with the stream
+     * each one is drawn from.
+     *
+     * <p>Rebuilt in {@link #start()} alongside the services, so a node that comes
+     * back draws the same sequence it drew the first time. That is deliberate: a
+     * restart is a fresh process, and a bad replica that came back good would be
+     * a fix nobody applied.
+     */
+    private final Map<String, List<Drawn>> failing = new ConcurrentHashMap<>();
+    /** Every `named.Rpc` a failures: block declared here, and the line it was on. */
+    private final Map<String, String> failureWhere = new ConcurrentHashMap<>();
     private final Map<String, ManagedChannel> dialled = new ConcurrentHashMap<>();
     private final List<String> servicesOffered = new CopyOnWriteArrayList<>();
     private int sinceWalk = WALK_EVERY_TICKS;            // walk on the very first tick
+
+    /** One declared rpc failure and the stream it fires from. */
+    record Drawn(losim.scenario.Scenario.RpcFailure spec, java.util.Random rng) {
+        /** Whether this call is the one in {@code perCalls}. */
+        boolean fires() {
+            synchronized (rng) { return rng.nextInt(spec.perCalls()) == 0; }
+        }
+    }
     private volatile boolean oomReported;
     private final java.util.concurrent.atomic.AtomicBoolean diskFullReported =
             new java.util.concurrent.atomic.AtomicBoolean();
@@ -207,7 +228,8 @@ public final class Machine implements Bound, Telemetry.Sampled {
      */
     public Machine serving(BindableService... services) {
         // Unnamed: nothing placed these by a name, so start() takes their own.
-        for (BindableService svc : services) factories.add(new Offered(() -> svc, null, ""));
+        for (BindableService svc : services)
+            factories.add(new Offered(() -> svc, null, java.util.Map.of(), ""));
         return start();
     }
 
@@ -243,7 +265,22 @@ public final class Machine implements Bound, Telemetry.Sampled {
      */
     public Machine serves(java.util.function.Supplier<? extends BindableService> factory,
                           String named, String where) {
-        factories.add(new Offered(factory, named, where));
+        return serves(factory, named, java.util.Map.of(), where);
+    }
+
+    /**
+     * The same, with what the simulation said goes wrong with this service here.
+     *
+     * <p>Keyed by rpc, and held per node rather than per service class, because
+     * that is the whole point of writing it inside {@code runs:}: the same service
+     * can be the bad replica on one node and fine on its peers, and a design that
+     * routes around it is a different design from one that does not.
+     */
+    public Machine serves(java.util.function.Supplier<? extends BindableService> factory,
+                          String named,
+                          java.util.Map<String, List<losim.scenario.Scenario.RpcFailure>> failures,
+                          String where) {
+        factories.add(new Offered(factory, named, failures, where));
         rebuildable = true;
         return start();
     }
@@ -324,6 +361,8 @@ public final class Machine implements Bound, Telemetry.Sampled {
         roots.add(store);
         declared.clear();
         served.clear();
+        failing.clear();
+        failureWhere.clear();
         var b = InProcessServerBuilder.forName(name).executor(queueing);
         runsAs.clear();
         for (var offered : factories) {
@@ -337,8 +376,26 @@ public final class Machine implements Bound, Telemetry.Sampled {
             for (var m : def.getMethods()) {
                 priceable(m.getMethodDescriptor(), offered.where());
                 served.add(m.getMethodDescriptor());
-                runsAs.put(m.getMethodDescriptor().getFullMethodName(), named);
+                String full = m.getMethodDescriptor().getFullMethodName();
+                runsAs.put(full, named);
+                var mine = offered.failures().get(rpcOf(full));
+                if (mine != null && !mine.isEmpty()) {
+                    var drawn = new java.util.ArrayList<Drawn>();
+                    for (var f : mine)
+                        // Seeded from the simulation, the node and the rpc, so two
+                        // nodes running one service fail on different calls — which
+                        // is what makes one of them the bad replica.
+                        drawn.add(new Drawn(f, Machines.stream(machines.seed(),
+                                name + '/' + full + '/' + f.kind())));
+                    failing.put(full, List.copyOf(drawn));
+                }
             }
+            // Recorded whether or not the rpc exists: an rpc this class does not
+            // serve is exactly the typo `Machines.costing` is about to refuse, and
+            // it can only refuse what it was told was written down.
+            for (var f : offered.failures().entrySet())
+                failureWhere.put(named + "." + f.getKey(),
+                        f.getValue().isEmpty() ? offered.where() : f.getValue().get(0).where());
             String svc = def.getServiceDescriptor().getName();
             String bare = svc.substring(svc.lastIndexOf('.') + 1);
             if (!servicesOffered.contains(bare)) servicesOffered.add(bare);
@@ -372,7 +429,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
 
     private volatile boolean announced;
 
-    // -------------------------------------------------------------------- faults
+    // ------------------------------------------------------------------ failures
 
     /**
      * Stops the machine dead for a while, without killing it.
@@ -497,6 +554,19 @@ public final class Machine implements Bound, Telemetry.Sampled {
      * crossed with every rpc — and the check would stop catching the typo it
      * exists for.
      */
+    /** Every `named.Rpc` a failures: block claimed here, with its line, for the refusal. */
+    Map<String, String> failureKeys() { return Map.copyOf(failureWhere); }
+
+    /**
+     * What the simulation said goes wrong with this rpc here, drawn afresh.
+     *
+     * <p>Consulted once per call and per kind, on the thread the call is on, so a
+     * draw belongs to a call rather than to a moment.
+     */
+    List<Drawn> failuresOn(String fullMethodName) {
+        return failing.getOrDefault(fullMethodName, List.of());
+    }
+
     List<String> costKeys() {
         var out = new java.util.ArrayList<String>();
         for (var e : runsAs.entrySet()) {
@@ -869,7 +939,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
      * occasionally — it loses outright. And the <b>probe grid</b> runs thirty
      * clusters back to back in one JVM, all of them with a machine called {@code m0},
      * so the thirty-first fails to bind a name the thirtieth has not finished
-     * releasing. Both races are widest under chaos: more machines dying means more
+     * releasing. Both races are widest under weather: more nodes dying means more
      * servers shutting down at once. It is the concurrent shutdowns that widen the
      * race, not the killing itself.
      *

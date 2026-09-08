@@ -125,6 +125,27 @@ public final class Node {
 
     public double refMs(double fallback) { return present() ? refMs() : fallback; }
 
+    /**
+     * How often something happens, counted in calls: {@code 20 calls}.
+     *
+     * <p>The unit is written out for the same reason a duration's is. A rate is
+     * the one place where a bare number could plausibly be read three ways — one
+     * call in twenty, twenty calls in a row, twenty per cent — and the word
+     * settles it on the line rather than in the manual.
+     */
+    public int calls() {
+        String s = str().trim();
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("^([0-9]+)\\s*calls?$").matcher(s);
+        if (!m.matches())
+            throw fail("'" + s + "' does not say what it counts. An rpc fails one call in so"
+                     + " many, and the number is a count of calls: write '20 calls'.");
+        int n = Integer.parseInt(m.group(1));
+        if (n < 1) throw fail("one call in " + n + " is not a rate. Write '1 calls' for an rpc"
+                           + " that always fails, or remove the entry.");
+        return n;
+    }
+
     /** Every key here that is not in {@code known} — a typo caught at load, not at run. */
     public void onlyAllows(String... known) {
         if (!isMap()) return;

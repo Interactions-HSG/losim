@@ -38,18 +38,47 @@ public final class Loader {
      * their YAML with a text tool, which is how a harness comes to depend on
      * where they happened to put their whitespace.
      *
-     * <p><b>The overlay may only change the weather.</b> Faults, chaos, retries,
-     * the network and the seed are replaceable; the cluster, the job and the scale
-     * are not. That is the line that keeps the result meaningful: a
-     * scenario whose machines had been swapped out underneath it is no longer a
-     * run of their design, and an examiner would be asking them about somebody
-     * else's system.
+     * <p><b>The overlay may only change the weather.</b> Failures, retries, the
+     * network and the seed are replaceable; the cluster, the job and the scale are
+     * not. That is the line that keeps the result meaningful: a simulation whose
+     * nodes had been swapped out underneath it is no longer a run of their design,
+     * and an examiner would be asking them about somebody else's system.
+     *
+     * <p>Failures live inside the nodes they happen to, so an overlay names nodes
+     * to reach them — and may say nothing else about one. A node named here has
+     * its whole {@code failures:} list replaced, not added to: an overlay that
+     * layered a second kill on top of theirs would be asking what their design
+     * does about a bad afternoon nobody can read off either file.
      */
     public static Scenario overlay(Scenario base, Path file) throws IOException {
         Node over = Yaml.parse(file);
-        over.onlyAllows("seed", "network", "faults", "chaos", "retries", "tightMargin");
-        var names = new LinkedHashSet<String>();
-        for (NodeSpec m : base.nodes()) names.add(m.name());
+        over.onlyAllows("seed", "network", "nodes", "retries", "tightMargin");
+
+        var nodes = base.nodes();
+        if (over.opt("nodes").present()) {
+            var byName = new LinkedHashMap<String, Node>();
+            for (var e : over.at("nodes").map().entrySet()) {
+                e.getValue().onlyAllows("failures");
+                byName.put(e.getKey(), e.getValue());
+            }
+            var known = new LinkedHashSet<String>();
+            for (NodeSpec m : base.nodes()) known.add(m.name());
+            for (var e : byName.entrySet())
+                if (!known.contains(e.getKey())) throw e.getValue().fail(
+                        "there is no node called '" + e.getKey() + "' in " + base.file()
+                        + "; it has " + String.join(", ", known)
+                        + ". An overlay lays weather over a system it did not write, so it can"
+                        + " only name nodes that system already has.");
+            var out = new ArrayList<NodeSpec>();
+            for (NodeSpec m : base.nodes()) {
+                Node o = byName.get(m.name());
+                out.add(o == null ? m : new NodeSpec(m.name(), m.pool(), m.instance(), m.zone(),
+                        m.runs(), failures(o.opt("failures")), m.memoryCapMb(), m.diskCapMb(),
+                        m.where()));
+            }
+            checkPartitions(out);
+            nodes = List.copyOf(out);
+        }
 
         return new Scenario(
                 base.file(),
@@ -59,10 +88,8 @@ public final class Loader {
                 base.scale(),
                 base.units(),
                 base.input(),
-                base.nodes(),
+                nodes,
                 over.opt("network").present() ? network(over.opt("network")) : base.net(),
-                over.opt("faults").present() ? faults(over.opt("faults"), names, over) : base.faults(),
-                over.opt("chaos").present() ? chaos(over.opt("chaos"), base.nodes()) : base.chaos(),
                 over.opt("retries").present() ? retries(over.opt("retries")) : base.retries(),
                 base.simulatedDuration(),
                 over.opt("tightMargin").present() ? over.at("tightMargin").bool(false) : base.tightMargin(),
@@ -71,7 +98,7 @@ public final class Loader {
 
     public static Scenario of(Node root) {
         root.onlyAllows("seed", "job", "scale", "nodes", "input",
-                        "network", "faults", "chaos", "retries", "simulatedDuration",
+                        "network", "retries", "simulatedDuration",
                         "tightMargin", "mode");
 
         long seed = (long) root.opt("seed").num(1);
@@ -88,9 +115,9 @@ public final class Loader {
             if (!names.add(m.name())) throw root.at("nodes").fail(
                     "two nodes are both called '" + m.name() + "'");
 
+        checkPartitions(machines);
+
         var net = network(root.opt("network"));
-        var faults = faults(root.opt("faults"), names, root);
-        var chaos = chaos(root.opt("chaos"), machines);
         var retries = retries(root.opt("retries"));
         var takes = simulatedDuration(root.opt("simulatedDuration"));
         var input = input(root.opt("input"));
@@ -102,7 +129,7 @@ public final class Loader {
                     + " or run it directly.");
 
         var s = new Scenario(root.where().split(":")[0], seed, job, root.at("job").where(), scale,
-                0, input, machines, net, faults, chaos, retries, takes,
+                0, input, machines, net, retries, takes,
                 root.opt("tightMargin").bool(false), mode);
         return s.withUnits(s.fullUnits());
     }
@@ -143,7 +170,13 @@ public final class Loader {
                 + " and the half it leaves out is the one peers find a node by.");
         for (var e : node.map().entrySet()) {
             String service = e.getKey().trim();
-            Node value = e.getValue();
+            Node entry = e.getValue();
+            // Shorthand when nothing goes wrong here, which is almost every entry;
+            // longhand when something does, and then the file: is the same string
+            // the shorthand would have been.
+            boolean longhand = entry.isMap();
+            if (longhand) entry.onlyAllows("file", "failures");
+            Node value = longhand ? entry.at("file") : entry;
             String said = value.str().trim();
             if (!said.endsWith(".java")) throw value.fail(
                     "'" + said + "' is not a .java file. runs: names the file that implements a"
@@ -165,7 +198,10 @@ public final class Loader {
             }
             if (out.containsKey(service)) throw value.fail(
                     "this node runs '" + service + "' twice");
-            out.put(service, new Scenario.ServiceSpec(service, said, className, value.where()));
+            var failures = longhand ? rpcFailures(entry.opt("failures"))
+                                    : Map.<String, List<RpcFailure>>of();
+            out.put(service, new Scenario.ServiceSpec(service, said, className,
+                    failures, value.where()));
         }
         return out;
     }
@@ -175,18 +211,20 @@ public final class Loader {
         for (var entry : node.map().entrySet()) {
             String poolName = entry.getKey();
             Node spec = entry.getValue();
-            spec.onlyAllows("instance", "zone", "runs", "count", "prefix",
+            spec.onlyAllows("instance", "zone", "runs", "failures", "count", "prefix",
                             "memoryMb", "diskMb", "overrides");
 
             String instance = spec.at("instance").str();
             checkInstance(spec.at("instance"), instance);
             var zones = spec.opt("zone").present() ? spec.at("zone").strings() : List.of("default");
             var runs = runs(spec.opt("runs"));
+            var failures = failures(spec.opt("failures"));
             int count = spec.opt("count").integer(0);
 
-            if (count == 0) {                              // a single, named machine
+            if (count == 0) {                              // a single, named node
                 out.add(new NodeSpec(poolName, poolName, instance, zones.get(0), runs,
-                        capOf(spec, "memoryMb"), capOf(spec, "diskMb"), spec.where()));
+                        failures, capOf(spec, "memoryMb"), capOf(spec, "diskMb"),
+                        spec.where()));
                 continue;
             }
             if (count < 0) throw spec.at("count").fail("a pool cannot have " + count + " machines");
@@ -198,12 +236,19 @@ public final class Loader {
                 String inst = over.present() && over.opt("instance").present()
                         ? over.at("instance").str() : instance;
                 if (over.present()) {
-                    over.onlyAllows("instance", "zone", "memoryMb", "diskMb");
+                    over.onlyAllows("instance", "zone", "memoryMb", "diskMb", "failures");
                     checkInstance(over.opt("instance").present() ? over.at("instance") : spec, inst);
                 }
                 String zone = over.present() && over.opt("zone").present()
                         ? over.at("zone").str() : zones.get(i % zones.size());
-                out.add(new NodeSpec(name, poolName, inst, zone, runs,
+                // The pool's failures, unless this node overrides them — replaced
+                // rather than added to, the way its instance type is. Being the one
+                // node that dies is the most interesting way to differ from your
+                // pool, and overrides: is already where a pool says one of its
+                // nodes is not like the others.
+                var mine = over.present() && over.opt("failures").present()
+                        ? failures(over.at("failures")) : failures;
+                out.add(new NodeSpec(name, poolName, inst, zone, runs, mine,
                         over.present() && over.opt("memoryMb").present()
                                 ? capOf(over, "memoryMb") : capOf(spec, "memoryMb"),
                         over.present() && over.opt("diskMb").present()
@@ -236,81 +281,231 @@ public final class Loader {
                            node.opt("jitter").refMs(0), loss);
     }
 
-    // ------------------------------------------------------------------- faults
+    // ----------------------------------------------------------------- failures
 
-    private static List<Fault> faults(Node node, java.util.Set<String> machines, Node root) {
-        var out = new ArrayList<Fault>();
+    private static final List<Kind> REPEATABLE = List.of(Kind.KILL, Kind.FREEZE, Kind.DEGRADE);
+
+    /**
+     * For each kind, the keys that do nothing to it.
+     *
+     * <p>Refused rather than dropped. A {@code for:} on a degrade is the one worth
+     * naming: nothing schedules an end to a one-time degrade, so the node stays
+     * slow for the rest of the simulation and the file says otherwise. A key that
+     * is read by nobody is a claim the run does not honour, and it reads back as a
+     * design decision to whoever opens the file next.
+     */
+    private static final Map<Kind, List<String>> IGNORES = Map.of(
+            Kind.KILL,         List.of("notice", "for"),
+            Kind.FREEZE,       List.of("notice", "restartAfter"),
+            Kind.DEGRADE,      List.of("notice", "for", "restartAfter"),
+            Kind.RESTART,      List.of("notice", "for", "restartAfter"),
+            Kind.SPOT_RECLAIM, List.of("for"),
+            Kind.PARTITION,    List.of("notice", "for", "restartAfter"),
+            Kind.HEAL,         List.of("notice", "for", "restartAfter"));
+
+    /**
+     * What happens to the node this block is written in.
+     *
+     * <pre>
+     * failures:
+     *   - { kill: true, at: 400 refMs, restartAfter: 300 refMs }
+     *   - { degrade: 3, per: 2 refSeconds }
+     *   - { partition: master, at: 900 refMs }
+     * </pre>
+     *
+     * <p><b>No target.</b> The node is the block it is in, which is why this reader
+     * takes no set of names to check one against: a failure can no longer be aimed
+     * at a node that is not there, because there is no name to get wrong. A
+     * partition is the exception and says so — reachability is a property of a
+     * pair, so one of the two ends has to be written down.
+     *
+     * <p><b>A pool's failures belong to every node in it, separately.</b> A
+     * {@code per: 2 refSeconds} on a pool of six is six nodes each failing every
+     * two seconds on their own draw, not one of the six failing every two
+     * seconds. That follows from where it is written — the block is the node —
+     * and it is the reading that survives resizing the pool, which is the one
+     * thing the probe grid does to it. For one node of a pool and not its
+     * siblings, write it under {@code overrides:}.
+     *
+     * <p><b>{@code at:} or {@code per:}, and never both.</b> One is an instant, the
+     * other a mean gap drawn exponentially. An entry with both would be two
+     * failures written as one, and an entry with neither is a failure that never
+     * happens — which reads in a trace exactly like a system that survived it.
+     */
+    private static List<Failure> failures(Node node) {
+        var out = new ArrayList<Failure>();
         for (Node f : node.list()) {
-            f.onlyAllows("at", "kill", "freeze", "degrade", "spot_reclaim", "partition",
-                         "heal", "restart", "for", "factor", "notice", "restart_after");
-            double at = f.at("at").refMs();
-            Kind kind = null;
-            String target = null, other = null;
-            for (Kind k : Kind.values()) {
-                String key = k.name().toLowerCase();
-                if (!f.opt(key).present()) continue;
-                if (kind != null) throw f.fail("this fault does two things at once ("
-                        + kind.name().toLowerCase() + " and " + key + "); write them as two");
-                kind = k;
-                if (k == Kind.PARTITION || k == Kind.HEAL) {
-                    var pair = f.at(key).strings();
-                    if (pair.size() != 2)
-                        throw f.at(key).fail(key + " takes exactly two machines, got " + pair.size());
-                    target = pair.get(0);
-                    other = pair.get(1);
-                } else {
-                    target = f.at(key).str();
-                }
+            for (RpcKind r : RpcKind.values()) {
+                String key = r.name().toLowerCase();
+                if (f.opt(key).present()) throw f.at(key).fail(
+                        key + " happens to an rpc, not to a node. Write it under the service in"
+                        + " runs:, keyed by the rpc it happens to — that is what lets one bad"
+                        + " replica be bad while its peers are fine.");
             }
-            if (kind == null) throw f.fail("a fault has to do something: "
-                    + "kill, freeze, degrade, spot_reclaim, partition, heal or restart");
-            check(f, machines, target);
-            if (other != null) check(f, machines, other);
+            var allowed = new ArrayList<>(List.of("at", "per", "for", "notice", "restartAfter"));
+            for (Kind k : Kind.values()) allowed.add(k.key());
+            f.onlyAllows(allowed.toArray(new String[0]));
+
+            Kind kind = null;
+            String other = null;
+            double factor = 1;
+            for (Kind k : Kind.values()) {
+                String key = k.key();
+                if (!f.opt(key).present()) continue;
+                if (kind != null) throw f.fail("this failure does two things at once ("
+                        + kind.key() + " and " + key + "); write them as two");
+                kind = k;
+                if (k == Kind.PARTITION || k == Kind.HEAL) other = f.at(key).str().trim();
+                else if (k == Kind.DEGRADE) factor = f.at(key).num();
+                else if (!f.at(key).bool(false)) throw f.at(key).fail(
+                        key + ": is written true, or left out. A node is not half killed.");
+            }
+            if (kind == null) throw f.fail("a failure has to do something: "
+                    + "kill, freeze, degrade, spotReclaim, partition, heal or restart");
+            for (String dead : IGNORES.get(kind))
+                if (f.opt(dead).present()) throw f.at(dead).fail(
+                        dead + ": does nothing to a " + kind.key() + ", so it would be a line"
+                        + " this file says and the simulation does not do.");
+            if (kind == Kind.DEGRADE && factor <= 1) throw f.at("degrade").fail(
+                    "degrade is how many times slower the node becomes, so it is above 1."
+                    + " A factor of " + factor + " is a node that is not degraded.");
+
+            boolean at = f.opt("at").present(), per = f.opt("per").present();
+            if (at && per) throw f.fail("this failure says both when it happens (at:) and how"
+                    + " often (per:). Those are two failures, and one of them would be lost"
+                    + " here. Write them as two.");
+            if (!at && !per) throw f.fail("this failure never happens: it says neither when"
+                    + " (at:) nor how often (per:). A failure that never fires reads in a"
+                    + " trace exactly like a system that survived it.");
+            if (per && !REPEATABLE.contains(kind)) throw f.at("per").fail(
+                    kind.key() + " happens once, so it has an at: rather than a per:. It "
+                    + (kind == Kind.PARTITION || kind == Kind.HEAL
+                        ? "changes what reaches what, and stays changed until the other one undoes it."
+                        : "either brings the node back or takes it away for good, and neither is"
+                          + " a thing that can go on happening at a rate.") );
 
             double forMs = f.opt("for").refMs(kind == Kind.FREEZE ? 1000 : 0);
-            if (kind == Kind.DEGRADE && !f.opt("factor").present())
-                throw f.fail("degrade needs a factor: how many times slower the machine becomes");
-            out.add(new Fault(at, kind, target, other, forMs,
-                    f.opt("factor").num(1), f.opt("notice").refMs(0),
-                    f.opt("restart_after").refMs(0), f.where()));
+            out.add(new Failure(kind, f.opt("at").refMs(0), f.opt("per").refMs(0), other,
+                    forMs, factor, f.opt("notice").refMs(0),
+                    f.opt("restartAfter").refMs(0), f.where()));
         }
         return out;
     }
 
-    private static void check(Node f, java.util.Set<String> machines, String name) {
-        if (!machines.contains(name))
-            throw f.fail("there is no machine called '" + name + "' in this scenario; "
-                    + "it has " + String.join(", ", machines));
-    }
-
-    // -------------------------------------------------------------------- chaos
-
-    private static List<Chaos> chaos(Node node, List<NodeSpec> nodes) {
-        var out = new ArrayList<Chaos>();
-        var pools = nodes.stream().map(NodeSpec::pool).distinct().toList();
-        for (Node c : node.list()) {
-            for (var entry : c.map().entrySet()) {
-                Kind kind;
-                String verb = entry.getKey();
-                try { kind = Kind.valueOf(verb.toUpperCase()); }
-                catch (IllegalArgumentException e) {
-                    throw entry.getValue().fail("chaos cannot '" + verb + "'; it can "
-                            + "kill, freeze or degrade");
+    /**
+     * What happens to one rpc on one node.
+     *
+     * <pre>
+     * runs:
+     *   Thumbnailer:
+     *     file: src/Shrinker.java
+     *     failures:
+     *       Thumbnail:
+     *         - { status: UNAVAILABLE, per: 20 calls }
+     * </pre>
+     *
+     * <p>Rates only. A failure that starts at an instant and stays is a property of
+     * the node, and {@code degrade} already says it.
+     *
+     * <p>Whether the service actually serves an rpc of that name is not asked here.
+     * The loader loads nothing, so it cannot know what a class serves — the same
+     * reason {@code simulatedDuration:} defers its own key check. The line is
+     * carried instead, and {@link losim.runtime.Machines} asks the bound server
+     * once there is one.
+     */
+    private static Map<String, List<RpcFailure>> rpcFailures(Node node) {
+        var out = new LinkedHashMap<String, List<RpcFailure>>();
+        if (!node.present()) return out;
+        if (!node.isMap()) throw node.fail(
+                "failures: under a service is keyed by the rpc it happens to, because a service"
+                + " with four rpcs is four different things to go wrong with.");
+        for (var e : node.map().entrySet()) {
+            String rpc = e.getKey().trim();
+            var here = new ArrayList<RpcFailure>();
+            for (Node f : e.getValue().list()) {
+                for (Kind k : Kind.values()) {
+                    String key = k.key();
+                    if (f.opt(key).present()) throw f.at(key).fail(
+                            key + " happens to a node, not to an rpc. Write it in the node's own"
+                            + " failures: — the block it is in is the node it happens to.");
                 }
-                if (kind != Kind.KILL && kind != Kind.FREEZE && kind != Kind.DEGRADE)
-                    throw entry.getValue().fail(verb + " happens at a moment, not at a rate; "
-                            + "put it under faults:");
-                Node body = entry.getValue();
-                body.onlyAllows("every", "among", "factor", "for");
-                String among = body.at("among").str();
-                if (!pools.contains(among) && nodes.stream().noneMatch(m -> m.name().equals(among)))
-                    throw body.at("among").fail("'" + among + "' is neither a pool nor a machine; "
-                            + "this scenario has pools " + String.join(", ", pools));
-                out.add(new Chaos(kind, body.at("every").refMs(), among,
-                        body.opt("factor").num(2), body.opt("for").refMs(1000), body.where()));
+                if (f.opt("at").present()) throw f.at("at").fail(
+                        "an rpc fails at a rate rather than at an instant. A failure that begins"
+                        + " at a moment and stays is a property of the node, and degrade says it.");
+                f.onlyAllows("status", "slow", "drop", "per");
+                RpcKind kind = null;
+                io.grpc.Status.Code status = null;
+                double factor = 1;
+                for (RpcKind r : RpcKind.values()) {
+                    String key = r.name().toLowerCase();
+                    if (!f.opt(key).present()) continue;
+                    if (kind != null) throw f.fail("this failure does two things at once ("
+                            + kind.name().toLowerCase() + " and " + key + "); write them as two");
+                    kind = r;
+                    switch (r) {
+                        case STATUS -> {
+                            String said = f.at("status").str().trim();
+                            try { status = io.grpc.Status.Code.valueOf(said); }
+                            catch (IllegalArgumentException bad) {
+                                throw f.at("status").fail("'" + said + "' is not a gRPC status"
+                                        + " code. The codes are " + codes() + ".");
+                            }
+                            if (status == io.grpc.Status.Code.OK) throw f.at("status").fail(
+                                    "OK is what a call that worked returns, so a failure cannot"
+                                    + " be one. Pick the code the caller should have to handle.");
+                        }
+                        case SLOW -> {
+                            factor = f.at("slow").num();
+                            if (factor <= 1) throw f.at("slow").fail(
+                                    "slow is how many times its declared duration this call takes,"
+                                    + " so it is above 1. A factor of " + factor + " is a call"
+                                    + " that is not slow.");
+                        }
+                        case DROP -> {
+                            if (!f.at("drop").bool(false)) throw f.at("drop").fail(
+                                    "drop: is written true, or left out.");
+                        }
+                    }
+                }
+                if (kind == null) throw f.fail("an rpc failure is one of status:, slow: or drop:");
+                here.add(new RpcFailure(kind, status, factor, f.at("per").calls(), f.where()));
             }
+            if (here.isEmpty()) throw e.getValue().fail(
+                    "'" + rpc + "' is listed under failures: with nothing wrong with it");
+            out.put(rpc, List.copyOf(here));
         }
         return out;
+    }
+
+    /** Every gRPC status code but OK, for a refusal to list. */
+    private static String codes() {
+        var names = new ArrayList<String>();
+        for (io.grpc.Status.Code c : io.grpc.Status.Code.values())
+            if (c != io.grpc.Status.Code.OK) names.add(c.name());
+        return String.join(", ", names);
+    }
+
+    /**
+     * The far end of every partition and heal, checked once the whole cluster is
+     * known.
+     *
+     * <p>Here rather than in {@link #failures} because a pool's failures are read
+     * before the pool has been expanded into nodes, and half a cluster cannot
+     * answer whether a name is in it.
+     */
+    private static void checkPartitions(List<NodeSpec> nodes) {
+        var names = new LinkedHashSet<String>();
+        for (NodeSpec m : nodes) names.add(m.name());
+        for (NodeSpec m : nodes)
+            for (Failure f : m.failures()) {
+                if (f.other() == null) continue;
+                if (f.other().equals(m.name())) throw new IllegalArgumentException(f.where()
+                        + ": '" + m.name() + "' is partitioned from itself. A partition is"
+                        + " between two nodes, and this block is already one of them.");
+                if (!names.contains(f.other())) throw new IllegalArgumentException(f.where()
+                        + ": there is no node called '" + f.other() + "'; this simulation has "
+                        + String.join(", ", names));
+            }
     }
 
     // -------------------------------------------------------------------- input

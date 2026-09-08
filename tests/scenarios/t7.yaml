@@ -13,6 +13,31 @@ nodes:
     instance: c5.large
     zone: [eu-central-1a, eu-central-1b]
     runs: { Worker: tests/systems/Mapper.java }
+    # A standing rate of failure rather than one scripted moment. Written on the
+    # pool, so each of the four mappers draws its own afternoon — four streams at
+    # one freeze per 2800 refMs is the same one-per-700 across the pool that this
+    # was before failures moved inside the nodes they happen to.
+    failures:
+      - { freeze: true, per: 2800 refMs, for: 150 refMs }
+    overrides:
+      # Killed before its chunk is handed out, not while it holds one.
+      #
+      # This was `at: 300 refMs`, and the mappers are dispatched somewhere between
+      # 266 and 379 depending on what setup cost that run — so the failure landed
+      # inside the dispatch window and a coin flip decided the afternoon. Land
+      # before it and m2 is dead when the work arrives: the calls fail, the
+      # retries fire, the pool carries the chunk, and the run lasts long enough
+      # for the standing rate to draw at all. Land after it and m2 has already
+      # answered, killing it costs nothing, the job finishes in 400 refMs and no
+      # drawn failure is ever due.
+      #
+      # Both are legitimate afternoons. Only one of them is the exercise this
+      # simulation says it is, and one that is the exercise half the time is a
+      # test that fails a sixth of the time for the least interesting reason
+      # available.
+      m2:
+        failures:
+          - { kill: true, at: 200 refMs, restartAfter: 2 refSeconds }
   reducers:
     count: 2
     prefix: r
@@ -20,24 +45,6 @@ nodes:
     zone: eu-central-1a
     runs: { Shuffler: tests/systems/Reducer.java }
 
-# Killed before its chunk is handed out, not while it holds one.
-#
-# This was `at: 300 refMs`, and the mappers are dispatched somewhere between 266
-# and 379 depending on what setup cost that run — so the fault landed inside the
-# dispatch window and a coin flip decided the afternoon. Land before it and m2 is
-# dead when the work arrives: the calls fail, the retries fire, the pool carries
-# the chunk, and the run lasts long enough for the standing rate of failure to
-# draw at all. Land after it and m2 has already answered, killing it costs
-# nothing, the job finishes in 400 refMs and no chaos is ever due.
-#
-# Both are legitimate afternoons. Only one of them is the exercise this scenario
-# says it is, and a scenario that is the exercise half the time is a test that
-# fails a sixth of the time for the least interesting reason available.
-faults:
-  - { at: 200 refMs, kill: m2, restart_after: 2 refSeconds }
-
-chaos:
-  - { freeze: { every: 700 refMs, among: mappers, for: 150 refMs } }
 
 # Map is declared NO_SIDE_EFFECTS in the .proto, so retrying it needs no argument.
 retries:

@@ -24,7 +24,7 @@ import losim.trace.Telemetry;
  * quantity my cost depends on" in the one place that knows.
  */
 public record Probe(
-        long units, int workers, int faults, long seed,
+        long units, int workers, int failures, long seed,
         Map<String, Double> variables,        // what a resource might be a function of
         Map<String, Double> resources,        // what it consumed
         Map<String, Double> costSites,        // per handler: what the program took, in refMs
@@ -86,8 +86,8 @@ public record Probe(
         var costSites = new TreeMap<String, Double>();
         perSite.forEach((label, xs) -> costSites.put(label, median(xs)));
 
-        int faults = s.faults().size() + s.chaos().size();
-        return new Probe(s.units(), variables.get("workers").intValue(), faults, s.seed(),
+        return new Probe(s.units(), variables.get("workers").intValue(),
+                s.failureCount(), s.seed(),
                 variables, resources, costSites, result.completed(), result.failure());
     }
 
@@ -117,7 +117,7 @@ public record Probe(
         boolean all = runs.stream().allMatch(Probe::completed);
         String failure = runs.stream().map(Probe::failure).filter(Objects::nonNull)
                 .findFirst().orElse(null);
-        return new Probe(first.units(), first.workers(), first.faults(), first.seed(),
+        return new Probe(first.units(), first.workers(), first.failures(), first.seed(),
                 variables, resources, costSites, all, failure);
     }
 

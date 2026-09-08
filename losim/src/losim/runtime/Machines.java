@@ -91,7 +91,8 @@ public final class Machines implements AutoCloseable {
         for (var e : declared.entrySet()) {
             if (known.contains(e.getKey())) continue;
             String klass = e.getKey().substring(0, Math.max(0, e.getKey().lastIndexOf('.')));
-            throw new IllegalArgumentException(e.getValue().where() + ": takes names '"
+            throw new IllegalArgumentException(e.getValue().where()
+                    + ": simulatedDuration names '"
                     + e.getKey().replace('.', ' ').trim() + "', and "
                     + (classes.contains(klass)
                         ? klass + " serves no rpc of that name. It serves "
@@ -102,15 +103,33 @@ public final class Machines implements AutoCloseable {
                     + " A cost that belongs to nothing is a method that quietly takes no time,"
                     + " so it is a refusal rather than a warning.");
         }
+        // The same question, asked of the same list, in the same pass — because a
+        // failures: block naming an rpc nothing serves is the same typo as a
+        // duration doing it, and two checks in two places are two checks that
+        // drift. A failure that belongs to nothing never fires, and a call path
+        // that was supposed to be unreliable and quietly was not is the worst
+        // shape of wrong: it reads as a design that handled it.
+        for (Machine m : all()) {
+            for (var f : m.failureKeys().entrySet()) {
+                if (known.contains(f.getKey())) continue;
+                String klass = f.getKey().substring(0, Math.max(0, f.getKey().lastIndexOf('.')));
+                throw new IllegalArgumentException(f.getValue() + ": failures names '"
+                        + f.getKey().replace('.', ' ').trim() + "', and " + klass
+                        + " serves no rpc of that name. It serves " + named(known, klass) + "."
+                        + " A failure that belongs to nothing is a failure that quietly never"
+                        + " fires, so it is a refusal rather than a warning.");
+            }
+        }
+
         this.costs = Map.copyOf(declared);
         for (Machine m : all()) m.recost();
         // Not a refusal: a method nobody has timed takes no time on purpose, and a
         // cluster where that is true of every method is a legitimate thing to run —
         // it is simply not a thing to read a timeline off.
         if (declared.isEmpty() && !known.isEmpty()) {
-            tel.event("-", "note", "text", "nothing in this scenario declares what an rpc takes,"
-                    + " so every call is instant: no queueing, no contention and no critical"
-                    + " path. Add a takes: block.");
+            tel.event("-", "note", "text", "nothing in this simulation declares what an rpc"
+                    + " takes, so every call is instant: no queueing, no contention and no"
+                    + " critical path. Add a simulatedDuration: block.");
         }
         return this;
     }
@@ -126,6 +145,28 @@ public final class Machines implements AutoCloseable {
 
     /** The scenario's seed, so a machine can hand it to a handler that generates data. */
     public long seed() { return seed; }
+
+    /**
+     * A stream of draws belonging to one named thing, from this simulation's seed.
+     *
+     * <p><b>Not {@code new Random(seed + index)}.</b> {@link java.util.Random}
+     * scrambles its seed by xor-ing one constant and then reads the high bits of a
+     * linear congruential step, so seeds that differ in their low bits produce
+     * first draws that differ in the sixth decimal place: 38 through 43 all begin
+     * 0.7279. Six nodes seeded that way are not six streams, they are one stream
+     * copied six times — and a pool where every node fails at the same instant
+     * looks exactly like a correlated failure, which is a finding somebody would
+     * go looking for the cause of.
+     *
+     * <p>So the name is hashed and the whole thing put through splitmix64's
+     * finalizer first, which is what makes two adjacent inputs unrelated.
+     */
+    static java.util.Random stream(long seed, String what) {
+        long z = seed * 0x9E3779B97F4A7C15L + what.hashCode();
+        z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
+        z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
+        return new java.util.Random(z ^ (z >>> 31));
+    }
 
     public Telemetry telemetry() { return tel; }
     public Clock clock()         { return clock; }

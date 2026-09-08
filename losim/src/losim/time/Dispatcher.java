@@ -43,7 +43,7 @@ public final class Dispatcher implements AutoCloseable {
 
     public Dispatcher(Clock clock) {
         this.clock = clock;
-        this.thread = new Thread(this::loop, "losim-faults");
+        this.thread = new Thread(this::loop, "losim-failures");
         thread.setDaemon(true);
         thread.setPriority(Thread.MAX_PRIORITY);
     }

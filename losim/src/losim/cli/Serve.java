@@ -239,7 +239,7 @@ public final class Serve {
      * <p><b>Compiling, and nothing further.</b> Running each system here instead
      * would overwrite every trace on disk with a fresh one every time the server
      * starts — so a student who reopens their Codespace the next morning would
-     * find yesterday's run silently replaced — and one chaos scenario would hold
+     * find yesterday's run silently replaced — and one weathered simulation would hold
      * the single worker for minutes while the page they press reports nothing
      * running.
      */
@@ -491,7 +491,17 @@ public final class Serve {
             row.put("prefix", p.prefix());
             row.put("instance", p.instance());
             row.put("zones", p.zones());
-            row.put("runs", p.runs());
+            Map<String, Object> runs = new LinkedHashMap<>();
+            for (var r : p.runs().entrySet()) {
+                Map<String, Object> one = new LinkedHashMap<>();
+                one.put("file", r.getValue().file());
+                Map<String, Object> byRpc = new LinkedHashMap<>();
+                for (var e : r.getValue().failures().entrySet())
+                    byRpc.put(e.getKey(), rpcFailures(e.getValue()));
+                one.put("failures", byRpc);
+                runs.put(r.getKey(), one);
+            }
+            row.put("runs", runs);
             // Null rather than absent, and null rather than 0: a cap the file did
             // not set is the instance type's own, and the form has to be able to
             // tell that from a machine given nothing.
@@ -505,33 +515,12 @@ public final class Serve {
                 one.put("zone", o.zone());
                 one.put("memoryMb", o.memoryMb());
                 one.put("diskMb", o.diskMb());
+                one.put("failures", failures(o.failures()));
                 overrides.add(one);
             }
             row.put("overrides", overrides);
+            row.put("failures", failures(p.failures()));
             pools.add(row);
-        }
-        List<Object> faults = new ArrayList<>();
-        for (Draft.Fault f : d.faults()) {
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("kind", f.kind());
-            row.put("atRefMs", f.atRefMs());
-            row.put("target", f.target());
-            row.put("other", f.other());
-            row.put("forRefMs", f.forRefMs());
-            row.put("factor", f.factor());
-            row.put("noticeRefMs", f.noticeRefMs());
-            row.put("restartAfterRefMs", f.restartAfterRefMs());
-            faults.add(row);
-        }
-        List<Object> chaos = new ArrayList<>();
-        for (Draft.Chaos c : d.chaos()) {
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("kind", c.kind());
-            row.put("everyRefMs", c.everyRefMs());
-            row.put("among", c.among());
-            row.put("forRefMs", c.forRefMs());
-            row.put("factor", c.factor());
-            chaos.add(row);
         }
         List<Object> retries = new ArrayList<>();
         for (Draft.Retry r : d.retries()) {
@@ -578,8 +567,6 @@ public final class Serve {
         draft.put("pools", pools);
         draft.put("input", input);
         draft.put("takes", takes);
-        draft.put("faults", faults);
-        draft.put("chaos", chaos);
         draft.put("retries", retries);
 
         Map<String, Object> out = new LinkedHashMap<>();
@@ -587,11 +574,43 @@ public final class Serve {
         send(x, 200, "application/json", Json.write(out).getBytes(StandardCharsets.UTF_8));
     }
 
+    /** Node-level failures, as the form draws them. */
+    private static List<Object> failures(List<Draft.Failure> from) {
+        List<Object> out = new ArrayList<>();
+        for (Draft.Failure f : from) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("kind", f.kind());
+            row.put("atRefMs", f.atRefMs());
+            row.put("perRefMs", f.perRefMs());
+            row.put("other", f.other());
+            row.put("forRefMs", f.forRefMs());
+            row.put("factor", f.factor());
+            row.put("noticeRefMs", f.noticeRefMs());
+            row.put("restartAfterRefMs", f.restartAfterRefMs());
+            out.add(row);
+        }
+        return out;
+    }
+
+    /** What goes wrong with one rpc, as the form draws it. */
+    private static List<Object> rpcFailures(List<Draft.RpcFailure> from) {
+        List<Object> out = new ArrayList<>();
+        for (Draft.RpcFailure f : from) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("kind", f.kind());
+            row.put("status", f.status());
+            row.put("factor", f.factor());
+            row.put("perCalls", f.perCalls());
+            out.add(row);
+        }
+        return out;
+    }
+
     /**
      * Start a run, and answer immediately with where to read it.
      *
      * <p>Answering before the run finishes is the whole design: a build takes
-     * seconds and a cluster under chaos takes longer, and a page that waits for it
+     * seconds and a system under weather takes longer, and a page that waits for it
      * is a page that looks broken.
      */
     private void start(HttpExchange x) throws IOException {

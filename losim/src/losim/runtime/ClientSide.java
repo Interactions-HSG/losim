@@ -88,6 +88,14 @@ final class ClientSide implements ClientInterceptor {
             return new Dropped<>(from, to, method, call, "partitioned");
         if (net.drops())
             return new Dropped<>(from, to, method, call, "lost");
+        // A fourth, and the caller cannot tell it from the other three either. It
+        // is decided here rather than at the callee because a dropped request
+        // never reaches one: the whole of what the caller finds out is that its
+        // time ran out, which is what makes a deadline the only defence.
+        if (target != null)
+            for (Machine.Drawn f : target.failuresOn(md.getFullMethodName()))
+                if (f.spec().kind() == losim.scenario.Scenario.RpcKind.DROP && f.fires())
+                    return new Dropped<>(from, to, method, call, "dropped by " + to);
 
         final double rttRefMs = net.roundTripRefMs(from.zone, target == null ? from.zone : target.zone);
         // Traffic between availability zones is billed and traffic within one is

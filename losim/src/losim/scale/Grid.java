@@ -81,9 +81,10 @@ public record Grid(List<List<Probe>> dataLadder,
         // And the fault column holds both still, so what moves is the weather.
         var clean = dataLadder.get(dataLadder.size() - 1);
         var weathered = new ArrayList<Probe>();
-        if (s.faults().isEmpty() && s.chaos().isEmpty()) {
-            notes.add("this scenario declares no faults, so the model carries no amplification "
-                    + "term — a projection from it describes a cluster where nothing goes wrong");
+        if (s.failureCount() == 0) {
+            notes.add("this simulation declares no failures, so the model carries no "
+                    + "amplification term — a projection from it describes a system where "
+                    + "nothing goes wrong");
         } else {
             int topSize = sizes.get(sizes.size() - 1);
             for (long seed : few)
@@ -110,7 +111,7 @@ public record Grid(List<List<Probe>> dataLadder,
     /**
      * How much more a resource costs when things go wrong.
      *
-     * <p>{@code demand = base(size, cluster) * amplification(faults)}. One is returned
+     * <p>{@code demand = base(size, cluster) * amplification(failures)}. One is returned
      * when the scenario declares no weather, and that is recorded as a limit of the
      * model rather than as an absence of one.
      */

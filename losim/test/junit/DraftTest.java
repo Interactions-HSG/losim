@@ -56,64 +56,125 @@ class DraftTest {
         assertEquals("workers", w.name());
         assertEquals(6, w.count());
         assertEquals(3, w.zones().size());
-        assertEquals(java.util.Map.of("Worker", "losim/test/src/Counter.java"), w.runs(),
+        assertEquals(java.util.Set.of("Worker"), w.runs().keySet(),
                 "the form reads back both halves of what a node runs, or it cannot write "
                 + "the half it did not read");
+        assertEquals("losim/test/src/Counter.java", w.runs().get("Worker").file());
+        assertTrue(w.runs().get("Worker").failures().isEmpty(),
+                "and the shorthand is a service with nothing wrong with it");
     }
 
     @Test
-    @DisplayName("a kill fault and its restart, read back in refMs")
-    void killFault() {
+    @DisplayName("a kill and its restart, read back in refMs")
+    void killFailure() {
         var d = Draft.of("main.yaml", """
                 job: J
                 nodes:
-                  a: { instance: m5.large, zone: eu-central-1a }
-                faults:
-                  - { at: 300 refMs, kill: a, restart_after: 2000 refMs }
+                  a:
+                    instance: m5.large
+                    zone: eu-central-1a
+                    failures:
+                      - { kill: true, at: 300 refMs, restartAfter: 2000 refMs }
                 """);
-        assertEquals(1, d.faults().size());
-        var k = d.faults().get(0);
+        var k = only(d);
         assertEquals("kill", k.kind());
         assertEquals(300.0, k.atRefMs());
-        assertEquals("a", k.target());
+        assertEquals(0.0, k.perRefMs(), "an at: is not a per:");
         assertEquals(2000.0, k.restartAfterRefMs());
     }
 
     @Test
     @DisplayName("a freeze holds for a while; one that says nothing holds for the loader's own default")
-    void freezeFault() {
+    void freezeFailure() {
         var d = Draft.of("main.yaml", """
                 job: J
                 nodes:
-                  a: { instance: m5.large, zone: eu-central-1a }
-                faults:
-                  - { at: 300 refMs, freeze: a, for: 800 refMs }
-                  - { at: 900 refMs, freeze: a }
+                  a:
+                    instance: m5.large
+                    zone: eu-central-1a
+                    failures:
+                      - { freeze: true, at: 300 refMs, for: 800 refMs }
+                      - { freeze: true, at: 900 refMs }
                 """);
-        assertEquals(2, d.faults().size());
-        assertEquals("freeze", d.faults().get(0).kind());
-        assertEquals("a", d.faults().get(0).target());
-        assertEquals(800.0, d.faults().get(0).forRefMs());
-        // Not 0: `Loader.faults` defaults a freeze to 1000 refMs, and reading it
-        // back as anything else would write a different scenario on the next save.
-        assertEquals(1000.0, d.faults().get(1).forRefMs());
+        var f = d.pools().get(0).failures();
+        assertEquals(2, f.size());
+        assertEquals("freeze", f.get(0).kind());
+        assertEquals(800.0, f.get(0).forRefMs());
+        // Not 0: `Loader.failures` defaults a freeze to 1000 refMs, and reading it
+        // back as anything else would write a different simulation on the next save.
+        assertEquals(1000.0, f.get(1).forRefMs());
     }
 
     @Test
-    @DisplayName("a degrade carries its factor and nothing else — it has no end")
-    void degradeFault() {
+    @DisplayName("a degrade carries its factor in its value — it has no end")
+    void degradeFailure() {
         var d = Draft.of("main.yaml", """
                 job: J
                 nodes:
-                  a: { instance: m5.large, zone: eu-central-1a }
-                faults:
-                  - { at: 300 refMs, degrade: a, factor: 4 }
+                  a:
+                    instance: m5.large
+                    zone: eu-central-1a
+                    failures:
+                      - { degrade: 4, at: 300 refMs }
                 """);
-        assertEquals(1, d.faults().size());
-        var f = d.faults().get(0);
+        var f = only(d);
         assertEquals("degrade", f.kind());
-        assertEquals("a", f.target());
         assertEquals(4.0, f.factor());
+    }
+
+    @Test
+    @DisplayName("a rate reads back as a rate, and names no instant")
+    void drawnFailure() {
+        var d = Draft.of("main.yaml", """
+                job: J
+                nodes:
+                  a:
+                    instance: m5.large
+                    zone: eu-central-1a
+                    failures:
+                      - { kill: true, per: 2 refSeconds }
+                """);
+        var f = only(d);
+        assertEquals(2000.0, f.perRefMs());
+        assertEquals(0.0, f.atRefMs(), "a per: is not an at:, and the form draws one control "
+                + "or the other rather than both with one left at zero");
+    }
+
+    @Test
+    @DisplayName("an rpc failure reads back under the rpc it happens to")
+    void rpcFailure() {
+        var d = Draft.of("main.yaml", """
+                job: J
+                nodes:
+                  a:
+                    instance: m5.large
+                    zone: eu-central-1a
+                    runs:
+                      Worker:
+                        file: losim/test/src/Counter.java
+                        failures:
+                          Map:
+                            - { status: UNAVAILABLE, per: 20 calls }
+                            - { slow: 4, per: 3 calls }
+                          Reduce:
+                            - { drop: true, per: 9 calls }
+                """);
+        var runs = d.pools().get(0).runs().get("Worker");
+        assertEquals("losim/test/src/Counter.java", runs.file());
+        assertEquals(java.util.Set.of("Map", "Reduce"), runs.failures().keySet());
+        var map = runs.failures().get("Map");
+        assertEquals("status", map.get(0).kind());
+        assertEquals("UNAVAILABLE", map.get(0).status());
+        assertEquals(20, map.get(0).perCalls());
+        assertEquals("slow", map.get(1).kind());
+        assertEquals(4.0, map.get(1).factor());
+        assertEquals("drop", runs.failures().get("Reduce").get(0).kind());
+    }
+
+    /** The one failure on the one node, for a case that declares exactly that. */
+    private static Draft.Failure only(Draft.Of d) {
+        assertEquals(1, d.pools().get(0).failures().size());
+        return d.pools().get(0).failures().get(0);
     }
 
     @Test
@@ -156,24 +217,6 @@ class DraftTest {
                 """);
         assertEquals(0.2, d.net().loss(), 1e-9);
         assertEquals(0.0, d.net().crossZoneRefMs());
-    }
-
-    @Test
-    @DisplayName("chaos, every kind, with its own factor and duration")
-    void chaosRules() {
-        var d = Draft.of("main.yaml", """
-                job: J
-                nodes:
-                  a: { instance: m5.large, zone: eu-central-1a, count: 3, prefix: a, runs: { Worker: losim/test/src/Counter.java } }
-                chaos:
-                  - { freeze: { every: 700 refMs, among: a, for: 150 refMs } }
-                  - { degrade: { every: 400 refMs, among: a, factor: 3 } }
-                """);
-        assertEquals(2, d.chaos().size());
-        assertEquals("freeze", d.chaos().get(0).kind());
-        assertEquals("a", d.chaos().get(0).among());
-        assertEquals("degrade", d.chaos().get(1).kind());
-        assertEquals(3.0, d.chaos().get(1).factor());
     }
 
     @Test
@@ -382,86 +425,80 @@ class DraftTest {
     }
 
     @Test
-    @DisplayName("every fault kind the loader accepts opens in the form")
-    void everyFaultKindOpens() {
+    @DisplayName("every failure kind the loader accepts opens in the form")
+    void everyKindOpens() {
         var d = Draft.of("main.yaml", """
                 job: J
                 nodes:
-                  a: { instance: m5.large, zone: eu-central-1a }
+                  a:
+                    instance: m5.large
+                    zone: eu-central-1a
+                    failures:
+                      - { kill: true, at: 100 refMs, restartAfter: 500 refMs }
+                      - { freeze: true, at: 200 refMs, for: 300 refMs }
+                      - { degrade: 4, at: 300 refMs }
+                      - { restart: true, at: 400 refMs }
+                      - { spotReclaim: true, at: 500 refMs, notice: 120 refMs }
+                      - { partition: b, at: 600 refMs }
+                      - { heal: b, at: 900 refMs }
                   b: { instance: m5.large, zone: eu-central-1b }
-                faults:
-                  - { at: 100 refMs, kill: a, restart_after: 500 refMs }
-                  - { at: 200 refMs, freeze: a, for: 300 refMs }
-                  - { at: 300 refMs, degrade: b, factor: 4 }
-                  - { at: 400 refMs, restart: a }
-                  - { at: 500 refMs, spot_reclaim: b, notice: 120 refMs }
-                  - { at: 600 refMs, partition: [a, b] }
-                  - { at: 900 refMs, heal: [a, b] }
                 """);
-        assertEquals(List.of("kill", "freeze", "degrade", "restart", "spot_reclaim",
+        var f = d.pools().get(0).failures();
+        assertEquals(List.of("kill", "freeze", "degrade", "restart", "spotReclaim",
                              "partition", "heal"),
-                d.faults().stream().map(Draft.Fault::kind).toList());
+                f.stream().map(Draft.Failure::kind).toList());
 
         // The warning is the whole of what a spot reclaim teaches, so it is the
         // one field that has to survive the trip.
-        assertEquals(120.0, d.faults().get(4).noticeRefMs(), 1e-9);
+        assertEquals(120.0, f.get(4).noticeRefMs(), 1e-9);
 
-        // And the pair, read apart. Reachability is a property of two machines,
-        // and a Draft that carried only the first would write a partition of one.
-        assertEquals("a", d.faults().get(5).target());
-        assertEquals("b", d.faults().get(5).other());
-        assertEquals("a", d.faults().get(6).target());
-        assertEquals("b", d.faults().get(6).other());
+        // The far end of a pair, read back. Reachability is a property of two
+        // nodes, and a Draft carrying only the block's own name would write a
+        // partition of one.
+        assertEquals("b", f.get(5).other());
+        assertEquals("b", f.get(6).other());
 
-        // Every other kind names one machine and leaves the second empty, rather
-        // than repeating the first — which would read as a machine cut off from
-        // itself if anything ever wrote it out.
+        // Every other kind is aimed at the node it is written in and leaves the
+        // second name empty. That name used to be the first one repeated, which
+        // would read as a node cut off from itself if anything wrote it out.
         for (int i = 0; i < 5; i++)
-            assertEquals("", d.faults().get(i).other(), "fault " + i + " has no second machine");
+            assertEquals("", f.get(i).other(), "failure " + i + " has no second node");
     }
 
     @Test
-    @DisplayName("a key belonging to a different fault kind is refused, naming the kind it is on")
-    void faultKeysThatBelongToAnotherKind() {
-        // `for:` on a kill: the loader takes it, and nothing ever reads it.
-        String said = refusal("""
-                job: J
-                nodes:
-                  a: { instance: m5.large, zone: eu-central-1a }
-                faults:
-                  - { at: 100 refMs, kill: a, for: 500 refMs }
-                """);
+    @DisplayName("a key belonging to a different failure kind is refused, naming the kind it is on")
+    void keysThatBelongToAnotherKind() {
+        // `for:` on a kill: nothing ever reads it, so the loader refuses it rather
+        // than accepting a line it will not act on. The console used to make this
+        // refusal itself, off its own table of which key belongs to which kind —
+        // two copies of one fact, and only one of them enforced on the run.
+        String said = failureRefusal("      - { kill: true, at: 100 refMs, for: 500 refMs }");
         assertTrue(said.contains("for:") && said.contains("kill"), said);
 
-        // A freeze thaws on its own, so `restart_after:` means nothing to it.
-        assertTrue(refusal("""
-                job: J
-                nodes:
-                  a: { instance: m5.large, zone: eu-central-1a }
-                faults:
-                  - { at: 100 refMs, freeze: a, restart_after: 200 refMs }
-                """).contains("restart_after:"));
+        // A freeze thaws on its own, so `restartAfter:` means nothing to it.
+        assertTrue(failureRefusal("      - { freeze: true, at: 100 refMs, restartAfter: 200 refMs }")
+                .contains("restartAfter:"));
 
         // And the one that reads like it ought to work and does not: a one-time
-        // degrade schedules no thaw, so `for:` is accepted by the loader and then
-        // ignored, and the machine stays slow for the rest of the run.
-        String degrade = refusal("""
-                job: J
-                nodes:
-                  a: { instance: m5.large, zone: eu-central-1a }
-                faults:
-                  - { at: 100 refMs, degrade: a, factor: 3, for: 500 refMs }
-                """);
+        // degrade schedules no thaw, so `for:` would be accepted and then ignored,
+        // and the node would stay slow for the rest of the simulation.
+        String degrade = failureRefusal("      - { degrade: 3, at: 100 refMs, for: 500 refMs }");
         assertTrue(degrade.contains("for:") && degrade.contains("degrade"), degrade);
 
-        // `notice:` belongs to spot_reclaim, which has no control of its own either.
-        assertTrue(refusal("""
-                job: J
-                nodes:
-                  a: { instance: m5.large, zone: eu-central-1a }
-                faults:
-                  - { at: 100 refMs, kill: a, notice: 50 refMs }
-                """).contains("notice:"));
+        // `notice:` belongs to spotReclaim, and to nothing else.
+        assertTrue(failureRefusal("      - { kill: true, at: 100 refMs, notice: 50 refMs }")
+                .contains("notice:"));
+    }
+
+    /** What one bad failure entry on one node is refused with. */
+    private static String failureRefusal(String entry) {
+        return refusal("job: J\n"
+                     + "nodes:\n"
+                     + "  a:\n"
+                     + "    instance: m5.large\n"
+                     + "    zone: eu-central-1a\n"
+                     + "    failures:\n"
+                     + entry + "\n");
     }
 
     @Test

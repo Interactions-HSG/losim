@@ -149,7 +149,7 @@ public final class Main {
                   --seed <n>         override the scenario's seed, for a sweep
                   --workers <n|+n>   resize every pool that has more than one machine
                   --overlay <file>   lay a second file's weather over this one. Faults,
-                                     chaos, retries, network, seed and clock only — the
+                                     failures, retries, network, seed and clock only — the
                                      cluster and the job stay theirs
                   --telemetry <lvl>  FULL (default), NO_PAYLOAD or OFF
                   --no-view          write the trace and stop, without the viewer

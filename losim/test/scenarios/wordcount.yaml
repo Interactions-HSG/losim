@@ -18,11 +18,11 @@ nodes:
     runs: { Worker: losim/test/src/Counter.java }
     overrides:
       w2: { memoryMb: 4 }      # cannot hold its bucket, and will say so
-
-faults:
-  # After every mapper has answered and before the last reducer is asked, so the
-  # coordinator has to notice a machine that is simply not there any more.
-  - { at: 400 refMs, kill: w5 }
+      w5:
+        # After every mapper has answered and before the last reducer is asked, so
+        # the coordinator has to notice a node that is simply not there any more.
+        failures:
+          - { kill: true, at: 400 refMs }
 
 # What each rpc costs on the reference machine, under the class that serves it.
 # The handlers declare nothing: a duration is a claim about the machine a design
