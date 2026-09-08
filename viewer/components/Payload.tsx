@@ -3,8 +3,8 @@
 /**
  * What a call carried, in full.
  *
- * Shared by the machine panel and the message panel on purpose: they are asking
- * the same question from two directions — "what is this machine looking at" and
+ * Shared by the node panel and the message panel on purpose: they are asking
+ * the same question from two directions — "what is this node looking at" and
  * "what is in this envelope" — and two renderings of one payload would
  * eventually disagree about a truncation marker.
  *

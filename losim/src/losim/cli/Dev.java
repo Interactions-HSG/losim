@@ -458,8 +458,8 @@ public final class Dev {
             System.err.println("""
 
                   Nothing of yours in build/traces yet. To make one:
-                    losim run your.yaml --cp <your classes> --out build/traces/mine.json
-                  Then `bin/losim dev viewer serve`, and it is the run the viewer opens.
+                    losim simulate yours.yaml --cp <your classes> --out build/traces/mine.json
+                  Then `bin/losim dev viewer serve`, and it is the result the viewer opens.
                   (Working on losim itself? --gallery or --suite bring those in too.)""");
         }
         return 0;

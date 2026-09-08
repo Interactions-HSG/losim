@@ -11,7 +11,7 @@
  * only one. So: accrue to `t = duration`, and compare against what
  * `losim bill --json` said, to the rappen.
  *
- * **Is the attribution a partition?** Pointing at a machine shows its share.
+ * **Is the attribution a partition?** Pointing at a node shows its share.
  * Shares that sum past 1 charge the cluster more than it was billed; shares that
  * silently sum to less lose money down a crack. Neither is visible by looking at
  * a picture — both are one line of arithmetic here. A line attributed to nobody
@@ -82,11 +82,11 @@ for (const name of names) {
   }
 
   // The attribution, summed over the cluster, against the same line's own total.
-  const perMachine = trace.machines.map((m) => model.at(trace.duration, m.name));
+  const perNode = trace.nodes.map((m) => model.at(trace.duration, m.name));
   for (let i = 0; i < close.lines.length; i++) {
     const line = close.lines[i].line;
     let sum = 0;
-    for (const p of perMachine) {
+    for (const p of perNode) {
       const row = p.lines.find((x) => x.line === line);
       if (row) sum += row.mine;
     }
@@ -104,9 +104,9 @@ for (const name of names) {
   }
 
   // And the cluster's shares of the total must not exceed the total.
-  const together = perMachine.reduce((a, p) => a + (p.focus?.cost ?? 0), 0);
+  const together = perNode.reduce((a, p) => a + (p.focus?.cost ?? 0), 0);
   if (together > close.cost + RAPPEN) {
-    problems.push(`machines carry ${together.toFixed(4)} of a ${close.cost.toFixed(4)} bill`);
+    problems.push(`nodes carry ${together.toFixed(4)} of a ${close.cost.toFixed(4)} bill`);
   }
 
   checked++;

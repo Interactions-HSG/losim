@@ -70,7 +70,7 @@ function trim(s: string): string {
   return s.slice(0, end);
 }
 
-/** A machine. Two arcs, because SVG has no ellipse in path data. */
+/** A node. Two arcs, because SVG has no ellipse in path data. */
 export function ellipse(w: number, h: number): string {
   const rx = w / 2;
   const ry = h / 2;
@@ -82,7 +82,7 @@ export function ellipse(w: number, h: number): string {
 }
 
 /**
- * What a machine is holding: the part of its ellipse below the water line.
+ * What a node is holding: the part of its ellipse below the water line.
  *
  * Computed analytically rather than by intersecting two shapes. A boolean op
  * needs a path library the browser does not have, and the closed form is four
@@ -99,7 +99,7 @@ export function liquid(w: number, h: number, share: number): string {
   // The arc has to take the way round that passes the *bottom* of the ellipse,
   // and which way that is depends on where the surface sits: below the middle
   // it is the short way, above the middle it is the long way. Getting this flag
-  // wrong draws a lens floating in the centre rather than a machine half full.
+  // wrong draws a lens floating in the centre rather than a node half full.
   const large = y < 0 ? 1 : 0;
   return `M ${n(-x)} ${n(y)} L ${n(x)} ${n(y)} A ${n(rx)} ${n(ry)} 0 ${large} 1 ${n(-x)} ${n(y)} Z`;
 }

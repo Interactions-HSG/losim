@@ -1,29 +1,34 @@
 /**
- * is the layout port faithful?
+ * has the layout moved?
  *
  *   node viewer/checks/parity.ts [glob-ish substring]
+ *   node viewer/checks/parity.ts --freeze          # write the oracle again
  *
- * Runs the TypeScript `Layout` over every gallery trace and diffs every
- * position, every zone rectangle, every column label, every payload digest and
- * every decoded series channel against a **frozen oracle**. Same numbers or the
- * layout has moved.
+ * Runs `Layout` over every reference-suite trace and diffs every position, every
+ * zone rectangle, every column label, every payload digest and every decoded
+ * series channel against a **frozen oracle**. Same numbers or something moved.
  *
- * This is why the port comes *before* anything renders. A layout bug found by
- * looking at a picture is found slowly and argued about; found by a diff it is a
- * line number. It is also why the comparison is exact rather than tolerant: the
- * two implementations do the same arithmetic in the same order on the same
- * doubles, so anything but bit-equality is a difference in the code and not in
+ * A layout bug found by looking at a picture is found slowly and argued about;
+ * found by a diff it is a line number. That is also why the comparison is exact
+ * rather than tolerant — the same arithmetic in the same order on the same
+ * doubles — so anything but bit-equality is a difference in the code and not in
  * the floating point.
  *
- * The oracle is `fixtures/layout/<trace>.json.gz` — what the Python `Layout`
- * this was ported from computed, on the day the port was proved against it, over
- * all eighty-one traces. The Python is gone; keeping its *answer* rather than
- * its code is what lets the check outlive it. A layout change that is deliberate
- * regenerates the fixtures in the same commit, and one that is not shows up here
- * as a line number.
+ * **What the oracle is, and what it is not.** It was once what the Python
+ * `Layout` this was ported from computed, over eighty-one gallery traces, on the
+ * day the port was proved against it. That claim is spent: the Python is gone,
+ * the gallery it ran over is not in this repository, and 3.0 deliberately
+ * changed what a column is. What is frozen now is this code's own answer over
+ * the reference suite — traces whose YAML and Java are both committed, so the
+ * whole chain is reproducible from a clean checkout. It catches a layout that
+ * moved when nobody meant it to, which is the property that was always doing the
+ * work; it can no longer tell you the port is faithful, because there is nothing
+ * left to be faithful to.
+ *
+ * A deliberate change runs `--freeze` in the same commit and reads the diff.
  */
-import { gunzipSync } from 'node:zlib';
-import { readdirSync, readFileSync } from 'node:fs';
+import { gunzipSync, gzipSync } from 'node:zlib';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -32,7 +37,7 @@ import { Trace, digest, contents, entries } from '../lib/trace.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
-const TRACES = resolve(ROOT, 'build/gallery/traces');
+const TRACES = resolve(ROOT, 'build/tests/traces');
 
 /**
  * The clock the Python reckoned by: the job, or the last span to close.
@@ -58,7 +63,7 @@ function dump(path: string): Record<string, unknown> {
   const columns = lay.columns;
 
   const out: Record<string, unknown> = {
-    machines: trace.machines.length,
+    nodes: trace.nodes.length,
     columns,
     labels: lay.labels,
     column_labels: columns.map((_, i) => lay.columnLabel(i)),
@@ -75,8 +80,7 @@ function dump(path: string): Record<string, unknown> {
     size: sorted(Object.fromEntries([...lay.size.keys()].map((n) => [n, [...lay.sizeOf(n)]]))),
     zone_rect: Object.fromEntries(lay.zones.map((z) => [z, [...lay.zoneRect(z)]])),
     duration: pythonDuration(trace),
-    job: trace.job,
-    phases: trace.phases().map((s) => [s.label, Layout.stage(s.label), s.t0, s.t1]),
+    entry: trace.entry,
     tasks: Object.fromEntries([...trace.tasks()].sort((a, b) => a[0] - b[0]).map(([k, v]) => [String(k), v])),
   };
 
@@ -103,7 +107,7 @@ function dump(path: string): Record<string, unknown> {
 
   const probes: Record<string, number[]> = {};
   const span = pythonDuration(trace);
-  for (const m of trace.machines) {
+  for (const m of trace.nodes) {
     for (const metric of ['heldMb', 'diskMb', 'busy', 'capMb', 'alive']) {
       const row: number[] = [];
       for (let i = 0; i <= 20; i++) row.push(trace.channel(m.name, metric, (span * i) / 20));
@@ -152,7 +156,9 @@ function clip(s: string): string {
 
 // ------------------------------------------------------------------ the check
 
-const filter = process.argv[2];
+const args = process.argv.slice(2);
+const freeze = args.includes('--freeze');
+const filter = args.find((a) => !a.startsWith('--'));
 let names: string[];
 try {
   names = readdirSync(TRACES)
@@ -161,7 +167,7 @@ try {
     .filter((n) => !filter || n.includes(filter))
     .sort();
 } catch {
-  console.error(`no traces in ${TRACES} — run \`losim dev viewer traces\` first`);
+  console.error(`no traces in ${TRACES} — run \`bin/losim dev suite\` first`);
   process.exit(1);
 }
 
@@ -176,13 +182,21 @@ for (const name of names) {
     failed.push(`  ${name.padEnd(28)} ts threw: ${(e as Error).message}`);
     continue;
   }
+  if (freeze) {
+    writeFileSync(
+      join(HERE, 'fixtures', 'layout', `${name}.json.gz`),
+      gzipSync(Buffer.from(JSON.stringify(mine)), { level: 9 }),
+    );
+    same++;
+    continue;
+  }
   let theirs: unknown;
   try {
     theirs = JSON.parse(
       gunzipSync(readFileSync(join(HERE, 'fixtures', 'layout', `${name}.json.gz`))).toString('utf8'),
     );
   } catch {
-    // A trace with no fixture is a trace the gallery gained since the oracle was
+    // A trace with no fixture is one the suite gained since the oracle was
     // frozen. That is a thing to notice rather than to pass over quietly.
     failed.push(`  ${name.padEnd(28)} no frozen layout to compare against`);
     continue;
@@ -197,7 +211,9 @@ for (const name of names) {
 }
 
 console.log(`S2  ${names.length} traces`);
-console.log(`    ${same} identical, ${failed.length} differ`);
+console.log(freeze
+  ? `    ${same} frozen — read the diff before committing them`
+  : `    ${same} identical, ${failed.length} differ`);
 if (failed.length) {
   console.log();
   console.log(failed.slice(0, 8).join('\n'));

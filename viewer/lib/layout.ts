@@ -1,10 +1,10 @@
 /**
- * Where the machines go.
+ * Where the nodes go.
  *
  * The reference figure this language borrows from reads left to right because a
  * MapReduce reads left to right, and someone drew it that way by hand. A viewer
  * cannot draw by hand, and hand-fanned arrows are exactly what made the first
- * one unreadable past a handful of machines — so the columns are *derived*.
+ * one unreadable past a handful of nodes — so the columns are *derived*.
  *
  * Nothing here scales anything. The picture is composed at its natural size and
  * fitted to the frame as one unit, the way an SVG viewBox does it — so a cluster
@@ -21,25 +21,25 @@ export type Point = [number, number];
 export type Band = [number, number]; // top, bottom — y grows upward here
 
 /**
- * How much air a band carries around its machines.
+ * How much air a band carries around its nodes.
  *
  * Separated out and named because it is the one thing in this file that is a
  * matter of taste rather than of structure — everything else is derived from the
  * trace, and this is chosen. It is also the difference between a picture that
  * fills its frame and one that floats in the middle of an empty page.
  *
- * The floors are not aesthetic. Below a machine sit its lanes, its headroom
+ * The floors are not aesthetic. Below a node sit its lanes, its headroom
  * reading and its instance type; above it sits the service badge. Take the room
  * away and they collide with the band next door.
  */
 export interface Room {
-  /** Inside the band's edge, above the topmost machine's label. */
+  /** Inside the band's edge, above the topmost node's label. */
   pad: number;
-  /** Under a machine, as a multiple of its height: [small cluster, large cluster]. */
+  /** Under a node, as a multiple of its height: [small cluster, large cluster]. */
   below: [number, number];
-  /** Over a machine, for the service badge. */
+  /** Over a node, for the service badge. */
   above: [number, number];
-  /** Beside a machine, so two readings do not run together. */
+  /** Beside a node, so two readings do not run together. */
   aside: [number, number];
 }
 
@@ -58,8 +58,8 @@ export const LEGACY: Room = { pad: 0.34, below: [0.95, 0.55], above: [0.52, 0.16
  *
  * `LEGACY` was composed for a film with nothing else on the screen; here the
  * picture is one panel among several and has to earn its space. Measured
- * against what actually hangs off a machine, `LEGACY`'s spacing carries about
- * twice the air its labels need, so `TIGHT` draws every machine in the cluster a
+ * against what actually hangs off a node, `LEGACY`'s spacing carries about
+ * twice the air its labels need, so `TIGHT` draws every node in the cluster a
  * quarter smaller and gives back the room that air was spending.
  */
 export const TIGHT: Room = { pad: 0.16, below: [0.72, 0.5], above: [0.34, 0.14], aside: [0.34, 0.22] };
@@ -78,9 +78,9 @@ export class Layout {
   readonly rowGap: number;
   readonly room: Room;
 
-  /** machine -> the phase its role worked in */
+  /** node -> what its column is called, which is what its role serves */
   readonly home = new Map<string, string>();
-  /** one per column, the coordinator excepted */
+  /** one per column, the entry's excepted */
   readonly labels: string[] = [];
   readonly columns: string[][];
   readonly size: Map<string, [number, number]>;
@@ -95,7 +95,7 @@ export class Layout {
    * The shape being drawn into, which the arrangement is searched against.
    *
    * A default rather than a constant, because the right arrangement genuinely
-   * depends on the screen: twenty-five machines in four roles across three zones
+   * depends on the screen: twenty-five nodes in four roles across three zones
    * lay out nine columns wide and three rows deep, which fills a cinema frame and
    * letterboxes a squarer one — while the same cluster stacked two-deep does the
    * opposite. Told the real shape, the search picks the one that fills it.
@@ -122,24 +122,9 @@ export class Layout {
     this.height = plan.height;
   }
 
-  /**
-   * A phase's name with its round number taken off.
-   *
-   * An iterative job names its phases per round — "spread 1", "fold 1",
-   * "spread 2" — and every one of those is a different label. Left alone that
-   * gives a column per round, which is a picture of the loop rather than of the
-   * cluster: the same four machines, drawn ten times, in ten places.
-   */
-  static stage(label: string): string {
-    const cut = label.lastIndexOf(' ');
-    if (cut < 0) return label;
-    const tail = label.slice(cut + 1);
-    return tail.length > 0 && /^\d+$/.test(tail) ? label.slice(0, cut) : label;
-  }
-
   // ---------------------------------------------------------------- ranks
 
-  /** When each machine was first spoken to. */
+  /** When each node was first spoken to. */
   private firstCallTo(): Map<string, number> {
     const first = new Map<string, number>();
     const ordered = [...this.trace.spans].sort((a, b) => a.t0 - b.t0);
@@ -152,79 +137,48 @@ export class Layout {
   }
 
   /**
-   * How long each machine spent working, per phase.
-   *
-   * Not *when it was first called*, which is the obvious rule and the wrong
-   * one. A coordinator that asks every machine what it is before it places
-   * anything has spoken to all of them during its first phase, and a layout
-   * that reads first contact as belonging puts the entire cluster in one column.
-   *
-   * Where a machine did its work is a fact about the run rather than about the
-   * order somebody happened to dial in, and it survives a cluster being polled,
-   * health-checked or registered — all of which touch everybody and none of
-   * which mean anything about what the machine is for.
-   */
-  private workByPhase(): Map<string, Map<string, number>> {
-    const phases = [...this.trace.phases()].sort((a, b) => a.t0 - b.t0);
-    const work = new Map<string, Map<string, number>>();
-    for (const span of this.trace.spans) {
-      if ((span.kind !== 'handler' && span.kind !== 'compute') || span.t1 < 0) continue;
-      for (const phase of phases) {
-        if (phase.t0 <= span.t0 && span.t0 <= phase.t1) {
-          const label = Layout.stage(phase.label);
-          let per = work.get(span.vm);
-          if (!per) work.set(span.vm, (per = new Map()));
-          per.set(label, (per.get(label) ?? 0) + (span.t1 - span.t0));
-          break;
-        }
-      }
-    }
-    return work;
-  }
-
-  /**
-   * One column per role, ordered by where that role's phase sits in the pipeline.
+   * One column per role, ordered by when that role first went to work.
    *
    * Two rules that both had to be abandoned to get here, and it is worth saying
    * why, because both are the obvious thing to try.
    *
-   * **A column is not a phase.** Phases overlap: a map worker is serving fetches
-   * all through the shuffle, so "which machines worked during the shuffle"
-   * answers *nine of fifteen* and tells you nothing about what any of them is for.
+   * **A column is not a stage of the pipeline.** Work overlaps: a node serving
+   * fetches goes on serving them all through whatever comes next, so "who was
+   * busy then" answers *nine of fifteen* and tells you nothing about what any of
+   * them is for.
    *
-   * **A machine is not placed by when it was first called.** A coordinator that
-   * asks every machine what it is before it places anything has spoken to the
-   * whole cluster inside its first phase, and first contact then puts the entire
-   * cluster in one column.
+   * **A node is not placed by when it was first called.** An entry that asks
+   * every node what it is before it places anything has spoken to the whole
+   * cluster before doing a thing, and first contact then puts every node in one
+   * column.
    *
-   * What survives both is what a machine **offers**. Machines serving the same
-   * services are the same role and belong together, whether or not they were
-   * ever chosen — a shuffler nobody sent a partition to is still a shuffler, and
-   * a cluster with spare capacity should draw as one rather than as a column of
-   * strays.
+   * What survives both is what a node **offers**, which is also the only thing a
+   * peer can find it by. Nodes serving the same services are the same role and
+   * belong together, whether or not they were ever chosen — a node nobody sent
+   * anything to still serves what it serves, and a cluster with spare capacity
+   * should draw as one column rather than as a row of strays.
    */
   private buildColumns(): string[][] {
-    const phases = [...this.trace.phases()].sort((a, b) => a.t0 - b.t0);
-    const work = this.workByPhase();
     const first = this.firstCallTo();
 
-    // The coordinator is named by the trace rather than guessed at: the job span
-    // runs on it. Inferring it from "was never called" almost works, and stops
-    // working the moment a worker reports something back to it — which is exactly
-    // what a cluster with a monitor on it does.
-    const driving = new Set(this.trace.spans.filter((s) => s.kind === 'job').map((s) => s.vm));
-    let drivers = this.trace.machines.filter((m) => driving.has(m.name)).map((m) => m.name);
+    // The entry is named by the trace rather than guessed at: `losim.Job/Run`
+    // was served there, and `meta.entry` says so too. Inferring it from "was
+    // never called" almost works, and stops working the moment a node reports
+    // something back to it — which is exactly what a cluster with a monitor on
+    // it does.
+    const entry = this.trace.root?.vm || this.trace.entry;
+    let drivers = this.trace.nodes.filter((m) => m.name === entry).map((m) => m.name);
     if (!drivers.length) {
-      drivers = this.trace.machines.filter((m) => !first.has(m.name)).map((m) => m.name);
+      drivers = this.trace.nodes.filter((m) => !first.has(m.name)).map((m) => m.name);
     }
     const columns: string[][] = drivers.length ? [drivers] : [];
     const placed = new Set(drivers);
 
-    // Role = the tuple of services a machine offers. Kept in the order roles
-    // first appear, because that is the order Python's dict would keep them in
-    // and the tie-break below has to see the same sequence.
+    // Role = the tuple of services a node offers, which is its label as well as
+    // its grouping: there is nothing else a column of nodes has in common, and
+    // nothing else a design would have chosen them by.
     const roles = new Map<string, { key: string[]; members: string[] }>();
-    for (const m of this.trace.machines) {
+    for (const m of this.trace.nodes) {
       if (placed.has(m.name)) continue;
       const key = [...m.serves].sort();
       const id = key.join('\u0000');
@@ -233,46 +187,7 @@ export class Layout {
       role.members.push(m.name);
     }
 
-    // What each role did, summed, and when — the label and the position.
-    const summary = new Map<string, { totals: Map<string, number>; when: number }>();
-    for (const [id, role] of roles) {
-      const totals = new Map<string, number>();
-      for (const name of role.members) {
-        for (const [label, spent] of work.get(name) ?? []) {
-          totals.set(label, (totals.get(label) ?? 0) + spent);
-        }
-      }
-      const members = new Set(role.members);
-      const when: number[] = [];
-      for (const span of this.trace.spans) {
-        if (members.has(span.vm) && (span.kind === 'handler' || span.kind === 'compute')) {
-          when.push(span.t0);
-        }
-      }
-      const avg = when.length ? when.reduce((a, b) => a + b, 0) / when.length : Infinity;
-      summary.set(id, { totals, when: avg });
-    }
-
-    // A phase *every* role worked in is a poll, a registration or a health check
-    // — something the whole cluster answers — and it says where the cluster was
-    // rather than what any of it is for. A phase that is a stage of the pipeline
-    // is not like that: only the mappers map.
-    let shared = new Set<string>();
-    if (summary.size > 1) {
-      const everywhere = [...summary.values()].filter((s) => s.totals.size).map((s) => new Set(s.totals.keys()));
-      if (everywhere.length) {
-        shared = everywhere.reduce((a, b) => new Set([...a].filter((x) => b.has(x))));
-      }
-    }
-
-    const order: string[] = [];
-    for (const p of phases) {
-      const label = Layout.stage(p.label);
-      if (!order.includes(label)) order.push(label);
-    }
-
     interface Ranked {
-      rank: number;
       when: number;
       key: string[];
       label: string;
@@ -280,31 +195,19 @@ export class Layout {
     }
     const ranked: Ranked[] = [];
     for (const [id, role] of roles) {
-      const s = summary.get(id)!;
-      let totals = new Map([...s.totals].filter(([k]) => !shared.has(k)));
-      if (!totals.size) totals = s.totals;
-      // Python's `max(dict, key=dict.get)` keeps the *first* key at the maximum,
-      // in insertion order. A plain sort would keep the last.
-      let label = '';
-      let best = -Infinity;
-      for (const [k, v] of totals) {
-        if (v > best) {
-          best = v;
-          label = k;
-        }
+      const members = new Set(role.members);
+      const when: number[] = [];
+      for (const span of this.trace.spans) {
+        if (members.has(span.vm) && span.kind === 'handler') when.push(span.t0);
       }
-      // Ordered by where the role's phase sits in the pipeline, not by when its
-      // machines happened to be busy. A map worker serves fetches all through the
-      // shuffle, so its average moment is later than the phase it belongs to —
-      // and sorting on that puts the shufflers in front of the machines they are
-      // fetching from.
-      const at = order.indexOf(label);
-      ranked.push({ rank: at >= 0 ? at : order.length, when: s.when, key: role.key, label, id });
+      // The average moment its nodes were working, so a role that answers late
+      // sits to the right of one that answers early — which is the only ordering
+      // left once phases are gone, and the one the eye reads as flow anyway.
+      const avg = when.length ? when.reduce((a, b) => a + b, 0) / when.length : Infinity;
+      ranked.push({ when: avg, key: role.key, label: label(role.key), id });
     }
 
-    ranked.sort(
-      (a, b) => a.rank - b.rank || cmp(a.when, b.when) || cmpList(a.key, b.key) || cmp(a.label, b.label),
-    );
+    ranked.sort((a, b) => cmp(a.when, b.when) || cmpList(a.key, b.key) || cmp(a.label, b.label));
 
     for (const r of ranked) {
       this.labels.push(r.label);
@@ -322,30 +225,30 @@ export class Layout {
   // --------------------------------------------------------------- places
 
   /**
-   * How big to draw each machine: wider with memory, taller with cores.
+   * How big to draw each node: wider with memory, taller with cores.
    *
    * Against the cluster's own median, so the picture answers "which of these is
    * the big one" rather than "how many gigabytes is this" — which is a question
    * no shape can answer and every legend has to.
    */
   private sizes(): Map<string, [number, number]> {
-    const mems = this.trace.machines.map((m) => m.capMb).filter((v) => v).sort((a, b) => a - b);
-    const cpus = this.trace.machines.map((m) => m.vcpu).filter((v) => v).sort((a, b) => a - b);
+    const mems = this.trace.nodes.map((m) => m.capMb).filter((v) => v).sort((a, b) => a - b);
+    const cpus = this.trace.nodes.map((m) => m.vcpu).filter((v) => v).sort((a, b) => a - b);
     const midM = mems.length ? mems[Math.floor(mems.length / 2)] : 1.0;
     const midC = cpus.length ? cpus[Math.floor(cpus.length / 2)] : 2;
     return new Map(
-      this.trace.machines.map((m) => [m.name, D.sizeOf(m.capMb, m.vcpu, midM, midC)]),
+      this.trace.nodes.map((m) => [m.name, D.sizeOf(m.capMb, m.vcpu, midM, midC)]),
     );
   }
 
   /**
-   * Zones are bands; roles are columns; a machine sits where the two cross.
+   * Zones are bands; roles are columns; a node sits where the two cross.
    *
    * This departs from the figure the rest of the language is borrowed from, on
    * purpose. That figure has no zones in it because it is a picture of an
-   * algorithm, and this is a picture of a cluster — where a machine *is* decides
+   * algorithm, and this is a picture of a cluster — where a node *is* decides
    * what every call it makes costs, in latency and in money, and a diagram that
-   * leaves the reader to remember which machine was in which zone from the YAML
+   * leaves the reader to remember which node was in which zone from the YAML
    * has left out the thing the scenario was written to show.
    *
    * Reading it: left to right is still the pipeline, so the algorithm survives.
@@ -354,19 +257,19 @@ export class Layout {
    * something you can see rather than something you have to be told.
    *
    * How deep a cell stacks before it wraps is *counted*, not assumed. Four
-   * mappers in one zone drawn as a stack of four make a band four machines deep
+   * mappers in one zone drawn as a stack of four make a band four nodes deep
    * and three such bands are taller than the frame; the same four as a two-by-two
    * make it two deep and the drawing doubles in size. Which is better depends on
-   * how many machines there are, so the number is what decides it.
+   * how many nodes there are, so the number is what decides it.
    */
   private place(): [string[], Plan] {
-    const zones = [...new Set(this.trace.machines.map((m) => m.zone))].sort();
+    const zones = [...new Set(this.trace.nodes.map((m) => m.zone))].sort();
 
     const cell = new Map<string, string[]>();
     this.columns.forEach((column, i) => {
       for (const name of column) {
-        const machine = this.trace.byName.get(name);
-        const k = cellKey(machine ? machine.zone : '', i);
+        const node = this.trace.byName.get(name);
+        const k = cellKey(node ? node.zone : '', i);
         const list = cell.get(k);
         if (list) list.push(name);
         else cell.set(k, [name]);
@@ -397,7 +300,7 @@ export class Layout {
 
   /** One candidate layout, at a given cell depth, measured but not committed. */
   private arrange(cell: Map<string, string[]>, zones: string[], depth: number): Plan {
-    // The vertical gap carries the reading that sits above each machine, so it
+    // The vertical gap carries the reading that sits above each node, so it
     // is the generous one; the horizontal gap only has to let a packet cross.
     const gapX = this.aside + 0.8;
     const gapY = this.above + 0.3;
@@ -415,7 +318,7 @@ export class Layout {
     const xs: number[][] = [];
     let at = 0.0;
     this.columns.forEach((column, i) => {
-      let w = D.MACHINE_W;
+      let w = D.NODE_W;
       if (column.length) {
         w = -Infinity;
         for (const n of column) w = Math.max(w, this.size.get(n)![0]);
@@ -448,7 +351,7 @@ export class Layout {
           tallest = Math.max(tallest, this.size.get(n)![1]);
         }
       }
-      const pitch = (tallest === -Infinity ? D.MACHINE_H : tallest) + gapY;
+      const pitch = (tallest === -Infinity ? D.NODE_H : tallest) + gapY;
       const height = rowsUsed.get(z)! * pitch - gapY + this.below + this.above + pad * 2;
       bands.set(z, [y, y - height]);
       for (let i = 0; i < this.columns.length; i++) {
@@ -476,20 +379,20 @@ export class Layout {
     };
   }
 
-  /** Room under a machine for its lanes, and its instance type when shown. */
+  /** Room under a node for its lanes, and its instance type when shown. */
   get below(): number {
-    return D.MACHINE_H * this.room.below[this.trace.machines.length > 13 ? 1 : 0];
+    return D.NODE_H * this.room.below[this.trace.nodes.length > 13 ? 1 : 0];
   }
 
-  /** Room over a machine for what it is computing, pinned to its top-right. */
+  /** Room over a node for what it is computing, pinned to its top-right. */
   get above(): number {
-    return this.room.above[this.trace.machines.length > 13 ? 1 : 0];
+    return this.room.above[this.trace.nodes.length > 13 ? 1 : 0];
   }
 
   /**
-   * Room to the right of a machine for what it is computing.
+   * Room to the right of a node for what it is computing.
    *
-   * Deliberately less than a full reading needs. Only a handful of machines are
+   * Deliberately less than a full reading needs. Only a handful of nodes are
    * computing at any instant, so reserving a label's width beside every one of
    * them spends half the frame on space that is empty in most frames — and the
    * drawing shrinks for all of them to make room for a few. What is reserved is
@@ -497,7 +400,7 @@ export class Layout {
    * empty when it matters.
    */
   get aside(): number {
-    return this.room.aside[this.trace.machines.length > 13 ? 1 : 0];
+    return this.room.aside[this.trace.nodes.length > 13 ? 1 : 0];
   }
 
   /** The rectangle a zone lives in: left, right, top, bottom. */
@@ -512,7 +415,7 @@ export class Layout {
   }
 
   sizeOf(name: string): [number, number] {
-    return this.size.get(name) ?? [D.MACHINE_W, D.MACHINE_H];
+    return this.size.get(name) ?? [D.NODE_W, D.NODE_H];
   }
 
   /** The middle of a role's column. */
@@ -545,7 +448,10 @@ export class Layout {
 
   /** What to call a column, in the quiet register under it. */
   columnLabel(i: number): string {
-    if (i === 0 && this.columns.length && this.columns[0].length) return 'coordinator';
+    // Where losim came in, and the one column not named by what it serves. Not
+    // "coordinator": a design that has one is a design that chose to, and losim
+    // does not know or care whether this node directs anything.
+    if (i === 0 && this.columns.length && this.columns[0].length) return 'entry';
     const j = i - 1;
     return j >= 0 && j < this.labels.length ? this.labels[j] : '';
   }
@@ -571,6 +477,18 @@ export class Layout {
 
 function cellKey(zone: string, column: number): string {
   return `${zone}\u0000${column}`;
+}
+
+/**
+ * What to call a role, which is what its nodes serve.
+ *
+ * Lowercased because it is drawn in the quiet register under a column, and
+ * joined rather than abbreviated when a node serves more than one — two
+ * services on one node is a real design, and picking one of them to print would
+ * be the drawing deciding which half matters.
+ */
+function label(serves: string[]): string {
+  return serves.map((s) => s.slice(s.lastIndexOf('.') + 1).toLowerCase()).join('\u00b7');
 }
 
 function cmp(a: number | string, b: number | string): number {

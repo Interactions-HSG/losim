@@ -27,7 +27,7 @@
  *   naive fix — stretching each short thing where it sits — destroys.
  * - **Nothing but the pace changes.** Every number on screen is read out of the
  *   trace at the trace time the playhead is at. The scrubber is still in
- *   reference milliseconds; a machine's memory at 400 refMs is what it was at
+ *   reference milliseconds; a node's memory at 400 refMs is what it was at
  *   400 refMs. What changes is how long the playhead dwells there.
  * - **It is reversible and exact.** `traceAt` and `displayAt` are inverses, so
  *   seeking, stepping and recording are the same operation they were before.

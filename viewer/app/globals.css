@@ -3,10 +3,10 @@
  *
  * Two registers, on purpose, and the line between them is the whole idea.
  *
- * **The figure** — machines, zones, packets, spans — is drawn in the language of
+ * **The figure** — nodes, zones, packets, spans — is drawn in the language of
  * the whiteboard: paper, thin black, data in pale green, red reserved for the
  * lecturer's pen. Those tokens live in lib/design.ts, they mean specific things,
- * and nothing here is allowed to touch them. A machine near its cap is amber
+ * and nothing here is allowed to touch them. A node near its cap is amber
  * because that is what amber means, not because amber suits the theme.
  *
  * **Everything else** — the app around it — is chrome, and chrome should get out
@@ -419,9 +419,9 @@ td.n {
 
 /* ---------------------------------------------------------- the console's own
  *
- * Prefixed, and that is not fussiness: `MachinePanel` has owned a bare `.panel`
+ * Prefixed, and that is not fussiness: `NodePanel` has owned a bare `.panel`
  * for as long as it has existed, these are all global stylesheets, and the
- * machine panel is drawn *inside* a console panel on the film page. Two rules
+ * node panel is drawn *inside* a console panel on the film page. Two rules
  * called `.panel` in one document is a bug that only shows up on one page.
  *
  * Here rather than beside each component because `Panel` and `Tile` are rendered

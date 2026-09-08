@@ -10,7 +10,7 @@
  * not one at a time behind a dropdown.
  *
  * So the cards carry what the sweep copied out of the trace and the bill: how
- * many machines, how far apart they were, how long it took, what it cost, and
+ * many nodes, how far apart they were, how long it took, what it cost, and
  * whether it finished. None of it is computed here. The viewer inventing its own
  * prices would be a second accountant, and two accountants disagree.
  */
@@ -41,8 +41,8 @@ export function Gallery() {
         (!only || (r.from ?? 'gallery') === only)
         && (!needle
           || r.name.toLowerCase().includes(needle)
-          || (r.job ?? '').toLowerCase().includes(needle)
-          || (r.scenario ?? '').toLowerCase().includes(needle)),
+          || (r.entry ?? '').toLowerCase().includes(needle)
+          || (r.simulation ?? '').toLowerCase().includes(needle)),
     );
   }, [runs, q, only]);
 
@@ -55,7 +55,7 @@ export function Gallery() {
         sub={
           <>
             Every trace beside this app. Open one and the clock above governs all four views of
-            it — the film, the execution graph, what each machine was doing, and what it had
+            it — the film, the execution graph, what each node was doing, and what it had
             cost by then.
           </>
         }
@@ -182,7 +182,7 @@ function Card({
   return (
     <article className={`run${here ? ' here' : ''}`}>
       <button className="cover" onClick={onOpen} aria-label={`open ${r.name}`}>
-        <Cover machines={r.machines ?? 1} zones={zones} broke={r.completed === false} />
+        <Cover nodes={r.nodes ?? 1} zones={zones} broke={r.completed === false} />
       </button>
       <div className="in">
         <div className="line">
@@ -190,13 +190,13 @@ function Card({
           {here && <span className="chip">open</span>}
         </div>
         <p className="of">
-          {r.job ?? 'a job'}
-          {r.scenario && <span className="muted"> · {r.scenario}</span>}
+          {r.simulation ?? 'a simulation'}
+          {r.entry && <span className="muted"> · entered at {r.entry}</span>}
         </p>
         <dl>
           <div>
-            <dt>machines</dt>
-            <dd>{r.machines ?? '—'}</dd>
+            <dt>nodes</dt>
+            <dd>{r.nodes ?? '—'}</dd>
           </div>
           <div>
             <dt>zones</dt>
@@ -241,23 +241,23 @@ function Card({
 }
 
 /**
- * A run, drawn small: its zones as boxes and a dot per machine.
+ * A run, drawn small: its zones as boxes and a dot per node.
  *
  * Not decoration. Twelve dots in one box and twelve spread over three are two
  * different designs, and the difference is the thing this course is about —
  * which makes it the thing worth being able to see without opening either.
  */
-function Cover({ machines, zones, broke }: { machines: number; zones: string[]; broke: boolean }) {
+function Cover({ nodes, zones, broke }: { nodes: number; zones: string[]; broke: boolean }) {
   const W = 300;
   const H = 104;
   const n = Math.max(zones.length, 1);
   const pad = 12;
   const gap = 10;
   const w = (W - pad * 2 - gap * (n - 1)) / n;
-  const per = Math.ceil(machines / n);
+  const per = Math.ceil(nodes / n);
   const cols = Math.min(4, Math.max(1, Math.floor((w - 16) / 18) || 1));
 
-  let left = machines;
+  let left = nodes;
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="cvr" aria-hidden>
       <rect x={0} y={0} width={W} height={H} style={{ fill: 'var(--surface-2)' }} />

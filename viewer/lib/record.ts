@@ -6,7 +6,7 @@
  * the same length, at the same rate, as the one a fast laptop produces — it just
  * takes longer to make. That is the whole reason not to record the live canvas
  * stream through `MediaRecorder`, where a frame the browser failed to paint in
- * time becomes a frame missing from the file, and a throttled machine silently
+ * time becomes a frame missing from the file, and a throttled node silently
  * produces a shorter, jerkier video of the same run.
  *
  * It is also why recording is the *same code path* as playing. The viewer draws

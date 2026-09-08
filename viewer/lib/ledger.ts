@@ -19,16 +19,16 @@
  *
  * ## Attribution, which is not re-pricing either
  *
- * Pointing at a machine should light up its money. That needs a second question
+ * Pointing at a node should light up its money. That needs a second question
  * answered — *whose line is this?* — and the same discipline applies: the amount
  * never changes, only the claim about who is answerable for it. Three kinds:
  *
- * - **its own** — a capacity line names one machine and belongs to it entirely
+ * - **its own** — a capacity line names one node and belongs to it entirely
  * - **its share** — a cluster total split by a quantity the trace already holds,
- *   so cross-zone egress is split by how many cross-zone bytes each machine
+ *   so cross-zone egress is split by how many cross-zone bytes each node
  *   actually sent
  * - **nobody's** — the late-finish penalty belongs to the *job*. Spreading it
- *   over nine machines would invent a claim nothing supports, so it is left
+ *   over nine nodes would invent a claim nothing supports, so it is left
  *   unattributed and says so
  *
  * The classification is matched against the exact line labels `losim.price.Bill`
@@ -67,7 +67,7 @@ export interface LedgerLine {
   line: BillLine;
   /** How much of it has arrived by now. */
   sofar: number;
-  /** How much of `sofar` the focused machine is answerable for. 0 when none. */
+  /** How much of `sofar` the focused node is answerable for. 0 when none. */
   mine: number;
   /** Why it is theirs, in words. Empty when it is not theirs at all. */
   why: string;
@@ -82,7 +82,7 @@ export interface Ledger {
   finalCost: number;
   /** Which lines have started arriving, largest first. */
   lines: LedgerLine[];
-  /** The machine being pointed at, and what it is answerable for. */
+  /** The node being pointed at, and what it is answerable for. */
   focus: Focus | null;
 }
 
@@ -97,7 +97,7 @@ export interface Focus {
 
 /** What a bill line is, once matched against what `Bill.java` writes. */
 type Kind =
-  | { k: 'capacity'; machine: string }
+  | { k: 'capacity'; node: string }
   | { k: 'egress' }
   | { k: 'storage' }
   | { k: 'timeouts' }
@@ -111,7 +111,7 @@ type Kind =
  * Which line is which.
  *
  * Matched on the label because the label is what the bill carries — there is no
- * machine-readable tag on a line, and inventing one would mean changing the
+ * node-readable tag on a line, and inventing one would mean changing the
  * trace contract for the viewer's convenience (D9). The fallbacks are loose so a
  * reworded label degrades to a worse shape rather than to a wrong one.
  */
@@ -121,7 +121,7 @@ function classify(line: BillLine): Kind {
     case 'capacity': {
       // `m0 (c5.large)`, or `m0 (c5.large, spot)`.
       const cut = what.indexOf(' (');
-      return { k: 'capacity', machine: cut < 0 ? what : what.slice(0, cut) };
+      return { k: 'capacity', node: cut < 0 ? what : what.slice(0, cut) };
     }
     case 'consumption':
       return /storage|disk|spill/i.test(what) ? { k: 'storage' } : { k: 'egress' };
@@ -148,9 +148,9 @@ export class LedgerModel {
   readonly finalCost: number;
   private readonly lines: BillLine[];
   private readonly shapes: ((t: number) => number)[];
-  /** Per line, how much of it each machine is answerable for. */
+  /** Per line, how much of it each node is answerable for. */
   private readonly blame: Map<string, number>[];
-  /** Per line, why — in words, for the machine it is being shown to. */
+  /** Per line, why — in words, for the node it is being shown to. */
   private readonly why: string[];
 
   constructor(trace: Trace, bill: BillJson) {
@@ -160,9 +160,10 @@ export class LedgerModel {
     this.lines = account.lines;
 
     const duration = trace.duration;
-    // The bill priced the *job*, so the shapes that follow the bill's own
-    // arithmetic follow the job's clock — the film may run a moment longer.
-    const job = trace.jobRefMs;
+    // The bill priced what `losim.Job/Run` was open for, so the shapes that
+    // follow the bill's own arithmetic follow that clock — the film may run a
+    // moment longer.
+    const job = trace.billedRefMs;
     const minSeconds = Number(bill.rates['billingMinimumSeconds'] ?? 60);
     const slaSeconds = Number(bill.rates['slaSeconds'] ?? 0);
     const done = doneAt(trace) ?? duration;
@@ -186,9 +187,9 @@ export class LedgerModel {
           return (t: number) => clamp(t / duration);
 
         case 'capacity': {
-          // **Committed before anything happens.** You pay for a machine from the
+          // **Committed before anything happens.** You pay for a node from the
           // moment you ask for it, with a floor — so a five-second job on forty
-          // machines has already bought a minute of forty machines by the time the
+          // nodes has already bought a minute of forty nodes by the time the
           // first call is made, and the line is flat from t=0. A run that outlasts
           // the floor starts accruing again beyond it.
           const runSeconds = job / 1000;
@@ -238,9 +239,9 @@ export class LedgerModel {
     const share = (of: (name: string) => number): Map<string, number> => {
       const out = new Map<string, number>();
       let total = 0;
-      for (const m of trace.machines) total += Math.max(0, of(m.name));
+      for (const m of trace.nodes) total += Math.max(0, of(m.name));
       if (total <= 0) return out;
-      for (const m of trace.machines) {
+      for (const m of trace.nodes) {
         const v = Math.max(0, of(m.name)) / total;
         if (v > 0) out.set(m.name, v);
       }
@@ -264,12 +265,12 @@ export class LedgerModel {
     const raw = (name: string, key: string): number =>
       Number(trace.byName.get(name)?.raw[key] ?? 0);
 
-    // The bill charges storage for **the worst machine's** spill, so it belongs
-    // to that machine alone. Splitting it across the cluster would be a different
+    // The bill charges storage for **the worst node's** spill, so it belongs
+    // to that node alone. Splitting it across the cluster would be a different
     // and much smaller claim about each of them.
     let worst = '';
     let mostDisk = 0;
-    for (const m of trace.machines) {
+    for (const m of trace.nodes) {
       const held = raw(m.name, 'diskMb');
       if (held > mostDisk) {
         mostDisk = held;
@@ -277,10 +278,10 @@ export class LedgerModel {
       }
     }
 
-    // Build is priced per *distinct* service, so a service two machines offer is
+    // Build is priced per *distinct* service, so a service two nodes offer is
     // one line item they each half-carry.
     const offeredBy = new Map<string, string[]>();
-    for (const m of trace.machines) {
+    for (const m of trace.nodes) {
       for (const s of m.serves) offeredBy.set(s, [...(offeredBy.get(s) ?? []), m.name]);
     }
     const services = Math.max(1, offeredBy.size);
@@ -288,15 +289,15 @@ export class LedgerModel {
     this.blame = kinds.map((kind) => {
       switch (kind.k) {
         case 'capacity':
-          return new Map([[kind.machine, 1]]);
+          return new Map([[kind.node, 1]]);
         case 'egress':
           return share((n) => raw(n, 'crossZoneMb'));
         case 'storage':
           return worst ? new Map([[worst, 1]]) : new Map();
         case 'timeouts':
           // The callee is the one that did not answer, and the bill's words are
-          // "a machine did not answer inside its deadline". The event is written
-          // by the caller, so the machine to charge is the one it was calling.
+          // "a node did not answer inside its deadline". The event is written
+          // by the caller, so the node to charge is the one it was calling.
           return byEvent(COUNTS.timeouts, (e) =>
             String((e.detail as Record<string, unknown>)?.['to'] ?? e['vm'] ?? ''),
           );
@@ -313,7 +314,7 @@ export class LedgerModel {
           }
           return out;
         }
-        // The job's, not any machine's. Left empty on purpose.
+        // The job's, not any node's. Left empty on purpose.
         case 'late':
         case 'unknown':
           return new Map<string, number>();
@@ -327,7 +328,7 @@ export class LedgerModel {
         case 'egress':
           return 'its share of the bytes that crossed a zone';
         case 'storage':
-          return 'the whole line — this is the worst machine’s spill, and it is the worst machine';
+          return 'the whole line — this is the worst node’s spill, and it is the worst node';
         case 'timeouts':
           return 'calls it did not answer in time';
         case 'lost':
@@ -343,7 +344,7 @@ export class LedgerModel {
     });
   }
 
-  /** Every machine that carries any of the bill, so the film can say who does not. */
+  /** Every node that carries any of the bill, so the film can say who does not. */
   answerable(): Set<string> {
     const out = new Set<string>();
     for (const m of this.blame) for (const k of m.keys()) out.add(k);
@@ -367,7 +368,7 @@ export class LedgerModel {
       if (sofar > 0 || mine > 0) lines.push({ line, sofar, mine, why: cut > 0 ? this.why[i] : '' });
     }
 
-    // Theirs first, then by size: pointing at a machine should bring its own
+    // Theirs first, then by size: pointing at a node should bring its own
     // money to the top rather than leave it to be hunted for down the table.
     lines.sort((a, b) => b.mine - a.mine || b.sofar - a.sofar);
     const cost = buckets.build + buckets.capacity + buckets.consumption + buckets.incidents;
@@ -401,19 +402,19 @@ function clamp(v: number): number {
   return Math.max(0, Math.min(1, v));
 }
 
-/** When the job finished, or nothing if it never did. */
+/** When the simulation finished, or nothing if it never did. */
 function doneAt(trace: Trace): number | null {
   const done = trace.events.find((e) => e.kind === 'done');
   if (done) return Number(done.t ?? 0);
-  const job = trace.spans.find((s) => s.kind === 'job');
-  return job && job.t1 >= 0 && job.status === 'OK' ? job.t1 : null;
+  const run = trace.root;
+  return run && run.t1 >= 0 && run.status === 'OK' ? run.t1 : null;
 }
 
 /** A cluster-wide running total of one series, as a share of its final value. */
 function cumulative(trace: Trace, metric: string): (t: number) => number {
-  const times = trace.series(trace.machines[0]?.name ?? '', metric).t;
+  const times = trace.series(trace.nodes[0]?.name ?? '', metric).t;
   const total = new Array(times.length).fill(0);
-  for (const m of trace.machines) {
+  for (const m of trace.nodes) {
     const v = trace.series(m.name, metric).v;
     for (let i = 0; i < total.length; i++) total[i] += v[Math.min(i, v.length - 1)] ?? 0;
   }
@@ -426,13 +427,13 @@ function cumulative(trace: Trace, metric: string): (t: number) => number {
  *
  * Storage is priced per gigabyte-month, so what is owed at any instant is how
  * much has been held *and for how long* — a level read straight off would charge
- * a machine that filled its disk at the very end as though it had held it all
+ * a node that filled its disk at the very end as though it had held it all
  * run.
  */
 function integral(trace: Trace, metric: string): (t: number) => number {
-  const times = trace.series(trace.machines[0]?.name ?? '', metric).t;
+  const times = trace.series(trace.nodes[0]?.name ?? '', metric).t;
   const level = new Array(times.length).fill(0);
-  for (const m of trace.machines) {
+  for (const m of trace.nodes) {
     const v = trace.series(m.name, metric).v;
     for (let i = 0; i < level.length; i++) level[i] += v[Math.min(i, v.length - 1)] ?? 0;
   }

@@ -7,15 +7,15 @@
  * understand — so where effort is spent unevenly, it is spent here.
  *
  * **A · Waterfall** — causality, the primary view.
- * **B · Swimlanes** — place: what was this machine doing, and when did the work move.
+ * **B · Swimlanes** — place: what was this node doing, and when did the work move.
  * **C · Rollup** — what the job is made of.
  *
  * One time window across all three, so zoom and pan are a single transform; one
  * selected span, so hovering a row lights the same call in the film, the same
- * machine in the panel, and the same instant on the scrubber. Clicking seeks.
+ * node in the panel, and the same instant on the scrubber. Clicking seeks.
  *
  * The filters are the ones that find something rather than the ones that are
- * easy to write: by machine, by method, by status, and **slower than** — which
+ * easy to write: by node, by method, by status, and **slower than** — which
  * is how a straggler is *found* rather than noticed.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -23,7 +23,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Rollup, BYS, type By } from './spans/Rollup.tsx';
 import { Swimlanes } from './spans/Swimlanes.tsx';
 import { Waterfall } from './spans/Waterfall.tsx';
-import { ms, SpanTree, type Node } from '../lib/spans.ts';
+import { ms, SpanTree, type SpanNode } from '../lib/spans.ts';
 import type { Theme } from '../lib/theme.ts';
 import type { Trace } from '../lib/trace.ts';
 
@@ -37,14 +37,14 @@ export function Spans({
   t,
   onSeek,
   hovered,
-  onHoverMachine,
+  onHoverNode,
 }: {
   trace: Trace;
   theme: Theme;
   t: number;
   onSeek: (t: number) => void;
   hovered: string | null;
-  onHoverMachine: (m: string | null) => void;
+  onHoverNode: (m: string | null) => void;
 }) {
   const tree = useMemo(() => new SpanTree(trace), [trace]);
   const [view, setView] = useState<View>('waterfall');
@@ -62,7 +62,7 @@ export function Spans({
   const [by, setBy] = useState<By>('method');
   const [collapsed, setCollapsed] = useState<ReadonlySet<number>>(new Set());
   const [selected, setSelected] = useState<number | null>(null);
-  const [machine, setMachine] = useState('');
+  const [node, setNode] = useState('');
   const [query, setQuery] = useState('');
   const [failing, setFailing] = useState(false);
   const [slower, setSlower] = useState(0);
@@ -104,16 +104,16 @@ export function Spans({
   );
 
   const keep = useMemo(() => {
-    const any = machine || query || failing || slower > 0 || critOnly;
+    const any = node || query || failing || slower > 0 || critOnly;
     if (!any) return undefined;
     const q = query.toLowerCase();
-    return (n: Node) =>
-      (!machine || n.span.vm === machine || n.to === machine) &&
+    return (n: SpanNode) =>
+      (!node || n.span.vm === node || n.to === node) &&
       (!q || n.method.toLowerCase().includes(q) || n.span.label.toLowerCase().includes(q)) &&
       (!failing || !n.ok) &&
       (slower <= 0 || n.t1 - n.t0 >= slower) &&
       (!critOnly || tree.critical.has(n.id));
-  }, [machine, query, failing, slower, critOnly, tree]);
+  }, [node, query, failing, slower, critOnly, tree]);
 
   const rows = useMemo(() => tree.rows(collapsed, keep), [tree, collapsed, keep]);
 
@@ -168,9 +168,9 @@ export function Spans({
           </div>
         ) : (
           <>
-            <select value={machine} onChange={(e) => setMachine(e.target.value)} aria-label="machine">
-              <option value="">every machine</option>
-              {trace.machines.map((m) => (
+            <select value={node} onChange={(e) => setNode(e.target.value)} aria-label="node">
+              <option value="">every node</option>
+              {trace.nodes.map((m) => (
                 <option key={m.name} value={m.name}>
                   {m.name}
                 </option>
@@ -226,7 +226,7 @@ export function Spans({
             onToggle={toggle}
             selected={selected}
             onSelect={setSelected}
-            onHoverMachine={onHoverMachine}
+            onHoverNode={onHoverNode}
             t={t}
             onSeek={onSeek}
           />
@@ -243,13 +243,13 @@ export function Spans({
             selected={selected}
             onSelect={setSelected}
             hovered={hovered}
-            onHoverMachine={onHoverMachine}
+            onHoverNode={onHoverNode}
             t={t}
             onSeek={onSeek}
           />
         )}
         {view === 'rollup' && (
-          <Rollup tree={tree} trace={trace} by={by} theme={theme} height={height} onHoverMachine={onHoverMachine} />
+          <Rollup tree={tree} trace={trace} by={by} theme={theme} height={height} onHoverNode={onHoverNode} />
         )}
       </div>
 

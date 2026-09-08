@@ -9,12 +9,12 @@
  * that, and a design argument that turns on it cannot be had against a total.
  *
  * Read it while the film plays. Capacity is flat from the first frame — you have
- * already bought a minute of every machine before a single call is made — build
+ * already bought a minute of every node before a single call is made — build
  * creeps, consumption follows the work, and incidents are steps at the instants
  * things broke.
  *
- * **And it answers the film.** Point at a machine and this says what that
- * machine costs: its own slice inside every bar, its lines lifted to the top,
+ * **And it answers the film.** Point at a node and this says what that
+ * node costs: its own slice inside every bar, its lines lifted to the top,
  * and everything it is not answerable for faded back. That connection is the
  * point of having both on one screen — "s0 is the expensive one" is a sentence
  * about a picture and a bill at the same time, and a viewer should not have to
@@ -33,7 +33,7 @@ export const COLOUR: Record<Bucket, string> = {
 
 const WHY: Record<Bucket, string> = {
   build: 'Engineering time to construct this design, carried whether or not the thing it protects against happens.',
-  capacity: 'The cluster you reserved, priced for the whole period. An idle machine costs exactly as much as a busy one.',
+  capacity: 'The cluster you reserved, priced for the whole period. An idle node costs exactly as much as a busy one.',
   consumption: 'What the work actually burned: storage and egress. This is the line a better algorithm moves.',
   incidents: 'What failure cost: reruns, lost work, being late. Zero until something breaks, then large.',
 };
@@ -47,8 +47,8 @@ export function LedgerStrip({
   l: L;
   open: boolean;
   onToggle: () => void;
-  /** Pointing at a line points at its machine, so the link runs both ways. */
-  onHover?: (machine: string | null) => void;
+  /** Pointing at a line points at its node, so the link runs both ways. */
+  onHover?: (node: string | null) => void;
 }) {
   const scale = Math.max(l.finalCost, 0.0001);
   const focus = l.focus;
@@ -67,7 +67,7 @@ export function LedgerStrip({
           <strong className="muted">{money(l.finalCost, l.currency)}</strong>
         </span>
 
-        {/* When a machine is being pointed at, its own figure stands beside the
+        {/* When a node is being pointed at, its own figure stands beside the
             cluster's rather than replacing it: what matters is the proportion, and
             a share shown alone is a number with nothing to be large against. */}
         {focus && (
@@ -80,7 +80,7 @@ export function LedgerStrip({
 
         {/* One stacked bar: what has been spent, against what the whole run comes
             to. The pale remainder is what is still coming, and the bright notch
-            inside each segment is the pointed-at machine's part of it. */}
+            inside each segment is the pointed-at node's part of it. */}
         <span className="ledger-bar" title="cost so far, against the whole run">
           {BUCKETS.map((b) => (
             <span
@@ -132,13 +132,13 @@ export function LedgerStrip({
             </thead>
             <tbody>
               {l.lines.slice(0, 16).map(({ line, sofar, mine, why }, i) => {
-                const machine = line.bucket === 'capacity' ? line.what.split(' (')[0] : null;
+                const node = line.bucket === 'capacity' ? line.what.split(' (')[0] : null;
                 return (
                   <tr
                     key={i}
                     className={focus ? (mine > 0 ? 'hot' : 'cold') : ''}
-                    onMouseEnter={() => machine && onHover?.(machine)}
-                    onMouseLeave={() => machine && onHover?.(null)}
+                    onMouseEnter={() => node && onHover?.(node)}
+                    onMouseLeave={() => node && onHover?.(null)}
                   >
                     <td>
                       <span className="ledger-dot" style={{ background: COLOUR[line.bucket] }} />
@@ -171,7 +171,7 @@ export function LedgerStrip({
               <>
                 {' '}
                 A dash means the line is nobody&rsquo;s in particular — the late-finish
-                penalty belongs to the job, not to a machine.
+                penalty belongs to the job, not to a node.
               </>
             )}
           </p>
@@ -213,7 +213,7 @@ export function LedgerStrip({
         }
         .ledger-bar > span { height: 100%; }
         .ledger-bar .seg { position: relative; }
-        /* The machine's part of this bucket, drawn inside the bucket's own colour
+        /* The node's part of this bucket, drawn inside the bucket's own colour
            rather than beside it — a share has to be a share of something. */
         .ledger-bar .seg i {
           position: absolute; inset: 0 auto 0 0; display: block;

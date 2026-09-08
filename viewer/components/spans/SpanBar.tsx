@@ -10,13 +10,14 @@
  * fix.
  *
  * **Self time is drawn lighter inside the working segment.** A handler that
- * spends its life waiting on four machines below it should not look like a
+ * spends its life waiting on four nodes below it should not look like a
  * handler that spent its life computing, and "why was this stretch idle" stops
  * being a question you reconstruct: idle is drawn.
  */
 import { memo } from 'react';
 
-import type { Node, Part } from '../../lib/spans.ts';
+import type { SpanNode, Part } from '../../lib/spans.ts';
+import { RUN } from '../../lib/trace.ts';
 import type { Theme } from '../../lib/theme.ts';
 import { taskColour } from '../../lib/theme.ts';
 
@@ -36,7 +37,7 @@ export const SpanBar = memo(function SpanBar({
   critical,
   dim,
 }: {
-  n: Node;
+  n: SpanNode;
   x: (t: number) => number;
   y: number;
   h: number;
@@ -51,7 +52,8 @@ export const SpanBar = memo(function SpanBar({
 
   // A phase or a job is a bracket over other things, not a thing itself: drawn
   // as an outline so it frames its children rather than burying them.
-  const bracket = n.span.kind === 'phase' || n.span.kind === 'job';
+  // The one span that brackets rather than does: losim's own call in.
+  const bracket = n.span.label === RUN;
 
   return (
     <g opacity={dim ? 0.25 : 1}>
@@ -107,12 +109,11 @@ export const SpanBar = memo(function SpanBar({
   );
 });
 
-function selfShare(n: Node): number {
+function selfShare(n: SpanNode): number {
   const span = n.t1 - n.t0;
   return span > 0 ? Math.max(0, Math.min(1, n.selfMs / span)) : 1;
 }
 
-function kindColour(n: Node, theme: Theme): string {
-  if (n.span.kind === 'compute') return theme.dark ? '#6b7f96' : '#9fb0c2';
+function kindColour(n: SpanNode, theme: Theme): string {
   return theme.dark ? '#4a6f5c' : '#8fae9b';
 }

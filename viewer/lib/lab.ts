@@ -17,7 +17,7 @@ import type { Draft } from './author.ts';
 
 /** One scenario in the lab, as the server sees it. */
 export interface Scenario {
-  /** Its file name — `two-machines.yaml`. */
+  /** Its file name — `two-nodes.yaml`. */
   name: string;
   /** Where it sits, from the lab root. */
   path: string;
@@ -116,7 +116,7 @@ export interface Rpc {
   idempotent: boolean;
 }
 
-/** One class a machine could run. */
+/** One class a node could run. */
 export interface Offered {
   /** The Java class, fully qualified — what `runs:` takes. */
   cls: string;

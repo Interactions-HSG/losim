@@ -26,7 +26,7 @@ export const PENCIL = '#5A5A5A'; // captions, units, anything you read second
 export const RULE = '#BFBFBF'; // hairlines, axes, the grid a timeline hangs on
 export const FAINT = '#E4E4E0'; // fills that must recede all the way to the paper
 
-export const MACHINE = '#FFFFFF'; // a machine is white: what fills it is what it holds
+export const NODE = '#FFFFFF'; // a node is white: what fills it is what it holds
 
 export const DATA_FILL = '#DCE9DF'; // data at rest — a file, a bucket, a chunk
 export const DATA_EDGE = '#5C8F70';
@@ -35,19 +35,19 @@ export const FLOW = '#4E9160'; // the block arrows: bulk moving through the syst
 
 export const NARRATE = '#D6392B'; // the lecturer's pen. Text and leader lines only.
 
-export const WARN = '#E8A33D'; // a machine approaching its cap, or warned it is going
-export const ALARM = '#C4342A'; // a machine past it, or gone
+export const WARN = '#E8A33D'; // a node approaching its cap, or warned it is going
+export const ALARM = '#C4342A'; // a node past it, or gone
 export const CHILL = '#7C93A8'; // frozen: still there, answering nothing
 
 // ------------------------------------------------------------------- tasks
 //
-// One hue per unit of work, so that two things happening on one machine are two
-// things rather than a busier machine. A cluster is only interesting because work
+// One hue per unit of work, so that two things happening on one node are two
+// things rather than a busier node. A cluster is only interesting because work
 // overlaps, and a picture that draws every call in the same ink has thrown away
 // the one property worth watching.
 //
 // Chosen against the meaning colours rather than for prettiness: nothing here is
-// allowed near WARN's amber or ALARM's red, because those two say a machine is in
+// allowed near WARN's amber or ALARM's red, because those two say a node is in
 // trouble and a task that happened to be drawn in amber would say it too. These
 // are mid-tone, evenly spaced round the wheel, and distinguishable at the size a
 // lane is actually drawn.
@@ -70,26 +70,26 @@ export function taskColour(n: number | null | undefined): string {
 }
 
 // Ordinary work is ink; work that has been slowed down is not a different colour
-// but a different *texture*, because a degraded machine is not in trouble — it is
+// but a different *texture*, because a degraded node is not in trouble — it is
 // doing exactly what it should, more slowly, and colouring it like a fault would
 // say otherwise.
 export const HATCH = '#9AA3AE';
 
-// Every state a machine can be in, and the one colour that says so. Kept here
+// Every state a node can be in, and the one colour that says so. Kept here
 // rather than in the views so that "amber means near the cap" is a fact about
 // losim and not a coincidence between two files.
 export const LEVEL_OK = DATA_FILL;
 export const LEVEL_WARN = WARN;
 export const LEVEL_FULL = ALARM;
-export const WARN_AT = 0.75; // of cap. Below this a machine is simply holding things.
+export const WARN_AT = 0.75; // of cap. Below this a node is simply holding things.
 
-// What every state a machine can be in is drawn as.
+// What every state a node can be in is drawn as.
 //
 //   alive      white, filled to what it holds, lanes lit while it works
 //   degraded   the same, hatched — still working, and slower
 //   frozen     dashed, contents kept, lanes dark: it will answer again
 //   dead       dashed, contents gone, struck through: it will not
-//   reclaiming amber tag counting down — a spot machine says it is going first,
+//   reclaiming amber tag counting down — a spot node says it is going first,
 //              and that notice is the whole lesson
 export const STATES = ['alive', 'degraded', 'frozen', 'dead', 'reclaiming'] as const;
 export type State = (typeof STATES)[number];
@@ -97,13 +97,13 @@ export type State = (typeof STATES)[number];
 // ------------------------------------------------------------------ proportion
 //
 // In frame units. The Python renderer used manim's 14.22 x 8 frame; the browser
-// scales the same numbers into its viewBox, so a machine is the same fraction of
+// scales the same numbers into its viewBox, so a node is the same fraction of
 // the picture in both, and the layout port can be diffed number for number.
 
-export const MACHINE_W = 2.05;
-export const MACHINE_H = 1.02;
+export const NODE_W = 2.05;
+export const NODE_H = 1.02;
 
-// A machine is drawn the size it is: **wider with more memory, taller with more
+// A node is drawn the size it is: **wider with more memory, taller with more
 // cores.** Two axes because the two resources fail differently and a cluster is
 // usually short of one of them — a c5.4xlarge and an r5.large are not "one bigger
 // than the other", they are bigger in different directions, and a scenario that
@@ -112,15 +112,15 @@ export const MACHINE_H = 1.02;
 //
 // Compressed hard, and against the cluster's own median rather than against an
 // absolute. A cluster spanning a1.nano to c5.4xlarge covers sixty-four times the
-// memory, and drawn linearly the small machines vanish. The exponents below turn
+// memory, and drawn linearly the small nodes vanish. The exponents below turn
 // that sixty-four-fold spread into about two and a half, which is as much as a
-// picture can carry while keeping the smallest machine legible.
+// picture can carry while keeping the smallest node legible.
 export const SIZE_BY_MEMORY = 0.3; // width
 export const SIZE_BY_CORES = 0.34; // height
 export const SIZE_MIN = 0.74;
 export const SIZE_MAX = 1.5;
 
-/** How wide and how tall to draw one machine, relative to its cluster. */
+/** How wide and how tall to draw one node, relative to its cluster. */
 export function sizeOf(
   memoryMb: number,
   vcpu: number,
@@ -132,12 +132,12 @@ export function sizeOf(
     return Math.max(SIZE_MIN, Math.min(SIZE_MAX, Math.pow(value / middle, power)));
   };
   return [
-    MACHINE_W * scaled(memoryMb, medianMemory, SIZE_BY_MEMORY),
-    MACHINE_H * scaled(vcpu, medianVcpu, SIZE_BY_CORES),
+    NODE_W * scaled(memoryMb, medianMemory, SIZE_BY_MEMORY),
+    NODE_H * scaled(vcpu, medianVcpu, SIZE_BY_CORES),
   ];
 }
 
-// Zones are drawn, not implied. A machine's availability zone decides what every
+// Zones are drawn, not implied. A node's availability zone decides what every
 // call it makes costs — same-zone latency or cross-zone latency, free or billed —
 // so it is the one fact about a cluster that a picture of the cluster must not leave
 // to the reader to remember from the YAML.
@@ -147,7 +147,7 @@ export const ZONE_LABEL = '#7C8794';
 // One tint per zone, because "which of these is a different place" is a question
 // the reader asks constantly and counting bands is a slow way to answer it. Very
 // pale on purpose: a zone is the ground the cluster stands on and must stay behind
-// every machine drawn on it — the moment a background competes with a fill it
+// every node drawn on it — the moment a background competes with a fill it
 // starts to look like it means something about capacity, which is the one thing
 // it must never say.
 export const ZONE_TINTS = ['#EDF1F5', '#F1F0EA', '#ECF2EE', '#F3EEF1', '#EFEFF4', '#F2F1E9'] as const;
@@ -192,7 +192,7 @@ export function stack(preferred: string[], generic: string): string {
 
 export const SIZE_TITLE = 34;
 export const SIZE_SUBTITLE = 19;
-export const SIZE_MACHINE = 24;
+export const SIZE_NODE = 24;
 export const SIZE_NARRATE = 24;
 export const SIZE_CAPTION = 18;
 export const SIZE_EDGE = 17; // the parenthesised mechanics: (3) read
@@ -201,7 +201,7 @@ export const SIZE_TAG = 15; // tabs, units, the small print on a document
 // ------------------------------------------------------------------- meaning
 
 /**
- * What colour a machine's contents are, given what it is allowed to hold.
+ * What colour a node's contents are, given what it is allowed to hold.
  *
  * Three states rather than a gradient, because the question anyone actually
  * asks is "which of these is in trouble" and a gradient answers it slowly.
@@ -214,7 +214,7 @@ export function levelColour(held: number, cap: number): string {
   return LEVEL_OK;
 }
 
-/** How full to draw a machine, clamped so that over-full still reads as full. */
+/** How full to draw a node, clamped so that over-full still reads as full. */
 export function levelShare(held: number, cap: number): number {
   if (cap <= 0) return 0.0;
   return Math.max(0.0, Math.min(1.0, held / cap));

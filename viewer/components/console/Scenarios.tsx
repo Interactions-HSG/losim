@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Authoring a scenario: the machines, and what runs on them.
+ * Authoring a scenario: the nodes, and what runs on them.
  *
  * The Java says what *can* run. This says **where it runs and what goes wrong**,
  * which is the half of a distributed system this course is actually about and
@@ -15,7 +15,7 @@
  * cannot be misspelled into being its own region).
  *
  * The form is all on one page with the file beside it. Not a wizard: a wizard
- * hides the shape of what is being built, and the shape — four machines, three
+ * hides the shape of what is being built, and the shape — four nodes, three
  * of them in one zone and one across an ocean — is the thing worth seeing.
  * And the YAML is shown in full the whole time, because the file *is* the
  * scenario, and what a student has to be able to read by the end of this course
@@ -78,7 +78,7 @@ export function Scenarios() {
     setRefused(null);
   }, []);
 
-  const machines = useMemo(() => (draft ? expand(draft) : []), [draft]);
+  const nodes = useMemo(() => (draft ? expand(draft) : []), [draft]);
   const yaml = useMemo(() => (draft ? toYaml(draft) : ''), [draft]);
   const links = useMemo(
     () => (draft && palette ? distances(draft, palette.regions) : null),
@@ -250,7 +250,7 @@ export function Scenarios() {
         <Panel title="Nothing to place yet">
           <p className="muted">
             This lab compiles — {palette.other} class{palette.other === 1 ? '' : 'es'} — but none
-            of them is a job losim can start or a gRPC service a machine can serve. A scenario
+            of them is a job losim can start or a gRPC service a node can serve. A scenario
             says <em>where the code runs</em>, so there has to be code that runs somewhere first.
           </p>
         </Panel>
@@ -262,7 +262,7 @@ export function Scenarios() {
       {((mode === 'new' && canAuthor) || mode === 'edit') && !busy && palette && draft && (
         <div className="two">
           <div className="col">
-            <Machines draft={draft} palette={palette} machines={machines} edit={edit} />
+            <Nodes draft={draft} palette={palette} nodes={nodes} edit={edit} />
             <Scale draft={draft} edit={edit} />
             <Network draft={draft} palette={palette} edit={edit} />
             <TheInput draft={draft} palette={palette} edit={edit} />
@@ -274,12 +274,12 @@ export function Scenarios() {
             <Panel title="Knowable now">
               <dl className="kv">
                 <div>
-                  <dt>machines</dt>
-                  <dd>{machines.length}</dd>
+                  <dt>nodes</dt>
+                  <dd>{nodes.length}</dd>
                 </div>
                 <div>
                   <dt>zones</dt>
-                  <dd>{new Set(machines.map((m) => m.zone)).size}</dd>
+                  <dd>{new Set(nodes.map((m) => m.zone)).size}</dd>
                 </div>
                 <div>
                   <dt>on the catalogue’s prices</dt>
@@ -532,25 +532,25 @@ function Scale({ draft, edit }: { draft: Draft; edit: (f: (d: Draft) => void) =>
   );
 }
 
-/* ---------------------------------------------------------------- the machines
+/* ---------------------------------------------------------------- the nodes
  *
- * The part a student actually authors. Each block is a pool — machines that grow
- * and shrink together — and a single machine is a pool of one, which is why the
+ * The part a student actually authors. Each block is a pool — nodes that grow
+ * and shrink together — and a single node is a pool of one, which is why the
  * count starts at 1 and there is no separate kind of thing for it.
  */
-function Machines({
-  draft, palette, machines, edit,
+function Nodes({
+  draft, palette, nodes, edit,
 }: {
   draft: Draft;
   palette: Palette;
-  machines: { name: string; pool: string }[];
+  nodes: { name: string; pool: string }[];
   edit: (f: (d: Draft) => void) => void;
 }) {
   const ms = expand(draft);
   const orphans = unplaced(draft, palette);
   return (
     <Panel
-      title="Machines"
+      title="Nodes"
       note={`${ms.length} in ${new Set(ms.map((m) => m.zone)).size} zones`}
       actions={
         <button
@@ -576,9 +576,9 @@ function Machines({
       }
     >
       <p className="lead">
-        Each block is a <strong>pool</strong>: machines that grow and shrink together, dealt
+        Each block is a <strong>pool</strong>: nodes that grow and shrink together, dealt
         round-robin over the zones you give it. What it runs, where it sits and what happens to
-        it are all on the block, because they are all facts about the same machines.
+        it are all on the block, because they are all facts about the same nodes.
       </p>
 
       <div className="pools">
@@ -589,7 +589,7 @@ function Machines({
             i={i}
             draft={draft}
             palette={palette}
-            machines={machines}
+            nodes={nodes}
             only={draft.pools.length === 1}
             first={i === 0}
             edit={edit}
@@ -602,7 +602,7 @@ function Machines({
           <span>⚠</span>
           <span>
             <strong>
-              {orphans.length} service{orphans.length === 1 ? '' : 's'} on no machine
+              {orphans.length} service{orphans.length === 1 ? '' : 's'} on no node
             </strong>{' '}
             — {orphans.map((o) => o.cls).join(', ')}. The scenario will still run; nothing will
             ever call them.
@@ -626,19 +626,19 @@ function Machines({
 }
 
 function PoolCard({
-  p, i, draft, palette, machines, only, first, edit,
+  p, i, draft, palette, nodes, only, first, edit,
 }: {
   p: Pool;
   i: number;
   draft: Draft;
   palette: Palette;
-  machines: { name: string; pool: string }[];
+  nodes: { name: string; pool: string }[];
   only: boolean;
   first: boolean;
   edit: (f: (d: Draft) => void) => void;
 }) {
   const inst = palette.instances.find((x) => x.name === p.instance);
-  // The names the loader will give this pool's machines, which is what an
+  // The names the loader will give this pool's nodes, which is what an
   // exception has to be keyed by and what a fault has to point at.
   const count = Math.max(1, Math.round(p.count));
   const numbered = count > 1 || p.prefix !== p.name;
@@ -653,7 +653,7 @@ function PoolCard({
           onChange={(e) => edit((d) => {
             // The prefix follows the name while the two are the same, because
             // that is the ordinary case and nobody renaming `workers` means to
-            // leave its machines called `workers0`. One deliberately set apart
+            // leave its nodes called `workers0`. One deliberately set apart
             // stays put.
             if (d.pools[i].prefix === d.pools[i].name) d.pools[i].prefix = e.target.value;
             d.pools[i].name = e.target.value;
@@ -661,14 +661,14 @@ function PoolCard({
           aria-label="pool name"
         />
         <span className="chip">
-          {p.count === 1 ? '1 machine' : `${p.count} machines`}
+          {p.count === 1 ? '1 node' : `${p.count} nodes`}
         </span>
         {first && <span className="chip">the job runs here</span>}
         <span className="acts">
           {i > 0 && (
             <button
               className="btn"
-              title="move it up — the job runs on the first machine in the file"
+              title="move it up — the job runs on the first node in the file"
               onClick={() => edit((d) => {
                 [d.pools[i - 1], d.pools[i]] = [d.pools[i], d.pools[i - 1]];
               })}
@@ -679,7 +679,7 @@ function PoolCard({
           <button
             className="btn"
             disabled={only}
-            title={only ? 'a scenario needs at least one machine' : 'remove this pool'}
+            title={only ? 'a scenario needs at least one node' : 'remove this pool'}
             onClick={() => edit((d) => { d.pools.splice(i, 1); })}
           >
             Remove
@@ -706,10 +706,10 @@ function PoolCard({
             <input
               value={p.prefix}
               onChange={(e) => edit((d) => { d.pools[i].prefix = e.target.value; })}
-              aria-label="machine name prefix"
+              aria-label="node name prefix"
             />
             <span className="hint">
-              {p.prefix ? `${p.prefix}0, ${p.prefix}1, …` : 'machines are named prefix0, prefix1'}
+              {p.prefix ? `${p.prefix}0, ${p.prefix}1, …` : 'nodes are named prefix0, prefix1'}
             </span>
           </div>
         )}
@@ -739,7 +739,7 @@ function PoolCard({
       </div>
 
       {/* What this pool runs, and whether the job starts on it. Both are the same
-          question — what code is on this machine — so they are the same control.
+          question — what code is on this node — so they are the same control.
           The list is read off the compiled classes, so nothing here can name a
           service that is not there. */}
       <div className="serves">
@@ -767,14 +767,14 @@ function PoolCard({
           <button
             key={j}
             className={`svc job${draft.job === j && first ? ' on' : ''}`}
-            title="the job drives the run, and losim starts it on the first machine in the file"
+            title="the job drives the run, and losim starts it on the first node in the file"
             onClick={() => edit((d) => {
               d.job = j;
               // The parts are the job's own, so changing the job changes them.
               // Sizes for a part the new job also has are kept: switching between
               // two word counts should not throw away the corpus you sized.
               d.input = inputFor(palette.consumes, j, d.input);
-              // The job is not placed — it runs on the first machine there is. So
+              // The job is not placed — it runs on the first node there is. So
               // saying "it starts here" is saying "this pool is first", and the
               // form moves it rather than writing a key the loader does not have.
               if (i > 0) {
@@ -789,14 +789,14 @@ function PoolCard({
         {!palette.services.length && !palette.jobs.length && (
           <span className="hint">
             Nothing here extends a generated <code>ImplBase</code> or implements{' '}
-            <code>losim.api.Job</code>, so there is nothing a machine can be given.
+            <code>losim.api.Job</code>, so there is nothing a node can be given.
           </span>
         )}
       </div>
 
       {/* Caps, and the third state. An empty box is not zero: it is whatever the
           instance type says, which is what a pool that never mentions these
-          gets. A `0` is a machine that cannot hold anything — legal, and a
+          gets. A `0` is a node that cannot hold anything — legal, and a
           different scenario — so the two must not be typed by the same gesture. */}
       <div className="row">
         <div className="field grow">
@@ -816,7 +816,7 @@ function PoolCard({
             {p.memoryMb === null
               ? 'MB. Empty is the instance’s own — nothing is written to the file.'
               : `MB, instead of the ${inst?.memoryMb ?? '?'} this instance comes with. Under it, `
-                + 'a machine that holds too much fills up and says so.'}
+                + 'a node that holds too much fills up and says so.'}
           </span>
         </div>
         <div className="field grow">
@@ -838,10 +838,10 @@ function PoolCard({
         </div>
       </div>
 
-      {/* One machine unlike the rest. A pool of eight where one is half the size
+      {/* One node unlike the rest. A pool of eight where one is half the size
           is the cheapest straggler there is, and it cannot be said at pool level
           — that is the whole point of it. Only offered where there is more than
-          one machine to be the exception to. */}
+          one node to be the exception to. */}
       {names.length > 1 && (
         <div className="excs">
           <div className="exhead">
@@ -849,10 +849,10 @@ function PoolCard({
             <button
               className="btn"
               onClick={() => edit((d) => {
-                const taken = new Set(d.pools[i].overrides.map((o) => o.machine));
+                const taken = new Set(d.pools[i].overrides.map((o) => o.node));
                 const free = names.find((nm) => !taken.has(nm)) ?? names[0];
                 d.pools[i].overrides.push({
-                  machine: free, instance: '', zone: '', memoryMb: null, diskMb: null,
+                  node: free, instance: '', zone: '', memoryMb: null, diskMb: null,
                 });
               })}
               disabled={p.overrides.length >= names.length}
@@ -862,26 +862,26 @@ function PoolCard({
           </div>
           {!p.overrides.length && (
             <span className="hint">
-              Every machine in this pool is the same. Add one to make a straggler, or a
-              machine too small for the work it is given.
+              Every node in this pool is the same. Add one to make a straggler, or a
+              node too small for the work it is given.
             </span>
           )}
           {p.overrides.map((o, k) => (
             <div className="exc" key={k}>
               <select
-                value={o.machine}
-                aria-label="which machine"
-                onChange={(e) => edit((d) => { d.pools[i].overrides[k].machine = e.target.value; })}
+                value={o.node}
+                aria-label="which node"
+                onChange={(e) => edit((d) => { d.pools[i].overrides[k].node = e.target.value; })}
               >
                 {names.map((nm) => <option key={nm} value={nm}>{nm}</option>)}
                 {/* An override the loader would silently ignore: it names no
-                    machine in this pool. Kept rather than dropped, and shown as
+                    node in this pool. Kept rather than dropped, and shown as
                     what it is. */}
-                {!names.includes(o.machine) && <option value={o.machine}>{o.machine} — no such machine</option>}
+                {!names.includes(o.node) && <option value={o.node}>{o.node} — no such node</option>}
               </select>
               <select
                 value={o.instance}
-                aria-label="instance for this machine"
+                aria-label="instance for this node"
                 onChange={(e) => edit((d) => { d.pools[i].overrides[k].instance = e.target.value; })}
               >
                 <option value="">same instance</option>
@@ -891,7 +891,7 @@ function PoolCard({
               </select>
               <select
                 value={o.zone}
-                aria-label="zone for this machine"
+                aria-label="zone for this node"
                 onChange={(e) => edit((d) => { d.pools[i].overrides[k].zone = e.target.value; })}
               >
                 <option value="">same zone</option>
@@ -901,7 +901,7 @@ function PoolCard({
               </select>
               <input
                 type="number" min={0} step="any" placeholder="memory MB"
-                aria-label="memory cap for this machine"
+                aria-label="memory cap for this node"
                 value={o.memoryMb ?? ''}
                 onChange={(e) => edit((d) => {
                   const v = e.target.value.trim();
@@ -910,7 +910,7 @@ function PoolCard({
               />
               <input
                 type="number" min={0} step="any" placeholder="disk MB"
-                aria-label="disk cap for this machine"
+                aria-label="disk cap for this node"
                 value={o.diskMb ?? ''}
                 onChange={(e) => edit((d) => {
                   const v = e.target.value.trim();
@@ -918,9 +918,9 @@ function PoolCard({
                 })}
               />
               <button className="btn" onClick={() => edit((d) => { d.pools[i].overrides.splice(k, 1); })}>×</button>
-              {!names.includes(o.machine) && (
+              {!names.includes(o.node) && (
                 <span className="hint warn">
-                  This pool has no machine called <code>{o.machine}</code>, so the run ignores
+                  This pool has no node called <code>{o.node}</code>, so the run ignores
                   this line. Point it at one, or remove it.
                 </span>
               )}
@@ -961,7 +961,7 @@ function PoolCard({
         </span>
       </div>
 
-      <Weather p={p} i={i} draft={draft} palette={palette} machines={machines}
+      <Weather p={p} i={i} draft={draft} palette={palette} nodes={nodes}
                names={names} mine={mine} edit={edit} />
 
       <style>{`
@@ -1058,7 +1058,7 @@ function Network({
                  onChange={(e) => edit((d) => {
                    d.net.sameZoneRefMs = Math.max(0, Number(e.target.value) || 0);
                  })} />
-          <span className="hint">refMs for a call between two machines in one zone.</span>
+          <span className="hint">refMs for a call between two nodes in one zone.</span>
         </div>
         <div className="field">
           <label htmlFor="crosszone">Across zones</label>
@@ -1067,7 +1067,7 @@ function Network({
                    d.net.crossZoneRefMs = Math.max(0, Number(e.target.value) || 0);
                  })} />
           <span className="hint">
-            refMs when they are not. The only thing that makes where you put a machine matter.
+            refMs when they are not. The only thing that makes where you put a node matter.
           </span>
         </div>
         <div className="field">
@@ -1099,10 +1099,10 @@ function Network({
           <span>⚠</span>
           <span>
             <strong>
-              {apart} pair{apart === 1 ? '' : 's'} of machines are in different zones, and
+              {apart} pair{apart === 1 ? '' : 's'} of nodes are in different zones, and
               reaching across costs no more than staying put
             </strong>{' '}
-            — so nothing in this scenario can be placed wrong, and moving a machine cannot be
+            — so nothing in this scenario can be placed wrong, and moving a node cannot be
             shown to help. Put a bigger number in <em>Across zones</em> to make placement a
             decision.
           </span>
@@ -1112,7 +1112,7 @@ function Network({
         <div className="flag">
           <span>·</span>
           <span>
-            Every machine here is in one zone, so <em>Across zones</em> never applies. Deal a
+            Every node here is in one zone, so <em>Across zones</em> never applies. Deal a
             pool over more zones above and it starts to.
           </span>
         </div>
@@ -1121,7 +1121,7 @@ function Network({
         <div className="flag">
           <span>·</span>
           <span>
-            A call that is dropped looks exactly like one to a machine that has died — the caller
+            A call that is dropped looks exactly like one to a node that has died — the caller
             cannot tell the difference, and finding out that it cannot is the exercise.
           </span>
         </div>
@@ -1155,10 +1155,10 @@ function Network({
  *
  * A design tested on a day nothing went wrong is a design nobody has tested.
  *
- * It sits on the machine it happens to, not in a panel of its own. A fault is a
- * fact about a machine in the same way its instance type is, and a form that put
+ * It sits on the node it happens to, not in a panel of its own. A fault is a
+ * fact about a node in the same way its instance type is, and a form that put
  * them on opposite ends of the page made you hold a name in your head to connect
- * them — which is exactly the mistake a scenario aimed at a machine that is not
+ * them — which is exactly the mistake a scenario aimed at a node that is not
  * there is made of.
  *
  * Two kinds, and the difference between them is the whole point: a fault at 300
@@ -1167,18 +1167,18 @@ function Network({
  * is twenty seeds rather than one lucky afternoon.
  */
 function Weather({
-  p, i, draft, machines, names, mine, edit,
+  p, i, draft, nodes, names, mine, edit,
 }: {
   p: Pool;
   i: number;
   draft: Draft;
   palette: Palette;
-  machines: { name: string; pool: string }[];
+  nodes: { name: string; pool: string }[];
   names: string[];
   mine: Set<string>;
   edit: (f: (d: Draft) => void) => void;
 }) {
-  // Filed under the machine it happens to. A pair fault is filed under the end
+  // Filed under the node it happens to. A pair fault is filed under the end
   // it is written from, because that is the one the file names first.
   const faults = draft.faults
     .map((f, k) => ({ f, k }))
@@ -1200,9 +1200,9 @@ function Weather({
               kind: 'kill', atRefMs: 300,
               target: here,
               // A pair fault needs two, and two that differ: `partition: [a, a]`
-              // is a machine cut off from itself. Prefilled so switching kind
+              // is a node cut off from itself. Prefilled so switching kind
               // never lands on one.
-              other: machines.find((m) => m.name !== here)?.name ?? here,
+              other: nodes.find((m) => m.name !== here)?.name ?? here,
               forRefMs: 500, factor: 3, noticeRefMs: 200, restartAfterRefMs: 2000,
             });
           })}
@@ -1244,15 +1244,15 @@ function Weather({
                   onChange={(e) => edit((d) => { d.faults[k].target = e.target.value; })}>
             {names.map((nm) => <option key={nm} value={nm}>{nm}</option>)}
           </select>
-          {/* The second machine, and only these two have one. It is a pair of
-              machines that stops reaching each other, not a machine that
+          {/* The second node, and only these two have one. It is a pair of
+              nodes that stops reaching each other, not a node that
               stops — so the other end may be anywhere in the cluster. */}
           {PAIRED.includes(f.kind) && (
             <>
               <span>{f.kind === 'heal' ? 'and' : 'from'}</span>
               <select value={f.other}
                       onChange={(e) => edit((d) => { d.faults[k].other = e.target.value; })}>
-                {machines.map((m) => (
+                {nodes.map((m) => (
                   <option key={m.name} value={m.name}>{m.name}</option>
                 ))}
               </select>
@@ -1328,7 +1328,7 @@ function Weather({
           {f.kind === 'partition' && (
             <span className="aside">
               {f.target === f.other
-                ? 'both ends are the same machine — a machine cannot be cut off from itself'
+                ? 'both ends are the same node — a node cannot be cut off from itself'
                 : 'both stay alive and keep serving everybody else; these two stop reaching '
                   + 'each other. Nothing heals it — write a heal: at a later instant.'}
             </span>
@@ -1415,7 +1415,7 @@ function Weather({
   );
 }
 
-/** "w0" for one machine, "any of w0…w3" for a pool. */
+/** "w0" for one node, "any of w0…w3" for a pool. */
 function count(names: string[]): string {
   return names.length === 1
     ? names[0]
@@ -1487,7 +1487,7 @@ function Costs({
   palette: Palette;
   edit: (f: (d: Draft) => void) => void;
 }) {
-  // Only what is placed: a cost for a class no machine runs is refused at load,
+  // Only what is placed: a cost for a class no node runs is refused at load,
   // so the form must not be able to write one.
   const placed = [...new Set(draft.pools.flatMap((p) => p.runs))];
   const rows = placed.flatMap((cls) => {
@@ -1540,7 +1540,7 @@ function Costs({
 /* --------------------------------------------------------------- the retries
  *
  * Not weather: a property of every caller in the cluster, keyed by the gRPC method
- * rather than by a machine. So it stays a panel of its own, and says which of
+ * rather than by a node. So it stays a panel of its own, and says which of
  * the two it is.
  */
 function Retries({
@@ -1618,7 +1618,7 @@ function Retries({
             {r.multiplier === 1 && r.attempts > 2 && (
               <span className="aside">
                 flat: every attempt waits the same. A cluster that does not ease off a
-                struggling machine is how one slow machine becomes an outage.
+                struggling node is how one slow node becomes an outage.
               </span>
             )}
             {!safe && (

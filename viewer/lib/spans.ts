@@ -4,26 +4,27 @@
  * A trace's **events** say what happened. **Spans** say *why*, because every span
  * carries a parent — and losim propagates that parent across the RPC boundary in
  * a metadata header (D8 rule 2), so the chain is a real distributed call stack
- * rather than a per-machine one:
+ * rather than a per-node one:
  *
- *     phase    shuffle                 master   1991 → 3581
- *       rpc    ShuffleWorker.Sort      master   2040 → 3575     to s2
- *         handler ShuffleWorker.Sort   s2       2042 → 3554
- *           rpc  MapWorker.Pull        s2       2069 → 2140     to m0
- *             handler MapWorker.Pull   m0       2072 → 2116
+ *     handler losim.Job.Run          master   1991 → 3581
+ *       rpc    Sorter.Sort             master   2040 → 3575     to s2
+ *         handler Sorter.Sort          s2       2042 → 3554
+ *           rpc  Puller.Pull           s2       2069 → 2140     to m0
+ *             handler Puller.Pull      m0       2072 → 2116
  *
- * Four machines deep, reading as one stack. That is the thing a student cannot
- * get from reading the code: that asking one machine to sort a partition causes
+ * Four nodes deep, reading as one stack, and the top of it is losim's own call
+ * into the system — an ordinary handler on an ordinary node. That is the thing a student cannot
+ * get from reading the code: that asking one node to sort a partition causes
  * it to go and read from four others, and that most of the wall clock at the top
  * is the bottom waiting.
  *
  * ## Two numbers that carry the lesson
  *
- * **Self time** — a span's duration minus its children's — is what that machine
+ * **Self time** — a span's duration minus its children's — is what that node
  * actually *did*; the rest it spent waiting on somebody else. Children's time is
  * taken as a **union rather than a sum**, because a handler that fans out four
  * concurrent calls has four overlapping children, and adding them up would
- * report a machine as having negative self time for being efficient.
+ * report a node as having negative self time for being efficient.
  *
  * **The critical path** — at each level the child that finished last — is what
  * the makespan is actually made of, and therefore what there is any point in
@@ -40,11 +41,11 @@
  * All four are **measured**, and they are measured by subtraction rather than by
  * matching up events, so they sum to the bar exactly. `netRefMs` gives the wire;
  * the gap between the packet landing and the handler opening is the call sitting
- * on a machine with no core free, which is the vCPU model made visible and the
+ * on a node with no core free, which is the vCPU model made visible and the
  * segment students least expect to exist.
  */
 import { bare } from './frame.ts';
-import type { Span, Trace } from './trace.ts';
+import { RUN, type Span, type Trace } from './trace.ts';
 
 export type Part = 'out' | 'queue' | 'working' | 'back';
 
@@ -54,12 +55,12 @@ export interface Segment {
   t1: number;
 }
 
-export interface Node {
+export interface SpanNode {
   span: Span;
   id: number;
   depth: number;
-  children: Node[];
-  parent: Node | null;
+  children: SpanNode[];
+  parent: SpanNode | null;
   t0: number;
   /** Where it ended, or where the trace does when it never closed. */
   t1: number;
@@ -79,19 +80,19 @@ export interface Node {
 }
 
 export class SpanTree {
-  readonly roots: Node[] = [];
-  readonly byId = new Map<number, Node>();
+  readonly roots: SpanNode[] = [];
+  readonly byId = new Map<number, SpanNode>();
   /** Every node in tree order — the order the waterfall draws. */
-  readonly flat: Node[] = [];
+  readonly flat: SpanNode[] = [];
   readonly critical = new Set<number>();
   readonly duration: number;
-  readonly machines: string[];
+  readonly nodes: string[];
 
   constructor(trace: Trace) {
     this.duration = trace.duration;
-    this.machines = trace.machines.map((m) => m.name);
+    this.nodes = trace.nodes.map((m) => m.name);
     const tasks = trace.tasks();
-    const zoneOf = new Map(trace.machines.map((m) => [m.name, m.zone]));
+    const zoneOf = new Map(trace.nodes.map((m) => [m.name, m.zone]));
 
     const kids = new Map<number, Span[]>();
     for (const s of trace.spans) {
@@ -101,14 +102,15 @@ export class SpanTree {
     }
     for (const list of kids.values()) list.sort((a, b) => a.t0 - b.t0 || a.id - b.id);
 
-    // Span 0 is nobody's span: it is the absent parent every root points at. The
-    // trace is therefore a forest, and a `job` that runs beside its phases rather
-    // than over them is normal rather than a defect to be repaired here.
-    const build = (span: Span, depth: number, parent: Node | null): Node => {
+    // Span 0 is nobody's span: it is the absent parent every root points at. In
+    // an ordinary simulation there is one root — the losim.Job/Run handler — and
+    // everything else hangs beneath it; a forest is what a trace looks like when
+    // something opened a span outside that call.
+    const build = (span: Span, depth: number, parent: SpanNode | null): SpanNode => {
       const dangling = span.t1 < 0;
       const t1 = dangling ? this.duration : span.t1;
       const to = typeof span.detail['to'] === 'string' ? (span.detail['to'] as string) : null;
-      const node: Node = {
+      const node: SpanNode = {
         span,
         id: span.id,
         depth,
@@ -123,7 +125,7 @@ export class SpanTree {
         method: span.kind === 'rpc' || span.kind === 'handler' ? bare(span.label) : span.label,
         // A handler inherits the task of the call that opened it. The trace keys
         // a unit of work on the *call*, but the thing that visibly computes is
-        // the handler — and a machine working on task 3 should be task 3's colour
+        // the handler — and a node working on task 3 should be task 3's colour
         // in every view, which is the whole of what the per-task hues are for.
         task:
           tasks.get(span.id) ??
@@ -146,26 +148,28 @@ export class SpanTree {
 
     for (const root of kids.get(0) ?? []) this.roots.push(build(root, 0, null));
 
-    const walk = (n: Node) => {
+    const walk = (n: SpanNode) => {
       this.flat.push(n);
       for (const c of n.children) walk(c);
     };
     for (const r of this.roots) walk(r);
 
-    // The critical path: at each level, the child that finished last.
+    // The critical path: at each level, the child that finished last, starting
+    // from losim's own call in.
     //
-    // Started from the last-finishing root **that has children**, which is not
-    // the same as the last-finishing root. A `job` span brackets the whole run
-    // and its phases are written as its *siblings* rather than its children, so
-    // the root that finishes last is routinely a label with nothing underneath
-    // it — and the chain from there is one span long, which is not a critical
-    // path, it is a tautology.
-    let head: Node | null = null;
-    for (const r of this.roots) if (r.children.length && (!head || r.t1 > head.t1)) head = r;
+    // Named rather than found by finishing last, which is the rule that looks
+    // right and is not. A span still open when the trace ends is drawn to the
+    // end of the film, so a handler that died with its node ties or beats the
+    // call that was waiting on it — and the path then starts at a stray with
+    // nothing under it, which is a tautology rather than a path. There is
+    // exactly one span the whole simulation hangs from, and the trace says
+    // which. Last-finishing is the fallback for a trace that has no such span
+    // at all.
+    let head: SpanNode | null = this.roots.find((r) => r.span.label === RUN) ?? null;
     if (!head) for (const r of this.roots) if (!head || r.t1 > head.t1) head = r;
     while (head) {
       this.critical.add(head.id);
-      let next: Node | null = null;
+      let next: SpanNode | null = null;
       for (const c of head.children) if (!next || c.t1 > next.t1) next = c;
       head = next;
     }
@@ -178,17 +182,17 @@ export class SpanTree {
    * away is a duration with nothing to explain it — the whole reason to look at
    * spans rather than events is the chain above them.
    */
-  rows(collapsed: ReadonlySet<number>, keep?: (n: Node) => boolean): Node[] {
+  rows(collapsed: ReadonlySet<number>, keep?: (n: SpanNode) => boolean): SpanNode[] {
     let visible: Set<number> | null = null;
     if (keep) {
       visible = new Set<number>();
       for (const n of this.flat) {
         if (!keep(n)) continue;
-        for (let a: Node | null = n; a && !visible.has(a.id); a = a.parent) visible.add(a.id);
+        for (let a: SpanNode | null = n; a && !visible.has(a.id); a = a.parent) visible.add(a.id);
       }
     }
-    const out: Node[] = [];
-    const walk = (n: Node) => {
+    const out: SpanNode[] = [];
+    const walk = (n: SpanNode) => {
       if (visible && !visible.has(n.id)) return;
       out.push(n);
       if (collapsed.has(n.id)) return;
@@ -199,7 +203,7 @@ export class SpanTree {
   }
 
   /** Where the job spends itself, gathered however you want to ask. */
-  rollup(by: (n: Node) => string | null): Rollup[] {
+  rollup(by: (n: SpanNode) => string | null): Rollup[] {
     const rows = new Map<string, Rollup>();
     for (const n of this.flat) {
       const key = by(n);
@@ -215,13 +219,13 @@ export class SpanTree {
     return [...rows.values()].sort((a, b) => b.self - a.self);
   }
 
-  /** Every span open on one machine, for the swimlanes. */
-  lanes(): Map<string, Node[]> {
-    const out = new Map<string, Node[]>();
-    for (const m of this.machines) out.set(m, []);
+  /** Every span open on one node, for the swimlanes. */
+  lanes(): Map<string, SpanNode[]> {
+    const out = new Map<string, SpanNode[]>();
+    for (const m of this.nodes) out.set(m, []);
     for (const n of this.flat) {
       // An rpc is drawn on the caller's lane only when nothing answered it —
-      // otherwise the handler is the thing that occupied a machine, and drawing
+      // otherwise the handler is the thing that occupied a node, and drawing
       // both would double every call.
       if (n.span.kind === 'rpc' && n.children.length) continue;
       const list = out.get(n.span.vm);
@@ -241,7 +245,7 @@ export interface Rollup {
 }
 
 /** How much wall clock a set of spans covers between them, counting overlap once. */
-function union(nodes: Node[]): number {
+function union(nodes: SpanNode[]): number {
   if (!nodes.length) return 0;
   const spans = nodes.map((n) => [n.t0, n.t1] as const).sort((a, b) => a[0] - b[0]);
   let total = 0;
@@ -266,7 +270,7 @@ function union(nodes: Node[]): number {
  * each handler to the `queue_wait` event nearest before it — is a guess that can
  * be wrong, and it would leave a bar whose segments do not add up to itself.
  */
-function segmentsOf(n: Node): Segment[] {
+function segmentsOf(n: SpanNode): Segment[] {
   if (n.span.kind !== 'rpc') return [];
   const net = Number(n.span.detail['netRefMs'] ?? 0);
   const handler = n.children.find((c) => c.span.kind === 'handler');

@@ -4,7 +4,7 @@
  *   node viewer/checks/stops.ts
  *
  * The scrubber's `]` and `[` walk the set in `lib/frame.ts` called NOTABLE, and
- * the pinned machine's history draws the set in `MachinePanel.tsx` called TOLD.
+ * the pinned node's history draws the set in `NodePanel.tsx` called TOLD.
  * A kind that losim emits and neither set contains is a moment a reader cannot
  * get to except by dragging the bar and guessing.
  *
@@ -46,23 +46,29 @@ const TRACES = resolve(HERE, '../../build/served');
  * to be written down, or "it isn't drawn" and "nobody noticed" look the same.
  */
 const FURNITURE = new Set([
-  'scenario',      // the run's own header, at t=0
-  'boot',          // drawn as the machine appearing
+  'simulation',    // the run's own header, at t=0
+  'boot',          // drawn as the node appearing
   'done',          // the end of the film is not a place to stop inside it
   'rpc_call',      // becomes a message: an envelope out, work, an envelope back
   'rpc_end',
-  'handler_start', // becomes the machine's work bar
+  'handler_start', // becomes the node's work bar
   'handler_end',
   'queue_wait',    // drawn as the gap before the work bar
   'state',         // reveal(): read continuously by revealedAt(), not as a stop
   'series',        // the dense samples behind every sparkline
-  // A chaos strike announces itself and then does the thing. `Run.java:450`
-  // writes the announcement and the switch beneath it kills, freezes or
-  // degrades a fraction of a refMs later — and those are stops already. On
-  // mr-chaos the pairs land 0.1 to 0.3 refMs apart, so drawing both would put
-  // two markers on one event and make `]` step onto the announcement of a
+  'trust',         // what the verifier made of the code, which is not an instant
+  // A `failures:` entry announces itself and then does the thing.
+  // `Simulate.java:576` writes the announcement and the switch beneath it
+  // kills, freezes or degrades a fraction of a refMs later — and those are
+  // stops already. The pairs land 0.1 to 0.5 refMs apart, so drawing both would
+  // put two markers on one event and make `]` step onto the announcement of a
   // thing before the thing.
-  'chaos',
+  //
+  // One letter from `failed`, which is not this and is not furniture: `failure`
+  // is one of the simulation's own `failures:` firing, and `failed` is the
+  // simulation ending without an answer. Each is named after where it comes
+  // from, which is the only reason to keep two words this close.
+  'failure',
 ]);
 
 let names: string[];

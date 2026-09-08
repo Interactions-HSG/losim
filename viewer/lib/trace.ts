@@ -12,7 +12,7 @@
  * the truncation marker.
  */
 
-export interface Machine {
+export interface Node {
   name: string;
   instance: string;
   zone: string;
@@ -44,6 +44,15 @@ export interface Span {
   detail: Record<string, unknown>;
 }
 
+/**
+ * What losim's own call into the system is called in a span label.
+ *
+ * gRPC writes `losim.Job/Run`; the trace writes every method dotted, so this is
+ * the dotted form. The one string in the viewer that knows a name from losim's
+ * own schema — everything else here is the assignment's.
+ */
+export const RUN = 'losim.Job.Run';
+
 export interface TraceEvent {
   kind?: string;
   t?: number;
@@ -66,7 +75,7 @@ export function liveAt(s: Span, t: number): boolean {
 //
 // The trace carries every argument and every result, which no real system would
 // do and losim does deliberately: watching a computation happen is the point, and
-// a film of machines exchanging opaque byte counts teaches nothing. What it does
+// a film of nodes exchanging opaque byte counts teaches nothing. What it does
 // not carry is a way to *show* them — a reducer's result is three thousand
 // key-value pairs, and three thousand of anything is not a thing anybody reads at
 // a glance.
@@ -82,16 +91,16 @@ export function liveAt(s: Span, t: number): boolean {
 export const KEYS = ['task', 'part', 'iteration'] as const;
 
 /**
- * Fields the picture is already showing. A capacity reply that says "machine m0,
+ * Fields the picture is already showing. A capacity reply that says "node m0,
  * instance c5.large, zone eu-central-1a" has said nothing at all next to a
  * drawing of m0, labelled c5.large, sitting inside a box labelled eu-central-1a
- * — and it has said it in forty characters that then run across the machine next
+ * — and it has said it in forty characters that then run across the node next
  * door.
  *
  * The rule this encodes: a reading is worth its space only if it carries
  * something the shape does not.
  */
-export const ON_SCREEN = ['machine', 'worker', 'instance', 'zone', 'holder', 'holders', 'from', 'to'];
+export const ON_SCREEN = ['node', 'node', 'worker', 'instance', 'zone', 'holder', 'holders', 'from', 'to'];
 
 const MORE = /\+([\d,]+) more/;
 
@@ -142,7 +151,7 @@ export function entries(value: unknown): [Entry[], number] {
  * What is actually *in* a message: the words, and how many there are.
  *
  * "1,118 keys" says how much; "the 1,729 · cat 402 · +1,116 more" says what,
- * and what is the reason losim records payloads at all. A film of machines
+ * and what is the reason losim records payloads at all. A film of nodes
  * passing each other counts teaches nothing that a bar chart would not.
  *
  * The sample is the largest values among those the trace kept, because a word
@@ -233,7 +242,7 @@ export function digest(payload: unknown, limit = 2, words = true): string {
  * Read off the message rather than reconstructed from the span tree, because
  * the message is where the cluster itself keeps it: a map task carries its task
  * number and a shuffle carries its partition, and those are the identifiers the
- * machines are using to talk about the work. Anything inferred would be a second
+ * nodes are using to talk about the work. Anything inferred would be a second
  * naming of the same thing, and the two would disagree the moment a task was
  * re-run somewhere else — which is exactly when it matters.
  */
@@ -300,8 +309,8 @@ export class Trace {
   meta: Record<string, unknown>;
   events: TraceEvent[];
   spans: Span[];
-  machines: Machine[];
-  byName: Map<string, Machine>;
+  nodes: Node[];
+  byName: Map<string, Node>;
   private times: number[];
   private channels: Map<string, number[]>;
 
@@ -319,7 +328,7 @@ export class Trace {
       status: (s['status'] as string) || 'OK',
       detail: (s['detail'] as Record<string, unknown>) ?? {},
     }));
-    this.machines = ((raw['machines'] as Record<string, unknown>[]) ?? []).map((m) => ({
+    this.nodes = ((raw['nodes'] as Record<string, unknown>[]) ?? []).map((m) => ({
       name: (m['name'] as string) ?? '',
       instance: (m['instance'] as string) ?? '',
       zone: (m['zone'] as string) ?? '',
@@ -329,7 +338,7 @@ export class Trace {
       alive: m['alive'] === undefined ? true : Boolean(m['alive']),
       raw: m as Record<string, number | string | boolean>,
     }));
-    this.byName = new Map(this.machines.map((m) => [m.name, m]));
+    this.byName = new Map(this.nodes.map((m) => [m.name, m]));
     const [times, channels] = decode((raw['series'] as Record<string, unknown>) ?? {});
     this.times = times;
     this.channels = channels;
@@ -371,23 +380,43 @@ export class Trace {
   private span: number | null = null;
 
   /**
-   * How long the *job* took — which is what the bill was priced against.
+   * How long the *simulation* took — which is what the bill was priced against.
    *
    * Distinct from `duration`, and the distinction matters wherever money is
-   * involved: capacity is billed for the period the job ran, not for the extra
-   * moment the trace happens to carry after it.
+   * involved: capacity is billed for the period `losim.Job/Run` was open, not
+   * for the extra moment the trace happens to carry after it.
    */
-  get jobRefMs(): number {
+  get billedRefMs(): number {
     return Math.max(1.0, Number(this.meta['durationRefMs'] ?? 0));
   }
 
-  get job(): string {
-    return (this.meta['job'] as string) ?? '';
+  /** The node losim entered the system through, which is where `Run` was served. */
+  get entry(): string {
+    return (this.meta['entry'] as string) ?? '';
   }
+
+  /**
+   * The span the whole simulation is.
+   *
+   * There is no span kind for it, and that is the point: what starts the work is
+   * an ordinary handler on an ordinary node, and everything else nests beneath it
+   * through the parent header. The trace says so rather than the manual asking to
+   * be believed.
+   *
+   * Cached: read per frame by the layout, and scanning every span each time would
+   * cost a trace large enough to matter.
+   */
+  get root(): Span | null {
+    if (this.rootSpan === undefined) {
+      this.rootSpan = this.spans.find((s) => s.kind === 'handler' && s.label === RUN) ?? null;
+    }
+    return this.rootSpan;
+  }
+  private rootSpan: Span | null | undefined = undefined;
 
   // ------------------------------------------------------- dense channels
 
-  /** What one machine's one number was at an instant, held between ticks. */
+  /** What one node's one number was at an instant, held between ticks. */
   channel(vm: string, metric: string, t: number): number {
     const values = this.channels.get(`${vm}.${metric}`);
     if (!values || !values.length || !this.times.length) return 0.0;
@@ -403,7 +432,7 @@ export class Trace {
     return [...this.channels.keys()];
   }
 
-  /** One machine's whole run of one metric, for a sparkline. */
+  /** One node's whole history of one metric, for a sparkline. */
   series(vm: string, metric: string): { t: number[]; v: number[] } {
     const v = this.channels.get(`${vm}.${metric}`) ?? [];
     return { t: this.times, v };
@@ -415,17 +444,8 @@ export class Trace {
     return this.spans.filter((s) => s.kind === kind && liveAt(s, t));
   }
 
-  phaseAt(t: number): string | null {
-    const live = this.spansAt(t, 'phase');
-    return live.length ? live[live.length - 1].label : null;
-  }
-
-  phases(): Span[] {
-    return this.spans.filter((s) => s.kind === 'phase');
-  }
-
   /**
-   * The newest value of every key a machine revealed, up to t.
+   * The newest value of every key a node revealed, up to t.
    *
    * Newest, not all: a state badge is rewritten so the number visibly moves.
    * A stack of every value ever reported is a log, and a log is the thing this
@@ -485,7 +505,7 @@ export class Trace {
 /**
  * Undo the constant/runs/raw encoding, once, into plain arrays.
  *
- * Most channels barely move — a machine is alive for the whole run, idle for
+ * Most channels barely move — a node is alive for the whole simulation, idle for
  * most of it, and its cap never changes at all — so losim writes whichever of
  * the three forms is smallest (D8). That is worth about two orders of magnitude
  * on the wire and nothing at all here, where every form becomes the same array.

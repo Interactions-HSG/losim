@@ -3,9 +3,9 @@
 /**
  * Place — the same tree, arranged by *where* instead of by who called whom.
  *
- * One lane per machine, grouped by zone, spans on their own machine's lane, and
+ * One lane per node, grouped by zone, spans on their own node's lane, and
  * arrows for the causal jumps between lanes. It answers two questions the
- * waterfall cannot: **what was this machine doing at 2,400**, and **when did the
+ * waterfall cannot: **what was this node doing at 2,400**, and **when did the
  * work move** — and it makes a cluster's idle stretches into visible gaps, which
  * is the shape of a badly balanced job.
  *
@@ -16,12 +16,12 @@
 import { Fragment } from 'react';
 
 import { SpanBar } from './SpanBar.tsx';
-import type { Node, SpanTree } from '../../lib/spans.ts';
+import type { SpanNode, SpanTree } from '../../lib/spans.ts';
 import type { Theme } from '../../lib/theme.ts';
 import type { Trace } from '../../lib/trace.ts';
 
 const LANE = 26;
-/** A band above each zone's first lane, so its name is not written over a machine. */
+/** A band above each zone's first lane, so its name is not written over a node. */
 const ZONE_GAP = 17;
 
 export function Swimlanes({
@@ -35,7 +35,7 @@ export function Swimlanes({
   selected,
   onSelect,
   hovered,
-  onHoverMachine,
+  onHoverNode,
   t,
   onSeek,
 }: {
@@ -49,19 +49,19 @@ export function Swimlanes({
   selected: number | null;
   onSelect: (id: number | null) => void;
   hovered: string | null;
-  onHoverMachine: (m: string | null) => void;
+  onHoverNode: (m: string | null) => void;
   t: number;
   onSeek: (t: number) => void;
 }) {
   const lanes = tree.lanes();
   // Zone first, so a hop between zones is a long arrow and a hop inside one is
   // short. The order is the trace's own, which is the film's order too.
-  const order = [...trace.machines].sort((a, b) =>
+  const order = [...trace.nodes].sort((a, b) =>
     a.zone === b.zone ? 0 : a.zone < b.zone ? -1 : 1,
   );
   // Laid out with a band before each zone rather than by row index, because the
   // zone's name has to go somewhere and writing it above the first lane wrote it
-  // across the machine in the lane above.
+  // across the node in the lane above.
   const top = new Map<string, number>();
   const heads: { zone: string; y: number }[] = [];
   let y = 0;
@@ -75,7 +75,7 @@ export function Swimlanes({
   });
   const h = y;
 
-  // The jumps: every call that left one machine for another, as an arrow from
+  // The jumps: every call that left one node for another, as an arrow from
   // the caller's lane to the callee's at the instant it was made.
   const hops: { from: number; to: number; at: number; cross: boolean; id: number }[] = [];
   for (const n of tree.flat) {
@@ -115,8 +115,8 @@ export function Swimlanes({
               width={width}
               height={LANE}
               fill={hovered === m.name ? theme.faint : i % 2 ? 'transparent' : theme.surface}
-              onMouseEnter={() => onHoverMachine(m.name)}
-              onMouseLeave={() => onHoverMachine(null)}
+              onMouseEnter={() => onHoverNode(m.name)}
+              onMouseLeave={() => onHoverNode(null)}
             />
             <text x={12} y={(top.get(m.name) ?? 0) + LANE / 2 + 4} fontSize={11.5} fill={theme.ink}>
               {m.name}
@@ -141,14 +141,14 @@ export function Swimlanes({
         ))}
 
         {order.map((m) =>
-          (lanes.get(m.name) ?? []).map((n: Node) => (
+          (lanes.get(m.name) ?? []).map((n: SpanNode) => (
             <g
               key={n.id}
               onClick={() => {
                 onSelect(selected === n.id ? null : n.id);
                 onSeek(n.t0);
               }}
-              onMouseEnter={() => onHoverMachine(m.name)}
+              onMouseEnter={() => onHoverNode(m.name)}
               style={{ cursor: 'pointer' }}
             >
               <SpanBar

@@ -10,7 +10,7 @@
  *
  *   1. What is this system made of?      — the map
  *   2. What did it actually do?          — the call tree
- *   3. How hard did each machine work?   — the cluster, at the clock
+ *   3. How hard did each node work?   — the cluster, at the clock
  *   4. What went wrong?                  — the accidents
  *   5. What did it cost?                 — the money, as it arrived
  *
@@ -38,17 +38,17 @@ import { useTheme } from '../../lib/theme.ts';
  * page — so the field name stays as the tag and the sentence sits beside it.
  */
 const PLAIN: Record<string, string> = {
-  kill: 'a machine was killed',
-  oom: 'a machine ran out of memory',
-  disk_full: 'a machine ran out of disk',
+  kill: 'a node was killed',
+  oom: 'a node ran out of memory',
+  disk_full: 'a node ran out of disk',
   rpc_timeout: 'a call did not answer in time',
   retry: 'a call was tried again',
-  spot_notice: 'a cheap machine was about to be taken back',
-  freeze: 'a machine stopped answering',
-  thaw: 'a machine started answering again',
-  degrade: 'a machine slowed down',
-  job_failed: 'the job gave up',
-  done: 'the job finished',
+  spot_notice: 'a cheap node was about to be taken back',
+  freeze: 'a node stopped answering',
+  thaw: 'a node started answering again',
+  degrade: 'a node slowed down',
+  failed: 'the simulation ended without an answer',
+  done: 'the simulation finished',
 };
 
 /**
@@ -172,13 +172,12 @@ export function Overview() {
   const failed = trace.spans.filter(
     (s) => s.kind === 'rpc' && s.t1 >= 0 && s.t1 <= now && s.status !== 'OK' && s.status !== '',
   ).length;
-  const phase = trace.phaseAt(now);
   // The run's own notable moments, not every line in the trace: a call being
   // made and a handler starting are the system working, and listing them under
   // "gone wrong" would bury the kill that actually did.
   const wrong = run.index.events().filter((e) => Number(e.t ?? 0) <= now);
-  const zones = new Set(trace.machines.map((m) => m.zone)).size;
-  const busiest = [...(frame?.machines ?? [])].sort((a, b) => b.inflight - a.inflight)[0] ?? null;
+  const zones = new Set(trace.nodes.map((m) => m.zone)).size;
+  const busiest = [...(frame?.nodes ?? [])].sort((a, b) => b.inflight - a.inflight)[0] ?? null;
 
   return (
     <>
@@ -193,8 +192,8 @@ export function Overview() {
         title={run.name}
         sub={
           <>
-            {String(trace.meta['job'] ?? 'a job')} on {trace.machines.length} machines
-            {zones > 1 ? ` across ${zones} zones` : ' in one zone'}, over {refTime(trace.duration)}.
+            Entered at {trace.entry || 'a node'}, across {trace.nodes.length} nodes
+            {zones > 1 ? ` in ${zones} zones` : ' in one zone'}, over {refTime(trace.duration)}.
             {' '}Everything below is drawn at whatever instant the bar above is showing — drag it,
             and all five sections move together.
           </>
@@ -208,7 +207,7 @@ export function Overview() {
         <Tile
           k="Where we are"
           v={refTime(now)}
-          n={`of ${refTime(trace.duration)}${phase ? ` · doing “${phase}”` : ''}`}
+          n={`of ${refTime(trace.duration)}`}
         />
         <Tile
           k="Calls made so far"
@@ -232,7 +231,7 @@ export function Overview() {
         q="What is this system made of?"
         say={
           <>
-            Every machine, and every machine it ever calls. An arrow is thicker where more
+            Every node, and every node it ever calls. An arrow is thicker where more
             data went down it, and tinted where the call crossed a zone — those are the ones
             you pay for and wait longer for. The picture arrives as the clock runs.
           </>
@@ -275,19 +274,19 @@ export function Overview() {
               clock?.seek(to);
             }}
             hovered={null}
-            onHoverMachine={() => {}}
+            onHoverNode={() => {}}
           />
         </div>
       </Step>
 
       <Step
         n={3}
-        q="How hard is each machine working?"
+        q="How hard is each node working?"
         say={
           <>
             The cluster at this exact instant.{' '}
             <strong>In flight</strong> is what it is handling now, <strong>queued</strong> is
-            what is waiting for a free core — a queue that never empties is a machine too small.
+            what is waiting for a free core — a queue that never empties is a node too small.
             {busiest && busiest.inflight > 0 && (
               <> Right now the busiest is <code>{busiest.name}</code>.</>
             )}
@@ -300,7 +299,7 @@ export function Overview() {
             <table>
               <thead>
                 <tr>
-                  <th>Machine</th>
+                  <th>Node</th>
                   <th>Zone</th>
                   <th>Serves</th>
                   <th className="r">In flight</th>
@@ -310,7 +309,7 @@ export function Overview() {
                 </tr>
               </thead>
               <tbody>
-                {(frame?.machines ?? []).map((m) => (
+                {(frame?.nodes ?? []).map((m) => (
                   <tr key={m.name}>
                     <td className="id">{m.name}</td>
                     <td className="muted">{m.zone}</td>
@@ -385,7 +384,7 @@ export function Overview() {
             <>
               Money arrives at different times for different reasons, and that is the whole
               lesson: <strong>build</strong> and <strong>capacity</strong> are settled by drawing
-              the machines, before a byte moves; <strong>consumption</strong> arrives with the
+              the nodes, before a byte moves; <strong>consumption</strong> arrives with the
               work; <strong>incidents</strong> land at the instant something breaks.
             </>
           ) : (
@@ -457,7 +456,7 @@ export function Overview() {
                         {' — '}
                         {pct >= 99.5 ? 'very nearly all of it' : `${pct.toFixed(0)}% of it`}. Build
                         is engineering time and capacity is the cluster you reserved: both are
-                        settled by drawing the machines, and running the job can only change{' '}
+                        settled by drawing the nodes, and running the job can only change{' '}
                         {money(earned, l.currency)} of it.
                       </>
                     );
@@ -523,7 +522,7 @@ export function Overview() {
         .events .kind { font-weight: 500; width: 108px; flex: none; }
         .events .said { color: var(--text-2); }
         .events .who { margin-left: auto; color: var(--text-3); font-size: 12px; }
-        .events .kind.kill, .events .kind.oom, .events .kind.disk_full, .events .kind.job_failed { color: var(--danger); }
+        .events .kind.kill, .events .kind.oom, .events .kind.disk_full, .events .kind.failed { color: var(--danger); }
         .events .kind.retry, .events .kind.rpc_timeout, .events .kind.degrade, .events .kind.spot_notice { color: var(--warn); }
         .events .kind.freeze, .events .kind.thaw { color: #7c93a8; }
       `}</style>

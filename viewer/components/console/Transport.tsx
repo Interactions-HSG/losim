@@ -19,7 +19,7 @@
  */
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 
-import { Scrubber, type Chapter } from '../Scrubber.tsx';
+import { Scrubber } from '../Scrubber.tsx';
 import { Clock, FIT_SECONDS, RATES, refTime } from '../../lib/playback.ts';
 import type { Run } from '../../lib/runs.ts';
 
@@ -42,15 +42,6 @@ export function Transport({ run, clock }: { run: Run; clock: Clock }) {
     clock.setHold(0);
   }, [clock]);
 
-  const chapters: Chapter[] = useMemo(
-    () =>
-      trace
-        .phases()
-        .filter((p) => p.t1 > p.t0)
-        .sort((a, b) => a.t0 - b.t0)
-        .map((p) => ({ label: p.label, t0: p.t0, t1: p.t1 })),
-    [trace],
-  );
   const events = useMemo(() => index.events(), [index]);
 
   // Space, the arrows and the brackets, wherever you are in the console. A
@@ -108,7 +99,6 @@ export function Transport({ run, clock }: { run: Run; clock: Clock }) {
       <Scrubber
         t={t}
         duration={trace.duration}
-        chapters={chapters}
         events={events}
         onSeek={(to) => {
           clock.pause();

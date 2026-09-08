@@ -17,9 +17,9 @@ import { flushSync } from 'react-dom';
 
 import { Dataflow } from './Dataflow.tsx';
 import { LedgerStrip } from './Ledger.tsx';
-import { MachinePanel } from './MachinePanel.tsx';
+import { NodePanel } from './NodePanel.tsx';
 import { MessagePanel } from './MessagePanel.tsx';
-import { Scrubber, type Chapter } from './Scrubber.tsx';
+import { Scrubber } from './Scrubber.tsx';
 import type { Flight } from '../lib/frame.ts';
 import { LedgerModel, money as money2 } from '../lib/ledger.ts';
 import { HOLD_SECONDS } from '../lib/pace.ts';
@@ -170,7 +170,7 @@ export function Film({
   const layout = useMemo(() => index.refit([share * 5.6, 5.6]), [index, share]);
 
   // A moment is a thing people want to point at — "look at m1 at 2,400" — and
-  // that sentence names a machine as well as an instant, so both are in the URL.
+  // that sentence names a node as well as an instant, so both are in the URL.
   // Read on open; written when the clock is parked, rather than sixty times a
   // second while it runs.
   useEffect(() => {
@@ -196,17 +196,17 @@ export function Film({
     window.history.replaceState(null, '', url);
   }, [playing, t, run.name, pinned, showLedger, against]);
 
-  // `layout` is in here on purpose: it is what the machine positions come from,
+  // `layout` is in here on purpose: it is what the node positions come from,
   // so a re-searched arrangement has to make a new frame.
   const frame = useMemo(() => index.frameAt(t), [index, t, layout]);
   /**
-   * When a machine is too small to wear its labels.
+   * When a node is too small to wear its labels.
    *
-   * Counting machines is the wrong test: it would cost the badges on every
-   * cluster over thirteen — including the sixteen- and twenty-five-machine runs,
-   * where they fit perfectly well. What decides it is how large a machine is actually
+   * Counting nodes is the wrong test: it would cost the badges on every
+   * cluster over thirteen — including the sixteen- and twenty-five-node runs,
+   * where they fit perfectly well. What decides it is how large a node is actually
    * drawn, which the layout already knows: across the whole gallery that runs
-   * from 1.55 at two machines down to 0.47 at twenty-five, so nothing here is
+   * from 1.55 at two nodes down to 0.47 at twenty-five, so nothing here is
    * cramped and the badges stay on. The floor is there for a cluster larger than
    * anything yet run.
    */
@@ -214,7 +214,7 @@ export function Film({
 
   const ledger = useMemo(() => (run.bill ? new LedgerModel(trace, run.bill) : null), [trace, run.bill]);
 
-  // Which role each machine plays, from the same columns the picture is drawn
+  // Which role each node plays, from the same columns the picture is drawn
   // in — so "shufflers only" means exactly the column captioned SHUFFLE.
   const roleOf = useMemo(() => {
     const out = new Map<string, string>();
@@ -250,28 +250,19 @@ export function Film({
   const muted = useMemo(() => {
     const out = new Set<string>();
     if (!zone && !role) return out;
-    for (const m of trace.machines) {
+    for (const m of trace.nodes) {
       if ((zone && m.zone !== zone) || (role && roleOf.get(m.name) !== role)) out.add(m.name);
     }
     return out;
   }, [trace, zone, role, roleOf]);
 
-  const chapters: Chapter[] = useMemo(
-    () =>
-      trace
-        .phases()
-        .filter((p) => p.t1 > p.t0)
-        .sort((a, b) => a.t0 - b.t0)
-        .map((p) => ({ label: p.label, t0: p.t0, t1: p.t1 })),
-    [trace],
-  );
   const events = useMemo(() => index.events(), [index]);
 
   const shown = pinned ?? hovered;
-  const shownMachine = shown ? frame.machines.find((m) => m.name === shown) : undefined;
+  const shownNode = shown ? frame.nodes.find((m) => m.name === shown) : undefined;
 
   // The same selection the picture is drawn from, so the money cannot be about a
-  // different machine than the one under the cursor.
+  // different node than the one under the cursor.
   const money = useMemo(() => ledger?.at(t, shown) ?? null, [ledger, t, shown]);
 
   // ------------------------------------------------------------- keyboard
@@ -375,12 +366,12 @@ export function Film({
       <div className="views">
         <span className="muted vhint">what is true right now</span>
 
-        {/* Filters set machines aside rather than removing them, so the picture
-            never jumps and a filtered machine is still visibly among a cluster. */}
+        {/* Filters set nodes aside rather than removing them, so the picture
+            never jumps and a filtered node is still visibly among a cluster. */}
         <div className="filters">
           <select value={zone} onChange={(e) => setZone(e.target.value)} aria-label="zone">
             <option value="">every zone</option>
-            {[...new Set(trace.machines.map((m) => m.zone))].sort().map((z) => (
+            {[...new Set(trace.nodes.map((m) => m.zone))].sort().map((z) => (
               <option key={z} value={z}>
                 {z}
               </option>
@@ -435,7 +426,7 @@ export function Film({
           hovered={shown}
           onHover={(n) => setHovered(n)}
           // Clicking the one already pinned closes it, the same as a message.
-          onPinMachine={(n) => setPinned(pinned === n ? null : n)}
+          onPinNode={(n) => setPinned(pinned === n ? null : n)}
           onMessage={(f, at) => {
             if (!f) {
               setMessage(null);
@@ -456,7 +447,6 @@ export function Film({
           muted={muted}
           task={task}
         />
-        {frame.phase && <div className="phase">{frame.phase}</div>}
         {(heldMessage ?? message) && (
           <MessagePanel
             f={(heldMessage ?? message)!.f}
@@ -480,7 +470,6 @@ export function Film({
               onHover={() => {}}
               task={task}
             />
-            {vsFrame.phase && <div className="phase">{vsFrame.phase}</div>}
             {t > against.trace.duration && (
               <div className="ended">
                 finished at {refTime(against.trace.duration)}
@@ -492,15 +481,15 @@ export function Film({
           <div className="ended left">finished at {refTime(trace.duration)}</div>
         )}
 
-        {shownMachine && (
+        {shownNode && (
           <div className="dock">
-            <MachinePanel
+            <NodePanel
               trace={trace}
-              m={shownMachine}
+              m={shownNode}
               t={t}
               money={money}
-              pinned={pinned === shownMachine.name}
-              onPin={() => setPinned(pinned === shownMachine.name ? null : shownMachine.name)}
+              pinned={pinned === shownNode.name}
+              onPin={() => setPinned(pinned === shownNode.name ? null : shownNode.name)}
               onClose={() => {
                 setPinned(null);
                 setHovered(null);
@@ -569,7 +558,6 @@ export function Film({
         <Scrubber
           t={t}
           duration={trace.duration}
-          chapters={chapters}
           events={events}
           onSeek={(to) => {
             clock.pause();
@@ -674,7 +662,7 @@ export function Film({
         }
         /* Over the picture while hovering, **beside** it once pinned.
            A hover is a peek and must not move the film under the cursor; a pin
-           says "I want to watch this one", and a watched machine should not have
+           says "I want to watch this one", and a watched node should not have
            to be watched through a panel covering the reducers. Docked, the stage
            narrows — and because the arrangement is searched against the stage's
            real shape, the film re-fits into what is left rather than being

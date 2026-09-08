@@ -7,14 +7,14 @@
  * this answers the question the film structurally cannot — **what is the shape of
  * this system** — by keeping nothing but the shape.
  *
- * **The same layout as the film**, deliberately: a machine is in the same place
+ * **The same layout as the film**, deliberately: a node is in the same place
  * in both, so switching between them is a change of question and not of map.
  * That is also why nothing here reaches for a graph-layout library — the cluster
  * already has a derived shape, roles and zones, and a second engine would only
  * be a second opinion about where `m0` lives.
  *
  * Edges are weighted by **bytes**, not by call count, because a system's shape is
- * where its data goes: a coordinator that asks forty machines a one-word question
+ * where its data goes: a coordinator that asks forty nodes a one-word question
  * has forty thin edges, and the one shuffle that moved a megabyte is the fat one.
  * Cross-zone edges are tinted, because those are the ones that are billed and
  * slow — the same fact the ledger charges for.
@@ -64,7 +64,7 @@ export function Topology({
   plain?: boolean;
 }) {
   const edges = useMemo(() => {
-    const zoneOf = new Map(trace.machines.map((m) => [m.name, m.zone]));
+    const zoneOf = new Map(trace.nodes.map((m) => [m.name, m.zone]));
     const out = new Map<string, Edge>();
     for (const s of trace.spans) {
       if (s.kind !== 'rpc') continue;
@@ -138,7 +138,7 @@ export function Topology({
           const [bx, by] = layout.point(e.to);
           const share = made / e.calls;
           const bytes = e.bytes * share;
-          // Logarithmic, for the same reason machine sizes are: what has to
+          // Logarithmic, for the same reason node sizes are: what has to
           // survive is that one of these is visibly enormous.
           const weight = 0.012 + 0.085 * (Math.log10(1 + bytes) / Math.log10(1 + heaviest));
           const dim = !!hovered && hovered !== e.from && hovered !== e.to;
@@ -189,7 +189,7 @@ export function Topology({
           );
         })}
 
-        {trace.machines.map((m) => {
+        {trace.nodes.map((m) => {
           const [cx, cy] = layout.point(m.name);
           const [mw, mh] = layout.sizeOf(m.name);
           const on = hovered === m.name;
@@ -205,7 +205,7 @@ export function Topology({
                 cy={-cy}
                 rx={mw / 2}
                 ry={mh / 2}
-                fill={theme.machine}
+                fill={theme.node}
                 stroke={on ? theme.ink : theme.rule}
                 strokeWidth={on ? 0.022 : 0.012}
               />

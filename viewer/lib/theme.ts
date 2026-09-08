@@ -3,7 +3,7 @@
 /**
  * What the film is drawn *on*, as opposed to what it means.
  *
- * The design system (lib/design.ts) decides what things mean: amber is a machine
+ * The design system (lib/design.ts) decides what things mean: amber is a node
  * near its cap, red is one past it, a task keeps its hue for the whole run. None
  * of that is negotiable and none of it is here.
  *
@@ -25,9 +25,9 @@ export interface Theme {
   dark: boolean;
   /** The ground the cluster stands on. */
   surface: string;
-  /** A machine's body, and the shade it is lit from. */
-  machine: string;
-  machineLow: string;
+  /** A node's body, and the shade it is lit from. */
+  node: string;
+  nodeLow: string;
   /** Every stroke of the system itself. */
   ink: string;
   /** Read second: captions, units, instance types. */
@@ -49,8 +49,8 @@ export interface Theme {
 export const LIGHT: Theme = {
   dark: false,
   surface: '#fbfbfa',
-  machine: '#ffffff',
-  machineLow: '#f4f5f6',
+  node: '#ffffff',
+  nodeLow: '#f4f5f6',
   ink: '#1a1d21',
   pencil: '#6b7280',
   rule: '#c9cdd4',
@@ -76,8 +76,8 @@ export const LIGHT: Theme = {
 export const DARK: Theme = {
   dark: true,
   surface: '#111419',
-  machine: '#1b1f26',
-  machineLow: '#161a20',
+  node: '#1b1f26',
+  nodeLow: '#161a20',
   ink: '#e6e9ee',
   pencil: '#98a1ad',
   rule: '#333a44',

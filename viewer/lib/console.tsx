@@ -10,7 +10,7 @@
  * against.
  *
  * So the clock lives up here, above the views, and the views become four
- * drawings of one instant: the film, the execution graph, what each machine is
+ * drawings of one instant: the film, the execution graph, what each node is
  * doing, and what it has cost by then. Dragging one cursor moves all four,
  * because there is only one cursor.
  *

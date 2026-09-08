@@ -82,7 +82,7 @@ export class Clock {
    * Change how long things are held, or turn the pacing off with 0.
    *
    * The playhead keeps its place in the *trace*, not in the film: somebody who
-   * has scrubbed to the moment a machine died and then slows the film down is
+   * has scrubbed to the moment a node died and then slows the film down is
    * still looking at that moment.
    */
   setHold(seconds: number): void {

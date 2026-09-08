@@ -1,26 +1,26 @@
 'use client';
 
 /**
- * What the job is made of.
+ * What the simulation is made of.
  *
- * Total and self time gathered by method, by machine, by zone or by task —
- * "where does this job actually spend itself", answered in one screen, which is
- * the question a design argument turns on.
+ * Total and self time gathered by method, by node, by zone or by task —
+ * "where does this design actually spend itself", answered in one screen, which
+ * is the question a design argument turns on.
  *
  * **Self time is the column that decides things.** Total time double-counts:
- * every second a coordinator spends waiting is also a second some worker spends
- * working, so the totals add up to far more than the run and the largest one is
- * always the root. Self time is the run, divided up exactly once.
+ * every second one node spends waiting is also a second some other node spends
+ * working, so the totals add up to far more than the simulation and the largest
+ * one is always the root. Self time is the whole of it, divided up exactly once.
  */
-import type { Rollup as Row, SpanTree, Node } from '../../lib/spans.ts';
+import type { Rollup as Row, SpanTree, SpanNode } from '../../lib/spans.ts';
 import { ms } from '../../lib/spans.ts';
 import type { Theme } from '../../lib/theme.ts';
 import { taskColour } from '../../lib/theme.ts';
-import type { Trace } from '../../lib/trace.ts';
+import { RUN, type Trace } from '../../lib/trace.ts';
 
-export type By = 'method' | 'machine' | 'zone' | 'task';
+export type By = 'method' | 'node' | 'zone' | 'task';
 
-export const BYS: By[] = ['method', 'machine', 'zone', 'task'];
+export const BYS: By[] = ['method', 'node', 'zone', 'task'];
 
 export function Rollup({
   tree,
@@ -28,24 +28,24 @@ export function Rollup({
   by,
   theme,
   height,
-  onHoverMachine,
+  onHoverNode,
 }: {
   tree: SpanTree;
   trace: Trace;
   by: By;
   theme: Theme;
   height: number;
-  onHoverMachine: (m: string | null) => void;
+  onHoverNode: (m: string | null) => void;
 }) {
-  const zoneOf = new Map(trace.machines.map((m) => [m.name, m.zone]));
-  const key = (n: Node): string | null => {
+  const zoneOf = new Map(trace.nodes.map((m) => [m.name, m.zone]));
+  const key = (n: SpanNode): string | null => {
     // Only leaves of the *call* structure carry work; a phase is a bracket over
     // other people's time and would otherwise appear as the busiest thing here.
-    if (n.span.kind === 'phase' || n.span.kind === 'job') return null;
+    if (n.span.label === RUN) return null;
     switch (by) {
       case 'method':
         return n.method;
-      case 'machine':
+      case 'node':
         return n.span.vm;
       case 'zone':
         return zoneOf.get(n.span.vm) ?? '—';
@@ -76,8 +76,8 @@ export function Rollup({
           {rows.map((r: Row) => (
             <tr
               key={r.key}
-              onMouseEnter={() => by === 'machine' && onHoverMachine(r.key)}
-              onMouseLeave={() => by === 'machine' && onHoverMachine(null)}
+              onMouseEnter={() => by === 'node' && onHoverNode(r.key)}
+              onMouseLeave={() => by === 'node' && onHoverNode(null)}
             >
               <td>
                 {by === 'task' && r.key !== 'no task' && (

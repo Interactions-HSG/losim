@@ -64,7 +64,7 @@ export function FilmView() {
         title="Film"
         sub={
           <>
-            {run.trace.machines.length} machines over {refTime(run.trace.duration)}. Press play on
+            {run.trace.nodes.length} nodes over {refTime(run.trace.duration)}. Press play on
             the bar above, or drag it — the execution graph, the usage charts and the cost report
             are all at whatever instant it is showing.
           </>

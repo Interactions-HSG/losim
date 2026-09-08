@@ -6,7 +6,7 @@
  * The console composes a scenario in TypeScript and the lab loads it in Java.
  * That is two programs agreeing about a file format, which is exactly the kind
  * of agreement that holds until somebody adds a field. A pool of one must not
- * write a `count:`, or its machine is called `master0` and every fault aimed at
+ * write a `count:`, or its node is called `master0` and every fault aimed at
  * `master` stops resolving; a duration must say what kind of time it is; a retry
  * names a *dotted* method and not the one with a slash in it that appears in
  * every stack trace.
@@ -92,7 +92,7 @@ const base = firstDraft(PALETTE);
 /** Every shape of scenario the form can compose, and what each of them is for. */
 const DRAFTS: [string, Draft][] = [
   ['the form as it opens', base],
-  ['a pool of one, so its machine keeps the pool’s name', {
+  ['a pool of one, so its node keeps the pool’s name', {
     ...base, name: 'single',
     pools: [{ name: 'master', count: 1, prefix: 'master', instance: 'm5.large', zones: ['eu-central-1a'], runs: [], memoryMb: null, diskMb: null, overrides: [] }],
   }],
@@ -122,14 +122,14 @@ const DRAFTS: [string, Draft][] = [
       { runs: 'lab.Combiner', rpc: 'Note', refMs: 0, refNsPerUnit: 0 },
     ],
   }],
-  ['a machine killed, and one that never comes back', {
+  ['a node killed, and one that never comes back', {
     ...base, name: 'killed',
     faults: [
       { kind: 'kill', atRefMs: 300, target: 'workers1', other: '', forRefMs: 0, factor: 1, noticeRefMs: 0, restartAfterRefMs: 2000 },
       { kind: 'kill', atRefMs: 900, target: 'workers2', other: '', forRefMs: 0, factor: 1, noticeRefMs: 0, restartAfterRefMs: 0 },
     ],
   }],
-  ['a machine frozen, and another made permanently slow', {
+  ['a node frozen, and another made permanently slow', {
     ...base, name: 'slowed',
     faults: [
       { kind: 'freeze', atRefMs: 300, target: 'workers1', other: '', forRefMs: 800, factor: 1, noticeRefMs: 0, restartAfterRefMs: 0 },
@@ -186,13 +186,13 @@ const DRAFTS: [string, Draft][] = [
     pools: [
       { name: 'master', count: 1, prefix: 'master', instance: 'm5.large', zones: ['eu-central-1a'], runs: [],
         memoryMb: null, diskMb: null, overrides: [] },
-      // 4 MB is the wordcount scenario's own trick: a machine far too small for
+      // 4 MB is the wordcount scenario's own trick: a node far too small for
       // the bucket it is given, which fills up and says so.
       { name: 'workers', count: 3, prefix: 'workers', instance: 'c5.large', zones: ['eu-central-1a'],
         runs: ['lab.Combiner'], memoryMb: 4, diskMb: 2048, overrides: [] },
     ],
   }],
-  ['a pair of machines that stop reaching each other, and are mended later', {
+  ['a pair of nodes that stop reaching each other, and are mended later', {
     ...base, name: 'split',
     faults: [
       { kind: 'partition', atRefMs: 300, target: 'coordinator', other: 'workers1',
@@ -201,7 +201,7 @@ const DRAFTS: [string, Draft][] = [
         forRefMs: 0, factor: 1, noticeRefMs: 0, restartAfterRefMs: 0 },
     ],
   }],
-  ['a spot machine that warns before it goes, and one that comes back', {
+  ['a spot node that warns before it goes, and one that comes back', {
     ...base, name: 'reclaimed',
     faults: [
       { kind: 'spot_reclaim', atRefMs: 400, target: 'workers1', other: '',
@@ -210,7 +210,7 @@ const DRAFTS: [string, Draft][] = [
         forRefMs: 0, factor: 1, noticeRefMs: 100, restartAfterRefMs: 1500 },
     ],
   }],
-  ['a machine restarted where it stands', {
+  ['a node restarted where it stands', {
     ...base, name: 'bounced',
     faults: [
       { kind: 'restart', atRefMs: 500, target: 'workers0', other: '',
@@ -223,10 +223,10 @@ const DRAFTS: [string, Draft][] = [
   ['a size the engine probes its way up to', {
     ...base, name: 'projected', mode: 'scaled', scale: 1250,
   }],
-  // A pool whose machines are named apart from the pool they are in, which every
+  // A pool whose nodes are named apart from the pool they are in, which every
   // MapReduce scenario in the gallery depends on opening correctly: `mappers`
   // numbered `m0`, `m1` is how every one of them is written.
-  ['a pool whose machines are named apart from it', {
+  ['a pool whose nodes are named apart from it', {
     ...base, name: 'prefixed',
     pools: [
       { name: 'master', count: 1, prefix: 'master', instance: 'm5.large',
@@ -236,7 +236,7 @@ const DRAFTS: [string, Draft][] = [
       { name: 'reducers', count: 2, prefix: 'r', instance: 'c5.large',
         zones: ['eu-central-1b'], runs: ['lab.Reducer'], memoryMb: null, diskMb: null, overrides: [] },
     ],
-    // Aimed at the prefixed names, because that is what the machines are called
+    // Aimed at the prefixed names, because that is what the nodes are called
     // and a fault that named the pool would not load.
     faults: [
       { kind: 'kill', atRefMs: 300, target: 'm2', other: '', forRefMs: 0, factor: 1,
@@ -245,9 +245,9 @@ const DRAFTS: [string, Draft][] = [
         noticeRefMs: 0, restartAfterRefMs: 0 },
     ],
   }],
-  // A pool of one is normally written without a count, so its machine keeps the
+  // A pool of one is normally written without a count, so its node keeps the
   // pool's name. Give it a prefix of its own and both keys have to be written
-  // even at one, or the machine is called `solo` where the file said `s0`.
+  // even at one, or the node is called `solo` where the file said `s0`.
   ['a pool of one, named apart from itself', {
     ...base, name: 'lone',
     pools: [
@@ -262,7 +262,7 @@ const DRAFTS: [string, Draft][] = [
         noticeRefMs: 0, restartAfterRefMs: 0 },
     ],
   }],
-  ['a pool where one machine is not like the others', {
+  ['a pool where one node is not like the others', {
     ...base, name: 'straggler',
     pools: [
       { name: 'master', count: 1, prefix: 'master', instance: 'm5.large',
@@ -272,9 +272,9 @@ const DRAFTS: [string, Draft][] = [
         overrides: [
           // Every one of the four shapes an override can take, so a writer that
           // learns to skip any of them is caught.
-          { machine: 'w1', instance: 'a1.medium', zone: '', memoryMb: null, diskMb: null },
-          { machine: 'w2', instance: '', zone: 'eu-central-1b', memoryMb: null, diskMb: null },
-          { machine: 'w3', instance: '', zone: '', memoryMb: 4, diskMb: 512 },
+          { node: 'w1', instance: 'a1.medium', zone: '', memoryMb: null, diskMb: null },
+          { node: 'w2', instance: '', zone: 'eu-central-1b', memoryMb: null, diskMb: null },
+          { node: 'w3', instance: '', zone: '', memoryMb: 4, diskMb: 512 },
         ] },
     ],
   }],
@@ -315,7 +315,7 @@ const DRAFTS: [string, Draft][] = [
 const REFUSED: [string, string][] = [
   ['an instance type that does not exist',
    'job: J\nmachines:\n  a: { instance: m5.enormous, zone: eu-central-1a }\n'],
-  ['a fault aimed at a machine that is not there',
+  ['a fault aimed at a node that is not there',
    'job: J\nmachines:\n  a: { instance: m5.large, zone: eu-central-1a }\nfaults:\n  - { at: 1 refMs, kill: ghost }\n'],
   ['a duration that does not say what kind of time it is',
    'job: J\nmachines:\n  a: { instance: m5.large, zone: eu-central-1a }\n'
@@ -396,7 +396,7 @@ try {
       console.log(yaml.split('\n').map((l) => `        ${l}`).join('\n'));
       continue;
     }
-    console.log(`  ok  ${what.padEnd(48)} ${expand(draft).length} machines, ${yaml.split('\n').length} lines`);
+    console.log(`  ok  ${what.padEnd(48)} ${expand(draft).length} nodes, ${yaml.split('\n').length} lines`);
   }
 
   // Opening a scenario in the form and pressing Save without touching anything
@@ -438,13 +438,13 @@ try {
       if (!q2) return;
       same(`pool ${j} name`, p.name, q2.name);
       same(`pool ${j} count`, p.count, q2.count);
-      // What the machines are called, which every fault points at.
+      // What the nodes are called, which every fault points at.
       same(`pool ${j} prefix`, p.prefix, q2.prefix);
       same(`pool ${j} instance`, p.instance, q2.instance);
       same(`pool ${j} zones`, p.zones.join(','), q2.zones.join(','));
       same(`pool ${j} runs`, p.runs.join(','), q2.runs.join(','));
       // Null is the third state, and it has to survive as null: a cap read back
-      // as 0 is a machine that can hold nothing, and one read back as the
+      // as 0 is a node that can hold nothing, and one read back as the
       // instance's own number is a file that has grown a key nobody wrote.
       same(`pool ${j} memoryMb`, p.memoryMb, q2.memoryMb ?? null);
       same(`pool ${j} diskMb`, p.diskMb, q2.diskMb ?? null);
@@ -452,7 +452,7 @@ try {
       p.overrides.forEach((o, k) => {
         const g = q2.overrides?.[k];
         if (!g) return;
-        same(`pool ${j} override ${k} machine`, o.machine, g.machine);
+        same(`pool ${j} override ${k} node`, o.node, g.node);
         same(`pool ${j} override ${k} instance`, o.instance, g.instance ?? '');
         same(`pool ${j} override ${k} zone`, o.zone, g.zone ?? '');
         same(`pool ${j} override ${k} memoryMb`, o.memoryMb, g.memoryMb ?? null);
@@ -475,7 +475,7 @@ try {
         same(`fault ${j} notice`, f.noticeRefMs, g.noticeRefMs);
         same(`fault ${j} restart_after`, f.restartAfterRefMs, g.restartAfterRefMs);
       }
-      // The second machine, which only these two have — and the one field where
+      // The second node, which only these two have — and the one field where
       // a writer that dropped it would still produce a file that loads, because
       // `partition: [a]` is refused but `partition: a` is a different shape the
       // loader would report as a pair of one.

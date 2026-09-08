@@ -102,7 +102,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
           <p className="fine">
             Drop a trace anywhere on this window to open it — a run from anybody, on any
-            machine, reads the same way.
+            node, reads the same way.
           </p>
         </nav>
 

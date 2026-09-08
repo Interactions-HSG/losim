@@ -10,17 +10,17 @@
  * What it *does* have to get right is the vocabulary, because the loader is
  * strict about it: `runs:` names Java classes, `retries:` names dotted gRPC
  * methods, every duration says what kind of time it is, and a pool of one is
- * written without a count so its machine keeps the pool's own name.
+ * written without a count so its node keeps the pool's own name.
  */
 import type { Offered, Palette, Region } from './lab.ts';
 
-/** One block of machines that grow and shrink together. A single machine is a pool of one. */
+/** One block of nodes that grow and shrink together. A single node is a pool of one. */
 export interface Pool {
   name: string;
-  /** 1 writes no `count:` at all, and the machine is called after the pool. */
+  /** 1 writes no `count:` at all, and the node is called after the pool. */
   count: number;
   /**
-   * What the machines in it are called: `prefix0`, `prefix1`.
+   * What the nodes in it are called: `prefix0`, `prefix1`.
    *
    * Usually the pool's own name, and then a pool of one keeps that name with no
    * digit on it. Set it apart — `mappers` numbered `m0`, `m1` — and the count
@@ -29,7 +29,7 @@ export interface Pool {
    */
   prefix: string;
   instance: string;
-  /** Machines are dealt round-robin over these. */
+  /** Nodes are dealt round-robin over these. */
   zones: string[];
   /** Java classes, fully qualified. */
   runs: string[];
@@ -37,28 +37,28 @@ export interface Pool {
    * A memory cap, or `null` for whatever the instance type says.
    *
    * Three states, not two: `null` inherits, a number overrides, and 0 means a
-   * machine that cannot hold anything. That is a legal scenario and a different
+   * node that cannot hold anything. That is a legal scenario and a different
    * one, so the form must be able to write it and must not write it by
    * accident.
    */
   memoryMb: number | null;
   /** The same, for disk. Nothing is capped until something writes. */
   diskMb: number | null;
-  /** Machines in this pool that differ from their siblings. Usually none. */
+  /** Nodes in this pool that differ from their siblings. Usually none. */
   overrides: Override[];
 }
 
 /**
- * One machine in a pool, set apart from the rest.
+ * One node in a pool, set apart from the rest.
  *
  * An empty string or a null number falls back to the pool's own value, because
  * that is what a key the file leaves out means. A pool of eight where one is
  * half the size is the cheapest way to build a straggler; a pool where one has
- * a smaller disk shows a machine filling up while its neighbours do not.
+ * a smaller disk shows a node filling up while its neighbours do not.
  */
 export interface Override {
-  /** The machine's own name — `w2`, not `workers`. */
-  machine: string;
+  /** The node's own name — `w2`, not `workers`. */
+  node: string;
   /** '' keeps the pool's. */
   instance: string;
   /** '' keeps the zone the pool would have dealt it. */
@@ -74,7 +74,7 @@ export const FAULT_KINDS = [
 
 export type FaultKind = (typeof FAULT_KINDS)[number];
 
-/** The two whose value is a pair of machines rather than one. */
+/** The two whose value is a pair of nodes rather than one. */
 export const PAIRED: readonly FaultKind[] = ['partition', 'heal'];
 
 /**
@@ -90,9 +90,9 @@ export interface Fault {
   atRefMs: number;
   target: string;
   /**
-   * The second machine — `partition` and `heal` only, and empty otherwise.
+   * The second node — `partition` and `heal` only, and empty otherwise.
    *
-   * Reachability is a property of a *pair*: both machines stay alive, stay in
+   * Reachability is a property of a *pair*: both nodes stay alive, stay in
    * the registry and keep serving everybody else, and one caller sees nothing.
    * No other fault can make that point.
    */
@@ -101,7 +101,7 @@ export interface Fault {
   forRefMs: number;
   /** How many times slower a degrade makes it. */
   factor: number;
-  /** Spot reclaim only: how long the warning comes before the machine goes. */
+  /** Spot reclaim only: how long the warning comes before the node goes. */
   noticeRefMs: number;
   /** Kill and spot reclaim. 0 means it never comes back, a different exercise. */
   restartAfterRefMs: number;
@@ -116,20 +116,20 @@ export interface Fault {
  * only be tested on a network that never costs it anything.
  */
 export interface Net {
-  /** What a call between two machines in one zone costs. */
+  /** What a call between two nodes in one zone costs. */
   sameZoneRefMs: number;
   /** And between zones — the only thing that makes placement a decision. */
   crossZoneRefMs: number;
   /** Spread around both, so no two calls take exactly as long. */
   jitterRefMs: number;
-  /** 0 to 1. A dropped call, indistinguishable from a dead machine to the caller. */
+  /** 0 to 1. A dropped call, indistinguishable from a dead node to the caller. */
   loss: number;
 }
 
 export interface Chaos {
   kind: 'kill' | 'freeze' | 'degrade';
   everyRefMs: number;
-  /** A pool, or one machine. */
+  /** A pool, or one node. */
   among: string;
   forRefMs: number;
   factor: number;
@@ -144,8 +144,8 @@ export interface RetryRule {
    * What the wait is multiplied by after each attempt. 1 is flat.
    *
    * Above 1 gives exponential backoff: each retry eases off a struggling
-   * machine instead of asking it again at the same fixed rate. A fixed rate
-   * turns one slow machine into an outage for the whole cluster.
+   * node instead of asking it again at the same fixed rate. A fixed rate
+   * turns one slow node into an outage for the whole cluster.
    */
   multiplier: number;
   /** Retrying something the `.proto` did not declare idempotent, on purpose. */
@@ -234,7 +234,7 @@ export interface Draft {
    * What each placed class's rpcs cost.
    *
    * Nothing in a handler declares this any more: a duration is a claim about the
-   * machine a design would run on, so it belongs to the scenario — which leaves a
+   * node a design would run on, so it belongs to the scenario — which leaves a
    * student's Java with no losim symbol in it at all. A cluster that declares none
    * of these runs, and every call in it is instant.
    */
@@ -249,8 +249,8 @@ export interface Draft {
   input: InputPart[];
 }
 
-/** One machine, once the pools have been dealt out. */
-export interface Machine {
+/** One node, once the pools have been dealt out. */
+export interface Node {
   name: string;
   pool: string;
   instance: string;
@@ -259,23 +259,23 @@ export interface Machine {
 }
 
 /**
- * The machines a draft would produce, named the way the loader names them.
+ * The nodes a draft would produce, named the way the loader names them.
  *
  * A pool of one keeps the pool's own name; a pool of more is `prefix0`,
  * `prefix1`, and the prefix is the pool's name. Faults are aimed at these, so
  * getting the naming wrong here is a scenario that will not load.
  */
-export function expand(draft: Draft): Machine[] {
-  const out: Machine[] = [];
+export function expand(draft: Draft): Node[] {
+  const out: Node[] = [];
   for (const p of draft.pools) {
     const n = Math.max(1, Math.round(p.count));
     const zones = p.zones.length ? p.zones : ['eu-central-1a'];
     // The same condition `toYaml` writes `count:` under, because the two have to
-    // agree about naming or every fault points at a machine that is not there.
+    // agree about naming or every fault points at a node that is not there.
     const numbered = n > 1 || p.prefix !== p.name;
     for (let i = 0; i < n; i++) {
       const name = numbered ? `${p.prefix}${i}` : p.name;
-      const over = p.overrides.find((o) => o.machine === name);
+      const over = p.overrides.find((o) => o.node === name);
       out.push({
         name,
         pool: p.name,
@@ -301,7 +301,7 @@ export function regionOf(zone: string, regions: Region[]): string {
 }
 
 /**
- * How far apart two machines are, in the only four steps a bill distinguishes.
+ * How far apart two nodes are, in the only four steps a bill distinguishes.
  *
  * Client-side so the form can say what a placement costs before it is written —
  * the arithmetic is losim's, and this is a copy of it against the same region
@@ -333,7 +333,7 @@ export function distances(draft: Draft, regions: Region[]): Record<Link, number>
  * A rate, not a bill. What a run costs is what `losim bill` says after it has
  * happened, against a price list this app has never seen — and a second number
  * here that looked like a prediction would be a second accountant. This one is
- * a property of the machines you drew, and it is true before anything runs.
+ * a property of the nodes you drew, and it is true before anything runs.
  */
 export function perHour(draft: Draft, palette: Palette): number {
   let total = 0;
@@ -343,7 +343,7 @@ export function perHour(draft: Draft, palette: Palette): number {
   return total;
 }
 
-/** Services the code offers that no machine has been given. */
+/** Services the code offers that no node has been given. */
 export function unplaced(draft: Draft, palette: Palette): Offered[] {
   const placed = new Set(draft.pools.flatMap((p) => p.runs));
   return palette.services.filter((s) => !placed.has(s.cls));
@@ -384,7 +384,7 @@ export function toYaml(draft: Draft): string {
   if (n.loss > 0) net.push(`loss: ${n.loss}`);
   if (net.length) L.push(`network: { ${net.join(', ')} }`);
   L.push('');
-  L.push('machines:');
+  L.push('nodes:');
   for (const p of draft.pools) {
     const n = Math.max(1, Math.round(p.count));
     L.push(`  ${q(p.name)}:`);
@@ -394,10 +394,10 @@ export function toYaml(draft: Draft): string {
         ? `    zone: ${p.zones[0]}`
         : `    zone: [${p.zones.join(', ')}]`,
     );
-    // A pool of one is written without a count, so its machine keeps the pool's
-    // own name — `master`, not `master0`. Faults name machines.
+    // A pool of one is written without a count, so its node keeps the pool's
+    // own name — `master`, not `master0`. Faults name nodes.
     //
-    // Unless the prefix says otherwise: a pool called `mappers` whose machines
+    // Unless the prefix says otherwise: a pool called `mappers` whose nodes
     // are `m0`, `m1` needs both keys written even at a count of one, because the
     // naming no longer follows from the pool's name.
     if (n > 1 || p.prefix !== p.name) {
@@ -406,21 +406,21 @@ export function toYaml(draft: Draft): string {
     }
     if (p.runs.length) L.push(`    runs: [${p.runs.join(', ')}]`);
     // A cap the pool never set is the instance type's own. Writing `memoryMb: 0`
-    // for it would instead be a machine that cannot hold anything.
+    // for it would instead be a node that cannot hold anything.
     if (p.memoryMb !== null) L.push(`    memoryMb: ${p.memoryMb}`);
     if (p.diskMb !== null) L.push(`    diskMb: ${p.diskMb}`);
     if (p.overrides.length) {
       L.push('    overrides:');
       for (const o of p.overrides) {
-        // Only what this machine actually differs in. An override that repeated
+        // Only what this node actually differs in. An override that repeated
         // the pool's own values would be four lines saying nothing, and the
-        // point of the block is that one machine is not like the others.
+        // point of the block is that one node is not like the others.
         const bits: string[] = [];
         if (o.instance) bits.push(`instance: ${o.instance}`);
         if (o.zone) bits.push(`zone: ${o.zone}`);
         if (o.memoryMb !== null) bits.push(`memoryMb: ${o.memoryMb}`);
         if (o.diskMb !== null) bits.push(`diskMb: ${o.diskMb}`);
-        L.push(`      ${q(o.machine)}: { ${bits.join(', ')} }`);
+        L.push(`      ${q(o.node)}: { ${bits.join(', ')} }`);
       }
     }
   }
@@ -440,7 +440,7 @@ export function toYaml(draft: Draft): string {
     for (const f of draft.faults) {
       // Each kind writes only what it actually obeys. A `for:` on a degrade is
       // accepted by the loader and then ignored by the run — a one-time degrade
-      // schedules no thaw and the machine stays slow — so writing one would put
+      // schedules no thaw and the node stays slow — so writing one would put
       // a number in the file that the scenario does not honour.
       let tail = '';
       if (f.kind === 'kill' && f.restartAfterRefMs > 0) {
@@ -451,11 +451,11 @@ export function toYaml(draft: Draft): string {
         tail = `, factor: ${f.factor}`;   // required: the loader refuses a degrade without one
       } else if (f.kind === 'spot_reclaim') {
         // The notice is the whole lesson, so it is always written — a spot
-        // machine that gives no warning is just a kill by another name.
+        // node that gives no warning is just a kill by another name.
         tail = `, notice: ${f.noticeRefMs} refMs`;
         if (f.restartAfterRefMs > 0) tail += `, restart_after: ${f.restartAfterRefMs} refMs`;
       }
-      // A pair fault names two machines under one key. `restart` names one and
+      // A pair fault names two nodes under one key. `restart` names one and
       // takes nothing else.
       const who = PAIRED.includes(f.kind)
         ? `[${q(f.target)}, ${q(f.other)}]`

@@ -4,7 +4,7 @@
  *   node viewer/checks/cost.ts
  *
  * **S3** asks one architectural question and nothing else: *can React drive 30
- * fps at 25 machines, or does the packet layer have to go imperative?* React's
+ * fps at 25 nodes, or does the packet layer have to go imperative?* React's
  * own cost is not measurable from node, but the thing React is asked to do is —
  * and the fork only becomes necessary if **deriving** the frame is already
  * eating the budget. At 30 fps a frame is 33.3 ms and the derivation should be a
@@ -39,7 +39,7 @@ function open(name: string): Trace | null {
   }
 }
 
-/** The median, because one slow sample is the machine and not the code. */
+/** The median, because one slow sample is the node and not the code. */
 function median(xs: number[]): number {
   const s = [...xs].sort((a, b) => a - b);
   return s[Math.floor(s.length / 2)];
@@ -66,7 +66,7 @@ function biggest(by: (t: Trace) => number): { name: string; trace: Trace } | nul
 
 // ------------------------------------------------------------------------ S3
 
-const wide = biggest((t) => t.machines.length);
+const wide = biggest((t) => t.nodes.length);
 if (!wide) {
   console.error(`no traces in ${TRACES}`);
   process.exit(1);
@@ -89,11 +89,11 @@ for (let i = 0; i < N; i++) {
   const f = index.frameAt(t, { dwellRefMs: dwell });
   frames.push(Number(process.hrtime.bigint() - a) / 1e6);
   mostFlights = Math.max(mostFlights, f.flights.length);
-  mostWork = Math.max(mostWork, f.machines.reduce((n, m) => n + m.work.length, 0));
+  mostWork = Math.max(mostWork, f.nodes.reduce((n, m) => n + m.work.length, 0));
 }
 
 console.log('S3  can the frame be derived inside a frame?');
-console.log(`    ${wide.name} — ${wide.trace.machines.length} machines, ${wide.trace.spans.length} spans`);
+console.log(`    ${wide.name} — ${wide.trace.nodes.length} nodes, ${wide.trace.spans.length} spans`);
 console.log(
   `    median ${median(frames).toFixed(2)}ms, p95 ${p95(frames).toFixed(2)}ms, worst ${Math.max(...frames).toFixed(2)}ms` +
     ` of a ${BUDGET.toFixed(1)}ms budget`,
@@ -104,7 +104,7 @@ console.log(
   share < 0.15
     ? `    -> ${(share * 100).toFixed(1)}% of the budget. React keeps the packet layer; no fork needed.`
     : share < 0.5
-      ? `    -> ${(share * 100).toFixed(1)}% of the budget. Tight but React's, provided machines stay memoised.`
+      ? `    -> ${(share * 100).toFixed(1)}% of the budget. Tight but React's, provided nodes stay memoised.`
       : `    -> ${(share * 100).toFixed(1)}% of the budget. The packet layer has to go imperative (Step 5's fork).`,
 );
 

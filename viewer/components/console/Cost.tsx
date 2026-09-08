@@ -5,7 +5,7 @@
  *
  * The bill on the command line is a total. A total cannot say *when* the money
  * was decided, and when is the whole lesson: build and capacity are settled by
- * drawing the machines, before a single byte moves, while consumption arrives
+ * drawing the nodes, before a single byte moves, while consumption arrives
  * with the work and incidents land at the instant something breaks. Drag the
  * clock and watch which of the four actually moves.
  *
@@ -25,18 +25,18 @@ import { openUrl, type Run } from '../../lib/runs.ts';
 
 const DIMS = {
   bucket: 'Bucket',
-  machine: 'Machine',
+  node: 'Node',
   zone: 'Zone',
   instance: 'Instance type',
 } as const;
 type Dim = keyof typeof DIMS;
 
 /**
- * Money that belongs to no machine.
+ * Money that belongs to no node.
  *
- * Build is the biggest line in most of these runs and it is not any machine's:
- * it is what the design cost to write. Rolling it silently into the machines
- * would make every per-machine number wrong in the same direction, so it is
+ * Build is the biggest line in most of these runs and it is not any node's:
+ * it is what the design cost to write. Rolling it silently into the nodes
+ * would make every per-node number wrong in the same direction, so it is
  * shown as what it is.
  */
 const NOBODY = 'the design itself';
@@ -77,11 +77,11 @@ function cut(run: Run, model: LedgerModel, dim: Dim, t: number): Record<string, 
   if (dim === 'bucket') return { ...l.buckets };
   const out: Record<string, number> = {};
   let claimed = 0;
-  for (const m of run.trace.machines) {
+  for (const m of run.trace.nodes) {
     const mine = model.at(t, m.name).focus?.cost ?? 0;
     if (mine <= 0) continue;
     claimed += mine;
-    const key = dim === 'machine' ? m.name : dim === 'zone' ? m.zone : m.instance;
+    const key = dim === 'node' ? m.name : dim === 'zone' ? m.zone : m.instance;
     out[key] = (out[key] ?? 0) + mine;
   }
   const rest = l.cost - claimed;
@@ -134,21 +134,21 @@ export function Cost() {
   );
 
   /**
-   * Every machine's own share of the bill, at the clock.
+   * Every node's own share of the bill, at the clock.
    *
-   * The grouped bar answers "which machine costs the most"; this answers the
+   * The grouped bar answers "which node costs the most"; this answers the
    * question underneath it — *what for*. They are different questions and a
    * stacked bar cannot be read to the rappen, so the numbers are printed.
    *
    * Nothing is re-priced here: `LedgerModel` already knows whose each line is
-   * and why, and this only asks it once per machine.
+   * and why, and this only asks it once per node.
    */
   const mine = useMemo(() => {
     if (!run || !ledger) return [];
-    const rows = run.trace.machines.map((m) => {
+    const rows = run.trace.nodes.map((m) => {
       const at = ledger.at(now, m.name);
       return {
-        machine: m,
+        node: m,
         focus: at.focus!,
         /** Its own lines, largest first — `at()` has already sorted them that way. */
         lines: at.lines.filter((r) => r.mine > 0),
@@ -301,7 +301,7 @@ export function Cost() {
                 Grouped by <strong>{DIMS[dim].toLowerCase()}</strong>, cut off at the clock.
                 {dim === 'bucket'
                   ? ' The four are printed apart rather than summed because they are four different kinds of decision, and one number cannot say that.'
-                  : ` Build belongs to no machine — it is what the design cost to write — so it is shown as “${NOBODY}” rather than shared out and making every other figure wrong in the same direction.`}
+                  : ` Build belongs to no node — it is what the design cost to write — so it is shown as “${NOBODY}” rather than shared out and making every other figure wrong in the same direction.`}
               </p>
             </div>
           </Panel>
@@ -412,15 +412,15 @@ export function Cost() {
       </div>
 
         <Panel
-          title="What each machine costs"
-          note={`${mine.filter((r) => r.focus.cost > 0).length} of ${run.trace.machines.length} carry any of it · ${l.currency}`}
+          title="What each node costs"
+          note={`${mine.filter((r) => r.focus.cost > 0).length} of ${run.trace.nodes.length} carry any of it · ${l.currency}`}
           flush
         >
           <div className="scroll">
             <table className="per">
               <thead>
                 <tr>
-                  <th>Machine</th>
+                  <th>Node</th>
                   <th>Where</th>
                   {BUCKETS.map((b) => (
                     <th key={b} className="r">
@@ -434,20 +434,20 @@ export function Cost() {
               </thead>
               <tbody>
                 {mine.map((r) => {
-                  const open = whose === r.machine.name;
+                  const open = whose === r.node.name;
                   return (
-                    <Fragment key={r.machine.name}>
+                    <Fragment key={r.node.name}>
                       <tr
                         className={`row${open ? ' open' : ''}`}
-                        onClick={() => setWhose(open ? null : r.machine.name)}
+                        onClick={() => setWhose(open ? null : r.node.name)}
                         aria-expanded={open}
                       >
                         <td className="id">
                           <span className="tw" aria-hidden>{open ? '\u25be' : '\u25b8'}</span>
-                          {r.machine.name}
+                          {r.node.name}
                         </td>
                         <td className="muted where">
-                          {r.machine.instance} · {r.machine.zone}
+                          {r.node.instance} · {r.node.zone}
                         </td>
                         {BUCKETS.map((b) => (
                           <td key={b} className="n">
@@ -478,7 +478,7 @@ export function Cost() {
                               </ul>
                             ) : (
                               <p className="muted">
-                                Nothing is charged to {r.machine.name} by {refTime(now)}.
+                                Nothing is charged to {r.node.name} by {refTime(now)}.
                               </p>
                             )}
                           </td>
@@ -492,7 +492,7 @@ export function Cost() {
                     <td className="id">{NOBODY}</td>
                     <td colSpan={1 + BUCKETS.length} className="muted">
                       what the design cost to write, and any penalty the job as a whole earned —
-                      splitting these over the machines would invent a claim nothing supports
+                      splitting these over the nodes would invent a claim nothing supports
                     </td>
                     <td className="n b">{amt(l.cost - claimed)}</td>
                     <td className="n muted">
@@ -504,7 +504,7 @@ export function Cost() {
             </table>
           </div>
           <p className="pad note">
-            Click a machine for its own lines, and why each one is charged to it. Every amount is
+            Click a node for its own lines, and why each one is charged to it. Every amount is
             a line <code>losim bill</code> already computed — only the claim about who is
             answerable for it is added here.
           </p>

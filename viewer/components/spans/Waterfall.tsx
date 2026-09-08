@@ -15,7 +15,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { SpanBar } from './SpanBar.tsx';
-import { ms, type Node } from '../../lib/spans.ts';
+import { ms, type SpanNode } from '../../lib/spans.ts';
 import type { Theme } from '../../lib/theme.ts';
 import { taskColour } from '../../lib/theme.ts';
 import { digest } from '../../lib/trace.ts';
@@ -34,11 +34,11 @@ export function Waterfall({
   onToggle,
   selected,
   onSelect,
-  onHoverMachine,
+  onHoverNode,
   t,
   onSeek,
 }: {
-  rows: Node[];
+  rows: SpanNode[];
   x: (t: number) => number;
   width: number;
   height: number;
@@ -48,7 +48,7 @@ export function Waterfall({
   onToggle: (id: number) => void;
   selected: number | null;
   onSelect: (id: number | null) => void;
-  onHoverMachine: (m: string | null) => void;
+  onHoverNode: (m: string | null) => void;
   t: number;
   onSeek: (t: number) => void;
 }) {
@@ -106,8 +106,8 @@ export function Waterfall({
             return (
               <g
                 key={n.id}
-                onMouseEnter={() => onHoverMachine(n.span.vm)}
-                onMouseLeave={() => onHoverMachine(null)}
+                onMouseEnter={() => onHoverNode(n.span.vm)}
+                onMouseLeave={() => onHoverNode(null)}
                 onClick={() => {
                   onSelect(on ? null : n.id);
                   onSeek(n.t0);
@@ -140,8 +140,8 @@ export function Waterfall({
                 key={n.id}
                 className={`row${on ? ' on' : ''}${critical.has(n.id) ? ' crit' : ''}`}
                 style={{ top: y, height: ROW, paddingLeft: 6 + n.depth * 11 }}
-                onMouseEnter={() => onHoverMachine(n.span.vm)}
-                onMouseLeave={() => onHoverMachine(null)}
+                onMouseEnter={() => onHoverNode(n.span.vm)}
+                onMouseLeave={() => onHoverNode(null)}
                 onClick={() => {
                   onSelect(on ? null : n.id);
                   onSeek(n.t0);
@@ -214,7 +214,7 @@ export function Waterfall({
 }
 
 /** What a bar expands to: the words, and the reason it failed. */
-function Detail({ n, theme }: { n: Node | undefined; theme: Theme }) {
+function Detail({ n, theme }: { n: SpanNode | undefined; theme: Theme }) {
   if (!n) return null;
   const d = n.span.detail;
   return (

@@ -18,7 +18,7 @@
  *   3. **the map is invertible** — `traceAt(displayAt(t)) == t`, because seeking,
  *      stepping and recording all rely on it;
  *   4. **no reading moves** — the trace instant a frame is drawn at is a real
- *      trace instant, so a machine's memory at 400 refMs is still what it was.
+ *      trace instant, so a node's memory at 400 refMs is still what it was.
  *
  * And it prints the price: how much longer each film runs than the run did.
  * That number is the honest cost of the guarantee, and somebody should see it

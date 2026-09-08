@@ -15,7 +15,7 @@
  *
  * The grid is chosen for the two things that can actually go wrong. `liquid`'s
  * large-arc flag turns over at exactly half — get it wrong and the fill draws as
- * a lens floating in the middle of the machine, which is what it did the first
+ * a lens floating in the middle of the node, which is what it did the first
  * time it was written — so the fill levels crowd the middle and both ends. And
  * the number formatter has one genuine divergence between the languages, on an
  * exact rounding tie, so the sizes include dyadic rationals that land on one.
@@ -40,7 +40,7 @@ const SCALES = [D.SIZE_MIN, 0.8, 0.9, 1.0, 1.1, 1.25, D.SIZE_MAX];
 const SIZES: [number, number][] = [];
 for (const sx of SCALES) {
   for (const sy of SCALES) {
-    SIZES.push([round6(D.MACHINE_W * sx), round6(D.MACHINE_H * sy)]);
+    SIZES.push([round6(D.NODE_W * sx), round6(D.NODE_H * sy)]);
   }
 }
 SIZES.push([0.3125, 0.15625], [2.5, 1.25], [0.5, 0.5], [1.0, 1.0], [3.125, 0.625]);

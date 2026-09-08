@@ -1,11 +1,11 @@
 'use client';
 
 /**
- * What every machine was doing, up to the clock.
+ * What every node was doing, up to the clock.
  *
  * The film answers "what is happening"; this answers "how hard is it working",
  * which is a different question and is usually the one that settles an argument.
- * A machine that finishes last because it is small and a machine that finishes
+ * A node that finishes last because it is small and a node that finishes
  * last because it is far away look identical on a total. They do not look
  * identical here: one of them is at ninety percent and one of them is at twenty.
  *
@@ -34,12 +34,12 @@ interface Metric {
 }
 
 const METRICS: Metric[] = [
-  { id: 'busyPct', label: 'CPU', unit: '%', max: 100, dp: 0, note: 'of the machine’s cores, at this instant' },
-  { id: 'memPct', label: 'Memory', unit: '%', max: 100, dp: 0, note: 'of its cap — past 75% is where a machine starts to be in trouble' },
+  { id: 'busyPct', label: 'CPU', unit: '%', max: 100, dp: 0, note: 'of the node’s cores, at this instant' },
+  { id: 'memPct', label: 'Memory', unit: '%', max: 100, dp: 0, note: 'of its cap — past 75% is where a node starts to be in trouble' },
   { id: 'retainMb', label: 'Retained heap', unit: 'MB', dp: 2, note: 'what your code is holding on to, not what it allocated' },
   { id: 'bytesOutMb', label: 'Bytes out', unit: 'MB', dp: 2, note: 'cumulative — the line the egress bill is drawn from' },
   { id: 'inflight', label: 'Calls in flight', unit: '', divs: 2, dp: 0, note: 'handlers running on it right now' },
-  { id: 'queued', label: 'Queued', unit: '', divs: 2, dp: 0, note: 'calls waiting for a core. A queue that never empties is a machine too small' },
+  { id: 'queued', label: 'Queued', unit: '', divs: 2, dp: 0, note: 'calls waiting for a core. A queue that never empties is a node too small' },
   { id: 'diskPct', label: 'Disk', unit: '%', max: 100, dp: 0, note: 'of its disk cap' },
 ];
 
@@ -52,7 +52,7 @@ function reading(v: number, m: Metric): string {
 /** At most this many points per series: a path with a segment per pixel is a solid line. */
 const CAP = 240;
 
-/** One machine's whole run of one metric, thinned to something a path can carry. */
+/** One node's whole run of one metric, thinned to something a path can carry. */
 function whole(trace: Trace, vm: string, metric: string): [number, number][] {
   const { t, v } = trace.series(vm, metric);
   if (!t.length) return [];
@@ -101,7 +101,7 @@ export function Usage() {
     for (const m of have) {
       out.set(
         m.id,
-        trace.machines.map((mc) => ({ name: mc.name, pts: whole(trace, mc.name, m.id) })),
+        trace.nodes.map((mc) => ({ name: mc.name, pts: whole(trace, mc.name, m.id) })),
       );
     }
     return out;
@@ -127,11 +127,11 @@ export function Usage() {
   if (!metric) {
     return (
       <>
-        <Head title="Usage" sub="what each machine was doing" />
+        <Head title="Usage" sub="what each node was doing" />
         <Panel>
           <p className="muted">
             This trace carries no channels — it was recorded with telemetry off. Run it again
-            without <code>--quiet</code> and every machine gets a line here.
+            without <code>--quiet</code> and every node gets a line here.
           </p>
         </Panel>
       </>
@@ -159,7 +159,7 @@ export function Usage() {
         title="Usage"
         sub={
           <>
-            {trace.machines.length} machines, drawn to {refTime(now)} of{' '}
+            {trace.nodes.length} nodes, drawn to {refTime(now)} of{' '}
             {refTime(trace.duration)}. The axis is fixed to the whole run, so dragging the clock
             moves the drawing and never the ruler under it.
           </>
@@ -189,7 +189,7 @@ export function Usage() {
           label={metric.label}
         />
         <div className="pad">
-          <Legend keys={trace.machines.map((m) => m.name)} colour={(k) => colourOf(trace.machines.findIndex((m) => m.name === k))} />
+          <Legend keys={trace.nodes.map((m) => m.name)} colour={(k) => colourOf(trace.nodes.findIndex((m) => m.name === k))} />
         </div>
       </Panel>
 
@@ -213,12 +213,12 @@ export function Usage() {
           ))}
       </div>
 
-      <Panel title="Per machine, up to the clock" note={`everything below counts only what has happened by ${refTime(now)}`} flush>
+      <Panel title="Per node, up to the clock" note={`everything below counts only what has happened by ${refTime(now)}`} flush>
         <div className="scroll">
           <table>
             <thead>
               <tr>
-                <th>Machine</th>
+                <th>Node</th>
                 <th>Instance</th>
                 <th>Zone</th>
                 <th className="r">{metric.label} now</th>
@@ -227,7 +227,7 @@ export function Usage() {
               </tr>
             </thead>
             <tbody>
-              {trace.machines.map((mc, i) => {
+              {trace.nodes.map((mc, i) => {
                 const pts = upTo((all.get(metric.id) ?? [])[i]?.pts ?? [], now);
                 const peak = pts.reduce((a, p) => Math.max(a, p[1]), 0);
                 const value = pts.length ? pts[pts.length - 1][1] : 0;

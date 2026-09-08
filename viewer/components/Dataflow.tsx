@@ -3,8 +3,8 @@
 /**
  * The film: a cluster, at an instant.
  *
- * Zones are bands the machines live inside; roles are columns left to right, so a
- * MapReduce still reads the way the figure on the whiteboard reads. A machine is
+ * Zones are bands the nodes live inside; roles are columns left to right, so a
+ * MapReduce still reads the way the figure on the whiteboard reads. A node is
  * drawn the size it *is* — wider with more memory, taller with more cores — and it
  * always says **how much is left**, not how much is used, because "holding 255 MB"
  * predicts nothing on its own and "180 MB left" is the number the out-of-memory is
@@ -23,7 +23,7 @@ import { memo } from 'react';
 
 import * as D from '../lib/design.ts';
 import * as G from '../lib/glyphs.ts';
-import type { Flight, Frame, FrameMachine } from '../lib/frame.ts';
+import type { Flight, Frame, FrameNode } from '../lib/frame.ts';
 import type { Layout } from '../lib/layout.ts';
 import { alarm, chill, taskColour, warn, type Theme } from '../lib/theme.ts';
 
@@ -37,7 +37,7 @@ export interface DataflowProps {
   /** Clicking a message, which keeps its panel open and makes it readable. */
   onPinMessage?: (f: Flight, at: [number, number]) => void;
   /**
-   * Clicking a machine, which docks its panel beside the film.
+   * Clicking a node, which docks its panel beside the film.
    *
    * The same gesture a message already had, and for the same reason. Hovering
    * one shows its panel *over* the picture, and reaching for that panel takes
@@ -46,7 +46,7 @@ export interface DataflowProps {
    * nothing else: not scrolled, not selected from, not even pinned by the
    * button inside it.
    */
-  onPinMachine?: (name: string) => void;
+  onPinNode?: (name: string) => void;
   /**
    * Pointing at a message, with where the pointer is.
    *
@@ -57,7 +57,7 @@ export interface DataflowProps {
   onMessage?: (f: Flight | null, at: [number, number]) => void;
   onHover?: (name: string | null) => void;
   /**
-   * Machines the filter has set aside.
+   * Nodes the filter has set aside.
    *
    * Dimmed rather than removed, deliberately: a cluster with the shufflers taken
    * out of it is a different cluster, and the question a filter answers is "what
@@ -86,7 +86,7 @@ export function Dataflow({
   onMessage,
   onPinMessage,
   onHover,
-  onPinMachine,
+  onPinNode,
   muted,
   task,
   ref,
@@ -113,12 +113,12 @@ export function Dataflow({
       onMouseLeave={() => onHover?.(null)}
     >
       <defs>
-        {/* Depth, in the smallest amount that reads as depth. A machine is an
+        {/* Depth, in the smallest amount that reads as depth. A node is an
             object sitting on a surface; drawn as an outline on a flat ground it
-            reads as a diagram of a machine instead. */}
+            reads as a diagram of a node instead. */}
         <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={theme.machine} />
-          <stop offset="100%" stopColor={theme.machineLow} />
+          <stop offset="0%" stopColor={theme.node} />
+          <stop offset="100%" stopColor={theme.nodeLow} />
         </linearGradient>
         <linearGradient id="held" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={theme.dataFill} />
@@ -178,15 +178,15 @@ export function Dataflow({
         );
       })}
 
-      {frame.machines.map((m) => (
-        <Machine
+      {frame.nodes.map((m) => (
+        <Node
           key={m.name}
           m={m}
           theme={theme}
           dense={!!dense}
           dim={(!!hovered && hovered !== m.name) || !!muted?.has(m.name)}
           onHover={onHover}
-          onPin={onPinMachine}
+          onPin={onPinNode}
         />
       ))}
 
@@ -212,15 +212,15 @@ export function Dataflow({
 }
 
 /**
- * One machine.
+ * One node.
  *
  * Memoised on its appearance rather than its identity: a fill that moved by a
  * hundredth of a megabyte is not a different picture, so what it holds is
- * bucketed before it is compared. Without that, every machine re-renders on every
+ * bucketed before it is compared. Without that, every node re-renders on every
  * frame of a run where nothing much is happening.
  */
-const Machine = memo(
-  function Machine({
+const Node = memo(
+  function Node({
     m,
     theme,
     dense,
@@ -228,7 +228,7 @@ const Machine = memo(
     onHover,
     onPin,
   }: {
-    m: FrameMachine;
+    m: FrameNode;
     theme: Theme;
     dense: boolean;
     dim: boolean;
@@ -293,7 +293,7 @@ const Machine = memo(
           ))}
 
         {/* While it is working, its name is replaced by what it is working on. A
-            machine's name is a thing you look up once; what it is computing is the
+            node's name is a thing you look up once; what it is computing is the
             thing you came to see. */}
         {m.work.length ? (
           <text
@@ -326,8 +326,8 @@ const Machine = memo(
         )}
 
         {/* What program answers here, at all times. A column position says where a
-            machine sits in the pipeline; only this says what it runs — and on a
-            cluster where one machine serves two services, the column has stopped
+            node sits in the pipeline; only this says what it runs — and on a
+            cluster where one node serves two services, the column has stopped
             being able to say it. */}
         {!dense && m.serves.length > 0 && (
           <text
@@ -381,7 +381,7 @@ const Machine = memo(
 );
 
 /** One slot per vCPU, lit while something is in it, plus what is queued behind. */
-function Lanes({ m, theme }: { m: FrameMachine; theme: Theme }) {
+function Lanes({ m, theme }: { m: FrameNode; theme: Theme }) {
   const n = Math.max(1, Math.min(m.vcpu, 8));
   const slot = Math.min(0.16, (m.w * 0.72) / n);
   const gap = slot * 0.35;
@@ -421,27 +421,27 @@ function Lanes({ m, theme }: { m: FrameMachine; theme: Theme }) {
 }
 
 /**
- * A message, on the wire, between two named machines.
+ * A message, on the wire, between two named nodes.
  *
  * Four things have to be unmistakable, and all four are easy to lose.
  *
- * **Which machine it left, and which it is going to.** The wire is drawn whole, so
+ * **Which node it left, and which it is going to.** The wire is drawn whole, so
  * the message is always on a line whose two ends are visible — not a box drifting
  * through open space that could have come from anywhere — with an arrowhead at
  * the far end. It bows rather than running straight, which keeps it off whatever
- * machine happens to sit between the two, and bows the *other* way coming back, so
+ * node happens to sit between the two, and bows the *other* way coming back, so
  * a request and its reply are two visibly different journeys rather than one line
  * with traffic going both ways on it.
  *
  * **What is inside it.** The digest: *the words*. `the 1,729 · cat 402 · +1,116
  * more`. This is the whole reason losim records payloads at all (D8 rule 4), which
- * no real tracing system would do — a film of machines exchanging opaque byte
+ * no real tracing system would do — a film of nodes exchanging opaque byte
  * counts teaches nothing a bar chart would not.
  *
  * **How much of it there is.** The envelope is drawn the size of its payload, so a
  * coordinator handing out a task number and a shuffler dragging a whole region
  * across a zone boundary are visibly not the same event. Compressed hard, like the
- * machine sizes, because the spread between those two is enormous and drawn
+ * node sizes, because the spread between those two is enormous and drawn
  * linearly the small one disappears.
  */
 const Packet = memo(function Packet({
@@ -469,7 +469,7 @@ const Packet = memo(function Packet({
   const to = f.returning ? f.from : f.to;
 
   // Edge to edge, not centre to centre. A packet drawn all the way to the middle
-  // of its destination sits on top of the machine it is addressed to, hiding the
+  // of its destination sits on top of the node it is addressed to, hiding the
   // one thing the arrival was supposed to tell you.
   const dx = rawDst[0] - rawSrc[0];
   const dy = rawDst[1] - rawSrc[1];
@@ -632,11 +632,11 @@ function quad(
 }
 
 /**
- * Moves a point from a machine's centre out to its rim, along a direction.
+ * Moves a point from a node's centre out to its rim, along a direction.
  *
  * The exact ellipse radius rather than an approximation, because the cluster's
- * machines differ in shape on purpose — wider with memory, taller with cores — and
- * a circle's worth of clearance would leave a wide machine covered and a tall one
+ * nodes differ in shape on purpose — wider with memory, taller with cores — and
+ * a circle's worth of clearance would leave a wide node covered and a tall one
  * with a gap.
  */
 function shrink(
@@ -653,13 +653,13 @@ function shrink(
 }
 
 /**
- * Has this machine's *appearance* changed?
+ * Has this node's *appearance* changed?
  *
  * The fill is bucketed to about the number of levels an eye can tell apart at the
- * size a machine is drawn, so a reducer creeping up by a hundredth of a megabyte
+ * size a node is drawn, so a reducer creeping up by a hundredth of a megabyte
  * does not re-render for it.
  */
-function same(a: FrameMachine, b: FrameMachine): boolean {
+function same(a: FrameNode, b: FrameNode): boolean {
   return (
     a.name === b.name &&
     a.state === b.state &&
@@ -677,11 +677,11 @@ function bucket(share: number): number {
   return Math.round(share * 24);
 }
 
-function label(m: FrameMachine): string {
+function label(m: FrameNode): string {
   return m.work.length ? `${m.work.length}:${m.work[0].method}:${m.work[0].task}` : '';
 }
 
-/** Bytes on the wire, which are a different magnitude from a machine's contents. */
+/** Bytes on the wire, which are a different magnitude from a node's contents. */
 export function bytes(n: number): string {
   if (n >= 1048576) return `${(n / 1048576).toFixed(1)} MB`;
   if (n >= 1024) return `${(n / 1024).toFixed(0)} kB`;

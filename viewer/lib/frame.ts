@@ -20,7 +20,7 @@ import { Layout, TIGHT } from './layout.ts';
 import type { Moment } from './pace.ts';
 import { Trace, digest, entries, liveAt, spanTo, type Span, type TraceEvent } from './trace.ts';
 
-export type MachineState = 'alive' | 'degraded' | 'frozen' | 'dead' | 'reclaiming';
+export type NodeState = 'alive' | 'degraded' | 'frozen' | 'dead' | 'reclaiming';
 
 export interface Work {
   span: Span;
@@ -31,7 +31,7 @@ export interface Work {
   digest: string;
 }
 
-export interface FrameMachine {
+export interface FrameNode {
   name: string;
   instance: string;
   zone: string;
@@ -41,7 +41,7 @@ export interface FrameMachine {
   y: number;
   w: number;
   h: number;
-  state: MachineState;
+  state: NodeState;
   /** What it holds, and — the number anyone is actually reaching for — what is left. */
   heldMb: number;
   capMb: number;
@@ -112,8 +112,7 @@ export interface FrameOptions {
 
 export interface Frame {
   t: number;
-  phase: string | null;
-  machines: FrameMachine[];
+  nodes: FrameNode[];
   flights: Flight[];
   /** Anything that happened in the moment just gone — a kill, an OOM, a disk full. */
   just: TraceEvent[];
@@ -147,7 +146,7 @@ export class RunIndex {
     this.tasks = trace.tasks();
 
     this.live = trace.spans
-      .filter((s) => s.kind === 'rpc' || s.kind === 'handler' || s.kind === 'compute')
+      .filter((s) => s.kind === 'rpc' || s.kind === 'handler')
       .sort((a, b) => a.t0 - b.t0);
     this.maxEnd = new Array(this.live.length);
     let running = -Infinity;
@@ -161,7 +160,7 @@ export class RunIndex {
     // cap is recoverable but not written down. Taken from the largest sample
     // rather than any one of them, because at nought percent of nothing the
     // division says nothing at all.
-    for (const m of trace.machines) {
+    for (const m of trace.nodes) {
       const used = trace.series(m.name, 'diskMb').v;
       const pct = trace.series(m.name, 'diskPct').v;
       let cap = 0;
@@ -194,7 +193,7 @@ export class RunIndex {
    * This is what the paced clock is built from (`lib/pace.ts`), and the reason it
    * is computed **here** rather than from the span tree is that the thing which
    * has to be visible is not a span. A call is drawn as three separate things —
-   * an envelope going out, a machine working, an envelope coming back — and
+   * an envelope going out, a node working, an envelope coming back — and
    * pacing the call as a whole would give a ten-millisecond call its second on
    * screen while its one-millisecond outward leg still flickered past in a
    * hundredth of it. So the legs are what is listed, computed by the same
@@ -209,7 +208,7 @@ export class RunIndex {
         out.push({ t0: span.t0, t1: span.t0 + leg });
         if (end - leg > span.t0 + leg) out.push({ t0: end - leg, t1: end });
       } else {
-        // A handler or a local computation: what the machine is visibly doing,
+        // A handler or a local computation: what the node is visibly doing,
         // and the label that says what it is doing it to.
         if (end > span.t0) out.push({ t0: span.t0, t1: end });
       }
@@ -247,7 +246,7 @@ export class RunIndex {
   }
 
   frameAt(t: number, opts: FrameOptions = {}): Frame {
-    const machines: FrameMachine[] = [];
+    const nodes: FrameNode[] = [];
     const workOf = new Map<string, Work[]>();
     const flights: Flight[] = [];
 
@@ -268,14 +267,14 @@ export class RunIndex {
       }
     }
 
-    for (const m of this.trace.machines) {
+    for (const m of this.trace.nodes) {
       const [x, y] = this.layout.point(m.name);
       const [w, h] = this.layout.sizeOf(m.name);
       const held = this.trace.channel(m.name, 'retainMb', t);
       const cap = this.trace.channel(m.name, 'memCapMb', t) || m.capMb;
       const disk = this.trace.channel(m.name, 'diskMb', t);
       const diskCap = this.diskCap.get(m.name) ?? 0;
-      machines.push({
+      nodes.push({
         name: m.name,
         instance: m.instance,
         zone: m.zone,
@@ -307,8 +306,7 @@ export class RunIndex {
     const window = Math.max(this.duration / 240, 1);
     return {
       t,
-      phase: this.trace.phaseAt(t),
-      machines,
+      nodes,
       flights,
       just: this.notable.filter((e) => {
         const at = Number(e.t ?? 0);
@@ -344,7 +342,7 @@ export class RunIndex {
     return out;
   }
 
-  private stateOf(name: string, t: number): MachineState {
+  private stateOf(name: string, t: number): NodeState {
     if (this.trace.channel(name, 'alive', t) < 0.5) return 'dead';
     if (this.trace.channel(name, 'frozen', t) > 0.5) return 'frozen';
     if (this.trace.channel(name, 'degraded', t) > 1.0001) return 'degraded';
@@ -355,7 +353,7 @@ export class RunIndex {
    * Where a call's payload is, if it is on the wire at all.
    *
    * A call is not one journey. It goes out, it is worked on, and it comes back —
-   * and the middle of that is not the network, it is a machine holding the
+   * and the middle of that is not the network, it is a node holding the
    * argument while it computes. Drawing one packet sliding steadily across for
    * the whole duration would say the opposite: that the time went into the wire.
    *
@@ -450,7 +448,7 @@ const NOTABLE = new Set([
   // that then cascaded is the moment somebody is looking for, and it has to be
   // a moment they can step to.
   'rpc_error',
-  'job_failed',
+  'failed',
   'over_horizon',
   // Narration, which is an instant somebody chose. `write/telemetry.mdx` offers
   // log() as "the sentence a reader needs and no key-value pair captures" — a
@@ -484,7 +482,7 @@ function weigh(body: unknown): number {
 /**
  * How big to draw an envelope holding `items`, against the run's heaviest.
  *
- * Logarithmic, and clamped, for the same reason machine sizes are: a control
+ * Logarithmic, and clamped, for the same reason node sizes are: a control
  * message carries one field and a shuffle response carries eleven hundred, and
  * drawn to scale the control message would be a dot. What has to survive is the
  * *ordering* — that one of these is visibly enormous and the other visibly is not.

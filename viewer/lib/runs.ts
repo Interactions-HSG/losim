@@ -1,12 +1,12 @@
 /**
- * Finding a run, and opening it.
+ * Finding a result, and opening it.
  *
  * Two ways in, and both matter. A **manifest** beside the exported app lists the
  * traces that were built with it, so the picker has something in it the moment
  * the page loads. And a **file** the viewer drops on the page opens the same way,
  * because the case this whole viewer exists for is a student pointing it at
- * their own run — which is also why nothing is baked: what is read here is a raw
- * losim trace, exactly as `losim run` wrote it.
+ * their own result — which is also why nothing is baked: what is read here is a
+ * raw losim trace, exactly as `losim simulate` wrote it.
  */
 import { RunIndex } from './frame.ts';
 import { loadBill, type BillJson } from './ledger.ts';
@@ -17,28 +17,29 @@ export interface RunRef {
   /** Where to fetch it, relative to the page. */
   href: string;
   /**
-   * Whose run this is — `yours`, the reference `suite`'s, or the `gallery`'s.
+   * Whose result this is — `yours`, the reference `suite`'s, or the `gallery`'s.
    *
    * The picker groups on it and puts yours first. Without it a student's own
-   * first run is one line among a hundred, alphabetically, between two worked
+   * first result is one line among a hundred, alphabetically, between two worked
    * examples they have never heard of.
    */
   from?: 'yours' | 'suite' | 'gallery';
-  machines?: number;
+  nodes?: number;
   durationRefMs?: number;
-  job?: string;
+  /** The node losim entered the system through. */
+  entry?: string;
   note?: string;
-  /** Every distinct zone the machines sat in, so a card can say how far apart they were. */
+  /** Every distinct zone the nodes sat in, so a card can say how far apart they were. */
   zones?: string[];
-  /** The scenario file it was run from — `mr-classic.yaml`. */
-  scenario?: string;
+  /** The simulation it came from — `thumbs.yaml`. */
+  simulation?: string;
   /** Absent unless the run did not finish. */
   completed?: boolean;
   /**
    * What `losim bill` said, copied into the index by the sweep.
    *
-   * Here so the gallery and the cost report can put a hundred runs beside each
-   * other without fetching a hundred bills — and never computed in this app,
+   * Here so the gallery and the cost report can put a hundred results beside
+   * each other without fetching a hundred bills — and never computed in this app,
    * because a viewer with its own prices would be a second accountant.
    */
   cost?: number;
@@ -51,7 +52,7 @@ export interface Run {
   trace: Trace;
   index: RunIndex;
   /**
-   * What `losim bill --json` said this run cost, when it is beside the trace.
+   * What `losim bill --json` said this cost, when it is beside the trace.
    *
    * Optional, because a trace a student drops on the page has no bill next to it.
    * Absent, the money is simply not shown — which is better than the viewer
@@ -94,6 +95,6 @@ function build(name: string, text: string, bill: BillJson | null): Run {
   } catch (e) {
     throw new Error(`${name} is not a losim trace: ${(e as Error).message}`);
   }
-  if (!trace.machines.length) throw new Error(`${name} has no machines in it`);
+  if (!trace.nodes.length) throw new Error(`${name} has no nodes in it`);
   return { name, trace, index: new RunIndex(trace), bill };
 }
