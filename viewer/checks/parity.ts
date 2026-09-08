@@ -3,45 +3,51 @@
  *
  *   node viewer/checks/parity.ts [glob-ish substring]
  *   node viewer/checks/parity.ts --freeze          # write the oracle again
+ *   node viewer/checks/parity.ts --capture         # replace the traces it reads
  *
- * Runs `Layout` over every reference-suite trace and diffs every position, every
- * zone rectangle, every column label, every payload digest and every decoded
- * series channel against a **frozen oracle**. Same numbers or something moved.
+ * Runs `Layout` over every trace in `viewer/checks/traces/` and diffs every
+ * position, every zone rectangle, every column label, every payload digest and
+ * every decoded series channel against a **frozen oracle**. Same numbers or
+ * something moved.
  *
  * A layout bug found by looking at a picture is found slowly and argued about;
- * found by a diff it is a line number.
+ * found by a diff it is a line number. That is also why the comparison is exact
+ * rather than tolerant — the same arithmetic in the same order on the same
+ * doubles — so anything but bit-equality is a difference in the code and not in
+ * the floating point.
+ *
+ * **Both halves are committed, and that is what makes the claim above true.**
+ * This read `build/tests/traces` once, which `dev suite` rewrites — and a run is
+ * deliberately not reproducible: real threads, a real wall clock, no simulated
+ * scheduler. Two suite runs of identical code differed in 75 of 75 sampled
+ * series channels and moved `durationRefMs` by 121, which reached this check as
+ * different channel values, different payload digests, and float noise in the
+ * fifteenth digit of a position. All 22 traces differed. So the check was green
+ * only until somebody ran the suite, and then reported a wall of differences
+ * whose cause was nothing anybody had done.
+ *
+ * Freezing the output while the input drifts cannot hold. So the input is frozen
+ * too: `traces/*.json.gz` are 22 real suite traces, captured once and committed
+ * beside the layouts fitted from them. 1.8 MB against the 85 MB of vendored jars
+ * this repository already carries, and the same bargain — a check that needs a
+ * four-minute build to say anything is a check nobody runs.
  *
  * **What the oracle is, and what it is not.** It was once what the Python
  * `Layout` this was ported from computed, over eighty-one gallery traces, on the
  * day the port was proved against it. That claim is spent: the Python is gone,
  * the gallery it ran over is not in this repository, and 3.0 deliberately
- * changed what a column is. What is frozen now is this code's own answer over
- * whatever `dev suite` last left in `build/tests/traces`. It catches a layout
- * that moved when nobody meant it to, which is the property that was always
- * doing the work; it can no longer tell you the port is faithful, because there
- * is nothing left to be faithful to.
+ * changed what a column is. What is frozen now is this code's own answer over an
+ * input that does not move. It catches a layout that moved when nobody meant it
+ * to, which is the property that was always doing the work; it can no longer
+ * tell you the port is faithful, because there is nothing left to be faithful
+ * to.
  *
- * **Its input is not reproducible, and that is a real limitation.** The oracle is
- * frozen against generated traces rather than committed ones, and a run is
- * deliberately not reproducible — real threads, a real wall clock, no simulated
- * scheduler. Two `dev suite` runs of identical code differ in every sampled
- * series channel and move `durationRefMs` by a tenth of a percent, which reaches
- * this check as float noise in the fifteenth digit of a position, different
- * payload digests, and different channel values. Measured: 22 of 22 traces
- * differ, 75 of 75 channels in one of them, with nothing changed in between.
- *
- * So this check passes until the next `dev suite` and then reports a wall of
- * differences with no cause. What it can still prove is the part that does not
- * move: a column that changed **label**, a zone rectangle that changed shape, a
- * node that appeared or vanished. Read the diff for those and ignore the noise —
- * and note that `--freeze` makes it green either way, so freezing without
- * reading is the same as deleting the check.
- *
- * The repair, when somebody wants one, is to freeze against **committed** traces
- * so the input stops moving. That is a decision about what this repository
- * carries, not a change to this file.
- *
- * A deliberate change runs `--freeze` in the same commit and reads the diff.
+ * A deliberate change to the layout runs `--freeze` in the same commit and reads
+ * the diff. `--capture` is the other one, and it is rarer and heavier: it
+ * replaces the **traces** from whatever `dev suite` last produced, which moves
+ * every number here at once. Run it when the trace format changes — a schema
+ * bump, a new channel — and never to make a red check green, because it will,
+ * and it will do it whether or not anything is wrong.
  */
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -53,7 +59,11 @@ import { Trace, digest, contents, entries } from '../lib/trace.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
-const TRACES = resolve(ROOT, 'build/tests/traces');
+/** The committed input: real suite traces, captured once so they stop moving. */
+const TRACES = resolve(HERE, 'traces');
+
+/** Where `dev suite` writes, and the only thing `--capture` reads. */
+const FRESH = resolve(ROOT, 'build/tests/traces');
 
 /**
  * The clock the Python reckoned by: the job, or the last span to close.
@@ -72,7 +82,7 @@ function pythonDuration(trace: Trace): number {
 }
 
 function dump(path: string): Record<string, unknown> {
-  const trace = Trace.parse(readFileSync(path, 'utf8'));
+  const trace = Trace.parse(gunzipSync(readFileSync(path)).toString('utf8'));
   // The Python renderer's spacing, deliberately: this check is about whether the
   // port computes the same layout, not about the spacing chosen afterwards.
   const lay = new Layout(trace, 3.05, 1.62, LEGACY);
@@ -174,23 +184,46 @@ function clip(s: string): string {
 
 const args = process.argv.slice(2);
 const freeze = args.includes('--freeze');
+const capture = args.includes('--capture');
 const filter = args.find((a) => !a.startsWith('--'));
+
+// Replaces the input, not the oracle. Deliberately a separate flag from
+// --freeze: re-blessing a layout you changed on purpose is an ordinary thing to
+// do, and replacing every trace underneath it is not.
+if (capture) {
+  let taken = 0;
+  for (const f of readdirSync(FRESH).filter((f) => f.endsWith('.json')).sort()) {
+    writeFileSync(
+      join(TRACES, `${f}.gz`),
+      gzipSync(readFileSync(join(FRESH, f)), { level: 9 }),
+    );
+    taken++;
+  }
+  console.log(`S2  ${taken} traces captured from ${FRESH}`);
+  console.log('    now run --freeze, and read that diff: every number will have moved');
+  process.exit(0);
+}
+
 let names: string[];
 try {
   names = readdirSync(TRACES)
-    .filter((f) => f.endsWith('.json'))
-    .map((f) => f.replace(/\.json$/, ''))
+    .filter((f) => f.endsWith('.json.gz'))
+    .map((f) => f.replace(/\.json\.gz$/, ''))
     .filter((n) => !filter || n.includes(filter))
     .sort();
 } catch {
-  console.error(`no traces in ${TRACES} — run \`bin/losim dev suite\` first`);
+  console.error(`no traces in ${TRACES} — they are committed, so this is a broken checkout`);
+  process.exit(1);
+}
+if (!names.length) {
+  console.error(`no traces in ${TRACES} — they are committed, so this is a broken checkout`);
   process.exit(1);
 }
 
 let same = 0;
 const failed: string[] = [];
 for (const name of names) {
-  const path = join(TRACES, `${name}.json`);
+  const path = join(TRACES, `${name}.json.gz`);
   let mine: Record<string, unknown>;
   try {
     mine = dump(path);

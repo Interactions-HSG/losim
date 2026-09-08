@@ -133,8 +133,10 @@ could account for.
 ## The output
 
 ```
-thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 units (x5,000)
+thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 frames (x5,000)
                                               [plan fitted from 30 probe runs in 41.2s]
+  measured at 8,000 units — what the handlers counted with units(n), and what the
+  laws below are fitted in
 
   memoryMb   = 0.0597 + 0.00187 * revealed.distinctItems^1.013  (R2 1.0000, wobble 0.000)
   wireMb     = 0.0    + 0.000151 * units^0.952                (R2 1.0000, wobble 0.004)

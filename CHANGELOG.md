@@ -6,6 +6,59 @@ A version is what an assignment resolves from Gradle, so it is a fact about a ja
 rather than about a branch. Every release is cut from a tag whose name and
 `./VERSION` are checked against each other before anything is built.
 
+## 3.0.1
+
+**Two bugs in 3.0.0, and the release that did not go out.**
+
+3.0.0 was tagged and its release failed: `bin/losim dev test` runs the phase
+suites and then JUnit, and a phase suite still asserted a refusal message 3.0
+had rewritten. Nothing was published — the test step runs before the jar is
+built — so 3.0.0 exists as a tag and never as a release. Take this instead.
+
+### The scaled header counted something the file never mentioned
+
+A run above `scale: 1` printed the ladder coordinate against the simulation's own
+noun:
+
+```
+thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 units (x5,000)
+```
+
+`count:` is the workload in your unit — frames, lines, orders. The ladder's
+`units` are what handlers counted with `units(n)`, and the two are equal only by
+coincidence. A file saying `count: 24000000` reported a run of 40,000,000 of
+something it never named. The arithmetic underneath was right; the header was not.
+
+It now says what was run, in the word the simulation chose, and names the ladder
+coordinate separately:
+
+```
+thumbs-scaled.yaml  seed 5  scaled 4,800 -> 24,000,000 lines (x5,000)
+  measured at 8,000 units — what the handlers counted with units(n), and what the
+  laws below are fitted in
+```
+
+Every simulation in the repository happened to set `count = scale x 8000`, which
+is why nothing caught it.
+
+### The layout check was frozen on input that moves
+
+`viewer/checks/parity.ts` compared layouts against an oracle frozen over
+`build/tests/traces` — which `dev suite` rewrites, and a run is deliberately not
+reproducible. Two suite runs of identical code differed in 75 of 75 sampled series
+channels and moved `durationRefMs` by 121. So the check was green until somebody
+ran the suite, and then reported a wall of differences with no cause, whose only
+repair was `--freeze` — which makes it green whether or not anything is wrong.
+
+The input is committed now: `viewer/checks/traces/` holds 22 real suite traces,
+captured once, 1.8 MB beside the 85 MB of vendored jars this repository already
+carries. The comparison can be exact again because both halves are fixed. It stays
+green with `build/` empty, and still names a column whose label changed.
+
+`--capture` replaces the traces, deliberately separate from `--freeze` so that
+re-blessing a layout you changed is not the same gesture as replacing everything
+underneath it.
+
 ## 3.0.0
 
 **There is nothing left that is not a service.**

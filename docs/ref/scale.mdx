@@ -42,6 +42,28 @@ truth. That is `scale: 1` with `input.count` set to the full number, which is le
 and slow.
 </Note>
 
+## Two things called units, and they are not the same number
+
+<Warning>
+`count:` is the workload in **your** unit — frames, lines, orders. The probe
+ladder's **units** are what your handlers counted with
+`Losim.current().units(n)`. A handler that reports pixels per frame makes those
+two quantities differ by a thousand, and nothing reconciles them.
+
+The engine fits its laws in the second and shrinks `count:` by the ratio between
+the rungs, so both are correct and neither is the other. A run says both, and says
+which is which:
+
+```
+thumbs-scaled.yaml  seed 5  scaled 4,800 -> 24,000,000 lines (x5,000)
+  measured at 8,000 units — what the handlers counted with units(n), and what the
+  laws below are fitted in
+```
+
+Before 3.0.1 the first line was written in the ladder's units, so a file saying
+`count: 24000000` reported a run of 40,000,000 of something it never mentioned.
+</Warning>
+
 ## What the engine picks, and why it is not yours to pick
 
 <ParamField path="the probe ladder" type="1000, 2000, 4000, 8000">

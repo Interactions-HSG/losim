@@ -303,7 +303,7 @@ public class Phase2 {
                   - { method: Worker.Map, attempts: 2 }
                 """))); }
         catch (RuntimeException e) { missing = e.getMessage(); }
-        check(missing != null && missing.contains("which no machine in this cluster serves"),
+        check(missing != null && missing.contains("which no node in this simulation serves"),
               "a policy naming a method nobody serves is a typo, and is caught as one");
 
         // And it actually retries.

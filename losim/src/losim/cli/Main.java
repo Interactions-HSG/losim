@@ -332,11 +332,27 @@ public final class Main {
             return 1;
         }
 
-        System.out.printf("%s  seed %d  scaled %,d -> %,d units (x%,.0f)%s%n",
-                s.file(), s.seed(), plan.units(), plan.fullUnits(), plan.scaleFactor(),
+        // The workload, in the word the simulation chose for it — not the ladder
+        // coordinate, which is a different quantity under the same name. `count:`
+        // is frames, or lines, or orders; `units` is whatever the handlers counted
+        // with units(n), and the two are equal only by coincidence. Printing the
+        // ladder's numbers against the file's noun told a reader that a file saying
+        // `count: 36000` had been run at 48,000 of something it never mentioned.
+        //
+        // Same arithmetic as Simulate.input, deliberately, so the number here is
+        // the number Load was handed rather than a second estimate of it.
+        long ran = Math.round(s.input().count() * (plan.units() / (double) plan.fullUnits()));
+        System.out.printf("%s  seed %d  scaled %,d -> %,d %s (x%,.0f)%s%n",
+                s.file(), s.seed(), ran, s.input().count(), plural(s.input().unit()),
+                plan.scaleFactor(),
                 scaled.planWasCached() ? "  [plan cached]"
                         : String.format("  [plan fitted from %d probe runs in %.1fs]",
                                 plan.gridRuns(), (System.nanoTime() - began) / 1e9));
+        // And the ladder coordinate on its own line, named as what it is, because
+        // the laws below are written in it and a reader who could not find 8,000
+        // anywhere in their own file would be right to distrust the fit.
+        System.out.printf("  measured at %,d units — what the handlers counted with units(n),"
+                + " and what the laws below are fitted in%n", plan.units());
         System.out.println();
         System.out.print(plan.laws().describe());
         System.out.println();
@@ -365,6 +381,19 @@ public final class Main {
                 scaled.run().telemetry().events().size(),
                 scaled.run().telemetry().spans().size(), target);
         return scaled.run().completed() ? 0 : 1;
+    }
+
+    /**
+     * The simulation's own unit, said of more than one of them.
+     *
+     * <p>Naive on purpose. {@code unit:} is documented as singular and as a word
+     * the author picks — frame, line, order, row, record, request — and every one
+     * of those pluralises with an s. An irregular noun here prints a wrong plural
+     * in one header, which is a smaller thing to be wrong about than carrying a
+     * table of English exceptions in a simulator.
+     */
+    private static String plural(String unit) {
+        return unit.endsWith("s") ? unit : unit + "s";
     }
 
     private static String human(double v) {

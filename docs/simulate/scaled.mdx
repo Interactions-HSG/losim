@@ -26,8 +26,10 @@ java -Xmx3g -cp "${CP}build/losim.jar:build/losim/classes" \
 The first run is slow, and here is where the time goes:
 
 ```
-thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 units (x5,000)
+thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 frames (x5,000)
                                               [plan fitted from 30 probe runs in 41.2s]
+  measured at 8,000 units — what the handlers counted with units(n), and what the
+  laws below are fitted in
 ```
 
 Thirty small runs — four data sizes at six seeds each, two system shapes, and a
