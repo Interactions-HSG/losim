@@ -79,7 +79,7 @@ public final class Verifier {
     /**
      * Everything reachable from these classes, and what it trips.
      *
-     * @param services the fleet's own service classes, so a static handle on one can
+     * @param services the cluster's own service classes, so a static handle on one can
      *                 be reported as what it is — a machine reaching into another —
      *                 rather than as a shared field in general
      */
@@ -188,7 +188,7 @@ public final class Verifier {
     }
 
     /**
-     * Static fields the whole fleet shares.
+     * Static fields the whole cluster shares.
      *
      * <p>The distinction that has to be got right is between state and a constant.
      * {@code static final Map M = new HashMap<>()} is one map for eight machines;
@@ -271,7 +271,7 @@ public final class Verifier {
      *
      * <p>Named rather than matched by package, because {@code java.util} also holds
      * {@code Random}, {@code Optional} and {@code UUID}, and a shared one of those
-     * makes no measurement wrong. What belongs here is what a fleet can accumulate
+     * makes no measurement wrong. What belongs here is what a cluster can accumulate
      * into.
      */
     private static final Set<String> CONTAINERS = Set.of(

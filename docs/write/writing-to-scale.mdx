@@ -61,24 +61,24 @@ against every candidate and keeps the one that would be **reproduced**, not the 
 with the best R². [How the laws are chosen ->](/engine/laws)
 </Note>
 
-## 4. Let the fleet vary independently of the data
+## 4. Let the cluster vary independently of the data
 
-The probe grid varies data size and fleet size on separate axes, and regenerates
+The probe grid varies data size and cluster size on separate axes, and regenerates
 every pool that has more than one machine at the size it wants. That works as long
-as your job asks the fleet how big it is:
+as your job asks the cluster how big it is:
 
 ```java
 var workers = cluster.serving("Thumbnailer");    // however many there are
 ```
 
 A job with `for (int i = 0; i < 4; i++)` hard-coded in it cannot be run at two
-workers or at eight, so the fleet axis collapses — and a resource that grows with
-the fleet becomes indistinguishable from one that grows with the data. That is the
+workers or at eight, so the cluster axis collapses — and a resource that grows with
+the cluster becomes indistinguishable from one that grows with the data. That is the
 failure mode that makes every projection plausible and wrong, because nothing looks
 broken.
 
 <Tip>
-Singleton machines — the coordinator — are left alone when the fleet is resized.
+Singleton machines — the coordinator — are left alone when the cluster is resized.
 Only pools with `count:` are regenerated, so put your workers in a pool.
 </Tip>
 
@@ -164,7 +164,7 @@ until the cluster bill arrives.
 
     The grid runs a fault column when the scenario declares any weather, and folds
     the result in as an amplification term. A scenario with no faults gets a note
-    saying the projection describes a fleet where nothing goes wrong.
+    saying the projection describes a cluster where nothing goes wrong.
   </Accordion>
   <Accordion title="Do not expect a timeline" icon="clock">
     The makespan is the noisiest thing losim measures, and on short handlers its

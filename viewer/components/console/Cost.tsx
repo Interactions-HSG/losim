@@ -157,7 +157,7 @@ export function Cost() {
     return rows.sort((a, b) => b.focus.cost - a.focus.cost);
   }, [run, ledger, now]);
 
-  /** What the fleet carries between them, so the remainder can say it is nobody's. */
+  /** What the cluster carries between them, so the remainder can say it is nobody's. */
   const claimed = useMemo(() => mine.reduce((a, r) => a + r.focus.cost, 0), [mine]);
 
   /**

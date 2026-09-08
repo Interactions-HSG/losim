@@ -149,7 +149,7 @@ export function Film({
    * The shape of the stage, so the arrangement can be searched against it.
    *
    * Quantised to a tenth, because a layout that re-searched on every pixel of a
-   * window drag would rearrange the fleet while someone was resizing — and the
+   * window drag would rearrange the cluster while someone was resizing — and the
    * difference between 2.10 and 2.13 never changes the answer anyway.
    */
   const [aspect, setAspect] = useState(12.4 / 5.6);
@@ -203,11 +203,11 @@ export function Film({
    * When a machine is too small to wear its labels.
    *
    * Counting machines is the wrong test: it would cost the badges on every
-   * fleet over thirteen — including the sixteen- and twenty-five-machine runs,
+   * cluster over thirteen — including the sixteen- and twenty-five-machine runs,
    * where they fit perfectly well. What decides it is how large a machine is actually
    * drawn, which the layout already knows: across the whole gallery that runs
    * from 1.55 at two machines down to 0.47 at twenty-five, so nothing here is
-   * cramped and the badges stay on. The floor is there for a fleet larger than
+   * cramped and the badges stay on. The floor is there for a cluster larger than
    * anything yet run.
    */
   const dense = layout.scaleFor < 0.4;
@@ -376,7 +376,7 @@ export function Film({
         <span className="muted vhint">what is true right now</span>
 
         {/* Filters set machines aside rather than removing them, so the picture
-            never jumps and a filtered machine is still visibly among a fleet. */}
+            never jumps and a filtered machine is still visibly among a cluster. */}
         <div className="filters">
           <select value={zone} onChange={(e) => setZone(e.target.value)} aria-label="zone">
             <option value="">every zone</option>

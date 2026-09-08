@@ -25,7 +25,7 @@ clock, and a handler really can race with itself.
 
 Recorded when a call waited more than a microsecond for a core. Without it, a
 queued call would be indistinguishable from a slow one — which is the single most
-common misreading of a fleet under load.
+common misreading of a cluster under load.
 
 The series carries both halves per machine:
 
@@ -79,7 +79,7 @@ Wrap the machine's executor with Context.currentContextExecutor.
   </Card>
   <Card title="Call more machines" icon="server">
     Work is spread by **calling peers**, not by starting threads. That is the
-    whole model: a fleet gets faster by being a fleet.
+    whole model: a cluster gets faster by being a cluster.
   </Card>
 </Columns>
 
@@ -120,7 +120,7 @@ machines:
 ```
 
 Dispatch eight 100 refMs calls at it and you get roughly four waves, not one and not
-eight. That is the model working, and it is the thing to check first if a fleet's
+eight. That is the model working, and it is the thing to check first if a cluster's
 timings look impossibly good.
 
 ## See it

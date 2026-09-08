@@ -63,10 +63,10 @@ emergent property of a configuration nobody read.
 - { method: Thumbnail }                      # the bare rpc name
 - { method: lab.Thumbnailer.Thumbnail }      # fully qualified, dotted
 - { method: Thumbnailer.Thumbnail }          # a suffix of the dotted name
-- { method: "*" }                            # everything the fleet serves
+- { method: "*" }                            # everything the cluster serves
 ```
 
-A policy naming a method **no machine in the fleet serves** is refused too — a typo
+A policy naming a method **no machine in the cluster serves** is refused too — a typo
 in a policy would otherwise be a policy that silently does nothing.
 
 ## Every attempt is a real call
@@ -81,7 +81,7 @@ The retry interceptor sits **outside** the recording one. So each attempt gets:
 <Warning>
 A retry that reused the first attempt's accounting would make a design that retries
 look **cheaper** than one that does not, which is the opposite of the truth. If your
-fleet retries under load, the bill's wire and capacity lines go up, and they should.
+cluster retries under load, the bill's wire and capacity lines go up, and they should.
 </Warning>
 
 The trace says what happened:

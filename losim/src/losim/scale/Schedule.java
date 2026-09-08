@@ -19,7 +19,7 @@ import losim.trace.Telemetry;
  * spacing is not</b> — spacing is precisely what changes with scale, and a
  * reconstruction that kept it would be answering a question nobody asked.
  *
- * <p>What this catches that multiplication cannot: a fleet with spare cores. Four
+ * <p>What this catches that multiplication cannot: a cluster with spare cores. Four
  * calls into eight cores take one wave; sixteen calls take two. Multiplying the
  * first run by four says eight waves.
  */
@@ -81,7 +81,7 @@ public final class Schedule {
     }
 
     /**
-     * Runs the graph again, with the projected durations and the fleet's real cores.
+     * Runs the graph again, with the projected durations and the cluster's real cores.
      *
      * <p>A list-scheduling replay: a task becomes ready when everything the caller
      * waited for has finished, and starts when its machine has a core free. The
@@ -125,8 +125,8 @@ public final class Schedule {
         }
         return new Replay(makespan, tasks.size(), longestChain,
                 makespan > longestChain * 1.05
-                        ? "the fleet's cores are the limit, not the call graph"
-                        : "the call graph is the limit, not the fleet's cores");
+                        ? "the cluster's cores are the limit, not the call graph"
+                        : "the call graph is the limit, not the cluster's cores");
     }
 
     /** What multiplying the observed makespan would have said, for comparison. */

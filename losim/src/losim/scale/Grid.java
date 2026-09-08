@@ -10,13 +10,13 @@ import losim.trace.Telemetry;
  * The probe grid: the same system, run small, several ways.
  *
  * <pre>
- *   data size      x  fleet size  x  fault schedule
+ *   data size      x  cluster size  x  fault schedule
  *   1k 2k 4k 8k    x  2, 4        x  none | the scenario's        x 3+ seeds, median taken
  * </pre>
  *
  * <p>Varying the axes <b>independently</b> is the whole reason this is a grid and
  * not a ladder. A resource that grows with the data and a resource that grows with
- * the fleet look identical if the two only ever move together, and an engine that
+ * the cluster look identical if the two only ever move together, and an engine that
  * folds one into the other produces projections that are plausible and wrong — the
  * failure mode that is hardest to notice, because nothing looks broken.
  *
@@ -26,7 +26,7 @@ import losim.trace.Telemetry;
  * and it under-predicts <i>optimistically</i>.
  */
 public record Grid(List<List<Probe>> dataLadder,
-                   List<List<Probe>> fleetLadder,
+                   List<List<Probe>> clusterLadder,
                    List<Probe> clean,
                    List<Probe> weathered,
                    List<String> notes) {
@@ -45,15 +45,15 @@ public record Grid(List<List<Probe>> dataLadder,
         long[] seeds = seedsFrom(s.seed(), seedCount);
         var notes = new ArrayList<String>();
 
-        // The data ladder is climbed on the fleet that will actually run — not on the
-        // largest shape in the fleet ladder. A law fitted on eight workers and applied
+        // The data ladder is climbed on the cluster that will actually run — not on the
+        // largest shape in the cluster ladder. A law fitted on eight workers and applied
         // to a run of two describes a differently-shaped system from the one being
         // measured, which is the same mistake as fitting on clean runs and predicting
-        // a faulty one. The fleet ladder exists to cross-check that attribution, not
+        // a faulty one. The cluster ladder exists to cross-check that attribution, not
         // to decide what the data ladder is climbed on.
-        int baseFleet = workersIn(s);
+        int baseCluster = workersIn(s);
         // The data ladder is climbed with the weather off, so what moves is the data.
-        var bare = s.withoutWeather().withWorkers(baseFleet);
+        var bare = s.withoutWeather().withWorkers(baseCluster);
 
         var dataLadder = new ArrayList<List<Probe>>();
         for (int size : sizes) {
@@ -63,19 +63,19 @@ public record Grid(List<List<Probe>> dataLadder,
             dataLadder.add(rung);
         }
 
-        // The fleet ladder holds the data still, so what moves is the fleet.
+        // The cluster ladder holds the data still, so what moves is the cluster.
         int midSize = sizes.get(sizes.size() / 2);
-        // The fleet ladder and the fault column are cross-checks rather than sources
+        // The cluster ladder and the fault column are cross-checks rather than sources
         // of an error bar, so they are run at fewer seeds: only the data ladder's
         // exponent has to be shown to be reproducible.
         long[] few = Arrays.copyOf(seeds, Math.min(2, seeds.length));
-        var fleetLadder = new ArrayList<List<Probe>>();
+        var clusterLadder = new ArrayList<List<Probe>>();
         for (int workers : counts) {
             var rung = new ArrayList<Probe>();
             for (long seed : few)
                 rung.add(Probe.run(s.withoutWeather().withWorkers(workers)
                         .withUnits(midSize).withSeed(seed), loader, level));
-            fleetLadder.add(rung);
+            clusterLadder.add(rung);
         }
 
         // And the fault column holds both still, so what moves is the weather.
@@ -83,17 +83,17 @@ public record Grid(List<List<Probe>> dataLadder,
         var weathered = new ArrayList<Probe>();
         if (s.faults().isEmpty() && s.chaos().isEmpty()) {
             notes.add("this scenario declares no faults, so the model carries no amplification "
-                    + "term — a projection from it describes a fleet where nothing goes wrong");
+                    + "term — a projection from it describes a cluster where nothing goes wrong");
         } else {
             int topSize = sizes.get(sizes.size() - 1);
             for (long seed : few)
-                weathered.add(Probe.run(s.withWorkers(baseFleet).withUnits(topSize)
+                weathered.add(Probe.run(s.withWorkers(baseCluster).withUnits(topSize)
                         .withSeed(seed), loader, level));
         }
-        return new Grid(dataLadder, fleetLadder, clean, weathered, notes);
+        return new Grid(dataLadder, clusterLadder, clean, weathered, notes);
     }
 
-    /** The fleet the scenario declares: every machine that serves something. */
+    /** The cluster the scenario declares: every machine that serves something. */
     static int workersIn(Scenario s) {
         long serving = s.machines().stream().filter(m -> !m.runs().isEmpty()).count();
         return (int) Math.max(1, serving);
@@ -103,14 +103,14 @@ public record Grid(List<List<Probe>> dataLadder,
     public int runs() {
         int n = weathered.size();
         for (var rung : dataLadder) n += rung.size();
-        for (var rung : fleetLadder) n += rung.size();
+        for (var rung : clusterLadder) n += rung.size();
         return n;
     }
 
     /**
      * How much more a resource costs when things go wrong.
      *
-     * <p>{@code demand = base(size, fleet) * amplification(faults)}. One is returned
+     * <p>{@code demand = base(size, cluster) * amplification(faults)}. One is returned
      * when the scenario declares no weather, and that is recorded as a limit of the
      * model rather than as an absence of one.
      */

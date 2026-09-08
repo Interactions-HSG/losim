@@ -23,7 +23,7 @@ import * as D from './design.ts';
 
 export interface Theme {
   dark: boolean;
-  /** The ground the fleet stands on. */
+  /** The ground the cluster stands on. */
   surface: string;
   /** A machine's body, and the shade it is lit from. */
   machine: string;

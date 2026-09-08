@@ -12,7 +12,7 @@
  * `losim bill --json` said, to the rappen.
  *
  * **Is the attribution a partition?** Pointing at a machine shows its share.
- * Shares that sum past 1 charge the fleet more than it was billed; shares that
+ * Shares that sum past 1 charge the cluster more than it was billed; shares that
  * silently sum to less lose money down a crack. Neither is visible by looking at
  * a picture — both are one line of arithmetic here. A line attributed to nobody
  * is fine and expected (the late-finish penalty), so what is checked is
@@ -81,7 +81,7 @@ for (const name of names) {
     last = at;
   }
 
-  // The attribution, summed over the fleet, against the same line's own total.
+  // The attribution, summed over the cluster, against the same line's own total.
   const perMachine = trace.machines.map((m) => model.at(trace.duration, m.name));
   for (let i = 0; i < close.lines.length; i++) {
     const line = close.lines[i].line;
@@ -97,13 +97,13 @@ for (const name of names) {
     if (whole <= 1e-9) continue;
     const share = sum / whole;
     // Either all of it is somebody's or none of it is. Anything between is a
-    // line that half-belongs to the fleet, which is not a claim anyone can read.
+    // line that half-belongs to the cluster, which is not a claim anyone can read.
     if (share > 0.0001 && Math.abs(share - 1) > 0.0001) {
       problems.push(`"${line.what}" attributed ${(share * 100).toFixed(2)}% of itself`);
     }
   }
 
-  // And the fleet's shares of the total must not exceed the total.
+  // And the cluster's shares of the total must not exceed the total.
   const together = perMachine.reduce((a, p) => a + (p.focus?.cost ?? 0), 0);
   if (together > close.cost + RAPPEN) {
     problems.push(`machines carry ${together.toFixed(4)} of a ${close.cost.toFixed(4)} bill`);

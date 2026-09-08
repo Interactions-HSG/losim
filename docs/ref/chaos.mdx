@@ -12,7 +12,7 @@ chaos:
 ```
 
 <Note>
-A scenario with a fault at 900 refMs teaches the fleet to survive 900 refMs. A rate
+A scenario with a fault at 900 refMs teaches the cluster to survive 900 refMs. A rate
 teaches it to survive **whenever**, which is the harder and more honest thing — and
 it is why sweeps exist: one seed shows a design survived an afternoon, twenty show
 it survives afternoons.
@@ -65,7 +65,7 @@ reader can tell a scripted fault from a drawn one, and both are otherwise identi
 <Note>
 Each firing draws the next one, so chaos keeps happening for as long as the run
 does. There is nothing to overrun and no `over_horizon` event: a quiet second half
-that looked exactly like a fleet behaving well used to be possible, and is not any
+that looked exactly like a cluster behaving well used to be possible, and is not any
 more.
 </Note>
 

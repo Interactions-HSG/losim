@@ -24,7 +24,7 @@ public final class Solve {
     /** The variable part must be at least this many times the fixed part to be worth fitting. */
     static final double VARIABLE_MUST_DOMINATE = 10.0;
 
-    /** How much of the host's heap a scaled fleet may ask for. */
+    /** How much of the host's heap a scaled cluster may ask for. */
     static final double HOST_HEAP_SHARE = 0.6;
 
     public static ScalePlan of(Scenario s, Grid grid, Laws laws) {
@@ -90,7 +90,7 @@ public final class Solve {
         double demand = laws.project(Probe.MEMORY, n).orElse(0)
                 * Math.max(1, s.machines().size() - 1);
         if (demand > heapMb)
-            return String.format("at %d units the fleet would hold %.0f MB, and this host"
+            return String.format("at %d units the cluster would hold %.0f MB, and this host"
                     + " offers %.0f MB to work in — the run does not fit the laptop it is"
                     + " meant to fit on", n, demand, heapMb);
         return null;

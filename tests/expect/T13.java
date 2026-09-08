@@ -109,7 +109,7 @@ public final class T13 {
         double reportedChatty = runs.get("full, 1000 reveals").sum("allocMb");
         double rawFull = reportedFull + ledgerFull;
         double rawChatty = reportedChatty + ledgerChatty;
-        e.note(String.format("the fleet reports %.1f MB quiet and %.1f MB chatty; before "
+        e.note(String.format("the cluster reports %.1f MB quiet and %.1f MB chatty; before "
                 + "subtraction it was %.1f and %.1f", reportedFull, reportedChatty, rawFull, rawChatty));
         e.check(rawChatty - rawFull > ledgerFull,
                 "the raw figure moves by more than the whole of the quiet run's overhead when "

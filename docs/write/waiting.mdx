@@ -39,7 +39,7 @@ flags it in favour of.
   </Card>
   <Card title="It does not mark the machine busy" icon="bed">
     A backoff occupies no vCPU. Counting it as occupancy would overstate how loaded
-    the fleet was, and `busyPct` is one of the numbers a reader trusts most.
+    the cluster was, and `busyPct` is one of the numbers a reader trusts most.
 
     The `sleep` event is what puts it on the timeline — which is enough to tell a
     stretch of waiting from a stretch of doing nothing.

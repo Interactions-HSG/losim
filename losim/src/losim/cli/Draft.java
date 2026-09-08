@@ -93,7 +93,7 @@ public final class Draft {
     /**
      * @param multiplier what the wait is multiplied by after each attempt. 1 is a
      *                   flat backoff; anything above it is exponential, which is
-     *                   the difference between a fleet that eases off a struggling
+     *                   the difference between a cluster that eases off a struggling
      *                   machine and one that keeps hammering it at a fixed rate.
      */
     public record Retry(String method, int attempts, double backoffRefMs,
@@ -211,7 +211,7 @@ public final class Draft {
             String prefix = spec.opt("prefix").str(poolName);
             // The one shape a pool cannot be written back in. A pool of one with
             // an explicit `count: 1` is called `a0`; the form writes a pool of one
-            // without a count, which is called `a`. Same fleet, different machine
+            // without a count, which is called `a`. Same cluster, different machine
             // names, and every fault points at a name.
             if (count == 1 && prefix.equals(poolName)) throw spec.at("count").fail(
                     "'" + poolName + "' is a pool of one written with count: 1, so its machine is"

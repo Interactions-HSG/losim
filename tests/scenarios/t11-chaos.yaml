@@ -1,6 +1,6 @@
 # Four workers under a standing rate of failure rather than one scripted moment,
 # and these ones do not come back. Failures are discrete and rare, so this is what
-# a fleet's bad afternoon looks like on average rather than what one particular
+# a cluster's bad afternoon looks like on average rather than what one particular
 # afternoon looked like — which is why the amplification term is fitted over
 # several seeds rather than read off one run.
 mode: scaled

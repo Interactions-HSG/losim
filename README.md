@@ -96,7 +96,7 @@ trace to say it happened.
 
 ## A scenario
 
-The fleet, its weather and its bad afternoon are data. Nothing here is computed;
+The cluster, its weather and its bad afternoon are data. Nothing here is computed;
 anything that needs code points at a class, so two designs can be compared by
 comparing two of these.
 
@@ -126,7 +126,7 @@ never sees.
 
 Everything else that can be wrong is refused the same way, with the line it was
 written on — an unknown instance type, a fault aimed at a machine that is not in
-the fleet, a key that is a typo for a real one. **Including a retry policy the
+the cluster, a key that is a typo for a real one. **Including a retry policy the
 schema does not support:**
 
 ```
@@ -245,7 +245,7 @@ incidents, and one number cannot say that.
 ```
 what it is a model of
   build       services carried                 1.000 services       CHF    0.2500
-  capacity    the fleet, for the period            -                CHF   refused
+  capacity    the cluster, for the period            -                CHF   refused
       its exponent moves by 0.793 between independent seed sets of the same workload,
       which over a factor of 6 is an error bar of x4.1 — wider than anything it would
       be asked to distinguish
@@ -281,7 +281,7 @@ interchange format, and a build whose trace was unreadable would pass every chec
 losim makes of itself.
 
 Nine of them are systems. Four test the engine rather than the systems: a projection
-checked against a run at full size, a matrix that varies the fleet independently of the
+checked against a run at full size, a matrix that varies the cluster independently of the
 data, two workloads the engine has to refuse, and one ladder fitted at four levels of
 instrumentation. The last is the one that regresses invisibly, so it is run at the
 extreme: a thousand `reveal` calls per handler, where losim charges itself 54 MB and
@@ -303,7 +303,7 @@ printed rather than judged.
 
 ## Status
 
-Phases 1 through 5 are in: the fleet, direct mode, the scaler engine, the trust
+Phases 1 through 5 are in: the cluster, direct mode, the scaler engine, the trust
 markers and the reference suite. One in-process server per machine, one executor per
 machine sized to its vCPU count, losim wrapped around every call as gRPC's own
 interceptors, a scenario driving all of it, an engine that decides how to shrink the
@@ -335,12 +335,12 @@ they instrumented it.
 
 ```
 losim/src/losim/api/       what a handler may say to losim — and all it can reach
-losim/src/losim/runtime/   the fleet, the machines, the two interceptors
+losim/src/losim/runtime/   the cluster, the machines, the two interceptors
 losim/src/losim/trace/     the three-channel recorder and the trace it writes
 losim/src/losim/time/      the compressed clock, and fault placement
 losim/src/losim/res/       instance types, the heap walk, losim's own meter
 losim/src/losim/scale/     the probe grid, the laws, the solve — and the refusals
-losim/src/losim/scenario/  a fleet and its weather, as data
+losim/src/losim/scenario/  a cluster and its weather, as data
 losim/src/losim/verify/    what makes a number stop meaning what it says
 losim/src/losim/price/     five buckets, and what cannot be put in them
 losim/src/losim/cli/       losim run | bill | diff

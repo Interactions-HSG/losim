@@ -26,7 +26,7 @@ public final class WordCount implements Job {
         "a cat a dog a bird",      "the mat the log the cat",
     };
 
-    /** What the answer has to be, counted here so the fleet's answer can be checked. */
+    /** What the answer has to be, counted here so the cluster's answer can be checked. */
     public static Map<String, Integer> truth() {
         var out = new TreeMap<String, Integer>();
         for (String line : CORPUS)
@@ -42,7 +42,7 @@ public final class WordCount implements Job {
         List<String> mappers = cluster.serving("Worker");
         List<String> reducers = cluster.serving("Shuffler");
         if (mappers.isEmpty() || reducers.isEmpty())
-            throw new IllegalStateException("this fleet has no pipeline to run");
+            throw new IllegalStateException("this cluster has no pipeline to run");
 
         var mapped = new ConcurrentHashMap<Integer, Counts>();
         try (var phase = cluster.phase("map")) {

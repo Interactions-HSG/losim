@@ -96,13 +96,13 @@ overrides:
   w2: { instance: a1.medium } # one core against the pool's two — half the machine
 ```
 
-A fleet where every machine is identical teaches nothing about placement, and
+A cluster where every machine is identical teaches nothing about placement, and
 placement is most of what a coordinator is for.
 
 ## In scaled mode
 
 **Do not write caps.** The engine solves for them, per machine and per resource, so
-that demand-over-capacity is preserved at both scales. What you write is the fleet's
+that demand-over-capacity is preserved at both scales. What you write is the cluster's
 *shape*; the engine decides its size. [Solving caps ->](/engine/solving-caps)
 
 ## A machine, at run time

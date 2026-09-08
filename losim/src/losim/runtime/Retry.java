@@ -31,7 +31,7 @@ public record Retry(String method, int attempts, double backoffRefMs,
     /**
      * Refuses a policy the schema does not support.
      *
-     * @param known every method the fleet actually serves
+     * @param known every method the cluster actually serves
      * @throws IllegalArgumentException naming the file and line, because a
      *         configuration error should read like a compiler error
      */
@@ -39,7 +39,7 @@ public record Retry(String method, int attempts, double backoffRefMs,
         var matched = known.stream().filter(this::matches).toList();
         if (matched.isEmpty())
             throw new IllegalArgumentException(where + ": retry policy names '" + method
-                    + "', which no machine in this fleet serves");
+                    + "', which no machine in this cluster serves");
         if (unsafe) return;
         var unsound = matched.stream().filter(md -> !md.isIdempotent()).toList();
         if (unsound.isEmpty()) return;

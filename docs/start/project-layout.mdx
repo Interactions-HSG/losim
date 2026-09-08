@@ -31,7 +31,7 @@ whatever `.java` and `.proto` the project holds, and it compiles as one thing �
 class can be placed on any machine. Add a file and it is in the next run.
 
 **One code folder, many scenarios.** What changes between two runs of the same system
-is almost never the code; it is the fleet, the distances and what goes wrong. So those
+is almost never the code; it is the cluster, the distances and what goes wrong. So those
 are what there are many of. Write a scenario in the console's **Scenarios** page and it
 lands in `scenarios/` beside the others.
 
@@ -60,12 +60,12 @@ build/                   generated, all of it. The viewer's committed export is 
 
 
 losim/src/losim/api/     what a handler may say to losim — and all it can reach
-losim/src/losim/runtime/ the fleet, the machines, the two interceptors
+losim/src/losim/runtime/ the cluster, the machines, the two interceptors
 losim/src/losim/trace/   the three-channel recorder and the trace it writes
 losim/src/losim/time/    the compressed clock, and fault placement
 losim/src/losim/res/     instance types, the heap walk, losim's own meter
 losim/src/losim/scale/   the probe grid, the laws, the solve — and the refusals
-losim/src/losim/scenario/ a fleet and its weather, as data
+losim/src/losim/scenario/ a cluster and its weather, as data
 losim/src/losim/verify/  what makes a number stop meaning what it says
 losim/src/losim/price/   four buckets, and what cannot be put in them
 losim/src/losim/cli/     losim run | bill | diff

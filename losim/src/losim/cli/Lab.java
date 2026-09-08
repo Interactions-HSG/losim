@@ -609,7 +609,7 @@ public final class Lab {
         }
 
         if (chosen == null) {
-            // Ordinary Java on one machine: there is no fleet to simulate and
+            // Ordinary Java on one machine: there is no cluster to simulate and
             // nothing to draw, so the code speaks for itself.
             String main = mainClassOf(c.sources());
             if (main == null) {

@@ -32,7 +32,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
     /** Heap walks cost ~0.06 µs an object, so a busy machine is not walked every tick. */
     private static final int WALK_EVERY_TICKS = 8;
 
-    private final Fleet fleet;
+    private final Machines machines;
     final String name, zone;
 
     /**
@@ -80,14 +80,14 @@ public final class Machine implements Bound, Telemetry.Sampled {
      * Set once this machine has been shut down, and never cleared.
      *
      * <p>A fault scheduled inside the run's horizon can still be in flight when the
-     * run ends. The dispatcher is stopped before the fleet is torn down, which is
+     * run ends. The dispatcher is stopped before the cluster is torn down, which is
      * the tidy half, but stopping the thing that schedules faults does not stop a
      * fault already running — so a {@code restart_after} could land after every
-     * machine had given its name back, and bind this one's name into a fleet that
-     * no longer exists. Nobody would ever release it, and the <i>next</i> fleet in
+     * machine had given its name back, and bind this one's name into a cluster that
+     * no longer exists. Nobody would ever release it, and the <i>next</i> cluster in
      * the same JVM would find the name taken.
      *
-     * <p>This is likeliest under chaos: thirty fleets running back to back in one
+     * <p>This is likeliest under chaos: thirty clusters running back to back in one
      * JVM, every one of them with a machine called {@code m0}, and enough
      * scheduled restarts for one to fall off the end.
      *
@@ -143,9 +143,9 @@ public final class Machine implements Bound, Telemetry.Sampled {
     private final java.util.concurrent.atomic.AtomicBoolean diskFullReported =
             new java.util.concurrent.atomic.AtomicBoolean();
 
-    Machine(Fleet fleet, String name, InstanceSpec spec, String zone,
+    Machine(Machines machines, String name, InstanceSpec spec, String zone,
             double memoryCapMb, double diskCapMb) {
-        this.fleet = fleet;
+        this.machines = machines;
         this.name = name;
         this.spec = spec;
         this.zone = zone;
@@ -172,8 +172,8 @@ public final class Machine implements Bound, Telemetry.Sampled {
         this.allocAtBoot = boot < 0 ? 0 : boot;
     }
 
-    Fleet fleet() { return fleet; }
-    Telemetry tel() { return fleet.tel; }
+    Machines machines() { return machines; }
+    Telemetry tel() { return machines.tel; }
     public String name() { return name; }
     @Override public losim.api.Spec here() { return here; }
     public int vcpu()    { return vcpu; }
@@ -314,7 +314,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
             roots.add(s);                                // a machine's data hangs off its services
             // What the scenario called this, so `takes:` can be looked up under the
             // same word the person wrote. Falling back to the class's own name for
-            // a fleet built in code, which named nothing.
+            // a cluster built in code, which named nothing.
             String named = offered.named() != null ? offered.named() : nameOf(s.getClass());
             var def = s.bindService();
             for (var m : def.getMethods()) {
@@ -325,7 +325,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
             String svc = def.getServiceDescriptor().getName();
             String bare = svc.substring(svc.lastIndexOf('.') + 1);
             if (!servicesOffered.contains(bare)) servicesOffered.add(bare);
-            fleet.offers(svc, name);
+            machines.offers(svc, name);
             b.addService(ServerInterceptors.intercept(def, new ServerSide(this)));
         }
         recost();
@@ -344,7 +344,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
     /**
      * Says this machine exists.
      *
-     * <p>Held back until the run's clock starts, so a fleet's booting does not
+     * <p>Held back until the run's clock starts, so a cluster's booting does not
      * appear to have happened before the run it belongs to.
      */
     void announceBoot() {
@@ -390,7 +390,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
             if (until == 0) return;
             long left = until - System.nanoTime();
             if (left <= 0) return;
-            fleet.clock.parkRealNanos(Math.min(left, 2_000_000));
+            machines.clock.parkRealNanos(Math.min(left, 2_000_000));
         }
     }
 
@@ -435,7 +435,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
     /**
      * Re-reads the scenario's costs, for the methods this machine now serves.
      *
-     * <p>Called when the fleet is told what things cost and again whenever this
+     * <p>Called when the cluster is told what things cost and again whenever this
      * machine rebuilds its services, because a machine that was killed and came
      * back with fresh handlers would otherwise come back free.
      */
@@ -443,13 +443,13 @@ public final class Machine implements Bound, Telemetry.Sampled {
         declared.clear();
         for (io.grpc.MethodDescriptor<?, ?> md : served) {
             String full = md.getFullMethodName();
-            Cost c = fleet.costs().get(runsAs.getOrDefault(full, "") + "." + rpcOf(full));
+            Cost c = machines.costs().get(runsAs.getOrDefault(full, "") + "." + rpcOf(full));
             if (c != null) declared.put(full, c);
         }
     }
 
     /**
-     * What to call a service nobody named — a fleet built in code rather than from
+     * What to call a service nobody named — a cluster built in code rather than from
      * a scenario.
      *
      * <p>Its own class, unless that is an anonymous one: {@code new VolleyBase(){…}}
@@ -519,9 +519,9 @@ public final class Machine implements Bound, Telemetry.Sampled {
      */
     public ManagedChannel channelTo(String peer) {
         var b = InProcessChannelBuilder.forName(peer).usePlaintext();
-        return fleet.retries().isEmpty()
+        return machines.retries().isEmpty()
                 ? b.intercept(new ClientSide(this, peer)).build()
-                : b.intercept(new Retrying(this, fleet.retries()), new ClientSide(this, peer)).build();
+                : b.intercept(new Retrying(this, machines.retries()), new ClientSide(this, peer)).build();
     }
 
     /** Every service this machine offers, by name — how peers find it, and what it is. */
@@ -603,7 +603,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
         if (total < 0) {
             // Said once, and said in the trace: the difference between "nothing"
             // and "cannot say" has to be visible to whoever reads the number.
-            if (meterLost.compareAndSet(false, true) && fleet != null && tel() != null)
+            if (meterLost.compareAndSet(false, true) && machines != null && tel() != null)
                 tel().event(name, "meter_lost", "resource", "allocation",
                         "cause", "a thread of this machine can no longer be read",
                         "lastKnownBytes", lastGoodRaw.get());
@@ -677,12 +677,12 @@ public final class Machine implements Bound, Telemetry.Sampled {
     }
 
     @Override public List<String> peers() {
-        return fleet.names().stream().filter(n -> !n.equals(name)).toList();
+        return machines.names().stream().filter(n -> !n.equals(name)).toList();
     }
 
     /** Peers, so not this machine: a blocking call to itself would starve its own pool. */
     @Override public List<String> peersServing(String service) {
-        return fleet.serving(service).stream().filter(n -> !n.equals(name)).toList();
+        return machines.serving(service).stream().filter(n -> !n.equals(name)).toList();
     }
 
     /**
@@ -693,9 +693,9 @@ public final class Machine implements Bound, Telemetry.Sampled {
      * one place that closes them.
      */
     @Override public io.grpc.Channel dial(String peer) {
-        if (fleet.machine(peer) == null)
+        if (machines.machine(peer) == null)
             throw new IllegalArgumentException("there is no machine called '" + peer
-                    + "'; this fleet has " + String.join(", ", fleet.names()));
+                    + "'; this cluster has " + String.join(", ", machines.names()));
         return dialled.computeIfAbsent(peer, this::channelTo);
     }
 
@@ -729,12 +729,12 @@ public final class Machine implements Bound, Telemetry.Sampled {
      *
      * <p>Nothing more than {@code spend}: no span, and no {@code inflight}. Waiting
      * is not work — a machine backing off occupies no vCPU — so counting it as
-     * occupancy would make an idle fleet look loaded. The event is what puts it on
+     * occupancy would make an idle cluster look loaded. The event is what puts it on
      * the timeline, which is enough to tell a stretch of waiting from a stretch of
      * doing nothing.
      */
     @Override public void sleep(double refMs) {
-        fleet.clock.spend(refMs);
+        machines.clock.spend(refMs);
     }
 
     public long diskBytes() { return diskBytes.get(); }
@@ -801,7 +801,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
      * machine's boundary, which is asserted rather than assumed (D13 rule 7).
      */
     private boolean notMine(Object o) {
-        if (o instanceof Machine || o instanceof Fleet || o instanceof Telemetry
+        if (o instanceof Machine || o instanceof Machines || o instanceof Telemetry
             || o instanceof Telemetry.Span || o instanceof losim.time.Clock || o instanceof Net
             || o instanceof Server || o instanceof Channel
             || o instanceof Executor || o instanceof Thread) return true;
@@ -846,7 +846,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
      *
      * <p>A <b>restart</b> rebinds the same name immediately, so it does not race
      * occasionally — it loses outright. And the <b>probe grid</b> runs thirty
-     * fleets back to back in one JVM, all of them with a machine called {@code m0},
+     * clusters back to back in one JVM, all of them with a machine called {@code m0},
      * so the thirty-first fails to bind a name the thirtieth has not finished
      * releasing. Both races are widest under chaos: more machines dying means more
      * servers shutting down at once. It is the concurrent shutdowns that widen the

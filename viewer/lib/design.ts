@@ -42,7 +42,7 @@ export const CHILL = '#7C93A8'; // frozen: still there, answering nothing
 // ------------------------------------------------------------------- tasks
 //
 // One hue per unit of work, so that two things happening on one machine are two
-// things rather than a busier machine. A fleet is only interesting because work
+// things rather than a busier machine. A cluster is only interesting because work
 // overlaps, and a picture that draws every call in the same ink has thrown away
 // the one property worth watching.
 //
@@ -104,14 +104,14 @@ export const MACHINE_W = 2.05;
 export const MACHINE_H = 1.02;
 
 // A machine is drawn the size it is: **wider with more memory, taller with more
-// cores.** Two axes because the two resources fail differently and a fleet is
+// cores.** Two axes because the two resources fail differently and a cluster is
 // usually short of one of them — a c5.4xlarge and an r5.large are not "one bigger
 // than the other", they are bigger in different directions, and a scenario that
 // puts the map on one and the shuffle on the other is making exactly that
 // distinction.
 //
-// Compressed hard, and against the fleet's own median rather than against an
-// absolute. A fleet spanning a1.nano to c5.4xlarge covers sixty-four times the
+// Compressed hard, and against the cluster's own median rather than against an
+// absolute. A cluster spanning a1.nano to c5.4xlarge covers sixty-four times the
 // memory, and drawn linearly the small machines vanish. The exponents below turn
 // that sixty-four-fold spread into about two and a half, which is as much as a
 // picture can carry while keeping the smallest machine legible.
@@ -120,7 +120,7 @@ export const SIZE_BY_CORES = 0.34; // height
 export const SIZE_MIN = 0.74;
 export const SIZE_MAX = 1.5;
 
-/** How wide and how tall to draw one machine, relative to its fleet. */
+/** How wide and how tall to draw one machine, relative to its cluster. */
 export function sizeOf(
   memoryMb: number,
   vcpu: number,
@@ -139,14 +139,14 @@ export function sizeOf(
 
 // Zones are drawn, not implied. A machine's availability zone decides what every
 // call it makes costs — same-zone latency or cross-zone latency, free or billed —
-// so it is the one fact about a fleet that a picture of the fleet must not leave
+// so it is the one fact about a cluster that a picture of the cluster must not leave
 // to the reader to remember from the YAML.
 export const ZONE_EDGE = '#C9CFD6';
 export const ZONE_LABEL = '#7C8794';
 
 // One tint per zone, because "which of these is a different place" is a question
 // the reader asks constantly and counting bands is a slow way to answer it. Very
-// pale on purpose: a zone is the ground the fleet stands on and must stay behind
+// pale on purpose: a zone is the ground the cluster stands on and must stay behind
 // every machine drawn on it — the moment a background competes with a fill it
 // starts to look like it means something about capacity, which is the one thing
 // it must never say.

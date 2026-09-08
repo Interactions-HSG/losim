@@ -225,7 +225,7 @@ public final class Shape {
     private static final List<String[]> DEAD_GIVEAWAYS = List.of(
             new String[]{"addShutdownHook", "a machine is killed by a fault, not by SIGTERM,"
                     + " so the hook never fires"},
-            new String[]{"awaitTermination", "the fleet owns every lifecycle; nothing here"
+            new String[]{"awaitTermination", "the cluster owns every lifecycle; nothing here"
                     + " waits for a server to end"},
             new String[]{"InsecureServerCredentials", "there is no transport to secure —"
                     + " a call never leaves the JVM"},
@@ -282,7 +282,7 @@ public final class Shape {
             int at = text.indexOf(pattern);
             if (at < 0) continue;
             findings.add(new Finding(Kind.DEAD, "it builds its own server",
-                    "the scenario places services on machines, and the fleet builds every"
+                    "the scenario places services on machines, and the cluster builds every"
                     + " server. A server built here is never intercepted, so nothing it"
                     + " answers is timed, priced or drawn.",
                     new At(file, lineOf(text, at))));

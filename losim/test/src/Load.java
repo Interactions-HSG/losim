@@ -2,7 +2,7 @@ import io.grpc.ManagedChannel;
 import java.util.*;
 import java.util.concurrent.*;
 import losim.api.Losim;
-import losim.runtime.Fleet;
+import losim.runtime.Machines;
 import losim.runtime.Machine;
 import losim.t.*;
 import losim.trace.Telemetry;
@@ -60,14 +60,14 @@ public final class Load {
             throws Exception {
         var clock = new Clock(K_TIME, 1.2832);
         var tel = new Telemetry(clock, level);
-        try (var fleet = new Fleet(tel)) {
-            var master = fleet.machine("master", "m5.2xlarge", "z");
+        try (var machines = new Machines(tel)) {
+            var master = machines.machine("master", "m5.2xlarge", "z");
             var workers = new ArrayList<Machine>();
             var counters = new ArrayList<Counter>();
             for (int i = 0; i < WORKERS; i++) {
                 var c = new Counter(reveals);
                 counters.add(c);
-                workers.add(fleet.machine("w" + i, "m5.large", "z").serving(c));
+                workers.add(machines.machine("w" + i, "m5.large", "z").serving(c));
             }
 
             var channels = new ArrayList<ManagedChannel>();

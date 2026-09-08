@@ -31,7 +31,7 @@ thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 units (x5,000)
                                               [plan fitted from 30 probe runs in 41.2s]
 ```
 
-Thirty small runs — four data sizes at six seeds each, two fleet shapes, and a
+Thirty small runs — four data sizes at six seeds each, two cluster shapes, and a
 fault column — climbed before the real run happens at all. Then:
 
 ```
@@ -122,7 +122,7 @@ The second bill is quantities times prices, and the engine will not project ever
 quantity:
 
 ```
-  capacity    the fleet, for the period            -           CHF   refused
+  capacity    the cluster, for the period            -           CHF   refused
       its exponent moves by 0.793 between independent seed sets of the same
       workload, which over a factor of 6 is an error bar of x4.1
 ```
@@ -143,7 +143,7 @@ thumbs-scaled.yaml  scaled mode: no feasible size
 ```
 
 Feasibility is checked in both directions — large enough that the variable part
-dominates the fixed overhead, small enough that the whole scaled fleet fits in the
+dominates the fixed overhead, small enough that the whole scaled cluster fits in the
 host's heap. [What to do about it ->](/run/when-it-refuses)
 
 <Card title="Next: when it refuses" icon="arrow-right" href="/run/when-it-refuses">

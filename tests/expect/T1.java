@@ -8,7 +8,7 @@ import losim.api.Losim;
  * <p><b>Catches:</b> losim leaking into a signature, and an absent context inventing
  * state that makes a green test meaningless.
  *
- * <p>No fleet, no scenario, no interceptor and no clock: a class, constructed, with
+ * <p>No cluster, no scenario, no interceptor and no clock: a class, constructed, with
  * a method called on it. Set a breakpoint in {@code map} and stepping into it stops
  * nothing else, because nothing else is running. If this case ever stops compiling,
  * a losim type has appeared in a signature and the shape has been lost.
@@ -37,7 +37,7 @@ public final class T1 {
         String why = null;
         try { Losim.current().peers(); } catch (IllegalStateException x) { why = x.getMessage(); }
         e.check(why != null && why.contains("no simulation is running"),
-                "but asking about the fleet throws, because a fabricated one would let this "
+                "but asking about the cluster throws, because a fabricated one would let this "
                 + "test assert things about a world that was never there — and pass");
 
         String dialled = null;

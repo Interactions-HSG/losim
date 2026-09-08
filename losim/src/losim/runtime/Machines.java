@@ -21,7 +21,7 @@ import losim.trace.Telemetry;
  * marshalling, real allocation, real contention. losim is the layer on top that
  * slows it, breaks it and measures it.
  */
-public final class Fleet implements AutoCloseable {
+public final class Machines implements AutoCloseable {
 
     /** Carries the caller's span across the wire, so causality survives the RPC boundary. */
     static final Metadata.Key<String> PARENT =
@@ -38,9 +38,9 @@ public final class Fleet implements AutoCloseable {
     private volatile List<Retry> retries = List.of();
     private volatile Map<String, Cost> costs = Map.of();
 
-    public Fleet(Telemetry tel) { this(tel, new Net(0)); }
+    public Machines(Telemetry tel) { this(tel, new Net(0)); }
 
-    public Fleet(Telemetry tel, Net net) {
+    public Machines(Telemetry tel, Net net) {
         this.tel = tel;
         this.clock = tel.clock();
         this.net = net;
@@ -49,12 +49,12 @@ public final class Fleet implements AutoCloseable {
     /**
      * Installs the scenario's retry policies.
      *
-     * <p>Checked against what the fleet actually serves before anything runs: a
+     * <p>Checked against what the cluster actually serves before anything runs: a
      * policy naming a method no machine offers, or retrying one the schema does not
      * declare safe, is refused with the line it was written on rather than
      * discovered as a duplicate write in a trace.
      */
-    public Fleet retrying(List<Retry> policies) {
+    public Machines retrying(List<Retry> policies) {
         var known = new ArrayList<io.grpc.MethodDescriptor<?, ?>>();
         for (Machine m : all()) known.addAll(m.methods());
         for (Retry r : policies) r.checkAgainst(known);
@@ -67,7 +67,7 @@ public final class Fleet implements AutoCloseable {
     /**
      * Installs what each rpc costs, keyed by the class that serves it.
      *
-     * <p>Checked against what the fleet actually runs, because a table is not an
+     * <p>Checked against what the cluster actually runs, because a table is not an
      * annotation: rename an rpc and the number stops belonging to anything, and a
      * cost that costs nothing is a run that comes out fast, confident and wrong.
      * So a key naming a class no machine runs, or an rpc that class does not
@@ -77,7 +77,7 @@ public final class Fleet implements AutoCloseable {
      * that is killed and restarted rebuilds its services from scratch and has to
      * be able to ask again what they cost.
      */
-    public Fleet costing(Map<String, Cost> declared) {
+    public Machines costing(Map<String, Cost> declared) {
         var known = new ArrayList<String>();
         var classes = new ArrayList<String>();
         for (Machine m : all()) {
@@ -92,8 +92,8 @@ public final class Fleet implements AutoCloseable {
                     + (classes.contains(klass)
                         ? klass + " serves no rpc of that name. It serves "
                           + named(known, klass) + "."
-                        : "no machine in this fleet runs " + (klass.isEmpty() ? "that" : klass)
-                          + ". This fleet runs " + (classes.isEmpty() ? "nothing"
+                        : "no machine in this cluster runs " + (klass.isEmpty() ? "that" : klass)
+                          + ". This cluster runs " + (classes.isEmpty() ? "nothing"
                                                     : String.join(", ", classes)) + ".")
                     + " A cost that belongs to nothing is a method that quietly takes no time,"
                     + " so it is a refusal rather than a warning.");
@@ -101,7 +101,7 @@ public final class Fleet implements AutoCloseable {
         this.costs = Map.copyOf(declared);
         for (Machine m : all()) m.recost();
         // Not a refusal: a method nobody has timed takes no time on purpose, and a
-        // fleet where that is true of every method is a legitimate thing to run —
+        // cluster where that is true of every method is a legitimate thing to run —
         // it is simply not a thing to read a timeline off.
         if (declared.isEmpty() && !known.isEmpty()) {
             tel.event("-", "note", "text", "nothing in this scenario declares what an rpc takes,"
@@ -188,8 +188,8 @@ public final class Fleet implements AutoCloseable {
      * <p>Unguarded it is a quiet disaster rather than a loud one. Nothing fails: a
      * peer simply appears twice in {@code serving()}, so a coordinator that fans out
      * one task per peer does the same work twice on the same machine, and every
-     * count derived from the fleet's shape is wrong by a factor nobody chose. The
-     * fleet is a set, so this is where it becomes one.
+     * count derived from the cluster's shape is wrong by a factor nobody chose. The
+     * cluster is a set, so this is where it becomes one.
      */
     private void register(String key, String machineName) {
         var list = byService.computeIfAbsent(key, k -> new CopyOnWriteArrayList<>());
@@ -212,10 +212,10 @@ public final class Fleet implements AutoCloseable {
      * The run begins here.
      *
      * <p>Zeroes the clock, so that an instant written in the scenario is the same
-     * instant in the trace, and announces the fleet. Everything before this — the
+     * instant in the trace, and announces the cluster. Everything before this — the
      * servers starting, the pools filling — is setup, and belongs to no scenario.
      */
-    public Fleet begin() {
+    public Machines begin() {
         clock.restart();
         for (Machine m : all()) m.announceBoot();
         return this;

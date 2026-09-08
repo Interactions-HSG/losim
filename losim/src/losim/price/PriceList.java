@@ -25,7 +25,7 @@ public final class PriceList {
      * <p>Bookkeeping and nothing else: it names the file in the bill's own words,
      * so a bill from `prices/ap-northeast-1.yaml` cannot be mistaken for one from
      * Frankfurt. Where a machine actually is comes from the scenario, never from
-     * here — a price list that could move a fleet would be a second scenario.
+     * here — a price list that could move a cluster would be a second scenario.
      */
     public String region = "";
 

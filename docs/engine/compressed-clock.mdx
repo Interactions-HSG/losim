@@ -52,7 +52,7 @@ chosen once the grid has been climbed.
   </Accordion>
 </AccordionGroup>
 
-## The clock starts after the fleet is built
+## The clock starts after the cluster is built
 
 Building six in-process servers costs real milliseconds, and at 20× that is
 hundreds of reference milliseconds of a run that has not begun.
@@ -62,7 +62,7 @@ they would all fire at once during setup — and it would mean an instant in the
 scenario is not the same instant in the trace, which is the one correspondence a
 reader needs.
 
-So the clock is zeroed at `fleet.begin()`, and everything before that belongs to no
+So the clock is zeroed at `cluster.begin()`, and everything before that belongs to no
 scenario.
 
 ## `k_time`'s reach, and its limits

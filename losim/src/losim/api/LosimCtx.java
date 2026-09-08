@@ -14,7 +14,7 @@ import java.util.List;
  *
  * <p>That asymmetry is deliberate. A silent {@code reveal} lets a handler be
  * called directly from a test without the test having to know losim exists. A
- * fabricated empty fleet would let the same test pass while asserting nothing,
+ * fabricated empty cluster would let the same test pass while asserting nothing,
  * which is worse than failing.
  *
  * <h2>Recording — silent outside a run</h2>
@@ -106,7 +106,7 @@ public interface LosimCtx {
      * a degraded machine — a machine at half speed computes slower but does not
      * wait longer — where declared work does. And it does not mark the machine
      * busy: a backoff occupies no vCPU, so counting it as occupancy would overstate
-     * how loaded the fleet was.
+     * how loaded the cluster was.
      *
      * <p>The scenario's {@code takes:} is the right way to declare what a
      * handler's <i>work</i> costs, and it is a table, so it is fixed per rpc. This
@@ -139,7 +139,7 @@ public interface LosimCtx {
      */
     Spec here();
 
-    /** Every other machine in the fleet, by name. */
+    /** Every other machine in the cluster, by name. */
     List<String> peers();
 
     /**

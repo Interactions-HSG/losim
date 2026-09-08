@@ -3,7 +3,7 @@
 #
 # The engine climbs a ladder of four small runs, fits a law per resource against
 # whatever that resource is actually a function of, and projects. What it is being
-# checked against is t10-truth.yaml — the same fleet, the same code, the same
+# checked against is t10-truth.yaml — the same cluster, the same code, the same
 # corpus, run at full size for real.
 mode: scaled
 seed: 7

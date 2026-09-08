@@ -82,14 +82,14 @@ public final class TBill {
         // What must not happen either way is a line that is simply not there.
         boolean capacityPriced = projected != null && projected.complete();
         boolean capacityExplained = projected != null
-                && projected.unpriceable().containsKey("the fleet, for the period");
+                && projected.unpriceable().containsKey("the cluster, for the period");
         e.check(capacityPriced || capacityExplained,
                 "and the projected account either prices the capacity line or leaves it absent "
                 + "with a reason — the largest line on the bill is never silently missing, "
                 + "which is not where most people would look for the uncertainty in what a "
                 + "design costs");
         e.note(capacityPriced
-                ? "the timeline fitted, so the fleet's period is priced"
+                ? "the timeline fitted, so the cluster's period is priced"
                 : "the timeline was refused, so the largest line is absent and says so");
         if (projected != null)
             projected.unpriceable().values().forEach(e::note);

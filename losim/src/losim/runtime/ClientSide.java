@@ -53,9 +53,9 @@ final class ClientSide implements ClientInterceptor {
         long a0 = Meter.allocNow(), t0 = System.nanoTime();
         final Telemetry tel = from.tel();
         final String method = Wire.dotted(md.getFullMethodName());
-        final Machine target = from.fleet().machine(to);
-        final Net net = from.fleet().net;
-        final CallOptions call = inRealTime(opts, from.fleet().clock.kTime());
+        final Machine target = from.machines().machine(to);
+        final Net net = from.machines().net;
+        final CallOptions call = inRealTime(opts, from.machines().clock.kTime());
         final Deadline deadline = call.getDeadline();
 
         // What a timeout will need to explain itself: the deadline the caller set,
@@ -110,7 +110,7 @@ final class ClientSide implements ClientInterceptor {
                 span = tel.open(from.name, "rpc", method, "to", to);
                 // The callee opens its span under this id, so causality survives
                 // the boundary (D8 rule 2).
-                headers.put(Fleet.PARENT, Long.toString(span.id));
+                headers.put(Machines.PARENT, Long.toString(span.id));
                 tel.event(from.name, "rpc_call", "to", to, "method", method, "call", span.id);
 
                 var wrapped = new ForwardingClientCallListener
@@ -135,7 +135,7 @@ final class ClientSide implements ClientInterceptor {
                     @Override public void onClose(Status status, Metadata trailers) {
                         // Outside any bracket: network time is the simulated
                         // world's, not losim's overhead.
-                        from.fleet().clock.spend(rttRefMs);
+                        from.machines().clock.spend(rttRefMs);
 
                         // Paying the network after the fact would otherwise let a
                         // call succeed that the wire had already outlasted. The

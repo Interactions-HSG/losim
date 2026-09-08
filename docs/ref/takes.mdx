@@ -52,7 +52,7 @@ system a student writes names losim at all** — the handlers are plain gRPC, th
 compile with losim off the classpath, and they unit-test without it.
 
 What that gives up is drift: an annotation followed a renamed method and a table
-does not. So the table is checked against what the fleet actually serves, before
+does not. So the table is checked against what the cluster actually serves, before
 anything runs:
 
 ```
@@ -61,7 +61,7 @@ that name. It serves Capacity, Thumbnail. A cost that belongs to nothing is a
 method that quietly takes no time, so it is a refusal rather than a warning.
 ```
 
-A fleet that prices **nothing** is not refused — an unpriced rpc is a legitimate
+A cluster that prices **nothing** is not refused — an unpriced rpc is a legitimate
 thing — but it is said out loud in the trace, because a run where every call is
 instant has no queueing, no contention and no critical path, and from the outside
 looks like a design that is simply very fast.

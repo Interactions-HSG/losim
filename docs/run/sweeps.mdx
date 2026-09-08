@@ -148,7 +148,7 @@ for (int workers : new int[] {2, 4, 8}) {
 <Note>
 `withWorkers` resizes **every pool that had more than one machine**, keeping its
 instance type, zones and services. Singletons — the coordinator — are left alone,
-because varying the fleet is meant to vary the workers.
+because varying the cluster is meant to vary the workers.
 
 The other axes are the same shape: `withUnits`, `withSeed`, `withKTime`,
 `withExpectedRun`, `withoutWeather`. Each returns a copy, so the base scenario you
@@ -157,11 +157,11 @@ loaded is never mutated and every run in the loop differs by exactly one thing.
 
 
 Then read `durationRefMs` and the bill out of each. That curve — does doubling the
-fleet halve the time? — is one of the more instructive things you can produce, and
+cluster halve the time? — is one of the more instructive things you can produce, and
 it usually does not.
 
 <Tip>
-Vary **one axis at a time**. If the fleet and the workload move together, a
+Vary **one axis at a time**. If the cluster and the workload move together, a
 resource that grows with one is indistinguishable from a resource that grows with
 the other. That is exactly why the scale engine's probe grid varies them on
 separate axes, and the same discipline applies to a hand-run sweep.

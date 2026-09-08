@@ -8,7 +8,7 @@ import losim.t.Counts;
  *
  * <p>"On one machine" is the boundary the whole design rests on: nothing leaves the
  * JVM, so anything that does is neither simulated, nor measured, nor there at all on
- * the next host. A fleet member with a socket is not a machine in this cluster.
+ * the next host. A cluster member with a socket is not a machine in this cluster.
  */
 public final class Caller extends WorkerBase {
 

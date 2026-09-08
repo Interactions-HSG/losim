@@ -48,7 +48,7 @@ gets an `rpc_timeout` event carrying `why`:
 **The callee is not told.** A machine that is frozen holds the call on its own
 threads; a machine that is dead never received it. Your handler may well still be
 running, still holding memory, still occupying a core, after the caller has given
-up — which is real, and is one of the more expensive things about a fleet under
+up — which is real, and is one of the more expensive things about a cluster under
 load.
 </Warning>
 
@@ -71,12 +71,12 @@ Thumbnail: { refMs: 3, refNsPerUnit: 240000 }   # 25 frames -> 3 + 6 = 9 refMs
 ```
 
 Nine reference milliseconds of work on a two-vCPU machine. On the `c5.large`s in the
-fleet, still 9. But if four calls arrive at once and the machine has two cores,
+cluster, still 9. But if four calls arrive at once and the machine has two cores,
 the fourth waits for two others to finish — so the *observed* duration is nearer 27,
 plus the round trip.
 
 <Tip>
-Deadlines that are too tight look exactly like a broken fleet: everything times
+Deadlines that are too tight look exactly like a broken cluster: everything times
 out, nothing is obviously wrong, and the run is slower than the no-deadline case
 because every attempt is paid for and then thrown away. Set the first one
 generously, look at the `handler` spans in the trace, and tighten it to something

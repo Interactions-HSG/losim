@@ -1,6 +1,6 @@
 ---
 title: "Cluster"
-description: "The fleet, as the job sees it. Deliberately narrow."
+description: "The cluster, as the job sees it. Deliberately narrow."
 icon: "sitemap"
 ---
 
@@ -13,7 +13,7 @@ public final class MyJob implements Job {
 ## Discovery
 
 <ResponseField name="machines()" type="List<String>">
-  Every machine in the fleet, by name.
+  Every machine in the cluster, by name.
 </ResponseField>
 
 <ResponseField name="serving(String service)" type="List<String>">

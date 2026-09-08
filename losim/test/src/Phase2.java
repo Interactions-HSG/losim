@@ -44,7 +44,7 @@ public class Phase2 {
                                           : "  ->  " + message.split("\n")[0]));
     }
 
-    static final String FLEET = """
+    static final String CLUSTER = """
         job: NoopJob
         machines:
           master: { instance: m5.large, zone: z }
@@ -140,25 +140,25 @@ public class Phase2 {
     static void refusals() {
         System.out.println("=== a scenario error names the line it is on ===");
         refuses("an instance type that does not exist",
-                FLEET.replace("master: { instance: m5.large", "master: { instance: m5.mega"),
+                CLUSTER.replace("master: { instance: m5.large", "master: { instance: m5.mega"),
                 "unknown instance type");
         refuses("a key that is a typo for a real one",
-                FLEET + "network: { sameZone: 1 refMs, crosszone: 2 refMs }\n",
+                CLUSTER + "network: { sameZone: 1 refMs, crosszone: 2 refMs }\n",
                 "unknown key 'crosszone'");
-        refuses("a fault aimed at a machine that is not in the fleet",
-                FLEET + "faults:\n  - { at: 1 refSeconds, kill: w9 }\n",
+        refuses("a fault aimed at a machine that is not in the cluster",
+                CLUSTER + "faults:\n  - { at: 1 refSeconds, kill: w9 }\n",
                 "there is no machine called 'w9'");
         refuses("a fault that tries to do two things at once",
-                FLEET + "faults:\n  - { at: 1 refSeconds, kill: w0, freeze: w1 }\n",
+                CLUSTER + "faults:\n  - { at: 1 refSeconds, kill: w0, freeze: w1 }\n",
                 "does two things at once");
         refuses("a degrade with no factor",
-                FLEET + "faults:\n  - { at: 1 refSeconds, degrade: w0 }\n",
+                CLUSTER + "faults:\n  - { at: 1 refSeconds, degrade: w0 }\n",
                 "degrade needs a factor");
         refuses("chaos aimed at a pool that does not exist",
-                FLEET + "chaos:\n  - { kill: { every: 1 refSeconds, among: reducers } }\n",
+                CLUSTER + "chaos:\n  - { kill: { every: 1 refSeconds, among: reducers } }\n",
                 "is neither a pool nor a machine");
         refuses("a probability outside zero and one",
-                FLEET + "network: { loss: 4 }\n",
+                CLUSTER + "network: { loss: 4 }\n",
                 "a probability");
         refuses("the same machine declared twice",
                 """
@@ -176,13 +176,13 @@ public class Phase2 {
     static void durations() {
         System.out.println("=== a duration has to say what kind of time it is ===");
         refuses("a bare number is not a duration",
-                FLEET + "faults:\n  - { at: 900, kill: w0 }\n",
+                CLUSTER + "faults:\n  - { at: 900, kill: w0 }\n",
                 "does not say what kind of time it is");
         refuses("and neither is one with a wall-clock unit",
-                FLEET + "faults:\n  - { at: 900ms, kill: w0 }\n",
+                CLUSTER + "faults:\n  - { at: 900ms, kill: w0 }\n",
                 "does not say what kind of time it is");
         var s = Loader.of(Yaml.parse("scenario.yaml",
-                FLEET + "faults:\n  - { at: 2 refSeconds, kill: w0 }\n"
+                CLUSTER + "faults:\n  - { at: 2 refSeconds, kill: w0 }\n"
                       + "  - { at: 900 refMs, kill: w1 }\n"));
         check(s.faults().get(0).atRefMs() == 2000 && s.faults().get(1).atRefMs() == 900,
               "refSeconds and refMs are the same scale, an order of magnitude apart");
@@ -230,7 +230,7 @@ public class Phase2 {
 
     static void retryGate() throws Exception {
         System.out.println("=== retrying a call the schema does not call safe ===");
-        String unsafe = FLEET + """
+        String unsafe = CLUSTER + """
                 retries:
                   - { method: Volley.Hit, attempts: 3, backoff: 10 refMs }
                 """;
@@ -243,24 +243,24 @@ public class Phase2 {
               "it is refused at load, with the line and what to do about it");
         if (message != null) System.out.println("    " + message.replace(". ", ".\n    "));
 
-        check(runs(FLEET + """
+        check(runs(CLUSTER + """
                 retries:
                   - { method: Volley.Poll, attempts: 3, backoff: 10 refMs }
                 """),
               "a method whose .proto declares idempotency_level needs no argument");
-        check(runs(FLEET + """
+        check(runs(CLUSTER + """
                 retries:
                   - { method: Volley.Hit, attempts: 3, backoff: 10 refMs, unsafe: true }
                 """),
               "and 'unsafe: true' allows it — one visible line in a diff, which is the point");
 
         String missing = null;
-        try { Run.of(Loader.of(Yaml.parse("scenario.yaml", FLEET + """
+        try { Run.of(Loader.of(Yaml.parse("scenario.yaml", CLUSTER + """
                 retries:
                   - { method: Worker.Map, attempts: 2 }
                 """))); }
         catch (RuntimeException e) { missing = e.getMessage(); }
-        check(missing != null && missing.contains("which no machine in this fleet serves"),
+        check(missing != null && missing.contains("which no machine in this cluster serves"),
               "a policy naming a method nobody serves is a typo, and is caught as one");
 
         // And it actually retries.
@@ -288,7 +288,7 @@ public class Phase2 {
         check(retries.size() == 2
               && (double) (Double) retries.get(1).detail().get("backoffRefMs")
                  > (double) (Double) retries.get(0).detail().get("backoffRefMs"),
-              "with the backoff growing, because a fleet that retries in lockstep is a fleet "
+              "with the backoff growing, because a cluster that retries in lockstep is a cluster "
               + "that retries itself to death");
         System.out.println();
     }

@@ -11,7 +11,7 @@ import losim.api.Losim;
  * the whole of the disk figure and the part that actually varies is a rounding
  * error on top of it.
  *
- * <p>A law fitted there is a law about the index. Extrapolated, it says a fleet
+ * <p>A law fitted there is a law about the index. Extrapolated, it says a cluster
  * processing forty-eight thousand units needs about as much disk as one
  * processing eight thousand — which is true of the index and false of everything
  * else, and the engine has no way to tell those apart from four points that are all

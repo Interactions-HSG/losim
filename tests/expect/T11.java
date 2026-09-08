@@ -6,9 +6,9 @@ import java.util.Map;
 /**
  * t11-scale-wordcount — the same pipeline, scaled, across a matrix.
  *
- * <p><b>Catches:</b> the engine folding the fleet dimension into the data dimension.
+ * <p><b>Catches:</b> the engine folding the cluster dimension into the data dimension.
  * That is the failure mode that makes every projection plausible and wrong, because
- * a resource driven by the data and a resource driven by the fleet look identical if
+ * a resource driven by the data and a resource driven by the cluster look identical if
  * the two only ever move together. Nothing looks broken; the numbers are simply
  * about the wrong thing.
  *
@@ -16,11 +16,11 @@ import java.util.Map;
  * axis is inside every cell rather than beside them:
  *
  * <pre>
- *   fleet:    2 workers   4 workers   8 workers      (clean)
+ *   cluster:    2 workers   4 workers   8 workers      (clean)
  *   weather:  clean       one kill    standing chaos (4 workers)
  * </pre>
  *
- * <p>What has to hold across the fleet row is that each resource keeps the same
+ * <p>What has to hold across the cluster row is that each resource keeps the same
  * <i>independent variable</i> and the same exponent, while its <i>coefficient</i>
  * moves in the way that shape demands — memory per distinct key is the same whoever
  * holds the key, and disk per machine halves when there are twice as many machines
@@ -58,7 +58,7 @@ public final class T11 {
          * <p>The counting sibling of {@link #busiestIn}, and the reason it exists
          * is that the durations that one sums include work losim does not
          * simulate — protobuf, gRPC, the trace — so on a host short of cores they
-         * say more about the host than about the fleet. A count of handled calls
+         * say more about the host than about the cluster. A count of handled calls
          * cannot be distorted by a slow machine: it is how the work was divided,
          * which is the thing being claimed.
          */
@@ -71,7 +71,7 @@ public final class T11 {
             return perMachine.values().stream().mapToLong(Long::longValue).max().orElse(0);
         }
 
-        /** How many calls of a method the whole fleet handled. */
+        /** How many calls of a method the whole cluster handled. */
         long totalCountIn(String method) {
             return e.spansOf("handler").stream()
                     .filter(s -> String.valueOf(s.get("label")).endsWith(method)).count();
@@ -98,60 +98,60 @@ public final class T11 {
     public static void main(String[] args) {
         var e = Expect.of("t11-scale-wordcount", args);
         var cells = new LinkedHashMap<String, Cell>();
-        String[] names = {"fleet2", "fleet4", "fleet8", "kill", "chaos"};
+        String[] names = {"cluster2", "cluster4", "cluster8", "kill", "chaos"};
         for (int i = 0; i < names.length; i++)
             cells.put(names[i], new Cell(names[i],
                     i == 0 ? e : Expect.of("", new String[]{args[i]})));
 
-        var fleet = List.of(cells.get("fleet2"), cells.get("fleet4"), cells.get("fleet8"));
+        var cluster = List.of(cells.get("cluster2"), cells.get("cluster4"), cells.get("cluster8"));
 
-        // Every resource keeps the variable it is a function of, whatever the fleet.
+        // Every resource keeps the variable it is a function of, whatever the cluster.
         // The one that must never move is memory: it is a function of distinct keys,
         // and "how many machines are there" is not an account of how many words there
         // were.
         int wrongVariable = 0;
-        for (Cell c : fleet) {
+        for (Cell c : cluster) {
             if (!"revealed.distinctKeys".equals(c.of("memoryMb"))) wrongVariable++;
             for (String r : List.of("wireMb", "diskMb"))
                 if (c.projected(r) && !"units".equals(c.of(r))) wrongVariable++;
         }
         e.check(wrongVariable == 0,
                 "at 2, 4 and 8 workers, memory is a function of distinct keys and wire and disk "
-                + "are functions of units — the attribution does not move when the fleet does, "
+                + "are functions of units — the attribution does not move when the cluster does, "
                 + "and the two never swap");
 
-        double lo = fleet.stream().mapToDouble(c -> c.beta("memoryMb")).min().orElse(0);
-        double hi = fleet.stream().mapToDouble(c -> c.beta("memoryMb")).max().orElse(0);
-        e.note(String.format("memory exponent across the fleet row: %s",
-                fleet.stream().map(c -> String.format("%.3f", c.beta("memoryMb"))).toList()));
+        double lo = cluster.stream().mapToDouble(c -> c.beta("memoryMb")).min().orElse(0);
+        double hi = cluster.stream().mapToDouble(c -> c.beta("memoryMb")).max().orElse(0);
+        e.note(String.format("memory exponent across the cluster row: %s",
+                cluster.stream().map(c -> String.format("%.3f", c.beta("memoryMb"))).toList()));
         e.check(hi - lo < 0.05, String.format(
                 "and the memory exponent moves by %.3f across the whole row — a key costs what "
                 + "a key costs, and it does not become cheaper because there are more machines "
                 + "to hold one", hi - lo));
 
-        // The other half of the same claim, and the one that proves the fleet axis
+        // The other half of the same claim, and the one that proves the cluster axis
         // was actually seen rather than ignored. Volume is split across machines, so
-        // twice the fleet is half the disk each.
-        double disk2 = cells.get("fleet2").coefficient("diskMb");
-        double disk4 = cells.get("fleet4").coefficient("diskMb");
+        // twice the cluster is half the disk each.
+        double disk2 = cells.get("cluster2").coefficient("diskMb");
+        double disk4 = cells.get("cluster4").coefficient("diskMb");
         double ratio = disk4 > 0 ? disk2 / disk4 : 0;
         e.note(String.format("disk per machine: %.3g at 2 workers, %.3g at 4 (a factor of %.2f)",
                 disk2, disk4, ratio));
         e.check(ratio > 1.6 && ratio < 2.5,
-                "while what each machine writes to disk halves when the fleet doubles — the "
-                + "fleet axis was varied independently of the data axis, so a resource that "
-                + "follows the fleet is told apart from one that follows the data");
+                "while what each machine writes to disk halves when the cluster doubles — the "
+                + "cluster axis was varied independently of the data axis, so a resource that "
+                + "follows the cluster is told apart from one that follows the data");
 
         // Observed, not projected: the timeline law is refused on handlers this short
         // (D7), and asserting a projected makespan here would be asserting a number
         // the engine declines to produce.
-        double map2 = cells.get("fleet2").busiestIn("Map"), map8 = cells.get("fleet8").busiestIn("Map");
-        double col2 = cells.get("fleet2").phase("collect"), col8 = cells.get("fleet8").phase("collect");
+        double map2 = cells.get("cluster2").busiestIn("Map"), map8 = cells.get("cluster8").busiestIn("Map");
+        double col2 = cells.get("cluster2").phase("collect"), col8 = cells.get("cluster8").phase("collect");
         e.note(String.format("the busiest machine spends %.0f refMs mapping at 2 workers and "
                 + "%.0f at 8; the collect phase runs %.0f refMs and then %.0f", map2, map8, col2, col8));
         e.note(String.format("(the map phase's own wall clock: %.0f then %.0f — shorter, but by "
-                + "less, because the coordinator's serial share of it is not the fleet's to divide)",
-                cells.get("fleet2").phase("map"), cells.get("fleet8").phase("map")));
+                + "less, because the coordinator's serial share of it is not the cluster's to divide)",
+                cells.get("cluster2").phase("map"), cells.get("cluster8").phase("map")));
         // Asserted in counts, because the wall clock cannot carry this claim on a
         // host that has not got the cores to show it.
         //
@@ -172,34 +172,34 @@ public final class T11 {
         // was not there to measure.
         //
         // What is not in doubt on any host is how the work was divided. The map
-        // is split across the fleet, so the busiest machine handles a quarter as
+        // is split across the cluster, so the busiest machine handles a quarter as
         // many chunks when there are four times as many machines — 80 against 20,
         // exactly, every run. The merge is not split: there are more partitions to
         // reduce, not fewer, so its count goes up rather than down (2 against 8).
         // That is the same claim the timing was reaching for — one phase divides
-        // with the fleet and the other does not — stated in integers that a busy
+        // with the cluster and the other does not — stated in integers that a busy
         // machine cannot move.
         //
         // The durations stay as a note. They are what a reader wants to see and
         // they are worth printing; they are not something to fail a build on.
-        long mapPer2 = cells.get("fleet2").busiestCountIn("Map");
-        long mapPer8 = cells.get("fleet8").busiestCountIn("Map");
-        long redAll2 = cells.get("fleet2").totalCountIn("Reduce");
-        long redAll8 = cells.get("fleet8").totalCountIn("Reduce");
+        long mapPer2 = cells.get("cluster2").busiestCountIn("Map");
+        long mapPer8 = cells.get("cluster8").busiestCountIn("Map");
+        long redAll2 = cells.get("cluster2").totalCountIn("Reduce");
+        long redAll8 = cells.get("cluster8").totalCountIn("Reduce");
         double divides = mapPer8 > 0 ? mapPer2 / (double) mapPer8 : 0;
         e.note(String.format("the busiest machine maps %d chunks at 2 workers and %d at 8 (x%.2f);"
-                + " the fleet reduces %d partitions and then %d",
+                + " the cluster reduces %d partitions and then %d",
                 mapPer2, mapPer8, divides, redAll2, redAll8));
         e.check(divides > 3.5 && divides < 4.5 && redAll8 >= redAll2,
-                "and four times the fleet divides the work of fanning out by four while leaving "
+                "and four times the cluster divides the work of fanning out by four while leaving "
                 + "the phase that merges undivided — which is the difference a projection has to "
                 + "keep, because it is the difference between a design that scales and one that "
                 + "does not");
 
 
         // The fault dimension. A model fitted only on clean runs under-predicts a
-        // fleet that loses a machine, and it under-predicts optimistically.
-        var clean = cells.get("fleet4");
+        // cluster that loses a machine, and it under-predicts optimistically.
+        var clean = cells.get("cluster4");
         double amplified = Expect.num(cells.get("kill").law("memoryMb").get("faultAmplification"));
         e.check(!clean.law("memoryMb").containsKey("faultAmplification") && amplified > 1.01,
                 String.format("killing a worker raises the memory the model expects by x%.2f, "
@@ -222,7 +222,7 @@ public final class T11 {
         boolean weatheredDoesNot = cells.get("kill").notes().stream().noneMatch(n -> n.contains(warns))
                 && cells.get("chaos").notes().stream().noneMatch(n -> n.contains(warns));
         e.check(cleanSaysSo && weatheredDoesNot,
-                "and the clean cell says out loud that its model describes a fleet where nothing "
+                "and the clean cell says out loud that its model describes a cluster where nothing "
                 + "goes wrong, while the two weathered cells do not — an absent fault column is a "
                 + "limit of the model, not an absence of one");
         e.done();

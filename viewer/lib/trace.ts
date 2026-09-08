@@ -231,7 +231,7 @@ export function digest(payload: unknown, limit = 2, words = true): string {
  * Which unit of work a call belongs to, if the payload says.
  *
  * Read off the message rather than reconstructed from the span tree, because
- * the message is where the fleet itself keeps it: a map task carries its task
+ * the message is where the cluster itself keeps it: a map task carries its task
  * number and a shuffle carries its partition, and those are the identifiers the
  * machines are using to talk about the work. Anything inferred would be a second
  * naming of the same thing, and the two would disagree the moment a task was

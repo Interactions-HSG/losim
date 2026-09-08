@@ -21,7 +21,7 @@ public final class Spiller extends WorkerBase {
      *
      * <p>Counted per machine, because that is where the threshold really lives: a
      * reducer spills when <i>its</i> bucket outgrows <i>its</i> heap, not when the
-     * fleet's total does.
+     * cluster's total does.
      */
     public static volatile int keepInMemory = 2200;
 

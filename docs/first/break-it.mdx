@@ -85,7 +85,7 @@ trace can tell them apart even though your program could not.
 
 ## Standing chaos, instead of a scripted afternoon
 
-A fault at 900 refMs teaches the fleet to survive 900 refMs. A **rate** teaches it
+A fault at 900 refMs teaches the cluster to survive 900 refMs. A **rate** teaches it
 to survive whenever:
 
 ```yaml
@@ -99,7 +99,7 @@ exponentially from the seed, so they vary the way real bad afternoons do.
 
 <Note>
 A rate has no end: each firing draws the next one, so it keeps happening for as long
-as the run does. Nothing you write here can leave the fleet a quiet second half by
+as the run does. Nothing you write here can leave the cluster a quiet second half by
 accident.
 </Note>
 

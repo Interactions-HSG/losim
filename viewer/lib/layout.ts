@@ -7,7 +7,7 @@
  * one unreadable past a handful of machines — so the columns are *derived*.
  *
  * Nothing here scales anything. The picture is composed at its natural size and
- * fitted to the frame as one unit, the way an SVG viewBox does it — so a fleet
+ * fitted to the frame as one unit, the way an SVG viewBox does it — so a cluster
  * of fifty is the same drawing, smaller, rather than a different drawing.
  */
 import * as D from './design.ts';
@@ -35,7 +35,7 @@ export type Band = [number, number]; // top, bottom — y grows upward here
 export interface Room {
   /** Inside the band's edge, above the topmost machine's label. */
   pad: number;
-  /** Under a machine, as a multiple of its height: [small fleet, large fleet]. */
+  /** Under a machine, as a multiple of its height: [small cluster, large cluster]. */
   below: [number, number];
   /** Over a machine, for the service badge. */
   above: [number, number];
@@ -59,7 +59,7 @@ export const LEGACY: Room = { pad: 0.34, below: [0.95, 0.55], above: [0.52, 0.16
  * `LEGACY` was composed for a film with nothing else on the screen; here the
  * picture is one panel among several and has to earn its space. Measured
  * against what actually hangs off a machine, `LEGACY`'s spacing carries about
- * twice the air its labels need, so `TIGHT` draws every machine in the fleet a
+ * twice the air its labels need, so `TIGHT` draws every machine in the cluster a
  * quarter smaller and gives back the room that air was spending.
  */
 export const TIGHT: Room = { pad: 0.16, below: [0.72, 0.5], above: [0.34, 0.14], aside: [0.34, 0.22] };
@@ -97,7 +97,7 @@ export class Layout {
    * A default rather than a constant, because the right arrangement genuinely
    * depends on the screen: twenty-five machines in four roles across three zones
    * lay out nine columns wide and three rows deep, which fills a cinema frame and
-   * letterboxes a squarer one — while the same fleet stacked two-deep does the
+   * letterboxes a squarer one — while the same cluster stacked two-deep does the
    * opposite. Told the real shape, the search picks the one that fills it.
    *
    * The default is the frame the design system was composed in, so a layout
@@ -128,7 +128,7 @@ export class Layout {
    * An iterative job names its phases per round — "spread 1", "fold 1",
    * "spread 2" — and every one of those is a different label. Left alone that
    * gives a column per round, which is a picture of the loop rather than of the
-   * fleet: the same four machines, drawn ten times, in ten places.
+   * cluster: the same four machines, drawn ten times, in ten places.
    */
   static stage(label: string): string {
     const cut = label.lastIndexOf(' ');
@@ -157,10 +157,10 @@ export class Layout {
    * Not *when it was first called*, which is the obvious rule and the wrong
    * one. A coordinator that asks every machine what it is before it places
    * anything has spoken to all of them during its first phase, and a layout
-   * that reads first contact as belonging puts the entire fleet in one column.
+   * that reads first contact as belonging puts the entire cluster in one column.
    *
    * Where a machine did its work is a fact about the run rather than about the
-   * order somebody happened to dial in, and it survives a fleet being polled,
+   * order somebody happened to dial in, and it survives a cluster being polled,
    * health-checked or registered — all of which touch everybody and none of
    * which mean anything about what the machine is for.
    */
@@ -194,13 +194,13 @@ export class Layout {
    *
    * **A machine is not placed by when it was first called.** A coordinator that
    * asks every machine what it is before it places anything has spoken to the
-   * whole fleet inside its first phase, and first contact then puts the entire
-   * fleet in one column.
+   * whole cluster inside its first phase, and first contact then puts the entire
+   * cluster in one column.
    *
    * What survives both is what a machine **offers**. Machines serving the same
    * services are the same role and belong together, whether or not they were
    * ever chosen — a shuffler nobody sent a partition to is still a shuffler, and
-   * a fleet with spare capacity should draw as one rather than as a column of
+   * a cluster with spare capacity should draw as one rather than as a column of
    * strays.
    */
   private buildColumns(): string[][] {
@@ -211,7 +211,7 @@ export class Layout {
     // The coordinator is named by the trace rather than guessed at: the job span
     // runs on it. Inferring it from "was never called" almost works, and stops
     // working the moment a worker reports something back to it — which is exactly
-    // what a fleet with a monitor on it does.
+    // what a cluster with a monitor on it does.
     const driving = new Set(this.trace.spans.filter((s) => s.kind === 'job').map((s) => s.vm));
     let drivers = this.trace.machines.filter((m) => driving.has(m.name)).map((m) => m.name);
     if (!drivers.length) {
@@ -254,7 +254,7 @@ export class Layout {
     }
 
     // A phase *every* role worked in is a poll, a registration or a health check
-    // — something the whole fleet answers — and it says where the fleet was
+    // — something the whole cluster answers — and it says where the cluster was
     // rather than what any of it is for. A phase that is a stage of the pipeline
     // is not like that: only the mappers map.
     let shared = new Set<string>();
@@ -324,7 +324,7 @@ export class Layout {
   /**
    * How big to draw each machine: wider with memory, taller with cores.
    *
-   * Against the fleet's own median, so the picture answers "which of these is
+   * Against the cluster's own median, so the picture answers "which of these is
    * the big one" rather than "how many gigabytes is this" — which is a question
    * no shape can answer and every legend has to.
    */
@@ -343,7 +343,7 @@ export class Layout {
    *
    * This departs from the figure the rest of the language is borrowed from, on
    * purpose. That figure has no zones in it because it is a picture of an
-   * algorithm, and this is a picture of a fleet — where a machine *is* decides
+   * algorithm, and this is a picture of a cluster — where a machine *is* decides
    * what every call it makes costs, in latency and in money, and a diagram that
    * leaves the reader to remember which machine was in which zone from the YAML
    * has left out the thing the scenario was written to show.
@@ -523,7 +523,7 @@ export class Layout {
   /**
    * How much to magnify the finished drawing to fill the frame.
    *
-   * Allowed above 1: a fleet of four drawn at its natural size sits in the
+   * Allowed above 1: a cluster of four drawn at its natural size sits in the
    * middle of an empty page, and there is no reason for it to. Bounded, because
    * past about half again the strokes start to look like a poster rather than a
    * figure.

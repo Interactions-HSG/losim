@@ -1,5 +1,5 @@
 /**
- * Recording a film of the fleet, frame by frame.
+ * Recording a film of the cluster, frame by frame.
  *
  * **The clock is an input, not a consequence.** Every frame's timestamp is an
  * argument to the encoder, so the file a slow laptop produces is byte-for-byte

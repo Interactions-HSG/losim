@@ -21,7 +21,7 @@ import losim.api.Job;
  * cannot be shrunk, and the engine has nothing to turn.
  *
  * <p>Two phases, deliberately of different shapes. The map phase fans out over every
- * worker at once, so it is the part that gets faster when the fleet grows. The
+ * worker at once, so it is the part that gets faster when the cluster grows. The
  * collect phase asks each worker for its bucket and merges them here, so it is the
  * part that does not. A projection that cannot tell those apart will say a design
  * scales when it does not.
@@ -65,7 +65,7 @@ public final class Elastic implements Job {
         int chunks = (int) ((units + LINES_PER_CHUNK - 1) / LINES_PER_CHUNK);
 
         // Fanned out across every worker at once — which is what makes this the phase
-        // a bigger fleet finishes sooner.
+        // a bigger cluster finishes sooner.
         var lost = new ConcurrentLinkedQueue<Chunk>();
         try (var phase = cluster.phase("map")) {
             var room = new Semaphore(IN_FLIGHT);
@@ -93,7 +93,7 @@ public final class Elastic implements Job {
         }
 
         // Whatever did not come back has to be done again somewhere else, and that is
-        // not bookkeeping: it is why a fleet that loses a machine needs more memory
+        // not bookkeeping: it is why a cluster that loses a machine needs more memory
         // than one that does not. Some survivor absorbs the dead machine's bucket, and
         // a model fitted only on clean runs under-predicts by exactly that much —
         // optimistically, which is the worst direction to be wrong in.
@@ -116,7 +116,7 @@ public final class Elastic implements Job {
             }
         }
 
-        // And this one is one call per worker and a merge here, so a bigger fleet
+        // And this one is one call per worker and a merge here, so a bigger cluster
         // makes it no shorter. Nothing distinguishes the two phases but their shape.
         var merged = new TreeMap<String, Integer>();
         try (var phase = cluster.phase("collect")) {

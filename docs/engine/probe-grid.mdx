@@ -5,14 +5,14 @@ icon: "table-cells"
 ---
 
 ```
-  data size      ×  fleet size  ×  fault schedule
+  data size      ×  cluster size  ×  fault schedule
   1k 2k 4k 8k    ×  2, 4        ×  none | the scenario's      × seeds, median taken
 ```
 
 ## A grid, not a ladder
 
 <Warning>
-A resource that grows with the **data** and a resource that grows with the **fleet**
+A resource that grows with the **data** and a resource that grows with the **cluster**
 look identical if the two only ever move together. An engine that folds one into the
 other produces projections that are plausible and wrong — the failure mode hardest to
 notice, because nothing looks broken.
@@ -21,12 +21,12 @@ notice, because nothing looks broken.
 So each axis moves alone:
 
 <Steps>
-  <Step title="The data ladder: the fleet holds still, the weather is off">
-    Four sizes × **six seeds**. Climbed on the fleet the scenario declares — not the
-    largest shape in the fleet ladder. A law fitted on eight workers and applied to a
+  <Step title="The data ladder: the cluster holds still, the weather is off">
+    Four sizes × **six seeds**. Climbed on the cluster the scenario declares — not the
+    largest shape in the cluster ladder. A law fitted on eight workers and applied to a
     run of two describes a differently-shaped system.
   </Step>
-  <Step title="The fleet ladder: the data holds still, the weather is off">
+  <Step title="The cluster ladder: the data holds still, the weather is off">
     Two shapes × 2 seeds, at the middle data size. Every pool with more than one
     machine is regenerated at that size, keeping its instance type, zones and
     services. **Singletons — the coordinator — are left alone.**
@@ -36,7 +36,7 @@ So each axis moves alone:
   </Step>
 </Steps>
 
-The fleet ladder and the fault column are **cross-checks** rather than sources of an
+The cluster ladder and the fault column are **cross-checks** rather than sources of an
 error bar, which is why only the data ladder runs at six seeds: only its exponent has
 to be shown to be reproducible.
 
@@ -68,7 +68,7 @@ With no weather declared you get a note instead:
 
 ```
 note: this scenario declares no faults, so the model carries no amplification term —
-      a projection from it describes a fleet where nothing goes wrong
+      a projection from it describes a cluster where nothing goes wrong
 ```
 
 ## Four rungs, minimum

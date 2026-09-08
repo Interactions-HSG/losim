@@ -172,7 +172,7 @@ public class Phase4 {
 
     // --------------------------------------------------------- it runs the code anyway
 
-    static String fleet(String w0, String w1) {
+    static String cluster(String w0, String w1) {
         return """
             seed: 4
             job: WordCountJob
@@ -208,9 +208,9 @@ public class Phase4 {
 
     static void flagsNotGates() throws Exception {
         System.out.println("=== a wrong number is not a broken run ===");
-        var result = run(fleet("Peeker", "Peeker"));
+        var result = run(cluster("Peeker", "Peeker"));
 
-        check(result.completed(), "a fleet whose workers read the real clock runs to completion"
+        check(result.completed(), "a cluster whose workers read the real clock runs to completion"
                 + " and answers — nothing was refused, because nothing here is a failure:"
                 + " every one of these rules yields a wrong number, not a broken run");
         check(result.peakOf(t -> t.peakRetainedBytes()) > 0 && result.durationRefMs() > 0,
@@ -234,17 +234,17 @@ public class Phase4 {
               "and the trace's own header carries the verdict, so a reader who opens nothing"
               + " else still knows");
 
-        var honest = run(fleet("Counter", "Counter"));
+        var honest = run(cluster("Counter", "Counter"));
         check(honest.trace().toJson().contains("\"trusted\":true")
               && honest.telemetry().events().stream().noneMatch(e -> e.kind().equals("trust")),
-              "while a fleet that stayed inside says trusted, and carries no trust events at"
+              "while a cluster that stayed inside says trusted, and carries no trust events at"
               + " all — a marker on everything is a marker on nothing");
         System.out.println();
     }
 
     static void attribution() throws Exception {
-        System.out.println("=== flagged per machine, not per fleet ===");
-        var result = run(fleet("Scribbler", "Counter"));
+        System.out.println("=== flagged per machine, not per cluster ===");
+        var result = run(cluster("Scribbler", "Counter"));
         var trust = result.trust();
 
         check(trust.machines().equals(Set.of("w0")), String.format(
@@ -274,7 +274,7 @@ public class Phase4 {
 
     static void undermining() throws Exception {
         System.out.println("=== the flag reaches the number ===");
-        var trust = run(fleet("Forker", "Counter")).trust();
+        var trust = run(cluster("Forker", "Counter")).trust();
 
         check(trust.undermining("memoryMb").equals(List.of("w0"))
               && trust.undermining("allocMb").equals(List.of("w0")),
@@ -284,7 +284,7 @@ public class Phase4 {
               "and its wire and disk figures are untouched: a caveat that lands on every"
               + " column is one nobody can act on");
 
-        var everything = run(fleet("Referrer", "Counter")).trust();
+        var everything = run(cluster("Referrer", "Counter")).trust();
         check(everything.undermining("makespanRefMs").equals(List.of("w0"))
               && everything.undermining("memoryMb").equals(List.of("w0")),
               "whereas two machines sharing a field undermines every per-machine figure at"

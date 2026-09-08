@@ -11,7 +11,7 @@ without anyone writing one for it.
 
 | | what it is a model of |
 |---|---|
-| `capacity` | the fleet, for the period — an idle machine costs exactly as much as a busy one |
+| `capacity` | the cluster, for the period — an idle machine costs exactly as much as a busy one |
 | `consumption` | what the work burned: cross-zone egress, storage |
 | `incidents` | zero until something breaks, then large |
 | `build` | engineering time to construct and carry this design, per distinct service |
@@ -46,7 +46,7 @@ and is routinely refused. And capacity is usually the **largest line on the bill
 </Warning>
 
 ```
-  capacity    the fleet, for the period            -           CHF   refused
+  capacity    the cluster, for the period            -           CHF   refused
       its exponent moves by 0.793 between independent seed sets of the same
       workload, which over a factor of 6 is an error bar of x4.1 — wider than
       anything it would be asked to distinguish

@@ -6,7 +6,7 @@ import losim.trace.Telemetry;
 /**
  * The reference run, loaded from the scenario the way anyone else would load it.
  *
- * <p>Everything the telemetry is held to is asked of this: a fleet of seven, one
+ * <p>Everything the telemetry is held to is asked of this: a cluster of seven, one
  * machine reclaimed after it has mapped but before it is asked to reduce, and one
  * far too small for the bucket it is handed. A recorder only ever tested on a run
  * where nothing goes wrong is a recorder that has not been tested.

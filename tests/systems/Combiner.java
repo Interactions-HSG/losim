@@ -36,7 +36,7 @@ public class Combiner extends WorkerBase {
      *
      * <p>Large enough that the workers, not the coordinator handing out chunks, are
      * what the map phase is waiting for. A handler that costs less than the RPC
-     * around it makes a fleet look like it does not scale, and the fleet would not
+     * around it makes a cluster look like it does not scale, and the cluster would not
      * be the reason.
      */
     @Override protected Counts map(Chunk c) {

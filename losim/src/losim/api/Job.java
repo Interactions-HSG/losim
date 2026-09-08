@@ -1,7 +1,7 @@
 package losim.api;
 
 /**
- * What the fleet is asked to do.
+ * What the cluster is asked to do.
  *
  * <p>A scenario declares machines and weather; this is the one thing in it that is
  * code, and it is named rather than embedded so the file stays pure data. The job

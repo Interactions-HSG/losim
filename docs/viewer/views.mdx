@@ -36,7 +36,7 @@ but order. Every section is drawn at the clock, so scrubbing moves all five at o
 |---|---|---|
 | 1 | what is this system made of? | the **Topology** map |
 | 2 | what did it actually do? | the **Spans** call tree |
-| 3 | how hard is each machine working? | the fleet, at this instant |
+| 3 | how hard is each machine working? | the cluster, at this instant |
 | 4 | what has gone wrong? | every accident, each one a button that seeks to it |
 | 5 | what did it cost? | the four buckets, as they arrive |
 
@@ -44,7 +44,7 @@ but order. Every section is drawn at the clock, so scrubbing moves all five at o
 
 ## Film
 
-The fleet at an instant. Zones are bands the machines live inside; roles are columns,
+The cluster at an instant. Zones are bands the machines live inside; roles are columns,
 left to right, derived from the trace rather than fanned out by hand.
 
 <Columns cols={2}>
@@ -62,7 +62,7 @@ Messages in flight carry a digest of what they actually held — which is what
 `--telemetry FULL` buys, and why a viewer of opaque byte counts would teach nothing.
 
 **Filters** by zone, by role and by task **dim rather than remove**, so the layout
-never jumps and a filtered machine is still visibly among a fleet.
+never jumps and a filtered machine is still visibly among a cluster.
 
 <Note>
 **The picture holds only what is currently true.** A call that has finished is simply
@@ -179,7 +179,7 @@ is the shape of this system** — by keeping nothing but the shape.
 <Columns cols={2}>
   <Card title="The same layout as the film" icon="map-pin">
     A machine is in the same place in both. Nothing here reaches for a graph-layout
-    library: the fleet already has a derived shape, and a second engine would only be
+    library: the cluster already has a derived shape, and a second engine would only be
     a second opinion about where `w0` lives.
   </Card>
   <Card title="Edges weighted by bytes" icon="weight-hanging">
@@ -225,7 +225,7 @@ re-price** — the amount never changes, only the claim about who is answerable:
 | | |
 |---|---|
 | **its own** | a capacity line names one machine and belongs to it entirely |
-| **its share** | a fleet total split by a quantity the trace already holds — cross-zone egress by how many cross-zone bytes that machine actually sent |
+| **its share** | a cluster total split by a quantity the trace already holds — cross-zone egress by how many cross-zone bytes that machine actually sent |
 | **the worst machine's** | storage belongs wholly to it, because that is what the bill charges for |
 | **the event's machine** | incidents go to the machine the event names |
 | **nobody's** | the late-finish penalty belongs to the *job*. Spreading it over nine machines would invent a claim nothing supports, so it shows as a dash |

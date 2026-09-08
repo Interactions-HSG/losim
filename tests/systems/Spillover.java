@@ -11,7 +11,7 @@ import losim.api.Losim;
  *
  * <p>Counted per machine, because that is where the threshold really lives. A
  * reducer spills when <i>its</i> bucket outgrows <i>its</i> heap, not when the
- * fleet's total does.
+ * cluster's total does.
  */
 public final class Spillover extends Combiner {
 

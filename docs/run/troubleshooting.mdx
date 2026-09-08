@@ -43,7 +43,7 @@ Exit code **2**, with the file and line. These read like compiler errors on purp
     The `.proto` declares no `idempotency_level`. Declare it, or write
     `unsafe: true` in the policy if you mean it. [Retries ->](/write/retries)
   </Accordion>
-  <Accordion title="retry policy names 'Thumbnial', which no machine in this fleet serves">
+  <Accordion title="retry policy names 'Thumbnial', which no machine in this cluster serves">
     A typo in a policy would otherwise be a policy that silently does nothing.
   </Accordion>
   <Accordion title="two machines are both called 'w1'">
@@ -63,10 +63,10 @@ Exit code **2**, with the file and line. These read like compiler errors on purp
     checked, and the trace records that nothing was claimed either way.
   </Accordion>
   <Accordion title="could not start machine w0: IllegalStateException">
-    A name still held by another server. Closing a fleet now waits for its machines
-    to give their names back, so fleets run back to back in one JVM are fine — as
+    A name still held by another server. Closing a cluster now waits for its machines
+    to give their names back, so clusters run back to back in one JVM are fine — as
     long as each one is actually closed. If you see this together with
-    `losim: w0 did not release its name in time`, the previous fleet's shutdown
+    `losim: w0 did not release its name in time`, the previous cluster's shutdown
     timed out rather than the name being genuinely taken.
 
   </Accordion>

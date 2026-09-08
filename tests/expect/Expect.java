@@ -74,7 +74,7 @@ public final class Expect {
         return (List<Map<String, Object>>) trace.getOrDefault("machines", List.of());
     }
 
-    /** The fleet's total of a per-machine quantity — which is what wire and allocation are. */
+    /** The cluster's total of a per-machine quantity — which is what wire and allocation are. */
     public double sum(String metric) {
         return machines().stream().mapToDouble(m -> num(m.get(metric))).sum();
     }
@@ -82,7 +82,7 @@ public final class Expect {
     /**
      * The worst machine's, which is what memory and disk are.
      *
-     * <p>A fleet does not run out of memory on average. One machine does, and the
+     * <p>A cluster does not run out of memory on average. One machine does, and the
      * fact that its neighbours had room is no comfort to the job that was on it.
      */
     public double peak(String metric) {

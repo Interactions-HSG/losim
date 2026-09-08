@@ -196,7 +196,7 @@ export function MachinePanel({ trace, m, t, money, pinned, onPin, onClose }: Mac
               <strong className="mono">{chf(money.focus.finalCost, money.currency)}</strong>
             </div>
             <div>
-              <span className="muted">of the fleet</span>
+              <span className="muted">of the cluster</span>
               <strong className="mono">
                 {Math.round((money.focus.cost / Math.max(money.cost, 1e-9)) * 100)}%
               </strong>

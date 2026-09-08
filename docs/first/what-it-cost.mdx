@@ -42,7 +42,7 @@ what happened
 Three things to notice before the buckets themselves.
 
 **Incidents are 135 times capacity.** `CHF 1.0000` against `CHF 0.0074`. One machine
-killed and one machine slowed down cost more than the entire fleet did, and this is
+killed and one machine slowed down cost more than the entire cluster did, and this is
 the ordinary case, not a contrived one. Before you tune anything, look at which bucket
 is actually large.
 
@@ -63,7 +63,7 @@ or read the `consumption` line instead, which responds immediately.
 </Warning>
 
 <Tip>
-**Comment the `faults:` block out and bill it again.** Same fleet, same work, no
+**Comment the `faults:` block out and bill it again.** Same cluster, same work, no
 weather: the total goes from `1.2576` to `0.2579`. That difference is what one kill
 and one slow machine cost you, and it is the number a fault-tolerance mechanism has
 to beat to be worth building.
@@ -76,7 +76,7 @@ to beat to be worth building.
 
 <Columns cols={2}>
   <Card title="capacity" icon="server">
-    The fleet, for the period. **An idle machine costs exactly as much as a busy
+    The cluster, for the period. **An idle machine costs exactly as much as a busy
     one** — priced in reference time, because the run took a few seconds of your
     afternoon but the job it is a model of takes what the simulated clock says,
     and that is the number anyone would be invoiced for.
@@ -140,7 +140,7 @@ the job it is a model of. The second one is harder to get: a bill is quantities
 times prices, and the engine will not project every quantity:
 
 ```
-  capacity    the fleet, for the period            -             CHF   refused
+  capacity    the cluster, for the period            -             CHF   refused
       its exponent moves by 0.793 between independent seed sets of the same
       workload, which over a factor of 6 is an error bar of x4.1 — wider than
       anything it would be asked to distinguish

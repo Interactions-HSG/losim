@@ -25,7 +25,7 @@ import losim.verify.Trust;
  *
  * <p>Everything the file declared is assembled here in one order that matters:
  * the machines and their services first, because the retry gate has to be checked
- * against what the fleet really serves; then the faults, which need every machine
+ * against what the cluster really serves; then the faults, which need every machine
  * to exist before one can be aimed at; then the sampler; and only then the job.
  *
  * <p>The run ends when the job returns, throws, or outstays its welcome. All three
@@ -140,7 +140,7 @@ public final class Run {
             throws Exception {
         // Before anything: the JVM's first gRPC call costs sixty times what the
         // ones after it cost, and whichever handler happens to be first would be
-        // billed for it. Paid here, on a fleet of losim's own, in no trace.
+        // billed for it. Paid here, on a cluster of losim's own, in no trace.
         Warm.once();
 
         var calibration = calibrate();
@@ -155,11 +155,11 @@ public final class Run {
         boolean completed = false;
         double started;
 
-        try (var fleet = new Fleet(tel, net)) {
+        try (var machines = new Machines(tel, net)) {
             var byName = new LinkedHashMap<String, Machine>();
             for (MachineSpec m : s.machines()) {
                 var spec = InstanceCatalog.get(m.instance());
-                var machine = fleet.machine(m.name(), m.instance(), m.zone(),
+                var machine = machines.machine(m.name(), m.instance(), m.zone(),
                         m.memoryCapMb() != null ? m.memoryCapMb() : spec.memoryMb(),
                         m.diskCapMb() != null ? m.diskCapMb() : spec.storageGb() * 1024.0);
                 for (String service : m.runs())
@@ -170,14 +170,14 @@ public final class Run {
 
             // Checked here, before a single call is made: a retry policy the schema
             // does not support is a line to fix, not a duplicate write to discover.
-            fleet.retrying(s.retries());
+            machines.retrying(s.retries());
             // And what each of them costs, checked the same way and for the same
             // reason: a takes: line naming nothing is a method that quietly takes
             // no time, which comes out as a fast run rather than as an error.
-            fleet.costing(s.takes());
+            machines.costing(s.takes());
 
 
-            fleet.begin();
+            machines.begin();
             tel.event("-", "scenario", "file", s.file(), "seed", s.seed(), "scale", s.scale(),
                       "machines", s.machines().size(), "job", s.job(),
                       "tightMargin", s.tightMargin() ? true : null);
@@ -186,16 +186,16 @@ public final class Run {
             // figure that is a lower bound should say so beside itself, not in a log.
             trust.recordInto(tel);
 
-            fleet.startSampling();
+            machines.startSampling();
 
             // Scheduled only now, against a clock that starts at zero, so a fault
             // written at 120 refMs lands at 120 refMs in the trace.
             var dispatcher = new Dispatcher(clock);
-            schedule(s, fleet, byName, dispatcher, tel);
+            schedule(s, machines, byName, dispatcher, tel);
             dispatcher.start();
 
             Machine entry = byName.values().iterator().next();
-            var cluster = new Live(fleet, entry, tel, s.units(), s.seed());
+            var cluster = new Live(machines, entry, tel, s.units(), s.seed());
             Object job = job(s.job(), loader);
             // Resolved before the span opens, because an input the scenario did not
             // describe is a line to fix rather than a run that failed: inside the
@@ -227,7 +227,7 @@ public final class Run {
             }
 
             dispatcher.close();
-            fleet.stopSampling();
+            machines.stopSampling();
             double ended = tel.now();
 
             // A run can end with work still in flight: a handler whose caller gave up
@@ -241,7 +241,7 @@ public final class Run {
             // One last walk, so a machine that filled up in the final tick is not
             // reported at whatever it held eight ticks ago.
             var totals = new LinkedHashMap<String, Result.Totals>();
-            for (Machine m : fleet.all()) {
+            for (Machine m : machines.all()) {
                 if (m.alive()) m.measureRetained();
                 totals.put(m.name(), new Result.Totals(m.name(), m.peakRetainedBytes(),
                         m.allocatedBytes(), m.diskBytes(), m.bytesOut(), m.bytesIn(),
@@ -276,7 +276,7 @@ public final class Run {
             // The closing balance, in the same units and under the same names the
             // engine fits its laws on — so an observed figure and a projected one can
             // be put beside each other without a translation table in between.
-            for (Machine machine : fleet.all()) {
+            for (Machine machine : machines.all()) {
                 Result.Totals t = totals.get(machine.name());
                 var m = new LinkedHashMap<String, Object>();
                 m.put("name", t.name());
@@ -388,7 +388,7 @@ public final class Run {
      * <p>Where the scenario and the job are held against each other. The loader
      * never loads a class, so it cannot know whether {@code items:} is a part of
      * anything; by here the job exists and can be asked, and every answer is refused
-     * with the line somebody wrote — the same discipline {@link Fleet#costing} uses
+     * with the line somebody wrote — the same discipline {@link Machines#costing} uses
      * for a {@code takes:} key naming an rpc that is not served.
      *
      * <p>The scenario's sizes are the input at <i>full</i> scale. What this run does
@@ -429,7 +429,7 @@ public final class Run {
 
     // ------------------------------------------------------------------- weather
 
-    private static void schedule(Scenario s, Fleet fleet, Map<String, Machine> byName,
+    private static void schedule(Scenario s, Machines machines, Map<String, Machine> byName,
                                  Dispatcher d, Telemetry tel) {
         for (Fault f : s.faults()) {
             Machine target = byName.get(f.target());
@@ -457,11 +457,11 @@ public final class Run {
                         d.at(f.atRefMs() + f.noticeRefMs() + f.restartAfterRefMs(), target::restart);
                 }
                 case PARTITION -> d.at(f.atRefMs(), () -> {
-                    fleet.net().partition(f.target(), f.other());
+                    machines.net().partition(f.target(), f.other());
                     tel.event(f.target(), "partition", "from", f.other());
                 });
                 case HEAL -> d.at(f.atRefMs(), () -> {
-                    fleet.net().heal(f.target(), f.other());
+                    machines.net().heal(f.target(), f.other());
                     tel.event(f.target(), "heal", "with", f.other());
                 });
             }
@@ -472,7 +472,7 @@ public final class Run {
         //
         // Each firing draws the next one. Drawing the whole series up front would
         // need a horizon to stop at, and a run that outlived its horizon would have
-        // a quiet second half that reads as a fleet behaving well — the worst kind
+        // a quiet second half that reads as a cluster behaving well — the worst kind
         // of wrong, because it is indistinguishable from a finding. A rate that
         // reschedules itself has no end to outlive.
         int rule = 0;
@@ -512,22 +512,22 @@ public final class Run {
 
     // ------------------------------------------------------------------- cluster
 
-    /** The fleet as the job sees it, and the channels it opened along the way. */
+    /** The cluster as the job sees it, and the channels it opened along the way. */
     private static final class Live implements Cluster {
-        private final Fleet fleet;
+        private final Machines machines;
         private final Machine here;
         private final Telemetry tel;
 
         private final long units;
         private final long seed;
 
-        Live(Fleet fleet, Machine here, Telemetry tel, long units, long seed) {
-            this.fleet = fleet; this.here = here; this.tel = tel;
+        Live(Machines machines, Machine here, Telemetry tel, long units, long seed) {
+            this.machines = machines; this.here = here; this.tel = tel;
             this.units = units; this.seed = seed;
         }
 
-        @Override public List<String> machines() { return fleet.names(); }
-        @Override public List<String> serving(String service) { return fleet.serving(service); }
+        @Override public List<String> machines() { return machines.names(); }
+        @Override public List<String> serving(String service) { return machines.serving(service); }
 
         // The machine's own, not the job's: a handler on this machine and the job
         // driving it should not be holding two channels to the same peer, and only

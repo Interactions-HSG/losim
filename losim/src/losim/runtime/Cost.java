@@ -16,7 +16,7 @@ package losim.runtime;
  * survive it, because the host's CPU is not shrunk — it runs at full speed on a
  * five-thousandth of the data, so every handler is genuinely instant. Without a
  * declared duration there is no queueing, no contention, no deadline pressure and
- * no critical path, which is most of what a fleet is interesting for.
+ * no critical path, which is most of what a cluster is interesting for.
  *
  * <p>Measuring it instead does not work at this scale: handler durations at probe
  * size sit inside the host's own jitter, where the fitted time exponent moves by
@@ -30,7 +30,7 @@ package losim.runtime;
  * them at all, so a system can be written, compiled and unit-tested without this
  * project on the classpath. The cost of that is that a renamed rpc no longer
  * takes its number with it — which is why a {@code takes:} key naming a method
- * the fleet does not serve is refused with a line number rather than ignored.
+ * the cluster does not serve is refused with a line number rather than ignored.
  *
  * <p>The two terms answer different questions. {@link #refMs()} is what the call
  * takes regardless of what is in it — the fixed part, known before the handler

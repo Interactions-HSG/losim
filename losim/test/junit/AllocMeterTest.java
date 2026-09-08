@@ -2,7 +2,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import losim.res.Meter;
-import losim.runtime.Fleet;
+import losim.runtime.Machines;
 import losim.time.Clock;
 import losim.trace.Telemetry;
 import org.junit.jupiter.api.DisplayName;
@@ -64,8 +64,8 @@ class AllocMeterTest {
     @DisplayName("a machine's reported allocation never falls, however the raw counter behaves")
     void reportedAllocationIsMonotonic() throws Exception {
         var tel = new Telemetry(new Clock(1.0, 1.0), Telemetry.Level.OFF);
-        try (var fleet = new Fleet(tel)) {
-            var m = fleet.machine("m", "m5.large", "z");
+        try (var machines = new Machines(tel)) {
+            var m = machines.machine("m", "m5.large", "z");
             var stop = new AtomicBoolean();
             // On the machine's own pool threads, which are the ones it meters.
             var burning = m.submit(() -> {

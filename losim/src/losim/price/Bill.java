@@ -85,7 +85,7 @@ public final class Bill {
         // somebody's afternoon; the job it is a model of takes what the simulated
         // clock says, and that is the number anyone would be invoiced for.
         if (Double.isNaN(durationRefMs)) {
-            account.cannotPrice("capacity", "the fleet, for the period",
+            account.cannotPrice("capacity", "the cluster, for the period",
                     projections == null ? "the run has no duration"
                             : refusal(projections, "makespanRefMs"));
         } else {

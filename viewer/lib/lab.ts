@@ -74,7 +74,7 @@ export async function project(): Promise<Project | null> {
  * Ask for a run, and come back before it has finished.
  *
  * The server answers as soon as the run is queued, which is the whole design: a
- * build takes seconds and a fleet under chaos takes longer, and a page that
+ * build takes seconds and a cluster under chaos takes longer, and a page that
  * waited for it would look broken. What comes back is a job number; the output
  * arrives through {@link output}.
  *

@@ -76,7 +76,7 @@ public final class Clock {
     public double correction() { return correction; }
 
     /**
-     * Starts the clock now, discarding whatever setting up the fleet took.
+     * Starts the clock now, discarding whatever setting up the cluster took.
      *
      * <p>Building six in-process servers costs real milliseconds, and at a k_time
      * of ten that is hundreds of reference milliseconds of a run that has not begun.

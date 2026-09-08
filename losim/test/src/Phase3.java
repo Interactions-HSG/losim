@@ -28,7 +28,7 @@ public class Phase3 {
 
     static ClassLoader loader() { return Phase3.class.getClassLoader(); }
 
-    static String fleet(String service, double scale) {
+    static String cluster(String service, double scale) {
         return """
             mode: scaled
             seed: 9
@@ -80,13 +80,13 @@ public class Phase3 {
     static void declaredInput() throws Exception {
         System.out.println("=== the job declares the parts, the scenario declares the sizes ===");
 
-        String fleet = """
+        String cluster = """
             seed: 1
             job: Sizer
             machines:
               master: { instance: m5.large, zone: z }
             """;
-        var s = Loader.of(Yaml.parse("sized.yaml", fleet + """
+        var s = Loader.of(Yaml.parse("sized.yaml", cluster + """
             input:
               items:      240
               valueBytes: 65536
@@ -98,7 +98,7 @@ public class Phase3 {
         // The same job, told to do a fraction of it: what the scale engine does on
         // every rung of the ladder. Both parts are named in the same block and only
         // one of them moves.
-        said = ran(Loader.of(Yaml.parse("sized.yaml", fleet + """
+        said = ran(Loader.of(Yaml.parse("sized.yaml", cluster + """
             scale: 6
             input:
               items:      240
@@ -108,11 +108,11 @@ public class Phase3 {
               "at a forty-eighth of full size it does five items — and still 65536 byte values, "
               + "because a constant is shape rather than size");
 
-        check(refusedBy(Loader.of(Yaml.parse("sized.yaml", fleet)), ":2:")
+        check(refusedBy(Loader.of(Yaml.parse("sized.yaml", cluster)), ":2:")
                 .contains("consumes 'items' and this scenario does not say how much"),
               "backwards: a job whose input is not sized is refused, at the job: line");
 
-        check(refusedBy(Loader.of(Yaml.parse("sized.yaml", fleet + """
+        check(refusedBy(Loader.of(Yaml.parse("sized.yaml", cluster + """
             input:
               items:      240
               valueBytes: 65536
@@ -130,7 +130,7 @@ public class Phase3 {
             """)), ":6:").contains("is a plain losim.api.Job, which is never given one"),
               "backwards: sizing an input for a job that takes none is refused");
 
-        check(refusedBy(Loader.of(Yaml.parse("sized.yaml", fleet + """
+        check(refusedBy(Loader.of(Yaml.parse("sized.yaml", cluster + """
             scale: 6
             input:
               items:      20
@@ -140,7 +140,7 @@ public class Phase3 {
               + "up, which would quietly change the design's ratios");
 
         try {
-            Loader.of(Yaml.parse("sized.yaml", fleet + """
+            Loader.of(Yaml.parse("sized.yaml", cluster + """
                 input:
                   items: 0
                 """));
@@ -186,7 +186,7 @@ public class Phase3 {
         // Four times the top of the engine's ladder: far enough that multiplying the
         // small run is visibly the wrong answer, near enough that the host can still
         // hold the run this is checked against.
-        var s = Loader.of(Yaml.parse("truth.yaml", fleet("Accumulator", 4)));
+        var s = Loader.of(Yaml.parse("truth.yaml", cluster("Accumulator", 4)));
         final long TRUTH = s.fullUnits();
 
         var grid = Grid.run(s, loader(), Telemetry.Level.FULL, Scaled.SEEDS);
@@ -241,7 +241,7 @@ public class Phase3 {
     static void refusal() throws Exception {
         System.out.println("=== a workload that changes its mind halfway up the ladder ===");
         Spiller.keepInMemory = 2200;
-        var s = Loader.of(Yaml.parse("spill.yaml", fleet("Spiller", 500)));
+        var s = Loader.of(Yaml.parse("spill.yaml", cluster("Spiller", 500)));
         var grid = Grid.run(s, loader(), Telemetry.Level.FULL, 4);
         Spiller.keepInMemory = Integer.MAX_VALUE;
 
@@ -284,7 +284,7 @@ public class Phase3 {
 
     static void transparency() throws Exception {
         System.out.println("=== does how closely it is watched change what it projects? ===");
-        var s = Loader.of(Yaml.parse("t.yaml", fleet("Accumulator", 500)));
+        var s = Loader.of(Yaml.parse("t.yaml", cluster("Accumulator", 500)));
         var exponents = new LinkedHashMap<Telemetry.Level, Double>();
         for (var level : List.of(Telemetry.Level.NO_PAYLOAD, Telemetry.Level.FULL)) {
             var grid = Grid.run(s, loader(), level, 2);
@@ -309,7 +309,7 @@ public class Phase3 {
     // ------------------------------------------------------------ the timeline
 
     /**
-     * The case a uniform factor gets wrong: a fleet with spare cores.
+     * The case a uniform factor gets wrong: a cluster with spare cores.
      *
      * <p>Four calls into eight cores take one wave. Thirty-two take four.
      * Multiplying the first run by eight says eight waves' worth of time for what
@@ -353,7 +353,7 @@ public class Phase3 {
         var vcpus = new HashMap<String, Integer>();
         for (var m : big.machines()) vcpus.put(m.name(), 2);
         // Replay the observed graph at the size being asked about: the same shape,
-        // eight times as many calls, dealt the same way round the same fleet.
+        // eight times as many calls, dealt the same way round the same cluster.
         for (int repeat = 0; repeat < 8; repeat++)
             for (var t : perCall)
                 tasks.add(new Schedule.Task(t.id() + repeat * 10_000L, t.parent(), t.machine(),
@@ -395,7 +395,7 @@ public class Phase3 {
 
     static void planTravels() throws Exception {
         System.out.println("=== the plan travels, and does not have to be paid for twice ===");
-        var s = Loader.of(Yaml.parse("plan.yaml", fleet("Accumulator", 500)));
+        var s = Loader.of(Yaml.parse("plan.yaml", cluster("Accumulator", 500)));
 
         // This is the one test whose subject is the cache, so it is the one test that
         // cannot inherit an empty one from whoever ran it. `dev test` clears build/ on

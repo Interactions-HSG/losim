@@ -1,6 +1,6 @@
 ---
 title: "faults"
-description: "Seven things that can happen to a fleet, at an instant you choose."
+description: "Seven things that can happen to a cluster, at an instant you choose."
 icon: "bolt"
 ---
 
@@ -108,7 +108,7 @@ this message exists for.
 Building in-process servers costs real milliseconds, and at 20× that would
 be hundreds of reference milliseconds of a run that has not begun — putting every
 early fault in the past, so they would all fire at once during setup. The clock is
-zeroed after the fleet is built, so a fault written at 120 refMs lands at 120 refMs
+zeroed after the cluster is built, so a fault written at 120 refMs lands at 120 refMs
 in the trace.
 
 ## Faults do not vary with the seed

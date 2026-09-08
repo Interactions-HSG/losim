@@ -22,7 +22,7 @@ objects against the machine whose allocation is being fitted.
 <Note>
 The asymmetry is deliberate. A silent `reveal` lets a handler be called directly
 from a unit test without the test having to know losim exists. A fabricated empty
-fleet would let the same test pass while asserting nothing, which is worse than
+cluster would let the same test pass while asserting nothing, which is worse than
 failing.
 </Note>
 
@@ -105,7 +105,7 @@ needs the machine's identity.
 </ResponseField>
 
 <ResponseField name="peers()" type="List<String>">
-  Every **other** machine in the fleet, by name.
+  Every **other** machine in the cluster, by name.
 </ResponseField>
 
 <ResponseField name="peersServing(String service)" type="List<String>">
@@ -136,7 +136,7 @@ needs the machine's identity.
 ```
 no simulation is running, so Losim.current().peers() has no answer here.
 Recording calls (reveal, log, units) are silent outside a run; state calls are
-not, because a fabricated fleet would make a passing test meaningless.
+not, because a fabricated cluster would make a passing test meaningless.
 ```
 
 ## Every method meters its own body

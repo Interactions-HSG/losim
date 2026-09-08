@@ -109,7 +109,7 @@ final class Retrying implements ClientInterceptor {
                             "after", status.getCode().name(),
                             "backoffRefMs", Machine.round(backoff),
                             "unsafe", policy.unsafe() ? true : null);
-                    from.fleet().clock.spend(backoff);
+                    from.machines().clock.spend(backoff);
                     fire();
                 }
             }, copy(headers));
@@ -135,7 +135,7 @@ final class Retrying implements ClientInterceptor {
         private Metadata copy(Metadata h) {
             var m = new Metadata();
             m.merge(h);
-            m.discardAll(Fleet.PARENT);
+            m.discardAll(Machines.PARENT);
             return m;
         }
     }

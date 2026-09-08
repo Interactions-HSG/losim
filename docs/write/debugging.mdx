@@ -15,7 +15,7 @@ when something is wrong, the useful question is *which layer is this in*, not
 A run is real threads on a real wall clock. Stopping one machine's pool thread does
 not stop the others, does not stop the clock, does not stop the sampler and does not
 stop the fault dispatcher. Every duration, every deadline and every fault time in
-that run is now wrong, and the trace will show a fleet that was never there.
+that run is now wrong, and the trace will show a cluster that was never there.
 
 There is a place for it — [level 4](#level-4-inside-a-run) — but it is the last
 resort, not the first.
@@ -147,7 +147,7 @@ Keep this code in a **test source set that no service or job references.** The
 verifier walks outward from the classes your scenario names; a test nothing points
 at is never reached. If you put a harness like this in a class your service imports,
 it will be walked, and it will be flagged — rightly, because then it could run
-inside a real fleet.
+inside a real cluster.
 </Warning>
 
 ### Not true at this level
@@ -157,7 +157,7 @@ inside a real fleet.
 | a scenario's `takes:` | does not apply. There is no scenario and no interceptor, so no duration is slept. |
 | `k_time` | does not exist. Everything is your afternoon. |
 | memory and disk caps | not enforced. Nothing is walking the heap. |
-| `peers()`, `channelTo()`, `here()` | throw — there is no fleet. |
+| `peers()`, `channelTo()`, `here()` | throw — there is no cluster. |
 | byte counts, spans, faults | not recorded. |
 
 So never conclude anything about *performance* from level 3. It is for behaviour.
@@ -170,7 +170,7 @@ When the bug is genuinely about how machines behave together, the trace is the
 debugger — that is what the three channels are for. Reach for these in order:
 
 <Steps>
-  <Step title="Shrink the fleet and stop compressing time">
+  <Step title="Shrink the cluster and stop compressing time">
     ```yaml
     machines:
       coordinator: { instance: m5.large, zone: eu-central-1a }

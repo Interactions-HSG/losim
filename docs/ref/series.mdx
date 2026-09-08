@@ -27,7 +27,7 @@ simulated times, `dtMs` apart.
 <Note>
 A change log is **silent exactly when a system is stuck**, which is exactly when you
 want to look at it. Series make the trace's size follow the run's **duration** rather
-than its busyness, so a frozen fleet produces as much evidence as a working one.
+than its busyness, so a frozen cluster produces as much evidence as a working one.
 
 The sampler starts at its finest — half a real millisecond — and **thins as it
 goes**: every time the trace fills up, half the samples are dropped and the interval

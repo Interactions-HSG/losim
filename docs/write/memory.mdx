@@ -55,7 +55,7 @@ this machine's data:
     are exactly your data.
   </Card>
   <Card title="Not counted" icon="xmark">
-    Another machine. The fleet. Telemetry, spans, the clock, the network. gRPC's
+    Another machine. The cluster. Telemetry, spans, the clock, the network. gRPC's
     transport, which everyone shares. Servers, channels, executors, threads.
   </Card>
 </Columns>
@@ -86,7 +86,7 @@ machines:
 ```
 
 That is the cheapest way to find out whether your design degrades or collapses when
-one machine is smaller than the others — and whether the rest of the fleet notices.
+one machine is smaller than the others — and whether the rest of the cluster notices.
 
 <Tip>
 In **scaled mode** you do not write caps at all. The engine solves for them, per

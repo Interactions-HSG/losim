@@ -20,7 +20,7 @@ import java.util.concurrent.locks.LockSupport;
  * The park must be <b>calibrated</b> (D5) or it sails straight past the spin
  * window it was meant to stop short of, which throws away the entire benefit. And
  * the thread wants {@link Thread#MAX_PRIORITY}, because it is competing with
- * every machine in the fleet for a core.
+ * every machine in the cluster for a core.
  *
  * <p>What remains is the OS, not the design: with every core saturated the
  * dispatcher is descheduled, so placement is around 3 µs at the median and around

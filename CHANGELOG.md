@@ -70,7 +70,7 @@ takes:
 ```
 
 Keyed by the class `runs:` names rather than by the rpc, because two implementations
-of one rpc in one fleet must be able to cost different amounts — comparing two
+of one rpc in one cluster must be able to cost different amounts — comparing two
 implementations is what the course is for. A key naming a method no placed service
 serves is refused with the line it is on, so a renamed rpc stops the scenario
 loading instead of silently costing nothing.
@@ -82,7 +82,7 @@ move.
 **In an existing lab this is the one thing you have to do by hand.** `losim.api.Takes`
 no longer exists, so a handler that imports it does not compile: delete the import
 and every `@Takes`, and put the same numbers under the class that serves the rpc in
-each scenario that places it. A fleet that declares no cost anywhere is not refused
+each scenario that places it. A cluster that declares no cost anywhere is not refused
 — it gets a note saying it is instant, which is what an unannotated handler always
 was.
 
@@ -91,7 +91,7 @@ was.
 One change here can refuse a scenario that worked before, and it is deliberate.
 
 A **streaming** rpc, and an rpc whose marshaller is not protobuf, are refused when
-the fleet starts, naming the method and the line the `runs:` was written on. Both
+the cluster starts, naming the method and the line the `runs:` was written on. Both
 produce a number that looks right and is wrong: the per-record cost is slept once
 per response message rather than once, and `Wire.sizeOf` returns 0 for a
 non-`Message`, so every call is free on the wire and the bill silently undercounts

@@ -8,7 +8,7 @@ import losim.api.Job;
 import losim.t.*;
 
 /**
- * Map across the fleet, then reduce, and cope with a machine that is not there.
+ * Map across the cluster, then reduce, and cope with a machine that is not there.
  *
  * <p>The map phase uses an async stub and a latch, which is how you would fan out
  * over gRPC without a thread per call. The reduce phase is blocking, because the

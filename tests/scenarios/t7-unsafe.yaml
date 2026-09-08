@@ -1,4 +1,4 @@
-# The same fleet, with a retry policy on a method whose schema does not declare it
+# The same cluster, with a retry policy on a method whose schema does not declare it
 # safe to run twice. This scenario must be refused before anything runs.
 seed: 5
 job: WordCount

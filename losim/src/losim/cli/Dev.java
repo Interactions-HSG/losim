@@ -228,7 +228,7 @@ public final class Dev {
                     assertThat("TBill", trace("t10"), trace("t10-truth"));
                 }
                 case "t11" -> {
-                    List<String> cells = List.of("fleet2", "fleet4", "fleet8", "kill", "chaos");
+                    List<String> cells = List.of("cluster2", "cluster4", "cluster8", "kill", "chaos");
                     for (String cell : cells) run("t11-" + cell, "t11-" + cell + ".yaml");
                     List<String> traces = new ArrayList<>();
                     for (String cell : cells) traces.add(trace("t11-" + cell));

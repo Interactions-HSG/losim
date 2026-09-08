@@ -57,7 +57,7 @@ different price list costs nothing and needs no re-run.
 
 | bucket | what it is a model of |
 |---|---|
-| `capacity` | the fleet, for the period. An idle machine costs exactly as much as a busy one. |
+| `capacity` | the cluster, for the period. An idle machine costs exactly as much as a busy one. |
 | `consumption` | what the work burned: egress at the distance it went, and storage |
 | `incidents` | zero until something breaks, then large |
 | `build` | engineering time to construct and carry this design, per distinct service |
@@ -79,7 +79,7 @@ So you can map a row of output back to the thing that caused it.
 |---|---|---|
 | `build` | `services carried` | services |
 | `capacity` | `<machine> (<instance>)`, or `(<instance>, spot)` | machine-hours |
-| `capacity` | `the fleet, for the period` — **projected side only** | machine-hours |
+| `capacity` | `the cluster, for the period` — **projected side only** | machine-hours |
 | `consumption` | `cross-zone egress` | GB |
 | `consumption` | `egress to another region` | GB |
 | `consumption` | `egress across an ocean` | GB |
@@ -92,7 +92,7 @@ So you can map a row of output back to the thing that caused it.
 <Note>
 **Capacity reads differently on the two sides.** What happened is one line per machine,
 named, with its instance type — five machines you can point at. What it is a model of
-is a single fleet line, because at full scale the number of machines is itself
+is a single cluster line, because at full scale the number of machines is itself
 something the engine had to project.
 </Note>
 
@@ -144,7 +144,7 @@ something the engine had to project.
 
   </Accordion>
   <Accordion title="build">
-    The number of **distinct services** the fleet carries, times a monthly cost per
+    The number of **distinct services** the cluster carries, times a monthly cost per
     service. Carried whether or not it is ever needed — which is what makes adding a
     service a real decision.
   </Accordion>
@@ -168,7 +168,7 @@ what happened
 
 what it is a model of
   build       services carried                      1.000 services       CHF    0.2500
-  capacity    the fleet, for the period                 -                CHF   refused
+  capacity    the cluster, for the period                 -                CHF   refused
       the ladder bends: over the lower half it grows as units^-0.20 and over the
       upper half as units^0.40, a difference of 0.60. Something behaves differently
       small than large, and no extrapolation across that means anything
@@ -184,7 +184,7 @@ what it is a model of
 Read the two halves against each other:
 
 - `capacity` is per machine on the left and one line on the right. What happened
-  is five machines you can name; what it is a model of is a fleet whose size is
+  is five machines you can name; what it is a model of is a cluster whose size is
   itself a projection.
 - `consumption` grew — 0.0001 to 0.0004 GB-month — because storage has a law
   fitted to it.

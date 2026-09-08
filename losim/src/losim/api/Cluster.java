@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.function.Supplier;
 
 /**
- * The fleet, as the job sees it.
+ * The cluster, as the job sees it.
  *
  * <p>Deliberately narrow. A job can find peers, talk to them, telemetrize work it
  * does itself, and say what the answer was. It cannot reach into another machine's
@@ -15,7 +15,7 @@ import java.util.function.Supplier;
  */
 public interface Cluster {
 
-    /** Every machine in the fleet, by name. */
+    /** Every machine in the cluster, by name. */
     List<String> machines();
 
     /**

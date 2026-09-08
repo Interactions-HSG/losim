@@ -111,7 +111,7 @@ public class Debugger {
         }
         System.out.printf("    %s reached %.1f%% of its cap at t=%.0f ms%n", worstVm, worstPct, worstAt);
         check(worstPct > 0 && worstVm != null,
-              "memory is a per-machine series against that machine's own cap, not a fleet scalar");
+              "memory is a per-machine series against that machine's own cap, not a cluster scalar");
         check(worstAt >= 0, "and the moment it peaked is recoverable");
 
         // ------------------------------------------------------------------ Q5
@@ -152,7 +152,7 @@ public class Debugger {
                 if (e.getKey().endsWith(".inflight") && i < e.getValue().size()) sum += e.getValue().at(i);
             if (sum > most) { most = sum; busiest = times[i]; }
         }
-        System.out.printf("    the fleet is busiest at t=%.0f ms%n", busiest);
+        System.out.printf("    the cluster is busiest at t=%.0f ms%n", busiest);
         for (String vm : List.of("master", "w0", "w1")) {
             var s = stateAt(vm, busiest);
             System.out.printf("    %-7s inflight=%.0f queued=%.0f busy=%.0f%%%n", vm,

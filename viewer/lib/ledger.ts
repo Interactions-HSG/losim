@@ -24,7 +24,7 @@
  * never changes, only the claim about who is answerable for it. Three kinds:
  *
  * - **its own** — a capacity line names one machine and belongs to it entirely
- * - **its share** — a fleet total split by a quantity the trace already holds,
+ * - **its share** — a cluster total split by a quantity the trace already holds,
  *   so cross-zone egress is split by how many cross-zone bytes each machine
  *   actually sent
  * - **nobody's** — the late-finish penalty belongs to the *job*. Spreading it
@@ -265,7 +265,7 @@ export class LedgerModel {
       Number(trace.byName.get(name)?.raw[key] ?? 0);
 
     // The bill charges storage for **the worst machine's** spill, so it belongs
-    // to that machine alone. Splitting it across the fleet would be a different
+    // to that machine alone. Splitting it across the cluster would be a different
     // and much smaller claim about each of them.
     let worst = '';
     let mostDisk = 0;
@@ -409,7 +409,7 @@ function doneAt(trace: Trace): number | null {
   return job && job.t1 >= 0 && job.status === 'OK' ? job.t1 : null;
 }
 
-/** A fleet-wide running total of one series, as a share of its final value. */
+/** A cluster-wide running total of one series, as a share of its final value. */
 function cumulative(trace: Trace, metric: string): (t: number) => number {
   const times = trace.series(trace.machines[0]?.name ?? '', metric).t;
   const total = new Array(times.length).fill(0);

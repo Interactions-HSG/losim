@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
  * annotations, so generated code is recognised as generated rather than by a guess
  * about its name.
  *
- * <p>One process for a whole fleet, not one per class. The complete disassembly of
+ * <p>One process for a whole cluster, not one per class. The complete disassembly of
  * a lab runs to a few hundred kilobytes and costs about what one {@code javac} of it
  * costs.
  */

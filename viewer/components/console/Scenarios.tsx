@@ -89,7 +89,7 @@ export function Scenarios() {
    * Whether there is anything to place.
    *
    * Compiling is a different question. A lab of plain Java compiles perfectly and
-   * offers no job and no service, and a draft over that is a fleet of workers
+   * offers no job and no service, and a draft over that is a cluster of workers
    * that run nothing wrapped around an empty job.
    */
   const canAuthor = !!palette && palette.compiled
@@ -171,7 +171,7 @@ export function Scenarios() {
           mode === 'list' ? (
             <>
               Your Java says what <em>can</em> run. A scenario says where it runs and what goes
-              wrong — the fleet, the distances, and the weather. Write as many as you like: what
+              wrong — the cluster, the distances, and the weather. Write as many as you like: what
               changes between two runs is almost never the code.
             </>
           ) : mode === 'new' ? (
@@ -242,7 +242,7 @@ export function Scenarios() {
 
       {/* Compiling is not the same question as having something to place. A lab of
           plain Java compiles perfectly and offers no job and no service, and the
-          skeleton draft would then propose a fleet of workers that run nothing
+          skeleton draft would then propose a cluster of workers that run nothing
           around a `job: ""` — a scenario that cannot exist, offered as a default.
           The palette is the predicate: it is empty for exactly the labs where
           there is nothing to author. */}
@@ -287,7 +287,7 @@ export function Scenarios() {
               </dl>
               {links && (
                 <>
-                  <h3 className="sub">Distances in this fleet</h3>
+                  <h3 className="sub">Distances in this cluster</h3>
                   <dl className="kv">
                     {(Object.keys(links) as (keyof typeof links)[])
                       .filter((k) => links[k] > 0)
@@ -496,7 +496,7 @@ function Scale({ draft, edit }: { draft: Draft; edit: (f: (d: Draft) => void) =>
           </select>
           <span className="hint">
             {draft.mode === 'scaled'
-              ? 'The engine picks the ladder, the fleet sizes and the clock. What comes back '
+              ? 'The engine picks the ladder, the cluster sizes and the clock. What comes back '
                 + 'is a projection with an error bar, and any resource whose law does not hold '
                 + 'is refused rather than extrapolated.'
               : 'Every record runs. Honest, and a long afternoon at a real size — which is '
@@ -1019,13 +1019,13 @@ function PoolCard({
 /* ------------------------------------------------------------------ the wire
  *
  * Left at zero — which is what a scenario gets by saying nothing — every call
- * returns the instant it is made. That is not a neutral default: it is a fleet
+ * returns the instant it is made. That is not a neutral default: it is a cluster
  * in which no deadline can ever fire, no placement can ever be wrong, and no
  * message can ever go missing, which between them are most of what makes a
  * system distributed rather than one program in several pieces.
  *
  * So the numbers are here, next to the placement they give a cost to, and the
- * panel says out loud when they and the fleet disagree.
+ * panel says out loud when they and the cluster disagree.
  */
 function Network({
   draft, palette, edit,
@@ -1087,7 +1087,7 @@ function Network({
         </div>
       </div>
 
-      {/* The two ways the numbers and the fleet can disagree. Both are legal and
+      {/* The two ways the numbers and the cluster can disagree. Both are legal and
           both are almost always a mistake, so they are said rather than fixed. */}
       {apart > 0 && n.crossZoneRefMs <= n.sameZoneRefMs && (
         <div className="flag warn">
@@ -1157,7 +1157,7 @@ function Network({
  * there is made of.
  *
  * Two kinds, and the difference between them is the whole point: a fault at 300
- * refMs teaches a fleet to survive 300 refMs, and a *rate* teaches it to survive
+ * refMs teaches a cluster to survive 300 refMs, and a *rate* teaches it to survive
  * whenever — which is the harder and more honest thing, and the reason a sweep
  * is twenty seeds rather than one lucky afternoon.
  */
@@ -1241,7 +1241,7 @@ function Weather({
           </select>
           {/* The second machine, and only these two have one. It is a pair of
               machines that stops reaching each other, not a machine that
-              stops — so the other end may be anywhere in the fleet. */}
+              stops — so the other end may be anywhere in the cluster. */}
           {PAIRED.includes(f.kind) && (
             <>
               <span>{f.kind === 'heal' ? 'and' : 'from'}</span>
@@ -1420,8 +1420,8 @@ function count(names: string[]): string {
 /* ----------------------------------------------------------------- the costs
  *
  * What each rpc takes on the reference machine, under the class that serves it.
- * Rows for whatever the fleet actually places, so the panel is a table to fill in
- * rather than a block to remember — and a fleet left at zero says so, because a
+ * Rows for whatever the cluster actually places, so the panel is a table to fill in
+ * rather than a block to remember — and a cluster left at zero says so, because a
  * run where every call is instant has no queueing, no contention and no critical
  * path, and looks from the outside like a design that is simply very fast.
  */
@@ -1475,7 +1475,7 @@ function Costs({
       {rows.length > 0 && !priced && (
         <p className="aside warn">
           Every call is instant. Nothing queues, nothing contends, and the timeline is empty —
-          which is most of what a fleet is interesting for.
+          which is most of what a cluster is interesting for.
         </p>
       )}
     </Panel>
@@ -1484,7 +1484,7 @@ function Costs({
 
 /* --------------------------------------------------------------- the retries
  *
- * Not weather: a property of every caller in the fleet, keyed by the gRPC method
+ * Not weather: a property of every caller in the cluster, keyed by the gRPC method
  * rather than by a machine. So it stays a panel of its own, and says which of
  * the two it is.
  */
@@ -1562,7 +1562,7 @@ function Retries({
             <button className="btn" onClick={() => edit((d) => { d.retries.splice(i, 1); })}>×</button>
             {r.multiplier === 1 && r.attempts > 2 && (
               <span className="aside">
-                flat: every attempt waits the same. A fleet that does not ease off a
+                flat: every attempt waits the same. A cluster that does not ease off a
                 struggling machine is how one slow machine becomes an outage.
               </span>
             )}

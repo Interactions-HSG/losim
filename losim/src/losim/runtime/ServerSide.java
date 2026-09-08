@@ -54,13 +54,13 @@ final class ServerSide implements ServerInterceptor {
         final Deadline allowed = Context.current().getDeadline();
         final Double deadlineRefMs = allowed == null ? null
                 : allowed.timeRemaining(java.util.concurrent.TimeUnit.NANOSECONDS)
-                        * node.fleet().clock.kTime() / 1e6;
+                        * node.machines().clock.kTime() / 1e6;
 
         // The parent arrives in a header, from a thread on another machine this
         // one has no context from. Reading it from the ambient context instead
         // would hang every server span off the root, and there would be no
         // distributed call stack at all (D8 rule 2).
-        final String parent = headers.get(Fleet.PARENT);
+        final String parent = headers.get(Machines.PARENT);
         long parentId = 0;
         try { if (parent != null) parentId = Long.parseLong(parent); }
         catch (NumberFormatException ignored) { }
@@ -78,7 +78,7 @@ final class ServerSide implements ServerInterceptor {
                 // finished, and by now the handler has said how much there was.
                 if (takes != null && takes.refNsPerUnit() > 0) {
                     long n = span.units.get();
-                    if (n > 0) node.fleet().clock
+                    if (n > 0) node.machines().clock
                             .spend(takes.refNsPerUnit() * n / 1e6 * node.effectiveFactor());
                 }
                 long b0 = Meter.allocNow(), n0 = System.nanoTime();
@@ -168,7 +168,7 @@ final class ServerSide implements ServerInterceptor {
                 node.chargeTo(span, Meter.allocNow() - b0, System.nanoTime() - n0);
 
                 if (takes != null && takes.refMs() > 0)
-                    node.fleet().clock.spend(takes.refMs() * node.effectiveFactor());
+                    node.machines().clock.spend(takes.refMs() * node.effectiveFactor());
 
                 // The handler runs inside this call, on this thread, and so does
                 // some of losim's own work — `sendMessage` and `close` are both

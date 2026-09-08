@@ -138,7 +138,7 @@ public enum Rule {
      *
      * <p>{@code InetAddress} is here for a quieter reason than the sockets are. It
      * does not leave the JVM so much as ask it who it is, and the answer is the
-     * host's — one identity shared by every machine in the fleet, which is a lie
+     * host's — one identity shared by every machine in the cluster, which is a lie
      * about isolation of exactly the kind this rule exists for. A machine's own
      * name and shape are on {@link losim.api.Spec}.
      */
@@ -157,7 +157,7 @@ public enum Rule {
             "java.lang.Runtime#exec")),
 
     /**
-     * A channel or a server the fleet did not make.
+     * A channel or a server the cluster did not make.
      *
      * <p>losim is on both sides of every call as gRPC's own interceptors: that is
      * where latency, loss, partitions, cost, spans and byte counts come from. A
@@ -177,7 +177,7 @@ public enum Rule {
     /**
      * State every machine shares.
      *
-     * <p>A static field is one field for the whole fleet, so a fleet of eight
+     * <p>A static field is one field for the whole cluster, so a cluster of eight
      * "machines" holding a static map holds one map. It is a lie about isolation
      * rather than about repeatability, and it is the one flag that undermines every
      * per-machine figure at once: whatever is in there was allocated by whichever
@@ -187,7 +187,7 @@ public enum Rule {
      * or enum constant is shared and immutable, which is what constants are for.
      */
     SHARED_STATE(Flag.ISOLATION, "holds mutable state in a static field, which is one"
-            + " field for the whole fleet rather than one per machine", List.of()),
+            + " field for the whole cluster rather than one per machine", List.of()),
 
     /**
      * One machine, reaching into another.

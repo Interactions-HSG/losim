@@ -6,7 +6,7 @@ import losim.runtime.Cost;
 import losim.runtime.Retry;
 
 /**
- * A fleet, its weather and its bad afternoon — as data.
+ * A cluster, its weather and its bad afternoon — as data.
  *
  * <p>Nothing here is authored that the run could find out for itself. Anything that
  * needs code points at a class by name, so the file stays diffable, sweepable and
@@ -52,7 +52,7 @@ public record Scenario(
          * losim nowhere: a system can be written, compiled and unit-tested with
          * this project off the classpath entirely. What that gives up is drift —
          * an annotation follows a renamed method and a table does not — which is
-         * why a key naming a method the fleet does not serve is refused at load
+         * why a key naming a method the cluster does not serve is refused at load
          * with the line it was written on.
          */
         Map<String, Cost> takes,
@@ -83,7 +83,7 @@ public record Scenario(
      *
      * <p>There are exactly two, and no third. In {@link #DIRECT} nothing is scaled
      * and nothing is inferred: every number on screen is what happened. In
-     * {@link #SCALED} the scaler engine decides the run size, the fleet and every
+     * {@link #SCALED} the scaler engine decides the run size, the cluster and every
      * cap, and projects the results back with error bars. A scenario cannot
      * hand-declare a shrink factor and bypass the engine — that would be a third
      * mode whose numbers nobody could account for.
@@ -123,7 +123,7 @@ public record Scenario(
     /**
      * How many machines to put in each multi-machine pool, varied on its own.
      *
-     * <p>Derived from the fleet that was drawn, because that is the fleet the
+     * <p>Derived from the cluster that was drawn, because that is the cluster the
      * question is about: probing a design at two workers when it is written for
      * eight extrapolates across the very thing being measured. Varied independently
      * of the data so a resource can be attributed to the right variable rather than
@@ -136,7 +136,7 @@ public record Scenario(
 
     // ------------------------------------------------------------------ variants
     //
-    // The probe grid needs the same scenario at many sizes, fleet shapes and seeds.
+    // The probe grid needs the same scenario at many sizes, cluster shapes and seeds.
     // Producing those here rather than by editing files keeps one fact — what this
     // system is — in one place, and makes the grid's axes explicit.
 
@@ -163,11 +163,11 @@ public record Scenario(
     }
 
     /**
-     * The same fleet, resized.
+     * The same cluster, resized.
      *
      * <p>Every pool that had more than one machine is regenerated at {@code n},
      * keeping its instance type, its zones and its services. Singletons — the
-     * coordinator, usually — are left alone: varying the data and the fleet
+     * coordinator, usually — are left alone: varying the data and the cluster
      * independently is what lets a resource be attributed to the right one, and
      * that only works if resizing means resizing the workers.
      */
@@ -194,7 +194,7 @@ public record Scenario(
                 stillThere, chaos, retries, takes, tightMargin, mode);
     }
 
-    /** The same fleet with caps the engine solved for, per machine, per resource. */
+    /** The same cluster with caps the engine solved for, per machine, per resource. */
     public Scenario withCaps(java.util.Map<String, double[]> byMachine) {
         var out = new java.util.ArrayList<MachineSpec>();
         for (MachineSpec m : machines) {
@@ -248,7 +248,7 @@ public record Scenario(
     /**
      * A standing chance of a bad day, rather than a scripted one.
      *
-     * <p>A scenario with a fault at 900 refMs teaches the fleet to survive 900 refMs.
+     * <p>A scenario with a fault at 900 refMs teaches the cluster to survive 900 refMs.
      * A rate teaches it to survive whenever, which is the harder and more honest
      * thing — and it is why sweeps exist: one seed shows a design survived an
      * afternoon, twenty show it survives afternoons.

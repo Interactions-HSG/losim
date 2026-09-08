@@ -4,7 +4,7 @@ description: "What we are building, and the four files it takes."
 icon: "list-check"
 ---
 
-We are going to build a small fleet that makes thumbnails: a coordinator reads an
+We are going to build a small cluster that makes thumbnails: a coordinator reads an
 album, hands batches of frames to whichever machines can shrink them, and collects
 the results. Then we are going to make its afternoon go badly and watch what
 happens.
@@ -44,7 +44,7 @@ yours to write.
   </Step>
 </Steps>
 
-## The fleet's shape
+## The cluster's shape
 
 ```
   coordinator (m5.large, eu-central-1a)   runs the job
@@ -56,7 +56,7 @@ yours to write.
 ```
 
 `w3` is deliberately the odd one out — **one core against everyone else's two**,
-so it does half the work in the same time and costs a quarter as much. A fleet
+so it does half the work in the same time and costs a quarter as much. A cluster
 where every machine is identical teaches nothing about placement, and placement
 is most of what a coordinator is for.
 

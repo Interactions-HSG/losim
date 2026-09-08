@@ -576,7 +576,7 @@ public final class Serve {
      * Start a run, and answer immediately with where to read it.
      *
      * <p>Answering before the run finishes is the whole design: a build takes
-     * seconds and a fleet under chaos takes longer, and a page that waits for it
+     * seconds and a cluster under chaos takes longer, and a page that waits for it
      * is a page that looks broken.
      */
     private void start(HttpExchange x) throws IOException {

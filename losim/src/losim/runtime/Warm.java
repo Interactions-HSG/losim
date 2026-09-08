@@ -35,8 +35,8 @@ import losim.trace.Telemetry;
  * every later one is a flicker — and it lands in the fixed term {@code c} of
  * {@code demand = c + a·n^β}, which the scale engine then extrapolates (D13).
  *
- * <p>So it is paid here, once per JVM, on a throwaway fleet of losim's own that
- * appears in no trace, before {@link Fleet#begin()} zeroes the clock. Setup
+ * <p>So it is paid here, once per JVM, on a throwaway cluster of losim's own that
+ * appears in no trace, before {@link Machines#begin()} zeroes the clock. Setup
  * belongs to no scenario.
  *
  * <p><b>What it does not fix.</b> This warms losim's path, not the student's
@@ -102,7 +102,7 @@ final class Warm {
         // does for itself. Doing it here too would cost 400 ms for nothing.
         var tel = new Telemetry(new Clock(1, 1.0), Telemetry.Level.FULL);
         var net = new Net(0L).latency(0, 0).jitter(0).loss(0);
-        try (var fleet = new Fleet(tel, net)) {
+        try (var machines = new Machines(tel, net)) {
             BindableService touch = () -> ServerServiceDefinition.builder("losim.Warm")
                     .addMethod(TOUCH, ServerCalls.asyncUnaryCall(
                             (Empty q, StreamObserver<Empty> out) -> {
@@ -110,10 +110,10 @@ final class Warm {
                                 out.onCompleted();
                             }))
                     .build();
-            Machine caller = fleet.machine("losim-warm-a", "m5.large", "eu-central-1a");
-            fleet.machine("losim-warm-b", "m5.large", "eu-central-1a").serving(touch);
+            Machine caller = machines.machine("losim-warm-a", "m5.large", "eu-central-1a");
+            machines.machine("losim-warm-b", "m5.large", "eu-central-1a").serving(touch);
             caller.serving();
-            fleet.begin();
+            machines.begin();
             for (int i = 0; i < ROUNDS; i++) {
                 // A fresh channel per round, and each one shut down before the
                 // next. Fresh because building a channel is a large part of what

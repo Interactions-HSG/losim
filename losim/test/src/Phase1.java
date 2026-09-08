@@ -4,7 +4,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import losim.api.Losim;
 import losim.runtime.Cost;
-import losim.runtime.Fleet;
+import losim.runtime.Machines;
 import losim.runtime.Machine;
 import losim.runtime.Net;
 import losim.runtime.Wire;
@@ -15,7 +15,7 @@ import losim.trace.Telemetry;
 import losim.trace.Trace;
 
 /**
- * Phase 1: the fleet, checked against what it claimed.
+ * Phase 1: the cluster, checked against what it claimed.
  *
  * Four of these are the phase's acceptance criteria and are marked as such. The
  * rest are the mechanisms those four rest on: if the ambient context does not
@@ -39,7 +39,7 @@ public class Phase1 {
 
     // ------------------------------------------------------------------ fixtures
 
-    /** What the scenario says an rpc costs, for a fleet built without a scenario. */
+    /** What the scenario says an rpc costs, for a cluster built without a scenario. */
     static final Map<String, Cost> COSTED = Map.of("Costed.Map", new Cost(500, 0));
     static final Map<String, Cost> PER_RECORD =
             Map.of("PerRecord.Map", new Cost(0, 1_000_000));   // 1 refMs a record
@@ -55,9 +55,9 @@ public class Phase1 {
      * A handler whose duration only the running program knows.
      *
      * <p>It waits on {@code reduce} rather than on {@code map} so that it can sit
-     * in the same fleet as {@link Costed} and cost nothing: what a call takes is
+     * in the same cluster as {@link Costed} and cost nothing: what a call takes is
      * declared per rpc, not per machine, so two implementations of one rpc in one
-     * fleet are two machines running the same operation at the same price.
+     * cluster are two machines running the same operation at the same price.
      */
     static final class Waiting extends WorkerBase {
         @Override protected Counts map(Chunk c) { return c.getLines() == 0
@@ -108,14 +108,14 @@ public class Phase1 {
     }
 
     /** The gross duration of the handler span that ran on one machine. */
-    static double byMachine(Fleet fleet, String machine) {
-        return fleet.telemetry().spans().stream()
+    static double byMachine(Machines machines, String machine) {
+        return machines.telemetry().spans().stream()
                 .filter(s -> s.kind.equals("handler") && s.vm.equals(machine))
                 .mapToDouble(s -> s.grossMs()).max().orElse(0);
     }
 
-    static Fleet fleet(double kTime, Telemetry.Level level) {
-        return new Fleet(new Telemetry(new Clock(kTime, Clock.measureCorrection()), level));
+    static Machines machines(double kTime, Telemetry.Level level) {
+        return new Machines(new Telemetry(new Clock(kTime, Clock.measureCorrection()), level));
     }
 
     // ---------------------------------------------------------------------- main
@@ -142,12 +142,12 @@ public class Phase1 {
 
     static void oneCall() throws Exception {
         System.out.println("=== one unary call over real gRPC ===");
-        try (var fleet = fleet(100, Telemetry.Level.FULL)) {
-            var client = fleet.machine("client", "m5.large", "z");
-            fleet.machine("srv", "m5.large", "z").serving(new Reporter());
+        try (var machines = machines(100, Telemetry.Level.FULL)) {
+            var client = machines.machine("client", "m5.large", "z");
+            machines.machine("srv", "m5.large", "z").serving(new Reporter());
             // A second machine offering the same service, so that "who else serves
             // this" is a question with a real answer rather than a count of one.
-            fleet.machine("spare", "m5.large", "z").serving(new Reporter());
+            machines.machine("spare", "m5.large", "z").serving(new Reporter());
             ManagedChannel ch = client.channelTo("srv");
             var req = Chunk.newBuilder().setText("a b c").setLines(3).build();
             Counts got = client.submit(() -> WorkerGrpc.newBlockingStub(ch).map(req)).get();
@@ -160,7 +160,7 @@ public class Phase1 {
                   + "machine is not among them, because a blocking call to itself would "
                   + "starve the pool it is already holding a thread of");
 
-            var tel = fleet.telemetry();
+            var tel = machines.telemetry();
             var spans = tel.spans();
             var rpc = spans.stream().filter(s -> s.kind.equals("rpc")).findFirst().orElseThrow();
             var handler = spans.stream().filter(s -> s.kind.equals("handler")).findFirst().orElseThrow();
@@ -176,8 +176,8 @@ public class Phase1 {
             check(countedIn == expectedIn && countedOut == expectedOut,
                   "ACCEPTANCE: counted bytes are getSerializedSize() plus declared framing "
                   + "(" + countedIn + "/" + expectedIn + ", " + countedOut + "/" + expectedOut + ")");
-            check(fleet.machine("srv").bytesIn() == expectedIn
-                  && fleet.machine("srv").bytesOut() == expectedOut,
+            check(machines.machine("srv").bytesIn() == expectedIn
+                  && machines.machine("srv").bytesOut() == expectedOut,
                   "and the machine's own totals agree with the span's");
 
             check(handler.parent == rpc.id,
@@ -199,15 +199,15 @@ public class Phase1 {
 
     static void fireAndForget() throws Exception {
         System.out.println("=== fire-and-forget, which is not a second messaging path ===");
-        try (var fleet = fleet(100, Telemetry.Level.FULL)) {
-            var a = fleet.machine("a", "m5.large", "z");
+        try (var machines = machines(100, Telemetry.Level.FULL)) {
+            var a = machines.machine("a", "m5.large", "z");
             var arrived = new CountDownLatch(5);
             // The callee is slow on purpose: if the caller were blocked, five of
             // these would take five times as long as one.
-            fleet.machine("b", "m5.large", "z").serving(new VolleyBase() {
+            machines.machine("b", "m5.large", "z").serving(new VolleyBase() {
                 @Override protected void hit(Ping p) { arrived.countDown(); }
             });
-            fleet.costing(Map.of("VolleyBase.Hit", new Cost(300, 0)));
+            machines.costing(Map.of("VolleyBase.Hit", new Cost(300, 0)));
             ManagedChannel ch = a.channelTo("b");
             var stub = VolleyGrpc.newStub(ch);
 
@@ -232,7 +232,7 @@ public class Phase1 {
                   String.format("ACCEPTANCE: an Empty-returning async call did not block its "
                               + "caller (%.2f ms for five calls costing 3 ms each)", returnedMs));
 
-            var tel = fleet.telemetry();
+            var tel = machines.telemetry();
             check(tel.events().stream().filter(e -> e.kind().equals("rpc_call")).count() == 5
                   && tel.events().stream().filter(e -> e.kind().equals("handler_end")).count() == 5,
                   "both directions appear in the trace, as for any other call");
@@ -264,7 +264,7 @@ public class Phase1 {
         boolean threw = false;
         try { handler.map(Chunk.getDefaultInstance()); }
         catch (IllegalStateException e) { threw = e.getMessage().contains("no simulation is running"); }
-        check(threw, "asking for state outside a run throws rather than fabricating a fleet");
+        check(threw, "asking for state outside a run throws rather than fabricating a cluster");
         System.out.println();
     }
 
@@ -272,13 +272,13 @@ public class Phase1 {
 
     static void declaredCost() throws Exception {
         System.out.println("=== a declared cost, in reference milliseconds ===");
-        try (var fleet = fleet(100, Telemetry.Level.FULL)) {
-            var c = fleet.machine("c", "m5.large", "z");
-            fleet.machine("s", "m5.large", "z").serving(new Costed());
-            fleet.machine("w", "m5.large", "z").serving(new Waiting());
-            fleet.machine("dc", "m5.large", "z").serving(new Costed()).degrade(2);
-            fleet.machine("dw", "m5.large", "z").serving(new Waiting()).degrade(2);
-            fleet.costing(COSTED);
+        try (var machines = machines(100, Telemetry.Level.FULL)) {
+            var c = machines.machine("c", "m5.large", "z");
+            machines.machine("s", "m5.large", "z").serving(new Costed());
+            machines.machine("w", "m5.large", "z").serving(new Waiting());
+            machines.machine("dc", "m5.large", "z").serving(new Costed()).degrade(2);
+            machines.machine("dw", "m5.large", "z").serving(new Waiting()).degrade(2);
+            machines.costing(COSTED);
             ManagedChannel ch = c.channelTo("s");
             long t0 = System.nanoTime();
             c.submit(() -> WorkerGrpc.newBlockingStub(ch)
@@ -286,7 +286,7 @@ public class Phase1 {
             double realMs = (System.nanoTime() - t0) / 1e6;
             ch.shutdownNow();
 
-            var handler = fleet.telemetry().spans().stream()
+            var handler = machines.telemetry().spans().stream()
                     .filter(s -> s.kind.equals("handler")).findFirst().orElseThrow();
             System.out.printf("    500 refMs at k_time 100 -> %.2f ms of real time, "
                             + "%.0f refMs on the simulated clock%n", realMs, handler.grossMs());
@@ -307,14 +307,14 @@ public class Phase1 {
             c.submit(() -> WorkerGrpc.newBlockingStub(w).reduce(Counts.getDefaultInstance())).get();
             double waitReal = (System.nanoTime() - t1) / 1e6;
             w.shutdownNow();
-            var waited = byMachine(fleet, "w");
+            var waited = byMachine(machines, "w");
             System.out.printf("    sleep(500 refMs) at k_time 100 -> %.2f ms of real time, "
                             + "%.0f refMs on the simulated clock%n", waitReal, waited);
             check(waitReal > 3.5 && waitReal < 60 && waited > 400, String.format(
                     "Losim.current().sleep() divides by k_time exactly as a declared cost does (%.1f ms "
                     + "real, %.0f refMs simulated) — a wait is a declared duration, and every "
                     + "declared duration is reference time", waitReal, waited));
-            check(fleet.telemetry().events().stream().anyMatch(e -> e.kind().equals("sleep")),
+            check(machines.telemetry().events().stream().anyMatch(e -> e.kind().equals("sleep")),
                   "and it is on the timeline, so a stretch of waiting can be told from a "
                   + "stretch of doing nothing");
 
@@ -324,7 +324,7 @@ public class Phase1 {
             c.submit(() -> WorkerGrpc.newBlockingStub(dw)
                     .reduce(Counts.getDefaultInstance())).get();
             dc.shutdownNow(); dw.shutdownNow();
-            double cost = byMachine(fleet, "dc"), wait = byMachine(fleet, "dw");
+            double cost = byMachine(machines, "dc"), wait = byMachine(machines, "dw");
             System.out.printf("    on a machine at half speed: a declared 500 -> %.0f refMs, "
                             + "sleep(500) -> %.0f refMs  (x%.2f)%n", cost, wait, cost / wait);
             // The ratio, not the two figures: both carry the same constant of call
@@ -336,16 +336,16 @@ public class Phase1 {
                     cost, wait, cost / wait));
         }
 
-        try (var fleet = fleet(100, Telemetry.Level.FULL)) {
-            var c = fleet.machine("c", "m5.large", "z");
-            fleet.machine("s", "m5.large", "z").serving(new PerRecord());
-            fleet.costing(PER_RECORD);
+        try (var machines = machines(100, Telemetry.Level.FULL)) {
+            var c = machines.machine("c", "m5.large", "z");
+            machines.machine("s", "m5.large", "z").serving(new PerRecord());
+            machines.costing(PER_RECORD);
             ManagedChannel ch = c.channelTo("s");
             var stub = WorkerGrpc.newBlockingStub(ch);
             c.submit(() -> stub.map(Chunk.newBuilder().setLines(0).build())).get();
             c.submit(() -> stub.map(Chunk.newBuilder().setLines(400).build())).get();
             ch.shutdownNow();
-            var spans = fleet.telemetry().spans().stream()
+            var spans = machines.telemetry().spans().stream()
                     .filter(s -> s.kind.equals("handler"))
                     .sorted(Comparator.comparingDouble(s -> s.t0)).toList();
             double none = spans.get(0).grossMs(), many = spans.get(1).grossMs();
@@ -362,10 +362,10 @@ public class Phase1 {
 
     static void contention() throws Exception {
         System.out.println("=== the executor is the vCPU model ===");
-        try (var fleet = fleet(10, Telemetry.Level.NO_PAYLOAD)) {
-            var c = fleet.machine("c", "m5.2xlarge", "z");
-            fleet.machine("two", "m5.large", "z").serving(new Costed());   // 2 vCPU
-            fleet.costing(COSTED);                                         // 500 refMs a call
+        try (var machines = machines(10, Telemetry.Level.NO_PAYLOAD)) {
+            var c = machines.machine("c", "m5.2xlarge", "z");
+            machines.machine("two", "m5.large", "z").serving(new Costed());   // 2 vCPU
+            machines.costing(COSTED);                                         // 500 refMs a call
             ManagedChannel ch = c.channelTo("two");
             var stub = WorkerGrpc.newBlockingStub(ch);
             var calls = new ArrayList<Future<?>>();
@@ -378,7 +378,7 @@ public class Phase1 {
             System.out.printf("    8 calls x 500 refMs into a 2-vCPU machine took %.0f refMs%n", refMs);
             check(refMs > 1600,
                   String.format("four waves of two, not one wave of eight (%.0f refMs, not 500)", refMs));
-            check(fleet.telemetry().events().stream().anyMatch(e -> e.kind().equals("queue_wait")),
+            check(machines.telemetry().events().stream().anyMatch(e -> e.kind().equals("queue_wait")),
                   "and the calls that waited for a core said so");
         }
         System.out.println();
@@ -391,11 +391,11 @@ public class Phase1 {
         System.out.println("=== the network: latency, loss, partitions, and a machine that is gone ===");
 
         // --- latency, in reference milliseconds like everything else
-        try (var fleet = new Fleet(new Telemetry(new Clock(100, Clock.measureCorrection())),
+        try (var machines = new Machines(new Telemetry(new Clock(100, Clock.measureCorrection())),
                                    new Net(7).latency(5, 120))) {
-            var c = fleet.machine("c", "m5.large", "eu");
-            fleet.machine("far", "m5.large", "us").serving(new Reporter());
-            fleet.machine("near", "m5.large", "eu").serving(new Reporter());
+            var c = machines.machine("c", "m5.large", "eu");
+            machines.machine("far", "m5.large", "us").serving(new Reporter());
+            machines.machine("near", "m5.large", "eu").serving(new Reporter());
             var toFar = c.channelTo("far");
             var toNear = c.channelTo("near");
             var req = Chunk.newBuilder().setLines(1).build();
@@ -407,14 +407,14 @@ public class Phase1 {
                 c.submit(() -> nearStub.map(req)).get();
                 c.submit(() -> farStub.map(req)).get();
             }
-            int warm = fleet.telemetry().spans().size();
+            int warm = machines.telemetry().spans().size();
             for (int i = 0; i < 5; i++) {
                 c.submit(() -> nearStub.map(req)).get();
                 c.submit(() -> farStub.map(req)).get();
             }
             toFar.shutdownNow(); toNear.shutdownNow();
 
-            var rpcs = fleet.telemetry().spans().stream()
+            var rpcs = machines.telemetry().spans().stream()
                     .filter(s -> s.kind.equals("rpc") && s.id > warm)
                     .sorted(Comparator.comparingDouble(s -> s.t0)).toList();
             double near = median(rpcs.stream().filter(s -> "near".equals(s.detail.get("to")))
@@ -429,10 +429,10 @@ public class Phase1 {
         }
 
         // --- a deadline is reference time too, or it disagrees with everything else
-        try (var fleet = fleet(100, Telemetry.Level.NO_PAYLOAD)) {
-            var c = fleet.machine("c", "m5.large", "z");
-            fleet.machine("slow", "m5.large", "z").serving(new Costed());
-            fleet.costing(COSTED);                                          // 500 refMs
+        try (var machines = machines(100, Telemetry.Level.NO_PAYLOAD)) {
+            var c = machines.machine("c", "m5.large", "z");
+            machines.machine("slow", "m5.large", "z").serving(new Costed());
+            machines.costing(COSTED);                                          // 500 refMs
             var ch = c.channelTo("slow");
             var req = Chunk.newBuilder().setLines(1).build();
             String tight = c.submit(() -> outcome(() -> WorkerGrpc.newBlockingStub(ch)
@@ -444,20 +444,20 @@ public class Phase1 {
                             + "a 900 refMs one gives %s%n", tight, loose);
             check(tight.equals("DEADLINE_EXCEEDED") && loose.equals("OK"),
                   "deadlines are reference time, so they are divided by k_time like the cost they race");
-            check(fleet.telemetry().events().stream().anyMatch(e -> e.kind().equals("rpc_timeout")),
+            check(machines.telemetry().events().stream().anyMatch(e -> e.kind().equals("rpc_timeout")),
                   "and the one that lost is an rpc_timeout in the trace");
         }
 
         // --- the three ways nothing answers
         for (String how : new String[]{"partition", "loss", "death"}) {
-            try (var fleet = new Fleet(new Telemetry(new Clock(100, Clock.measureCorrection()),
+            try (var machines = new Machines(new Telemetry(new Clock(100, Clock.measureCorrection()),
                                                      Telemetry.Level.NO_PAYLOAD),
                                        new Net(7))) {
-                var c = fleet.machine("c", "m5.large", "z");
-                var s = fleet.machine("s", "m5.large", "z").serving(new Reporter());
+                var c = machines.machine("c", "m5.large", "z");
+                var s = machines.machine("s", "m5.large", "z").serving(new Reporter());
                 switch (how) {
-                    case "partition" -> fleet.net().partition("c", "s");
-                    case "loss"      -> fleet.net().loss(1.0);
+                    case "partition" -> machines.net().partition("c", "s");
+                    case "loss"      -> machines.net().loss(1.0);
                     case "death"     -> s.kill("spot reclaim");
                 }
                 var ch = c.channelTo("s");
@@ -472,7 +472,7 @@ public class Phase1 {
                 check(realMs > 2.5 && realMs < 200,
                       String.format("  and waits the deadline it declared, compressed (%.1f ms real)",
                                     realMs));
-                check(fleet.telemetry().dangling().isEmpty(),
+                check(machines.telemetry().dangling().isEmpty(),
                       "  and the span of a call that went nowhere still closes");
             }
         }
@@ -530,20 +530,20 @@ public class Phase1 {
 
     static void traceShape() throws Exception {
         System.out.println("=== the trace: three channels, and shapes that are a contract ===");
-        try (var fleet = fleet(200, Telemetry.Level.FULL)) {
-            var c = fleet.machine("c", "m5.large", "z");
-            fleet.machine("s", "m5.large", "z").serving(new Costed());
-            fleet.costing(COSTED);
-            fleet.startSampling();
+        try (var machines = machines(200, Telemetry.Level.FULL)) {
+            var c = machines.machine("c", "m5.large", "z");
+            machines.machine("s", "m5.large", "z").serving(new Costed());
+            machines.costing(COSTED);
+            machines.startSampling();
             ManagedChannel ch = c.channelTo("s");
             var stub = WorkerGrpc.newBlockingStub(ch);
             for (int i = 0; i < 4; i++)
                 c.submit(() -> stub.map(Chunk.newBuilder().setLines(1).build())).get();
             c.compute("merge", () -> Counts.newBuilder().putCounts("merged", 4).build());
-            fleet.stopSampling();
+            machines.stopSampling();
             ch.shutdownNow();
 
-            var trace = Trace.of(fleet.telemetry());
+            var trace = Trace.of(machines.telemetry());
             var shape = trace.shape();
             System.out.println("    event kinds: " + String.join(", ", shape.keySet()));
 
@@ -593,9 +593,9 @@ public class Phase1 {
     }
 
     static long revealCost(WorkerBase handler, int reveals) throws Exception {
-        try (var fleet = fleet(1000, Telemetry.Level.NO_PAYLOAD)) {
-            var c = fleet.machine("c", "m5.large", "z");
-            var s = fleet.machine("s", "m5.large", "z").serving(handler);
+        try (var machines = machines(1000, Telemetry.Level.NO_PAYLOAD)) {
+            var c = machines.machine("c", "m5.large", "z");
+            var s = machines.machine("s", "m5.large", "z").serving(handler);
             var ch = c.channelTo("s");
             var stub = WorkerGrpc.newBlockingStub(ch);
             var req = Chunk.newBuilder().setLines(reveals).build();

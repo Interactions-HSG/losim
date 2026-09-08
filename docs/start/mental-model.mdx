@@ -33,7 +33,7 @@ occupancy would make every occupancy figure in the run a lie.
 
 ## 2. A machine is a thread pool with a budget
 
-Each machine in the fleet is:
+Each machine in the cluster is:
 
 - one in-process gRPC server,
 - one thread pool sized to its **vCPU count**,
@@ -82,13 +82,13 @@ yourself is flagged.
 
 ## 4. The scenario is data, and it is checked before anything runs
 
-The fleet, its weather and its bad afternoon are a YAML file. Nothing in it is
+The cluster, its weather and its bad afternoon are a YAML file. Nothing in it is
 computed; anything that needs code points at a class by name. That is what lets two
 designs be compared by comparing two files.
 
 Everything that can be wrong is refused **at load, with the line it was written
 on**: an unknown instance type, a fault aimed at a machine that is not in the
-fleet, a key that is a typo for a real one, a duration that forgot its unit, a
+cluster, a key that is a typo for a real one, a duration that forgot its unit, a
 retry policy the schema does not support.
 
 ## 5. The trace is the interchange format

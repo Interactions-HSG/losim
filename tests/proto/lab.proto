@@ -33,7 +33,7 @@ service Worker {
 
 // A second service, so that a mapper and a reducer are told apart by what they
 // offer rather than by what they are called. Peers are found by service name; a
-// fleet where you have to know that "r0" is a reducer is a fleet with hostnames in it.
+// cluster where you have to know that "r0" is a reducer is a cluster with hostnames in it.
 service Shuffler {
   rpc Fold (Counts) returns (Counts) { option idempotency_level = NO_SIDE_EFFECTS; }
 }

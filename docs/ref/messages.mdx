@@ -27,7 +27,7 @@ Grouped by when it happens. Scenario errors read like compiler errors on purpose
 | `'w9' is neither a pool nor a machine; this scenario has pools …` | `among:` in a chaos block |
 | `loss is a probability, from 0 to 1` | |
 | `a call is attempted at least once` | `attempts:` must be ≥ 1 |
-| `retry policy names 'Thumbnial', which no machine in this fleet serves` | a typo would otherwise silently do nothing |
+| `retry policy names 'Thumbnial', which no machine in this cluster serves` | a typo would otherwise silently do nothing |
 | `retrying lab.Volley.Hit is refused — its .proto declares no idempotency_level …` | declare it, or write `unsafe: true` |
 | `mode is 'direct' or 'scaled', not 'auto'` | |
 | `scaled mode measures a small run and projects it up, and at scale 1 there is nothing above the run to project to` | |
@@ -85,7 +85,7 @@ and a law fitted to either comes out smooth, confident and false.
 | `w2 ran out of memory: 11.83 MB against a 4.0 MB cap` | the retained-heap walk found it over. The machine is killed. |
 | `this thread has no machine: work started on a thread the machine did not create …` | [concurrency](/write/concurrency) |
 | `no simulation is running, so Losim.current().peers() has no answer here` | a state call in a unit test |
-| `there is no machine called 'w9'; this fleet has …` | `channelTo` with a name that is not in the fleet |
+| `there is no machine called 'w9'; this cluster has …` | `channelTo` with a name that is not in the cluster |
 | `DEADLINE_EXCEEDED: w1 did not answer (unreachable)` | dead, partitioned or lost — `why` says which |
 | `DEADLINE_EXCEEDED: the network outlasted the deadline` | the callee answered, but the round trip took too long |
 | `the job was still running after 120 seconds of real time` | a backstop, not a deadline — the line between slow and stuck |
@@ -97,7 +97,7 @@ and a law fitted to either comes out smooth, confident and false.
 | `trust: 4 machines report figures that do not mean what they say` | [trust rules](/ref/trust-rules). Nothing was stopped. |
 | `none of the classes this scenario names are on the classpath it was given …` | point `--cp` at a **directory**; a jar is not walked |
 | `ABANDONED — the run ended while this was in flight` | a span that was still open when the run ended. Normal. |
-| `losim: w0 did not release its name in time` | shutting the machine down took longer than two seconds. Harmless for the trace, which is already written — but if you run several fleets in one JVM, the next one may fail to bind that name. |
+| `losim: w0 did not release its name in time` | shutting the machine down took longer than two seconds. Harmless for the trace, which is already written — but if you run several clusters in one JVM, the next one may fail to bind that name. |
 
 
 ## From the scale engine
@@ -109,7 +109,7 @@ and a law fitted to either comes out smooth, confident and false.
 | `it was never measured above zero, so there is nothing to fit` | your system never used that resource |
 | `nothing measured varied with it, so it has no law here` | the job probably ignores `cluster.units()` |
 | `memoryMb at 8000 units is only 2.4x its own fixed overhead …` | bigger rungs on the ladder |
-| `at 8000 units the fleet would hold 4200 MB, and this host offers 1843 MB …` | more heap, or a smaller rung |
+| `at 8000 units the cluster would hold 4200 MB, and this host offers 1843 MB …` | more heap, or a smaller rung |
 | `this run is clocked at 40x real time, and … costs … refMs` | a cost site too fine for the clock; there is no compression to turn down |
 | `no size on the ladder satisfies every resource at once` | |
 

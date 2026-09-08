@@ -85,7 +85,7 @@ bound"*, attached to the machine and to the figure it undermines.
     `ServerSocketChannel.*`, `ProcessBuilder.*`, `Runtime.exec`
   </Accordion>
 
-  <Accordion title="OWN_CHANNEL — a channel or server the fleet did not make" icon="plug">
+  <Accordion title="OWN_CHANNEL — a channel or server the cluster did not make" icon="plug">
     losim is on both sides of every call as gRPC's own interceptors: that is where
     latency, loss, partitions, cost, spans and byte counts come from. A channel built
     by hand has none of them attached, so the call happens and nothing in the trace
@@ -105,7 +105,7 @@ bound"*, attached to the machine and to the figure it undermines.
   </Accordion>
 
   <Accordion title="SHARED_STATE — mutable state in a static field" icon="share-nodes">
-    A static field is one field for the whole fleet, so a fleet of eight "machines"
+    A static field is one field for the whole cluster, so a cluster of eight "machines"
     holding a static map holds **one map**. It is the one flag that undermines every
     per-machine figure at once.
 

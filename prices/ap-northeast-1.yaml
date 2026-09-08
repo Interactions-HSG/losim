@@ -21,7 +21,7 @@ currency: CHF
 spot_discount: 0.70
 
 # Talking, at three distances. Traffic inside one zone is free and has no rate.
-# The gap between the first and the last is the whole point: a fleet that talks
+# The gap between the first and the last is the whole point: a cluster that talks
 # across an ocean because nobody looked at the zones pays 9 times what the
 # same traffic costs at home.
 egress_per_gb: 0.0125                   # between zones, inside this region

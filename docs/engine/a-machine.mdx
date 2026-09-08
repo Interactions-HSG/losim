@@ -38,7 +38,7 @@ The threads must be **platform** threads, because `getThreadAllocatedBytes` retu
 
 The pool is wrapped so that time spent *waiting for a core* is separable from time
 spent *using one* — without the wrapper a queued call is indistinguishable from a
-slow one, which is the most common misreading of a fleet under load.
+slow one, which is the most common misreading of a cluster under load.
 
 ## Memory: allocated versus held
 
@@ -70,7 +70,7 @@ every case here.
 
 | inside | outside |
 |---|---|
-| your fields, your collections | another machine, the fleet |
+| your fields, your collections | another machine, the cluster |
 | the protobuf messages you hold — exactly your data | telemetry, spans, the clock, the network |
 | | gRPC's transport, which everyone shares |
 | | servers, channels, executors, threads |
@@ -112,7 +112,7 @@ cap, so the handler fails the way it would have failed for real.
 in-process transport keeps the name registered until it actually has. One run per JVM
 never notices — the process exits.
 
-The probe grid runs thirty fleets back to back in one JVM, all of them with a machine
+The probe grid runs thirty clusters back to back in one JVM, all of them with a machine
 called `w0`, and the thirty-first fails to bind a name the thirtieth has not finished
 releasing. So the shutdown waits. It surfaced only under chaos — more machines dying
 means more servers shutting down at once, so the race is wider — which is what made it

@@ -1,6 +1,5 @@
-# Eight workers. If the engine has folded the fleet dimension into the data
-# dimension, this is the cell where it shows: a resource that is really a function
-# of the data will look like a function of the fleet, and be wrong about both.
+# Four workers. The middle of the cluster row, and the clean cell every weathered
+# cell is compared against.
 mode: scaled
 seed: 11
 job: Elastic
@@ -9,7 +8,7 @@ scale: 6
 machines:
   master: { instance: m5.2xlarge, zone: eu-central-1a }
   workers:
-    count: 8
+    count: 4
     prefix: w
     instance: r5.large
     zone: eu-central-1a

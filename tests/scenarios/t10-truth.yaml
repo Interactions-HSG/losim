@@ -1,6 +1,6 @@
 # What actually happens at the size t10.yaml is asked about.
 #
-# The same fleet, the same code, the same corpus — run at full size, for real, with
+# The same cluster, the same code, the same corpus — run at full size, for real, with
 # nothing projected and nothing inferred. Every number this produces is what
 # happened, which is the only thing a projection can honestly be checked against.
 mode: direct

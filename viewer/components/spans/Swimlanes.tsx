@@ -6,7 +6,7 @@
  * One lane per machine, grouped by zone, spans on their own machine's lane, and
  * arrows for the causal jumps between lanes. It answers two questions the
  * waterfall cannot: **what was this machine doing at 2,400**, and **when did the
- * work move** — and it makes a fleet's idle stretches into visible gaps, which
+ * work move** — and it makes a cluster's idle stretches into visible gaps, which
  * is the shape of a badly balanced job.
  *
  * A cross-zone hop is a visibly longer arrow, because the lanes are ordered by

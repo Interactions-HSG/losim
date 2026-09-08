@@ -38,8 +38,8 @@ public final class T10 {
                 scale.get("units"), scale.get("fullUnits"), factor));
 
         // What actually happened, computed off the other trace the way the engine
-        // computes it: memory and disk are the worst machine's, because a fleet does
-        // not run out on average; wire and allocation are the fleet's total.
+        // computes it: memory and disk are the worst machine's, because a cluster does
+        // not run out on average; wire and allocation are the cluster's total.
         var actual = new LinkedHashMap<String, Double>();
         actual.put("memoryMb", truth.peak("memoryMb"));
         actual.put("diskMb",   truth.peak("diskMb"));

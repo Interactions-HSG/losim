@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
  * anything.
  *
  * <p>This is the test that decides whether the service shape was worth its twelve
- * lines of adapter. There is no fleet here, no scenario, no interceptor and no
+ * lines of adapter. There is no cluster here, no scenario, no interceptor and no
  * clock — just a class, constructed, with a method called on it. Set a breakpoint
  * on the line below and step into {@code map}: it is ordinary Java, and stopping
  * on it stops nothing else, because nothing else is running.
@@ -61,7 +61,7 @@ class HandlerTest {
         assertTrue(e.getMessage().contains("no simulation is running"));
         assertThrows(IllegalStateException.class, () -> Losim.current().peers());
         assertThrows(IllegalStateException.class, () -> Losim.current().clockMs());
-        // A fabricated empty fleet would let this test pass while asserting nothing,
+        // A fabricated empty cluster would let this test pass while asserting nothing,
         // which is worse than failing.
     }
 

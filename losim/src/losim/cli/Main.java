@@ -119,7 +119,7 @@ public final class Main {
                   --workers <n|+n>   resize every pool that has more than one machine
                   --overlay <file>   lay a second file's weather over this one. Faults,
                                      chaos, retries, network, seed and clock only — the
-                                     fleet and the job stay theirs
+                                     cluster and the job stay theirs
                   --telemetry <lvl>  FULL (default), NO_PAYLOAD or OFF
                   --no-view          write the trace and stop, without the viewer
 
@@ -187,13 +187,13 @@ public final class Main {
         var level = Telemetry.Level.valueOf(option(args, "--telemetry", "FULL"));
 
         Scenario scenario = Loader.load(file);
-        // A second file's weather over somebody else's fleet, for running their
-        // design in a world they did not write. It may not touch the fleet.
+        // A second file's weather over somebody else's cluster, for running their
+        // design in a world they did not write. It may not touch the cluster.
         String over = option(args, "--overlay", null);
         if (over != null) scenario = Loader.overlay(scenario, Path.of(over));
         if (seed != null) scenario = withSeed(scenario, Long.parseLong(seed));
 
-        // A wider or narrower fleet, without editing anybody's file. `+1` is
+        // A wider or narrower cluster, without editing anybody's file. `+1` is
         // relative because the interesting question is almost never "run it on
         // four" — it is "run it on one more than it was written for", which is
         // where a routing scheme that counts machines comes apart.
@@ -413,7 +413,7 @@ public final class Main {
     /**
      * What happened on the wire, beside whether the job returned.
      *
-     * <p>Those are two different facts and they looked like one. A fleet in which
+     * <p>Those are two different facts and they looked like one. A cluster in which
      * 64 of 68 calls failed reported {@code completed in 5003 refMs} and nothing
      * else, because {@code run()} did return — the job's own counters said
      * {@code wrong=0}, which was true and meant nothing, since nothing it never

@@ -23,7 +23,7 @@ exercise and nothing rewrites them.
 
 **Gone:** `main`, `ServerBuilder`, `ManagedChannel`, ports, hostnames, TLS,
 shutdown hooks, thread pools, `awaitTermination`. A machine has no command line
-and no socket. The scenario places services on machines; the fleet builds every
+and no socket. The scenario places services on machines; the cluster builds every
 server and every channel, because that is the only way a call can be timed,
 priced, delayed, dropped and drawn.
 
@@ -51,7 +51,7 @@ crash, because it is quiet.
 | **Do not reach outside the JVM** | `Runtime.exec`, `InetAddress`, a real socket. Every machine would answer with the host's identity, which is a lie about isolation. |
 | **Hold no mutable static state** | a static collection shared by every machine is one machine pretending to be many. Instance fields are per-machine and are what a machine "remembers". |
 | **Unary rpcs only** | losim prices a call as one request and one response. A stream is refused at load, by name, with a line number. |
-| **A service is a top-level class with a no-argument constructor** | `runs:` names a class; the fleet builds a fresh one when a machine restarts, and a nested class is walked together with the class enclosing it. |
+| **A service is a top-level class with a no-argument constructor** | `runs:` names a class; the cluster builds a fresh one when a machine restarts, and a nested class is walked together with the class enclosing it. |
 
 ---
 

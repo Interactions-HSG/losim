@@ -59,14 +59,14 @@ final class Dropped<Q, S> extends ClientCall<Q, S> {
         Deadline d = opts.getDeadline();
         long waitNs = d == null ? NO_DEADLINE_NS : Math.max(0, d.timeRemaining(TimeUnit.NANOSECONDS));
         Runnable expire = () -> {
-            from.fleet().clock.parkRealNanos(waitNs);
+            from.machines().clock.parkRealNanos(waitNs);
             finish(Status.DEADLINE_EXCEEDED.withDescription(to + " did not answer (" + reason + ")"));
         };
         // The call's own executor is preferred: for a blocking call it is the
         // caller's thread, which would be waiting regardless.
         Executor ex = opts.getExecutor();
         if (ex != null) ex.execute(expire);
-        else from.fleet().waiting().execute(expire);
+        else from.machines().waiting().execute(expire);
     }
 
     /** Exactly once, however the call ends — a span that never closes is a telemetry bug. */

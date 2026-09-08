@@ -40,7 +40,7 @@ public final class Trust {
     }
 
     /**
-     * Checks every machine in the fleet against the code it will run.
+     * Checks every machine in the cluster against the code it will run.
      *
      * <p>The job is attributed to the machine it runs on — the first in the file —
      * because that is whose pool executes it and whose counters it lands on.
@@ -104,7 +104,7 @@ public final class Trust {
      * The machines whose flags undermine one measured resource.
      *
      * <p>This is what makes a flag load-bearing rather than decorative: a projected
-     * makespan over a fleet that reads the real clock is a projection of the host's
+     * makespan over a cluster that reads the real clock is a projection of the host's
      * afternoon, and the number is worth exactly as much as that.
      */
     public List<String> undermining(String resource) {

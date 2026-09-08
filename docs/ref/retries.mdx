@@ -13,7 +13,7 @@ retries:
 ## Fields
 
 <ParamField path="method" type="string" required>
-  Matched against every method the fleet actually serves:
+  Matched against every method the cluster actually serves:
 
   | form | example |
   |---|---|
@@ -66,7 +66,7 @@ rpc Announce  (Health) returns (Empty) { option idempotency_level = IDEMPOTENT; 
 Retrying is an **operational** decision, so the policy lives in the scenario where
 it can be diffed and swept. Whether retrying is **safe** is a property of the
 method, so it lives in the `.proto`. The two have to agree, and losim checks it
-against what the fleet really serves before a single call is made.
+against what the cluster really serves before a single call is made.
 </Note>
 
 ## Retried, and not

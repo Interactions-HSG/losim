@@ -11,7 +11,7 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import losim.res.InstanceCatalog;
-import losim.runtime.Fleet;
+import losim.runtime.Machines;
 import losim.time.Clock;
 import losim.trace.Telemetry;
 import org.junit.jupiter.api.DisplayName;
@@ -42,8 +42,8 @@ class PriceableTest {
                 @Override public String parse(InputStream stream) { return ""; }
             };
 
-    private static Fleet fleet() {
-        return new Fleet(new Telemetry(new Clock(1, 1.0), Telemetry.Level.OFF));
+    private static Machines machines() {
+        return new Machines(new Telemetry(new Clock(1, 1.0), Telemetry.Level.OFF));
     }
 
     private static BindableService serving(MethodDescriptor<Empty, Empty> md) {
@@ -63,7 +63,7 @@ class PriceableTest {
     @Test
     @DisplayName("a unary protobuf method is served without complaint")
     void unaryIsFine() throws Exception {
-        try (Fleet f = fleet()) {
+        try (Machines f = machines()) {
             var m = f.machine("srv", "m5.large", "z");
             assertDoesNotThrow(() -> m.serves(
                     () -> serving(protoMethod("Do")
@@ -79,7 +79,7 @@ class PriceableTest {
                 MethodDescriptor.MethodType.SERVER_STREAMING,
                 MethodDescriptor.MethodType.CLIENT_STREAMING,
                 MethodDescriptor.MethodType.BIDI_STREAMING}) {
-            try (Fleet f = fleet()) {
+            try (Machines f = machines()) {
                 var m = f.machine("srv", "m5.large", "z");
                 var e = assertThrows(IllegalArgumentException.class,
                         () -> m.serves(() -> serving(protoMethod("Watch")
@@ -99,7 +99,7 @@ class PriceableTest {
     @Test
     @DisplayName("a marshaller that is not protobuf is refused, because it would weigh nothing")
     void ownMarshallerIsRefused() throws Exception {
-        try (Fleet f = fleet()) {
+        try (Machines f = machines()) {
             var m = f.machine("srv", "m5.large", "z");
             var e = assertThrows(IllegalArgumentException.class, () -> m.serves(
                     () -> (BindableService) () -> ServerServiceDefinition.builder("lab.Thing")
@@ -129,10 +129,10 @@ class PriceableTest {
         // swallows everything it throws.
         var md = protoMethod("Touch").setType(MethodDescriptor.MethodType.UNARY).build();
         assertNull(md.getSchemaDescriptor(), "the case that would have been missed");
-        try (Fleet f = fleet()) {
+        try (Machines f = machines()) {
             var m = f.machine("srv", "m5.large", "z");
             assertDoesNotThrow(() -> m.serves(() -> serving(md), ""));
         }
-        assertNotNull(InstanceCatalog.get("m5.large"));   // the fleet really was built
+        assertNotNull(InstanceCatalog.get("m5.large"));   // the cluster really was built
     }
 }

@@ -17,7 +17,7 @@ import losim.trace.Telemetry;
  * function of units. Fitted against keys it is near-perfect; fitted against
  * units it is a fragile exponent that will not survive a change of corpus.
  *
- * <p>So the candidates are collected rather than assumed. Units and the fleet
+ * <p>So the candidates are collected rather than assumed. Units and the cluster
  * shape come from the scenario; calls and bytes are counted; and <b>every number
  * the program revealed is a candidate too</b>. That is the second thing
  * {@code Losim.current().reveal(...)} is for — a handler saying "this is the
@@ -66,9 +66,9 @@ public record Probe(
         }
         revealed.forEach((k, v) -> variables.put("revealed." + k, v));
 
-        // Straight from the machines' own counters. A fleet does not run out of
+        // Straight from the machines' own counters. A cluster does not run out of
         // memory on average, so memory and disk are the worst machine's peak; wire
-        // and allocation are the fleet's total.
+        // and allocation are the cluster's total.
         resources.put(MEMORY, result.peakOf(t -> t.peakRetainedBytes() / 1048576.0));
         resources.put(DISK,   result.peakOf(t -> t.diskBytes() / 1048576.0));
         resources.put(ALLOC,  result.sumOf(t -> t.allocatedBytes() / 1048576.0));

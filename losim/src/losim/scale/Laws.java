@@ -229,7 +229,7 @@ public record Laws(Map<String, Fit.Law> byResource,
      * A law per cost site, not one for the whole run.
      *
      * <p>A hash lookup is flat in n; a per-unit scan is linear; a sort is n log n;
-     * a shuffle is quadratic in the fleet. One exponent for all of them would be
+     * a shuffle is quadratic in the cluster. One exponent for all of them would be
      * wrong for most.
      */
     private static Map<String, Fit.Law> fitCostSites(List<Probe> rungs, List<String> candidates,

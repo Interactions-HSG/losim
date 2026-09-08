@@ -1,5 +1,5 @@
 # The same job and the same data on two workers. One cell of the matrix: what
-# changes between this file and its neighbours is the fleet, and nothing else.
+# changes between this file and its neighbours is the cluster, and nothing else.
 mode: scaled
 seed: 11
 job: Elastic

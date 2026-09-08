@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
  * many scenarios at once, without touching a single scenario file, while every
  * other check suite stays green.
  *
- * <p>Loading only, not running: running them is minutes of fleet time and
+ * <p>Loading only, not running: running them is minutes of cluster time and
  * belongs to whoever regenerates the traces. What this protects is the part that
  * rots silently — that every instance type, zone, fault target and duration
  * named in them still means something.

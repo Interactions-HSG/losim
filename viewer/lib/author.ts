@@ -108,11 +108,11 @@ export interface Fault {
 }
 
 /**
- * The medium the fleet talks over.
+ * The medium the cluster talks over.
  *
  * All four zero is the same file as no `network:` key at all, which is what
  * `toYaml` then writes — and it is the default a scenario gets by saying
- * nothing: instant, lossless, and the reason a fleet that never sets this can
+ * nothing: instant, lossless, and the reason a cluster that never sets this can
  * only be tested on a network that never costs it anything.
  */
 export interface Net {
@@ -145,7 +145,7 @@ export interface RetryRule {
    *
    * Above 1 gives exponential backoff: each retry eases off a struggling
    * machine instead of asking it again at the same fixed rate. A fixed rate
-   * turns one slow machine into an outage for the whole fleet.
+   * turns one slow machine into an outage for the whole cluster.
    */
   multiplier: number;
   /** Retrying something the `.proto` did not declare idempotent, on purpose. */
@@ -156,7 +156,7 @@ export interface RetryRule {
  * What one rpc costs on the reference machine.
  *
  * Under the class that serves it, not under the rpc: two implementations of one
- * rpc in one fleet is how a design is compared with another, and a cost keyed on
+ * rpc in one cluster is how a design is compared with another, and a cost keyed on
  * the rpc would say they take the same time. `runs` is the class as `runs:`
  * names it.
  */
@@ -194,7 +194,7 @@ export interface Draft {
    * 1 is not a scale model at all — it is the run itself, whatever the job does
    * with the one record it is given. Above 1 the scenario is a model of
    * `scale × BASE_UNITS`, and everything the engine needs to build that model —
-   * the probe ladder, the fleet sizes, how fast the clock runs — follows from it
+   * the probe ladder, the cluster sizes, how fast the clock runs — follows from it
    * rather than being asked of the person writing the scenario. None of those is
    * knowable in advance by anybody, which is the whole reason to run a simulator.
    */
@@ -217,7 +217,7 @@ export interface Draft {
    *
    * Nothing in a handler declares this any more: a duration is a claim about the
    * machine a design would run on, so it belongs to the scenario — which leaves a
-   * student's Java with no losim symbol in it at all. A fleet that declares none
+   * student's Java with no losim symbol in it at all. A cluster that declares none
    * of these runs, and every call in it is instant.
    */
   takes: CostRule[];
@@ -310,7 +310,7 @@ export function distances(draft: Draft, regions: Region[]): Record<Link, number>
 }
 
 /**
- * What this fleet costs per hour, on the catalogue's own default prices.
+ * What this cluster costs per hour, on the catalogue's own default prices.
  *
  * A rate, not a bill. What a run costs is what `losim bill` says after it has
  * happened, against a price list this app has never seen — and a second number
@@ -533,7 +533,7 @@ export function firstDraft(palette: Palette): Draft {
     chaos: [],
     retries: [],
     // Every rpc the one placed class serves, at zero — a row to fill in rather
-    // than a block to remember. A fleet that leaves them at zero is a fleet where
+    // than a block to remember. A cluster that leaves them at zero is a cluster where
     // every call is instant, which the form says out loud beside them.
     takes: (worker?.methods ?? []).map((m) => ({
       runs: worker!.cls, rpc: m.name, refMs: 0, refNsPerUnit: 0,

@@ -9,7 +9,7 @@
  *
  * **The same layout as the film**, deliberately: a machine is in the same place
  * in both, so switching between them is a change of question and not of map.
- * That is also why nothing here reaches for a graph-layout library — the fleet
+ * That is also why nothing here reaches for a graph-layout library — the cluster
  * already has a derived shape, roles and zones, and a second engine would only
  * be a second opinion about where `m0` lives.
  *

@@ -33,7 +33,7 @@ export const COLOUR: Record<Bucket, string> = {
 
 const WHY: Record<Bucket, string> = {
   build: 'Engineering time to construct this design, carried whether or not the thing it protects against happens.',
-  capacity: 'The fleet you reserved, priced for the whole period. An idle machine costs exactly as much as a busy one.',
+  capacity: 'The cluster you reserved, priced for the whole period. An idle machine costs exactly as much as a busy one.',
   consumption: 'What the work actually burned: storage and egress. This is the line a better algorithm moves.',
   incidents: 'What failure cost: reruns, lost work, being late. Zero until something breaks, then large.',
 };
@@ -68,7 +68,7 @@ export function LedgerStrip({
         </span>
 
         {/* When a machine is being pointed at, its own figure stands beside the
-            fleet's rather than replacing it: what matters is the proportion, and
+            cluster's rather than replacing it: what matters is the proportion, and
             a share shown alone is a number with nothing to be large against. */}
         {focus && (
           <span className="ledger-pl mine">

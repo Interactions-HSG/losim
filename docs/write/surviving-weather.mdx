@@ -40,7 +40,7 @@ the design that survives all six is not the design that survives any one of them
     machine that is simply not scheduled.
 
     **Design response:** deadlines. Without one, a frozen machine can hold your
-    whole fleet.
+    whole cluster.
   </Accordion>
 
   <Accordion title="degrade — the machine gets slow and stays" icon="gauge-simple-low">
@@ -53,7 +53,7 @@ the design that survives all six is not the design that survives any one of them
     Every declared cost is multiplied. A straggler rather than a casualty — and
     this is **the failure most designs handle worst**, because nothing is wrong
     enough to trigger anything. The job just takes four times as long as it should
-    and the fleet waits politely.
+    and the cluster waits politely.
 
     **Design response:** notice. Hand out work in smaller pieces, watch how long
     each one took, and stop feeding the machine that is behind.
@@ -89,7 +89,7 @@ the design that survives all six is not the design that survives any one of them
     like a kill.
 
     **Design response:** this is where a design that routes through a third
-    machine wins, and where one that assumes a single view of the fleet loses.
+    machine wins, and where one that assumes a single view of the cluster loses.
   </Accordion>
 
   <Accordion title="loss — messages that never arrive" icon="ghost">
@@ -115,7 +115,7 @@ chaos:
   - degrade: { every: 600 refMs, among: workers, factor: 3 }
 ```
 
-A scenario with a fault at 900 refMs teaches the fleet to survive 900 refMs. A rate
+A scenario with a fault at 900 refMs teaches the cluster to survive 900 refMs. A rate
 teaches it to survive *whenever*, which is the harder and more honest thing.
 
 `among:` is a pool name or one machine's name. Gaps are drawn exponentially from the
@@ -125,7 +125,7 @@ seed, so they vary the way real bad afternoons do. Only `kill`, `freeze` and
 <Note>
 A rate has no horizon: each firing draws the next one, so it keeps happening for as
 long as the run does. There is nothing to overrun, and no way to end up with a quiet
-second half that looks exactly like a fleet behaving well.
+second half that looks exactly like a cluster behaving well.
 </Note>
 
 ## One seed is an anecdote
@@ -163,7 +163,7 @@ Not a rule, but it is what the six above keep pointing at:
     It is the only thing that distinguishes a frozen machine from a slow one in
     finite time.
   </Step>
-  <Step title="Re-check who is there, rather than caching the fleet">
+  <Step title="Re-check who is there, rather than caching the cluster">
     Discovery is cheap. A stale list costs a deadline per piece.
   </Step>
   <Step title="Prefer the machine that just answered">
@@ -174,7 +174,7 @@ Not a rule, but it is what the six above keep pointing at:
 
 ## See it
 
-The same fleet, twice: once clean, once with a bad afternoon.
+The same cluster, twice: once clean, once with a bad afternoon.
 
 ```yaml weather.yaml
 seed: 7
@@ -197,7 +197,7 @@ faults:
 ```
 
 Save a second copy beside it as `calm.yaml` with the `faults:` block removed — the
-same fleet, the same work, no weather. Then run both:
+same cluster, the same work, no weather. Then run both:
 
 ```java RunExperiments.java
 Experiments.here()

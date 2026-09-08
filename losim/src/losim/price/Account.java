@@ -24,7 +24,7 @@ public final class Account {
             "build", "Engineering time to construct this design, spread over its life. "
                     + "Every mechanism you add is days of somebody's work, carried whether or "
                     + "not the thing it protects against ever happens.",
-            "capacity", "The fleet you reserved, priced for the whole period. An idle machine "
+            "capacity", "The cluster you reserved, priced for the whole period. An idle machine "
                     + "costs exactly as much as a busy one.",
             "consumption", "What the work actually burned: machine time, storage, egress. "
                     + "This is the line a better algorithm moves.",

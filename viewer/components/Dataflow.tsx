@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * The film: a fleet, at an instant.
+ * The film: a cluster, at an instant.
  *
  * Zones are bands the machines live inside; roles are columns left to right, so a
  * MapReduce still reads the way the figure on the whiteboard reads. A machine is
@@ -31,7 +31,7 @@ export interface DataflowProps {
   layout: Layout;
   frame: Frame;
   theme: Theme;
-  /** Set when a fleet is big enough that some readings have to go. */
+  /** Set when a cluster is big enough that some readings have to go. */
   dense?: boolean;
   hovered?: string | null;
   /** Clicking a message, which keeps its panel open and makes it readable. */
@@ -59,8 +59,8 @@ export interface DataflowProps {
   /**
    * Machines the filter has set aside.
    *
-   * Dimmed rather than removed, deliberately: a fleet with the shufflers taken
-   * out of it is a different fleet, and the question a filter answers is "what
+   * Dimmed rather than removed, deliberately: a cluster with the shufflers taken
+   * out of it is a different cluster, and the question a filter answers is "what
    * is this one doing *among* the others". Removing them would also make the
    * picture jump every time the filter changed, which is the one thing the
    * layout exists to prevent.
@@ -327,7 +327,7 @@ const Machine = memo(
 
         {/* What program answers here, at all times. A column position says where a
             machine sits in the pipeline; only this says what it runs — and on a
-            fleet where one machine serves two services, the column has stopped
+            cluster where one machine serves two services, the column has stopped
             being able to say it. */}
         {!dense && m.serves.length > 0 && (
           <text
@@ -634,7 +634,7 @@ function quad(
 /**
  * Moves a point from a machine's centre out to its rim, along a direction.
  *
- * The exact ellipse radius rather than an approximation, because the fleet's
+ * The exact ellipse radius rather than an approximation, because the cluster's
  * machines differ in shape on purpose — wider with memory, taller with cores — and
  * a circle's worth of clearance would leave a wide machine covered and a tall one
  * with a gap.

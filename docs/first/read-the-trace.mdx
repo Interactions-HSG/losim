@@ -79,7 +79,7 @@ questions a debugger answers, one channel answered one and a half out of five.
 <Steps>
   <Step title="Did the work actually overlap?">
     Look at the `handler` spans. If `w0`'s handler ends before `w1`'s begins,
-    every time, your fan-out is sequential and your fleet is one machine with
+    every time, your fan-out is sequential and your cluster is one machine with
     extra steps.
 
     ```bash
@@ -112,7 +112,7 @@ questions a debugger answers, one channel answered one and a half out of five.
   <Step title="Did anything queue, or fill up?">
     `queue_wait` events say a call waited for a core. A few are healthy. A wall of
     them on one machine says your placement is ignoring how big the machines are —
-    which, with a `a1.medium` in the fleet, is what you should expect on the first
+    which, with a `a1.medium` in the cluster, is what you should expect on the first
     attempt.
 
     `oom` and `disk_full` events name the machine, the resource, the cap and the

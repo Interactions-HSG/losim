@@ -38,7 +38,7 @@ public final class Loader {
      * where they happened to put their whitespace.
      *
      * <p><b>The overlay may only change the weather.</b> Faults, chaos, retries,
-     * the network and the seed are replaceable; the fleet, the job and the scale
+     * the network and the seed are replaceable; the cluster, the job and the scale
      * are not. That is the line that keeps the result meaningful: a
      * scenario whose machines had been swapped out underneath it is no longer a
      * run of their design, and an examiner would be asking them about somebody
@@ -321,7 +321,7 @@ public final class Loader {
      *
      * <p><b>Keyed by what {@code runs:} names, not by the rpc.</b> A duration is a
      * property of the code that runs, not of the operation: two implementations of
-     * one rpc placed in one fleet is how a design is compared with another, and a
+     * one rpc placed in one cluster is how a design is compared with another, and a
      * table keyed on the rpc would say they cost the same. That is also the shape
      * the annotation this replaces had, so no scenario's numbers move.
      *
@@ -330,9 +330,9 @@ public final class Loader {
      * repeating its own name four times is a file nobody proof-reads.
      *
      * <p>Nothing is checked here beyond the shape. Whether a name is a class this
-     * fleet places, and whether that class serves that rpc, are questions about
+     * cluster places, and whether that class serves that rpc, are questions about
      * classes the loader has not loaded — it never loads one — so they are asked by
-     * {@link losim.runtime.Fleet} once the machines are up, and refused there with
+     * {@link losim.runtime.Machines} once the machines are up, and refused there with
      * this line.
      */
     private static Map<String, Cost> takes(Node node) {

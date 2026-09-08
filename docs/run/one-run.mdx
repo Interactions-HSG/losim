@@ -55,11 +55,11 @@ Knowing what happens when explains most of the error messages:
     One in-process server each, one pool each, sized to the instance's vCPUs. This
     is where a missing class or a missing no-argument constructor is discovered.
   </Step>
-  <Step title="Retry policies are checked against what the fleet actually serves">
+  <Step title="Retry policies are checked against what the cluster actually serves">
     A policy naming an unserved method, or retrying one the schema does not declare
     safe, is refused **here** — before a single call is made.
   </Step>
-  <Step title="The clock is zeroed and the fleet is announced">
+  <Step title="The clock is zeroed and the cluster is announced">
     Everything before this is setup and belongs to no scenario. Building six
     in-process servers costs real milliseconds, and at 20× that would be
     hundreds of reference milliseconds of a run that has not begun — putting every

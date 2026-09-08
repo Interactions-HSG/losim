@@ -174,7 +174,7 @@ Everything else here is measured; this is declared, because at the scale a lapto
 can hold, your handler is genuinely instant. The host's CPU is not shrunk along
 with the workload, so it runs at full speed on a fraction of the data.
 Without a declared duration there is no queueing, no contention, no deadline
-pressure and no critical path, which is most of what a fleet is interesting for.
+pressure and no critical path, which is most of what a cluster is interesting for.
 
 Measuring instead does not work: handler durations at probe size sit inside the
 host's own jitter, where the fitted time exponent moves by 0.25 between seed sets
@@ -220,7 +220,7 @@ Before any simulation, before any scenario:
 }
 ```
 
-No fleet, no scenario, no interceptor, no clock. Set a breakpoint inside
+No cluster, no scenario, no interceptor, no clock. Set a breakpoint inside
 `shrink` and step into it: it is ordinary Java, and stopping on it stops nothing
 else, because nothing else is running.
 

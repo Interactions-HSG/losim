@@ -48,7 +48,7 @@ want anyway, and each one has a specific consequence you can point at.
 
     Without it every handler is instant, every message crosses in a single frame, and
     there is no queueing, no contention and no critical path to watch. An unpriced
-    rpc takes no time, deliberately — so an unpriced fleet is a blur.
+    rpc takes no time, deliberately — so an unpriced cluster is a blur.
 
     It goes in the **scenario**, under the class `runs:` names. If you have seen a
     `@Takes` annotation in older notes, that is not what compiles any more.
@@ -94,7 +94,7 @@ want anyway, and each one has a specific consequence you can point at.
     ```
     Without it, the coordinator sits **idle on screen** during the most expensive
     thing it does all run. No span covers it and nothing shows it busy — so the
-    picture says the fleet was waiting when it was working.
+    picture says the cluster was waiting when it was working.
   </Card>
   <Card title="Dispatch asynchronously" icon="arrows-split-up-and-left">
     ```java
@@ -102,7 +102,7 @@ want anyway, and each one has a specific consequence you can point at.
     ```
     With a blocking stub in the dispatch loop, exactly one machine is ever lit at a
     time and the rest sit idle for the whole run. It is the single most obvious thing
-    the film shows you, and the single most common reason a first fleet turns out to
+    the film shows you, and the single most common reason a first cluster turns out to
     be one machine with extra steps.
   </Card>
 </Columns>
@@ -126,9 +126,9 @@ deliberately: the point is to watch a computation happen, and machines exchangin
 opaque byte counts teach nothing.
 </Note>
 
-## Give the fleet something to look at
+## Give the cluster something to look at
 
-A last one that is about the scenario rather than the code. A fleet of four identical
+A last one that is about the scenario rather than the code. A cluster of four identical
 machines in one zone draws as four identical boxes.
 
 ```yaml

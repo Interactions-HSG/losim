@@ -10,7 +10,7 @@
  *
  *   1. What is this system made of?      — the map
  *   2. What did it actually do?          — the call tree
- *   3. How hard did each machine work?   — the fleet, at the clock
+ *   3. How hard did each machine work?   — the cluster, at the clock
  *   4. What went wrong?                  — the accidents
  *   5. What did it cost?                 — the money, as it arrived
  *
@@ -117,10 +117,10 @@ export function Overview() {
   const finalBuckets = useMemo(() => ledger?.at(Number.MAX_SAFE_INTEGER) ?? null, [ledger]);
 
   /**
-   * The map's shape, so the fleet is arranged for the box it is actually in.
+   * The map's shape, so the cluster is arranged for the box it is actually in.
    *
    * Quantised to a tenth for the same reason the film does it: a layout that
-   * re-searched on every pixel of a window drag would rearrange the fleet while
+   * re-searched on every pixel of a window drag would rearrange the cluster while
    * somebody was resizing it.
    */
   const mapBox = useRef<HTMLDivElement>(null);
@@ -285,7 +285,7 @@ export function Overview() {
         q="How hard is each machine working?"
         say={
           <>
-            The fleet at this exact instant.{' '}
+            The cluster at this exact instant.{' '}
             <strong>In flight</strong> is what it is handling now, <strong>queued</strong> is
             what is waiting for a free core — a queue that never empties is a machine too small.
             {busiest && busiest.inflight > 0 && (
@@ -456,7 +456,7 @@ export function Overview() {
                         </strong>
                         {' — '}
                         {pct >= 99.5 ? 'very nearly all of it' : `${pct.toFixed(0)}% of it`}. Build
-                        is engineering time and capacity is the fleet you reserved: both are
+                        is engineering time and capacity is the cluster you reserved: both are
                         settled by drawing the machines, and running the job can only change{' '}
                         {money(earned, l.currency)} of it.
                       </>

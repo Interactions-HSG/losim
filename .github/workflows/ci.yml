@@ -72,7 +72,7 @@ jobs:
         with: { gradle-version: '9.2.0' }
       - run: bin/losim dev suite
       # One direct trace and one scaled one. The direct trace carries every event
-      # kind, span kind and sampled channel the fleet produces; the scaled one
+      # kind, span kind and sampled channel the cluster produces; the scaled one
       # carries what each resource was found to be a function of, which is a fact
       # about the program and must not depend on where the program ran.
       - uses: actions/upload-artifact@v4

@@ -228,7 +228,7 @@ public final class Telemetry {
      * <p>Real, not reference: the floor is a property of the machine doing the
      * sampling, not of the scenario being sampled. What it costs must not land on
      * the counters it is reading (D13), and a sampler woken faster than this spends
-     * more of a core than the fleet it is watching.
+     * more of a core than the cluster it is watching.
      */
     public static final double FINEST_REAL_MS = 0.5;
 
