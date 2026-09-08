@@ -7,11 +7,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Enough YAML for a scenario, and deliberately not one feature more.
+ * Enough YAML for a simulation, and deliberately not one feature more.
  *
  * <p>Block maps, block lists, inline maps and inline lists, comments, and quoted
  * strings. No anchors, no references, no multi-document files, no folded scalars —
- * a scenario is meant to be read at a glance by someone who did not write it, and
+ * a simulation is meant to be read at a glance by someone who did not write it, and
  * every one of those features exists to make a file shorter at the cost of being
  * readable.
  *

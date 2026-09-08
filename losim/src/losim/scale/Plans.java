@@ -14,7 +14,7 @@ import losim.trace.JsonReader;
  *
  * <p>Fitting a plan costs a hundred small runs. That is affordable once and absurd
  * every time, so it is cached against the two things that can invalidate it: the
- * scenario, and the code it profiles. Change either and the plan is refitted;
+ * simulation, and the code it profiles. Change either and the plan is refitted;
  * change neither and a scaled run starts immediately.
  *
  * <p>Cached under {@code build/}, deliberately — a plan is derived, not authored,

@@ -62,7 +62,7 @@ export function Gallery() {
         actions={
           <input
             className="find"
-            placeholder="Filter by name, job or scenario"
+            placeholder="Filter by name, entry or simulation"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             aria-label="filter runs"
@@ -108,9 +108,9 @@ export function Gallery() {
       {!shown.length && (
         <Panel>
           <p className="muted">
-            Nothing matches <strong>{q}</strong>. Every run is named for the scenario it came
-            from, so <code>kill</code>, <code>chaos</code> and <code>locality</code> are all
-            worth trying.
+            Nothing matches <strong>{q}</strong>. Every result is named for the simulation it
+            came from, so <code>kill</code>, <code>scale</code> and <code>deadline</code> are
+            all worth trying.
           </p>
         </Panel>
       )}

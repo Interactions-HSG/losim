@@ -249,7 +249,7 @@ export class Layout {
    * algorithm, and this is a picture of a cluster — where a node *is* decides
    * what every call it makes costs, in latency and in money, and a diagram that
    * leaves the reader to remember which node was in which zone from the YAML
-   * has left out the thing the scenario was written to show.
+   * has left out the thing the simulation was written to show.
    *
    * Reading it: left to right is still the pipeline, so the algorithm survives.
    * Top to bottom is geography. A call that stays inside a band is cheap; one

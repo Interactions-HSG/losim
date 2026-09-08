@@ -9,7 +9,7 @@
  * components subscribe to it through `useSyncExternalStore` — each one deciding
  * for itself how much of it it needs.
  *
- * **The scrubber is in reference milliseconds**: the clock the scenario was
+ * **The scrubber is in reference milliseconds**: the clock the simulation was
  * written in, not the compressed one the host actually ran at. Every reading
  * anywhere in the viewer is at the trace instant the playhead is at.
  *

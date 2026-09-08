@@ -165,7 +165,7 @@ class AdoptTest {
                 "and they are out of the index, or the next commit carries them again");
         assertTrue(Files.isRegularFile(root.resolve("build.gradle.kts")));
         assertTrue(Files.readString(root.resolve(".gitignore")).contains("lib/"));
-        // A lab has scenarios of its own. Writing a first one into it would be a
+        // A lab has simulations of its own. Writing a first one into it would be a
         // file nobody asked for, beside the ones they wrote.
         assertFalse(Files.exists(root.resolve("simulations/1-one-call.yaml")));
         assertEquals("job: Mine\n", Files.readString(root.resolve("simulations/mine.yaml")));

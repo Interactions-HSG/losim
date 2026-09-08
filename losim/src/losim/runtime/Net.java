@@ -9,7 +9,7 @@ import java.util.Set;
  * all, and who can currently reach whom.
  *
  * <p>Everything here is declared in <b>reference milliseconds</b> like every
- * other duration in losim (D3), so a scenario's latencies mean the same thing
+ * other duration in losim (D3), so a simulation's latencies mean the same thing
  * whatever {@code k_time} the run ends up using.
  *
  * <p>Loss and a partition are the same event seen from the caller: the message

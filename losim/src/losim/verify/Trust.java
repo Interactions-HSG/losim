@@ -73,7 +73,7 @@ public final class Trust {
         // Nothing walked is not the same as nothing wrong, and reporting it as clean
         // would be the one failure mode a check like this cannot afford.
         if (unavailable == null && walked.isEmpty() && generated.isEmpty())
-            unavailable = "none of the classes this scenario names are on the classpath it was"
+            unavailable = "none of the classes this simulation names are on the classpath it was"
                     + " given, so nothing was read. A jar is not walked; point --cp at the"
                     + " directory the lab compiles to.";
         return new Trust(byMachine, List.copyOf(walked), List.copyOf(generated),

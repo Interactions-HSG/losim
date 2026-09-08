@@ -110,7 +110,7 @@ public final class T10 {
         // agreed on; the wobble came out around 0.6 to 0.8 and the engine refused
         // the law, correctly, on evidence the simulator was manufacturing. With
         // costs now paid in full the wobble lands anywhere from 0.30 to 0.82, so
-        // the same scenario refuses on some runs and fits on others — and a test
+        // the same simulation refuses on some runs and fits on others — and a test
         // that requires a refusal fails precisely when the engine has done
         // something better.
         //

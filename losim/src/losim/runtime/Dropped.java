@@ -16,7 +16,7 @@ import losim.trace.Values;
  * most instructive failure in distributed systems — the one where you cannot tell
  * a slow peer from a gone one — into a tidy error code.
  *
- * <p>A call with no deadline waits five seconds and then gives up, so a scenario
+ * <p>A call with no deadline waits five seconds and then gives up, so a simulation
  * that forgot to set one still terminates. The trace says which it was.
  */
 final class Dropped<Q, S> extends ClientCall<Q, S> {

@@ -174,7 +174,7 @@ public final class Simulate {
             // does not support is a line to fix, not a duplicate write to discover.
             machines.retrying(s.retries());
             // And what each of them costs, checked the same way and for the same
-            // reason: a takes: line naming nothing is a method that quietly takes
+            // reason: a simulatedDuration: line naming nothing is a method that quietly takes
             // no time, which comes out as a fast run rather than as an error.
             machines.costing(s.simulatedDuration());
 

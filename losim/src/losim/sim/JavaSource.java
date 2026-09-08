@@ -7,10 +7,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * A {@code .java} file, read as text, for the one question a scenario asks of it:
+ * A {@code .java} file, read as text, for the one question a simulation asks of it:
  * what is the class in here called?
  *
- * <p>A scenario names code by path — {@code src/Shrinker.java} — because a path is
+ * <p>A simulation names code by path — {@code src/Shrinker.java} — because a path is
  * a thing that either exists or does not, and a fully qualified class name is a
  * thing that looks right until the run starts. So the loader can say "no such
  * file" on the line it is written on, and the class name is derived rather than
@@ -59,7 +59,7 @@ public final class JavaSource {
      *
      * <p>Java requires this of a public type, so a file that fails it is one whose
      * class is package-private and named something else — which compiles, and then
-     * cannot be found under the name a scenario would derive. Better said here than
+     * cannot be found under the name a simulation would derive. Better said here than
      * discovered as "no class called src.Foo" after a build.
      */
     public static boolean declaresItsOwnName(Path file) throws IOException {

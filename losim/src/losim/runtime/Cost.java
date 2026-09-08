@@ -24,12 +24,12 @@ package losim.runtime;
  * <b>optional</b>: a method nobody has timed takes no time, deliberately, rather
  * than a made-up amount.
  *
- * <p><b>It lives in the scenario, not in the Java.</b> A duration is a claim about
- * the machine the design would run on, which is the scenario's subject; and
+ * <p><b>It lives in the simulation, not in the Java.</b> A duration is a claim about
+ * the machine the design would run on, which is the simulation's subject; and
  * putting it there is what leaves a student's handlers with no losim symbol in
  * them at all, so a system can be written, compiled and unit-tested without this
  * project on the classpath. The cost of that is that a renamed rpc no longer
- * takes its number with it — which is why a {@code takes:} key naming a method
+ * takes its number with it — which is why a {@code simulatedDuration:} key naming a method
  * the cluster does not serve is refused with a line number rather than ignored.
  *
  * <p>The two terms answer different questions. {@link #refMs()} is what the call

@@ -80,7 +80,7 @@ public final class T9 {
         var rpcs = e.spansOf("rpc");
         e.check(rpcs.stream().anyMatch(s -> Expect.num(Expect.detail(s).get("ms")) > 100),
                 "and a cross-zone call is visibly dearer than a same-zone one, so the shape "
-                + "of the timeline is the shape of the network the scenario described");
+                + "of the timeline is the shape of the network the simulation described");
         e.done();
     }
 }

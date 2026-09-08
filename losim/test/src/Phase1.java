@@ -39,7 +39,7 @@ public class Phase1 {
 
     // ------------------------------------------------------------------ fixtures
 
-    /** What the scenario says an rpc costs, for a cluster built without a scenario. */
+    /** What the simulation says an rpc costs, for a cluster built without a simulation. */
     static final Map<String, Cost> COSTED = Map.of("Costed.Map", new Cost(500, 0));
     static final Map<String, Cost> PER_RECORD =
             Map.of("PerRecord.Map", new Cost(0, 1));   // 1 refMs a record
@@ -493,11 +493,11 @@ public class Phase1 {
      *
      * <p>Nothing in Phase 1 schedules one yet, but the dispatcher is what Phase 2
      * builds on and it is easy to break invisibly: a fault that drifts turns a
-     * scenario's lesson into a coin toss, and the drift is only visible if
+     * simulation's lesson into a coin toss, and the drift is only visible if
      * something measures it.
      */
     static void faultPlacement() throws Exception {
-        System.out.println("=== faults land where the scenario put them ===");
+        System.out.println("=== faults land where the simulation put them ===");
         var clock = new Clock(1.0, Clock.measureCorrection());
         final int N = 40;
         var err = new double[N];

@@ -79,7 +79,7 @@ public final class Released {
 
                   Change losimVersion in build.gradle.kts to %s and run ./losim.
                   Nothing else moves: the viewer and the manual are inside the jar,
-                  and your scenarios, schema and Java are untouched by a version.
+                  and your simulations, schema and Java are untouched by a version.
                 """.formatted(there, there));
         return 0;
     }

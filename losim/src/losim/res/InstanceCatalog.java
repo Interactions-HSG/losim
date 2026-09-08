@@ -4,7 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Instance types. Specs only — prices belong to a scenario, not the library,
+ * Instance types. Specs only — prices belong to a simulation, not the library,
  * so the on-demand figures here are defaults a price list overrides.
  */
 public final class InstanceCatalog {

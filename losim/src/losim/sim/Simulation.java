@@ -11,7 +11,7 @@ import losim.runtime.Retry;
  * <p>Nothing here is authored that the run could find out for itself. Anything that
  * needs code points at a class by name, so the file stays diffable, sweepable and
  * readable by someone who did not write it. That matters more than it sounds:
- * comparing two designs means comparing two of these, and a scenario that hides a decision in a script cannot be compared at
+ * comparing two designs means comparing two of these, and a simulation that hides a decision in a script cannot be compared at
  * all.
  *
  * <p>Every duration is reference-machine time (D3), which is why they are
@@ -52,15 +52,15 @@ public record Simulation(
      *
      * <p>Fixed, and not a knob. Four rungs is the fewest that can show whether a law
      * bends, and a law that bends has to be refused rather than extrapolated across.
-     * Which four is the engine's business: a scenario that could pick its own would
-     * be a scenario that could pick a ladder its design happens to look linear on.
+     * Which four is the engine's business: a simulation that could pick its own would
+     * be a simulation that could pick a ladder its design happens to look linear on.
      */
     public static final List<Integer> LADDER = List.of(1000, 2000, 4000, 8000);
 
     /** The biggest run the engine can actually measure — the top of the ladder. */
     public static final long BASE = LADDER.get(LADDER.size() - 1);
 
-    /** The compression a scenario gets when it asks for no scale at all. */
+    /** The compression a simulation gets when it asks for no scale at all. */
     public static final double BASE_COMPRESSION = 20;
 
     /** As fast as the clock is ever run, however large the scale. */
@@ -72,7 +72,7 @@ public record Simulation(
      * <p>There are exactly two, and no third. In {@link #DIRECT} nothing is scaled
      * and nothing is inferred: every number on screen is what happened. In
      * {@link #SCALED} the scaler engine decides the run size, the cluster and every
-     * cap, and projects the results back with error bars. A scenario cannot
+     * cap, and projects the results back with error bars. A simulation cannot
      * hand-declare a shrink factor and bypass the engine — that would be a third
      * mode whose numbers nobody could account for.
      */
@@ -103,7 +103,7 @@ public record Simulation(
      * whole of it used to need a {@code mode:} saying so, which was a second way to
      * say what {@code scale:} already says, and the two could disagree.
      *
-     * <p>Above 1 the scenario is a model of something bigger, and then the size is
+     * <p>Above 1 the simulation is a model of something bigger, and then the size is
      * {@code scale} times {@link #BASE} — the biggest run the engine can actually
      * measure. The step between the two is a step between kinds, not a slider: a
      * run and a model of a run are different claims, and only the second one has
@@ -168,7 +168,7 @@ public record Simulation(
 
     // ------------------------------------------------------------------ variants
     //
-    // The probe grid needs the same scenario at many sizes, cluster shapes and seeds.
+    // The probe grid needs the same simulation at many sizes, cluster shapes and seeds.
     // Producing those here rather than by editing files keeps one fact — what this
     // system is — in one place, and makes the grid's axes explicit.
 
@@ -274,7 +274,7 @@ public record Simulation(
      *
      * @param runs     what this node serves, keyed by the service's name in the
      *                 {@code .proto} and valued by the {@code .java} file that
-     *                 implements it. Both, in one key, because a scenario that
+     *                 implements it. Both, in one key, because a simulation that
      *                 named only the class produced a trace naming only the
      *                 service, under the same heading, and nothing in the file
      *                 said they were the same thing.
@@ -374,6 +374,13 @@ public record Simulation(
      * @param factor how many times its declared duration this call takes, for
      *               {@link RpcKind#SLOW}
      */
-    public record RpcFailure(RpcKind kind, io.grpc.Status.Code status, double factor,
+    /**
+     * @param status a gRPC code name — {@code UNAVAILABLE} — and empty for the
+     *               other two kinds. A name rather than {@code io.grpc.Status.Code}
+     *               because this model is read by the console's server, which runs
+     *               with losim.jar alone; see {@link Codes}. The runtime resolves
+     *               it, where gRPC is present by definition.
+     */
+    public record RpcFailure(RpcKind kind, String status, double factor,
                              int perCalls, String where) {}
 }

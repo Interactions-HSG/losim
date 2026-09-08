@@ -66,7 +66,7 @@ class StoreTest {
     void restartEmptiesIt() throws Exception {
         try (var machines = cluster()) {
             var m = machines.machine("m", "m5.large", "z");
-            // Rebuildable: a machine placed by a scenario gets fresh service
+            // Rebuildable: a machine placed by a simulation gets fresh service
             // instances on restart, and the store has to go the same way or a
             // restart would mean two different things in one machine.
             m.serves(Nothing::new, "Nothing", "test:1");
@@ -106,7 +106,7 @@ class StoreTest {
     }
 
     @Test
-    @DisplayName("the seed is the scenario's, so generated data varies with it")
+    @DisplayName("the seed is the simulation's, so generated data varies with it")
     void seedComesFromTheScenario() throws Exception {
         try (var machines = new Machines(
                 new Telemetry(new Clock(1.0, 1.0), Telemetry.Level.FULL),

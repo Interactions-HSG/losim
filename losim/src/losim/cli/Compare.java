@@ -6,13 +6,13 @@ import java.util.*;
 import losim.trace.JsonReader;
 
 /**
- * Comparing two traces of the same scenario, run in two places.
+ * Comparing two traces of the same simulation, run in two places.
  *
  * <p>The requirement is that the same commands produce the same result in the
  * devcontainer, on a laptop and in a Codespace — otherwise a number depends on
  * where it was computed, which is the one thing a simulator cannot afford. But
  * runs are not reproducible even in one place (D1): real threads, a real clock, and
- * a deliberate refusal to simulate a scheduler. Two runs of one scenario on one
+ * a deliberate refusal to simulate a scheduler. Two runs of one simulation on one
  * machine differ in every duration and most byte counts.
  *
  * <p>So a plain textual diff could never pass, and a check that could never pass is

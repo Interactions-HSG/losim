@@ -71,7 +71,7 @@ export function taskColour(n: number | null | undefined): string {
 
 // Ordinary work is ink; work that has been slowed down is not a different colour
 // but a different *texture*, because a degraded node is not in trouble — it is
-// doing exactly what it should, more slowly, and colouring it like a fault would
+// doing exactly what it should, more slowly, and colouring it like a failure would
 // say otherwise.
 export const HATCH = '#9AA3AE';
 
@@ -106,7 +106,7 @@ export const NODE_H = 1.02;
 // A node is drawn the size it is: **wider with more memory, taller with more
 // cores.** Two axes because the two resources fail differently and a cluster is
 // usually short of one of them — a c5.4xlarge and an r5.large are not "one bigger
-// than the other", they are bigger in different directions, and a scenario that
+// than the other", they are bigger in different directions, and a simulation that
 // puts the map on one and the shuffle on the other is making exactly that
 // distinction.
 //

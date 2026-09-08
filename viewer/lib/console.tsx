@@ -41,7 +41,7 @@ import { output, project, run as startRun } from './lab.ts';
 import { Clock } from './playback.ts';
 import { manifest, openFile, openUrl, type Run, type RunRef } from './runs.ts';
 
-export const VIEWS = ['runs', 'scenarios', 'overview', 'film', 'usage', 'cost'] as const;
+export const VIEWS = ['runs', 'simulations', 'overview', 'film', 'usage', 'cost'] as const;
 export type View = (typeof VIEWS)[number];
 
 /** The views the clock governs. On the others it is not shown, because there is no time in them. */
@@ -68,13 +68,13 @@ export interface ConsoleState {
   /**
    * A build in progress, wherever it was started and wherever you are now.
    *
-   * Not page state: the console follows it, not Scenarios, because pressing ▶
+   * Not page state: the console follows it, not Simulations, because pressing ▶
    * moves you to Runs immediately and the build outlives that. `null` once it
    * has finished — the failure, if there was one, arrives through `error`.
    */
-  building: { scenario: string } | null;
-  /** Start a scenario building. Refuses the way the server does, through `error`. */
-  startBuild: (scenario: string) => Promise<void>;
+  building: { simulation: string } | null;
+  /** Start a simulation building. Refuses the way the server does, through `error`. */
+  startBuild: (simulation: string) => Promise<void>;
 
   go: (view: View) => void;
   open: (name: string, view?: View) => Promise<void>;
@@ -149,7 +149,7 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [hasLab, setHasLab] = useState(false);
   const [watching, setWatching] = useState(0);
-  const [building, setBuilding] = useState<{ scenario: string } | null>(null);
+  const [building, setBuilding] = useState<{ simulation: string } | null>(null);
   /** What is being opened, so a slow fetch that has been superseded is dropped. */
   const wanted = useRef<string | null>(null);
 
@@ -238,13 +238,13 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
   const nudge = useCallback(() => setWatching((n) => n + 1), []);
 
   // Notice a build already going, from wherever it was started — a reconnect, a
-  // second tab, the run button on Scenarios two pages away. `watching` is bumped
+  // second tab, the run button on Simulations two pages away. `watching` is bumped
   // by whoever starts one from outside this effect, and this is what turns that
   // bump into the console actually knowing.
   useEffect(() => {
     let live = true;
     project().then((p) => {
-      if (live && p?.busy) setBuilding((b) => b ?? { scenario: p.busy! });
+      if (live && p?.busy) setBuilding((b) => b ?? { simulation: p.busy! });
     });
     return () => {
       live = false;
@@ -255,7 +255,7 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
   // moves you to Runs immediately, and the build outlives that move.
   useEffect(() => {
     if (!building) return;
-    const scenario = building.scenario;
+    const simulation = building.simulation;
     let live = true;
     let at = 0;
     let timer: ReturnType<typeof setTimeout>;
@@ -275,7 +275,7 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
       setBuilding(null);
       void reload();
       if (said.ok === false) {
-        setError(`${said.scenario ?? scenario} did not finish — Runs has the trace, and it says why.`);
+        setError(`${said.simulation ?? simulation} did not finish — Runs has the trace, and it says why.`);
       }
     };
     void pull();
@@ -285,13 +285,13 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
     };
   }, [building, reload]);
 
-  const startBuild = useCallback(async (scenario: string) => {
-    const said = await startRun(scenario);
+  const startBuild = useCallback(async (simulation: string) => {
+    const said = await startRun(simulation);
     if (said.error) {
       setError(said.error);
       return;
     }
-    setBuilding({ scenario });
+    setBuilding({ simulation });
   }, []);
 
   const go = useCallback(

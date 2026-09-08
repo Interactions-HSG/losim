@@ -4,7 +4,7 @@ import io.grpc.*;
 import java.util.List;
 
 /**
- * Tries again, when the scenario said to and the schema allowed it.
+ * Tries again, when the simulation said to and the schema allowed it.
  *
  * <p>This sits <b>outside</b> {@link ClientSide} on the channel, so every attempt
  * is a genuinely separate call: its own span, its own byte count, its own draw

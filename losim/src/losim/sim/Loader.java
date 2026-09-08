@@ -14,7 +14,7 @@ import losim.runtime.Retry;
 import losim.sim.Simulation.*;
 
 /**
- * A scenario file, checked before anything runs.
+ * A simulation file, checked before anything runs.
  *
  * <p>Everything that can be wrong here is caught at load with the line it was
  * written on: an unknown instance type, a fault aimed at a machine that does not
@@ -30,9 +30,9 @@ public final class Loader {
     }
 
     /**
-     * A scenario, with a second file's weather laid over it.
+     * A simulation, with a second file's weather laid over it.
      *
-     * <p>For running somebody else's scenario in a world they did not write —
+     * <p>For running somebody else's simulation in a world they did not write —
      * an examiner asking what a submission does when a machine dies, a sweep
      * asking what it does under a heavier afternoon. The alternative is editing
      * their YAML with a text tool, which is how a harness comes to depend on
@@ -417,7 +417,7 @@ public final class Loader {
                         + " at a moment and stays is a property of the node, and degrade says it.");
                 f.onlyAllows("status", "slow", "drop", "per");
                 RpcKind kind = null;
-                io.grpc.Status.Code status = null;
+                String status = null;
                 double factor = 1;
                 for (RpcKind r : RpcKind.values()) {
                     String key = r.name().toLowerCase();
@@ -427,15 +427,13 @@ public final class Loader {
                     kind = r;
                     switch (r) {
                         case STATUS -> {
-                            String said = f.at("status").str().trim();
-                            try { status = io.grpc.Status.Code.valueOf(said); }
-                            catch (IllegalArgumentException bad) {
-                                throw f.at("status").fail("'" + said + "' is not a gRPC status"
-                                        + " code. The codes are " + codes() + ".");
-                            }
-                            if (status == io.grpc.Status.Code.OK) throw f.at("status").fail(
+                            status = f.at("status").str().trim();
+                            if (status.equals("OK")) throw f.at("status").fail(
                                     "OK is what a call that worked returns, so a failure cannot"
                                     + " be one. Pick the code the caller should have to handle.");
+                            if (!Codes.known(status)) throw f.at("status").fail(
+                                    "'" + status + "' is not a gRPC status code. The codes are "
+                                    + Codes.listed() + ".");
                         }
                         case SLOW -> {
                             factor = f.at("slow").num();
@@ -458,14 +456,6 @@ public final class Loader {
             out.put(rpc, List.copyOf(here));
         }
         return out;
-    }
-
-    /** Every gRPC status code but OK, for a refusal to list. */
-    private static String codes() {
-        var names = new ArrayList<String>();
-        for (io.grpc.Status.Code c : io.grpc.Status.Code.values())
-            if (c != io.grpc.Status.Code.OK) names.add(c.name());
-        return String.join(", ", names);
     }
 
     /**
@@ -549,17 +539,17 @@ public final class Loader {
      * What each rpc costs, under the class that serves it.
      *
      * <pre>
-     * takes:
-     *   Mapper:
-     *     Map:  { refMs: 20 }
-     *     Note: { refMs: 1 }
+     * simulatedDuration:
+     *   src/Shrinker.java:
+     *     Thumbnail: { fixed: 3 refMs, perUnit: 240000 refNs }
+     *     Pull:      { fixed: 1 refMs }
      * </pre>
      *
      * <p><b>Keyed by what {@code runs:} names, not by the rpc.</b> A duration is a
      * property of the code that runs, not of the operation: two implementations of
      * one rpc placed in one cluster is how a design is compared with another, and a
      * table keyed on the rpc would say they cost the same. That is also the shape
-     * the annotation this replaces had, so no scenario's numbers move.
+     * the annotation this replaces had, so no simulation's numbers move.
      *
      * <p>Flattened here to {@code Class.Rpc}, which nothing outside this file
      * writes; the file itself stays two levels, because a class with four rpcs
@@ -581,7 +571,7 @@ public final class Loader {
                 // Durations, saying what kind of time they are, like every other
                 // duration in the file. The unit used to be in the key — refMs,
                 // refNsPerUnit — which made these the only two numbers in a
-                // scenario whose kind of time was a spelling rather than a value.
+                // simulation whose kind of time was a spelling rather than a value.
                 double refMs = body.opt("fixed").refMs(0);
                 double perRecord = body.opt("perUnit").refMs(0);
                 if (refMs < 0 || perRecord < 0) throw body.fail("a call cannot take negative time");

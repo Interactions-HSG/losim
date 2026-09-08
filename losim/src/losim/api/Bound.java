@@ -30,7 +30,7 @@ public interface Bound {
     /** Simulated milliseconds since the run began. */
     double clockMs();
 
-    /** The scenario's seed. */
+    /** The simulation's seed. */
     long seed();
 
     /** This machine's own store, shared by every service on it. */

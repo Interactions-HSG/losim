@@ -91,9 +91,11 @@ final class ServerSide implements ServerInterceptor {
             if (!f.fires()) continue;
             switch (f.spec().kind()) {
                 case STATUS -> {
-                    var code = f.spec().status();
+                    // Resolved here rather than at load: the loader runs in the
+                    // console's server too, which has no gRPC on its classpath.
+                    var code = io.grpc.Status.Code.valueOf(f.spec().status());
                     tel.event(node.name, "rpc_failure", "kind", "status", "method", method,
-                              "status", code.name(), "call", parentOf(headers));
+                              "status", f.spec().status(), "call", parentOf(headers));
                     node.charge(Meter.allocNow() - a0, System.nanoTime() - t0);
                     call.close(code.toStatus().withDescription(
                             "the simulation fails " + method + " on " + node.name
@@ -182,7 +184,7 @@ final class ServerSide implements ServerInterceptor {
                         span.detail.put("declaredRefMs", Machine.round(declared));
                         span.detail.put("deadlineRefMs", Machine.round(deadlineRefMs));
                         // Sound in one direction only, and that is the useful one. A
-                        // declared cost is *slept* and never subtracted — takes: can
+                        // declared cost is *slept* and never subtracted — simulatedDuration: can
                         // make a run longer and never shorter — so it is a lower bound
                         // on what the handler actually took, and a declared cost above
                         // the deadline is impossible rather than unlikely. The converse

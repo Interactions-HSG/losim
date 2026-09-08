@@ -137,7 +137,7 @@ public class Phase4 {
                 + (report.clean() ? "" : report.findings().toString()));
         check(report.walked().contains("WorkerBase"),
               "and the walk followed them into their own base class rather than stopping at"
-              + " what the scenario named — a lie one call deep is still a lie");
+              + " what the simulation named — a lie one call deep is still a lie");
         System.out.println();
     }
 
@@ -185,9 +185,9 @@ public class Phase4 {
 
     /**
      * What each of those handlers costs, written once even when both machines run
-     * the same one — a scenario naming a class twice would be a duplicate key.
+     * the same one — a simulation naming a class twice would be a duplicate key.
      */
-    /** Where a test's handler actually lives, since a scenario names code by path. */
+    /** Where a test's handler actually lives, since a simulation names code by path. */
     static String src(String cls) { return "losim/test/src/" + cls + ".java"; }
 
     static String costs(String... classes) {

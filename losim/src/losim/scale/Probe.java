@@ -6,7 +6,7 @@ import losim.sim.Simulation;
 import losim.trace.Telemetry;
 
 /**
- * One run of a scenario, with every resource the engine needs measured rather
+ * One run of a simulation, with every resource the engine needs measured rather
  * than declared.
  *
  * <h2>Sourcing the independent variables</h2>
@@ -18,7 +18,7 @@ import losim.trace.Telemetry;
  * units it is a fragile exponent that will not survive a change of corpus.
  *
  * <p>So the candidates are collected rather than assumed. Units and the cluster
- * shape come from the scenario; calls and bytes are counted; and <b>every number
+ * shape come from the simulation; calls and bytes are counted; and <b>every number
  * the program revealed is a candidate too</b>. That is the second thing
  * {@code Losim.current().reveal(...)} is for — a handler saying "this is the
  * quantity my cost depends on" in the one place that knows.

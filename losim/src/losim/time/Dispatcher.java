@@ -9,7 +9,7 @@ import java.util.concurrent.locks.LockSupport;
  *
  * <p>{@code ScheduledExecutorService} is not usable for this. It runs late by an
  * amount that itself moves with load — 3.6 ms one run, 10.7 ms the next — so no
- * fixed correction fits it, and a scenario that says "kill the reducer at 900 ms"
+ * fixed correction fits it, and a simulation that says "kill the reducer at 900 ms"
  * lands somewhere else every time.
  *
  * <p>One thread, a queue ordered by absolute {@link System#nanoTime()}, parking
@@ -24,7 +24,7 @@ import java.util.concurrent.locks.LockSupport;
  *
  * <p>What remains is the OS, not the design: with every core saturated the
  * dispatcher is descheduled, so placement is around 3 µs at the median and around
- * 8 ms at the 99th percentile. Nothing in userspace fixes that, and a scenario
+ * 8 ms at the 99th percentile. Nothing in userspace fixes that, and a simulation
  * whose lesson depends on a tighter margin than that has to say so.
  */
 public final class Dispatcher implements AutoCloseable {

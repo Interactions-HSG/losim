@@ -18,7 +18,7 @@ import java.util.stream.Stream;
  *
  * <p>This exists so that nobody has to type anything. A lab is a folder of small
  * gRPC systems; running one means generating from its schema, compiling it, and
- * handing the scenario to {@link Main} — three tools in a row, each with its own
+ * handing the simulation to {@link Main} — three tools in a row, each with its own
  * flags, none of which teaches anything about decentralized systems. Written as
  * a shell script it becomes a thing students have to read, get wrong, and be
  * supported through. Written here it is a button.
@@ -28,7 +28,7 @@ import java.util.stream.Stream;
  * beside it — and a student who adds a service and forgets to register it would
  * get a run that silently omits their new code. A directory <i>is</i> a system if
  * it has Java in it; its schema is whatever {@code .proto} files it holds and its
- * scenarios are whatever it holds. Add a file, and it is in the next run.
+ * simulations are whatever it holds. Add a file, and it is in the next run.
  *
  * <p><b>Each run forks its own JVM.</b> A system that exhausts its heap is a
  * result this course is about, and it must not take the server down with it —
@@ -174,11 +174,11 @@ public final class Lab {
      * The code in this lab: one folder of gRPC jobs.
      *
      * <p>There is no list of systems here, because a lab is one thing: one folder
-     * of gRPC code, shared by every scenario in it. A tour of five scenarios does
+     * of gRPC code, shared by every simulation in it. A tour of five simulations does
      * not need five directories each holding a copy of the same {@code ping.proto}
      * — that would be the same code against five different afternoons, written
      * out five times so that each could have a folder to sit in. What varies
-     * between runs is the scenario, so the scenario is what there are many of.
+     * between runs is the simulation, so the simulation is what there are many of.
      *
      * @param protos  the schema, which may be empty and may be more than one file
      * @param sources every {@code .java} in the lab, wherever the student put it
@@ -293,7 +293,7 @@ public final class Lab {
     /**
      * Everything in this lab that compiles, as one unit.
      *
-     * <p>One compile, one classpath, one set of classes — so a scenario can place
+     * <p>One compile, one classpath, one set of classes — so a simulation can place
      * any class the lab defines on any machine, which is the whole point of
      * separating what the code <i>can</i> do from where it runs.
      */
@@ -303,7 +303,7 @@ public final class Lab {
     }
 
     /**
-     * Every scenario in the lab, by name.
+     * Every simulation in the lab, by name.
      *
      * <p>{@code simulations/} is the home and the place the console writes to. A
      * {@code .yaml} sitting loose in the lab root counts too, so that a lab which
@@ -311,7 +311,7 @@ public final class Lab {
      * went.
      *
      * <p>They come back in the order a person would put them in, which is not the
-     * order a string comparison puts them in: a lab whose scenarios are numbered
+     * order a string comparison puts them in: a lab whose simulations are numbered
      * to be read in sequence would otherwise list {@code 10-} between {@code 1-}
      * and {@code 2-}, and the numbering that was meant to teach an order would
      * teach the wrong one.
@@ -334,7 +334,7 @@ public final class Lab {
      * would put it above, because {@code -} sorts under {@code .}.
      *
      * <p>Shared with {@code Serve}'s run index, because a run is named after the
-     * scenario it came from. A tour numbered to be read in order has to be listed
+     * simulation it came from. A tour numbered to be read in order has to be listed
      * in that order in both places, or the numbering teaches nothing in one of
      * them.
      */
@@ -390,8 +390,8 @@ public final class Lab {
         return simulations().stream().map(p -> p.getFileName().toString()).toList();
     }
 
-    /** A scenario by its file name, or null. */
-    public Path scenario(String name) {
+    /** A simulation by its file name, or null. */
+    public Path simulation(String name) {
         if (name == null || name.isBlank()) return simulations().isEmpty() ? null : simulations().get(0);
         for (Path p : simulations()) if (p.getFileName().toString().equals(name)) return p;
         return null;
@@ -508,7 +508,7 @@ public final class Lab {
      *
      * <p>Here rather than at each caller. The name was being derived in three
      * places — the run, the task list and the log — from two different things, so
-     * a system whose only scenario was `slow.yaml` wrote `id-slow.json` while both
+     * a system whose only simulation was `slow.yaml` wrote `id-slow.json` while both
      * endpoints looked for `id.json` and the finished run never appeared.
      */
     /**
@@ -532,7 +532,7 @@ public final class Lab {
      * build resolved — the simulator and gRPC, and deliberately <b>not</b> the
      * lab's own output, because the task that writes that classpath must not depend
      * on compiling: compiling needs the generated sources the task's own output is
-     * read to produce. So a scenario's class was never on it, and
+     * read to produce. So a simulation's class was never on it, and
      * {@code ./losim run} could not start.
      *
      * <p>Empty rather than a path that is not there, so a project nobody has built
@@ -576,20 +576,20 @@ public final class Lab {
     }
 
     /**
-     * Where this scenario's run is written.
+     * Where this simulation's run is written.
      *
-     * <p>Named after the scenario, because the scenario is the thing there are
+     * <p>Named after the simulation, because the simulation is the thing there are
      * many of. `two-machines.yaml` runs into `two-machines.json`, so the picker
      * reads the way the folder does.
      */
-    public Path trace(String scenario) {
-        Path chosen = scenario(scenario);
+    public Path trace(String simulation) {
+        Path chosen = simulation(simulation);
         if (chosen == null) return null;
         String stem = chosen.getFileName().toString().replaceAll("\\.ya?ml$", "");
         return runs.resolve(stem + ".json");
     }
 
-    public int run(String scenario, Consumer<String> log) throws IOException, InterruptedException {
+    public int run(String simulation, Consumer<String> log) throws IOException, InterruptedException {
         Code c = code();
         String reserved = reservedNote();
         if (!reserved.isEmpty()) log.accept(reserved);
@@ -621,9 +621,9 @@ public final class Lab {
         if (!c.protos().isEmpty() && generate(c.protos(), gen, log) != 0) return 1;
         if (compile(c.sources(), gen, classes, log) != 0) return 1;
 
-        Path chosen = scenario(scenario);
-        if (chosen == null && scenario != null && !scenario.isBlank()) {
-            log.accept("There is no scenario called " + scenario + " in this lab.\n");
+        Path chosen = simulation(simulation);
+        if (chosen == null && simulation != null && !simulation.isBlank()) {
+            log.accept("There is no simulation called " + simulation + " in this lab.\n");
             return 2;
         }
 
@@ -633,7 +633,7 @@ public final class Lab {
             String main = mainClassOf(c.sources());
             if (main == null) {
                 log.accept("Nothing in this lab has a `public static void main`, and there\n"
-                        + "is no scenario beside it either — so there is nothing here to start.\n");
+                        + "is no simulation beside it either — so there is nothing here to start.\n");
                 return 2;
             }
             log.accept("\n");
@@ -641,7 +641,7 @@ public final class Lab {
         }
 
         Files.createDirectories(runs);
-        Path trace = trace(scenario);
+        Path trace = trace(simulation);
         log.accept("\n");
         // `--no-view`: this run already has a viewer — the one that started it.
         int code = exec(List.of(java(), "-cp", cp(), "losim.cli.Main", "simulate", "--no-view",
@@ -761,7 +761,7 @@ public final class Lab {
     }
 
     /**
-     * The class with a {@code main} in a system that has no scenario.
+     * The class with a {@code main} in a system that has no simulation.
      *
      * <p>Task 1 is ordinary Java, so something has to be started. Rather than
      * requiring a name, this takes the one class that has a {@code main} — and

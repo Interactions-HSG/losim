@@ -33,7 +33,7 @@ const FPS = 30;
 /**
  * The longest film that will be written to a file, in seconds.
  *
- * A run under standing chaos, paced so nothing is quicker than the eye, is very
+ * A run under a standing rate of failure, paced so nothing is quicker than the eye, is very
  * nearly three minutes. That is the right thing to *watch* — you can stop it —
  * and the wrong thing to hand somebody as a download they did not ask the length
  * of. Past this the pacing is squeezed to fit, keeping its shape: the quick parts

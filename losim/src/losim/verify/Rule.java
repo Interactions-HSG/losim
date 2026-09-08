@@ -54,7 +54,7 @@ public enum Rule {
      * <p>Waiting is a perfectly ordinary thing for a distributed program to do, and
      * {@code Losim.current().sleep(refMs)} is how to write it: reference time, like
      * every other duration, divided by {@code k_time} before it is spent. It is not
-     * declared work, which the scenario's {@code takes:} fixes per rpc and so
+     * declared work, which the simulation's {@code simulatedDuration:} fixes per rpc and so
      * cannot express a backoff that grows with the attempt — and which stretches
      * on a degraded machine, where a wait does not.
      *

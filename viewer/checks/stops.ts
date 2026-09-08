@@ -87,6 +87,7 @@ const unreachable = new Map<string, string[]>();
 const seen = new Set<string>();
 let withLog = 0;
 let withHeal = 0;
+let withRpcFailure = 0;
 
 for (const name of names) {
   let trace: Trace;
@@ -103,6 +104,7 @@ for (const name of names) {
   for (const k of kinds) seen.add(k);
   if (kinds.has('log')) withLog++;
   if (kinds.has('heal')) withHeal++;
+  if (kinds.has('rpc_failure')) withRpcFailure++;
 
   for (const k of kinds) {
     if (FURNITURE.has(k) || stops.has(k)) continue;
@@ -112,7 +114,8 @@ for (const name of names) {
 }
 
 console.log(`stops: ${names.length} traces, ${seen.size} event kinds between them`);
-console.log(`  ${withLog} carry log(), ${withHeal} carry heal`);
+console.log(`  ${withLog} carry log(), ${withHeal} carry heal,`
+  + ` ${withRpcFailure} carry rpc_failure`);
 
 if (unreachable.size) {
   failed = 1;
@@ -139,6 +142,15 @@ if (withLog === 0) {
 if (withHeal === 0) {
   console.log('  note: no trace here partitions anything, so heal is unexercised —');
   console.log('        `losim dev viewer traces --gallery` brings in a run that does');
+}
+// The same treatment, and for the same reason: `rpc_failure` is in NOTABLE and
+// in TOLD, and nothing here proves it, because no simulation in the reference
+// suite writes a `failures:` under a `runs:` entry yet. Said out loud rather
+// than read as a pass — a set that carries none of a kind would pass whatever
+// the two lists said about it.
+if (withRpcFailure === 0) {
+  console.log('  note: no trace here fails an rpc on one node, so rpc_failure is unexercised —');
+  console.log('        it is in NOTABLE and TOLD, and nothing here holds them to it');
 }
 
 if (failed === 0) console.log('  every kind a trace carries is reachable');

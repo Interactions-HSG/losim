@@ -50,7 +50,7 @@ import losim.trace.JsonReader;
  *
  * <p><b>What is deliberately not here:</b> anything that writes a student's code,
  * and any way to run something that is not a system in this project. The server
- * compiles what is in the folder and runs the scenario beside it; it is a button
+ * compiles what is in the folder and runs the simulation beside it; it is a button
  * for the toolchain, not a shell with a web page in front of it.
  */
 public final class Serve {
@@ -109,7 +109,7 @@ public final class Serve {
      */
     private static final class Run {
         final int id;
-        final String scenario;
+        final String simulation;
         final StringBuilder log = new StringBuilder();
         /**
          * How much has been dropped off the front, ever.
@@ -124,8 +124,8 @@ public final class Serve {
         volatile boolean done;
         volatile int code = -1;
 
-        Run(int id, String scenario) {
-            this.id = id; this.scenario = scenario;
+        Run(int id, String simulation) {
+            this.id = id; this.simulation = simulation;
         }
 
         synchronized void say(String s) {
@@ -187,9 +187,9 @@ public final class Serve {
             catch (InterruptedException i) { Thread.currentThread().interrupt(); }
             return 0;
         }
-        http.createContext("/api/scenarios", safe(s::scenarios));
+        http.createContext("/api/simulations", safe(s::simulations));
         http.createContext("/api/classes", safe(s::classes));
-        http.createContext("/api/scenario", safe(s::scenario));
+        http.createContext("/api/simulation", safe(s::simulation));
         http.createContext("/api/run", safe(s::start));
         http.createContext("/api/log", safe(s::log));
         http.createContext("/traces/", s::trace);
@@ -211,10 +211,10 @@ public final class Serve {
             java.lang.System.out.println("           so " + base + " is not a lab. Run ./losim, or");
             java.lang.System.out.println("           point --root at a lab.");
         } else {
-            java.lang.System.out.printf("  scenarios  %d in %s%n", s.lab.simulations().size(), base);
+            java.lang.System.out.printf("  simulations  %d in %s%n", s.lab.simulations().size(), base);
         }
         java.lang.System.out.printf("  runs     %s%n", s.runs);
-        java.lang.System.out.println("  leave this running; press the arrow beside a scenario to run it.");
+        java.lang.System.out.println("  leave this running; press the arrow beside a simulation to run it.");
         if (open) browse("http://localhost:" + port + "/");
 
         // The point of this process is to still be here later.
@@ -257,7 +257,7 @@ public final class Serve {
 
     // ------------------------------------------------------------------ the api
 
-    private void scenarios(HttpExchange x) throws IOException {
+    private void simulations(HttpExchange x) throws IOException {
         List<Object> out = new ArrayList<>();
         for (Path sc : lab.simulations()) {
             String name = sc.getFileName().toString();
@@ -275,7 +275,7 @@ public final class Serve {
         body.put("started", code.started());
         body.put("files", code.sources().size());
         body.put("schema", !code.protos().isEmpty());
-        body.put("busy", r != null && !r.done ? r.scenario : null);
+        body.put("busy", r != null && !r.done ? r.simulation : null);
         send(x, 200, "application/json", Json.write(body).getBytes(StandardCharsets.UTF_8));
     }
 
@@ -369,7 +369,7 @@ public final class Serve {
      * <p>Spelled the way {@link Regions} parses them, which is not the same in
      * both clouds — {@code eu-central-1a} but {@code switzerlandnorth-1}. A
      * console that composed those itself would compose one of them wrongly, and
-     * the scenario would load with a zone that is silently its own region.
+     * the simulation would load with a zone that is silently its own region.
      */
     private List<Object> regions() {
         List<Object> out = new ArrayList<>();
@@ -393,7 +393,7 @@ public final class Serve {
     }
 
     /**
-     * Write a scenario, having first refused to write a broken one.
+     * Write a simulation, having first refused to write a broken one.
      *
      * <p>It is loaded before it is saved, by the same {@link Loader} a run uses,
      * so what lands on disk is a file that will start. The alternative is a
@@ -401,12 +401,12 @@ public final class Serve {
      * wrong from a stack trace two clicks later — and by then the file with the
      * mistake in it is already theirs to fix.
      *
-     * <p><b>It only ever writes inside the lab's scenarios folder.</b> The name is
+     * <p><b>It only ever writes inside the lab's simulations folder.</b> The name is
      * a file name and nothing else: no separators, no dots that walk anywhere, and
      * the resolved path is checked against that folder before a byte is written.
      * This is a web page writing into somebody's project.
      */
-    private void scenario(HttpExchange x) throws IOException {
+    private void simulation(HttpExchange x) throws IOException {
         if ("GET".equals(x.getRequestMethod())) { readScenario(x); return; }
         if (!"POST".equals(x.getRequestMethod())) { send(x, 405, "text/plain", "GET, POST".getBytes()); return; }
         Map<String, Object> body = readJson(x);
@@ -415,7 +415,7 @@ public final class Serve {
 
         if (!name.endsWith(".yaml")) name = name + ".yaml";
         if (!name.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,63}\\.yaml")) {
-            fail(x, 400, "'" + name + "' is not a scenario name. Letters, digits, dot, dash and"
+            fail(x, 400, "'" + name + "' is not a simulation name. Letters, digits, dot, dash and"
                     + " underscore, and it is a file name rather than a path.");
             return;
         }
@@ -432,7 +432,7 @@ public final class Serve {
         Path into = lab.root().resolve(Lab.SIMULATIONS);
         Path file = into.resolve(name).normalize();
         if (!file.startsWith(into.toAbsolutePath().normalize())) {
-            fail(x, 400, "a scenario belongs in the lab's scenarios folder");
+            fail(x, 400, "a simulation belongs in the lab's simulations folder");
             return;
         }
         Files.createDirectories(file.getParent());
@@ -440,27 +440,27 @@ public final class Serve {
         Files.writeString(file, text);
 
         Map<String, Object> out = new LinkedHashMap<>();
-        out.put("scenario", name);
+        out.put("simulation", name);
         out.put("path", lab.root().relativize(file).toString().replace('\\', '/'));
         out.put("replaced", existed);
         send(x, 200, "application/json", Json.write(out).getBytes(StandardCharsets.UTF_8));
     }
 
     /**
-     * An existing scenario, in the shape the authoring form composes one in —
+     * An existing simulation, in the shape the authoring form composes one in —
      * for the console's edit form.
      *
      * <p>{@link Draft#of} is the one that reads it: the loader's own
      * validation first, then a second walk of the same parsed tree for
      * exactly what the form has a control for. Anything else in the file
-     * comes back as a refusal naming the key, the same as a broken scenario
+     * comes back as a refusal naming the key, the same as a broken simulation
      * would — never a Draft with something silently missing from it.
      */
     private void readScenario(HttpExchange x) throws IOException {
         String name = query(x).getOrDefault("name", "").trim();
-        Path file = lab.scenario(name);
+        Path file = lab.simulation(name);
         if (file == null) {
-            fail(x, 404, "There is no scenario called " + name + " in this lab.");
+            fail(x, 404, "There is no simulation called " + name + " in this lab.");
             return;
         }
         Draft.Of d;
@@ -479,15 +479,19 @@ public final class Serve {
             row.put("prefix", p.prefix());
             row.put("instance", p.instance());
             row.put("zones", p.zones());
-            Map<String, Object> runs = new LinkedHashMap<>();
+            // A list, not a map: the form draws one row per entry and a row has
+            // an order. Both halves of the pair are in the row, because both
+            // halves are in the file.
+            List<Object> runs = new ArrayList<>();
             for (var r : p.runs().entrySet()) {
                 Map<String, Object> one = new LinkedHashMap<>();
+                one.put("service", r.getKey());
                 one.put("file", r.getValue().file());
                 Map<String, Object> byRpc = new LinkedHashMap<>();
                 for (var e : r.getValue().failures().entrySet())
                     byRpc.put(e.getKey(), rpcFailures(e.getValue()));
                 one.put("failures", byRpc);
-                runs.put(r.getKey(), one);
+                runs.add(one);
             }
             row.put("runs", runs);
             // Null rather than absent, and null rather than 0: a cap the file did
@@ -498,7 +502,7 @@ public final class Serve {
             List<Object> overrides = new ArrayList<>();
             for (Draft.Override o : p.overrides()) {
                 Map<String, Object> one = new LinkedHashMap<>();
-                one.put("machine", o.machine());
+                one.put("node", o.node());
                 one.put("instance", o.instance());
                 one.put("zone", o.zone());
                 one.put("memoryMb", o.memoryMb());
@@ -521,14 +525,17 @@ public final class Serve {
             retries.add(row);
         }
 
-        List<Object> takes = new ArrayList<>();
+        List<Object> durations = new ArrayList<>();
         for (Draft.Duration c : d.simulatedDuration()) {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("runs", c.runs());
             row.put("rpc", c.rpc());
-            row.put("fixed", c.fixedRefMs());
-            row.put("perUnit", c.perUnitRefMs());
-            takes.add(row);
+            // Named with their units, the way the form's own model names them:
+            // one is milliseconds and the other nanoseconds, and a pair called
+            // `fixed` and `perUnit` is a pair somebody will add together.
+            row.put("fixedRefMs", c.fixedRefMs());
+            row.put("perUnitRefNs", c.perUnitRefNs());
+            durations.add(row);
         }
 
         Map<String, Object> input = new LinkedHashMap<>();
@@ -540,7 +547,6 @@ public final class Serve {
         draft.put("name", d.name());
         draft.put("seed", d.seed());
         draft.put("scale", d.scale());
-        draft.put("mode", d.mode());
         Map<String, Object> net = new LinkedHashMap<>();
         net.put("sameZoneRefMs", d.net().sameZoneRefMs());
         net.put("crossZoneRefMs", d.net().crossZoneRefMs());
@@ -549,7 +555,7 @@ public final class Serve {
         draft.put("net", net);
         draft.put("pools", pools);
         draft.put("input", input);
-        draft.put("takes", takes);
+        draft.put("simulatedDuration", durations);
         draft.put("retries", retries);
 
         Map<String, Object> out = new LinkedHashMap<>();
@@ -599,24 +605,24 @@ public final class Serve {
     private void start(HttpExchange x) throws IOException {
         if (!"POST".equals(x.getRequestMethod())) { send(x, 405, "text/plain", "POST".getBytes()); return; }
         Map<String, Object> body = readJson(x);
-        Object named = body.get("scenario");
-        String scenario = named == null ? null : String.valueOf(named);
-        if (lab.scenario(scenario) == null) {
-            fail(x, 404, "There is no scenario called " + scenario + " in this lab.");
+        Object named = body.get("simulation");
+        String simulation = named == null ? null : String.valueOf(named);
+        if (lab.simulation(simulation) == null) {
+            fail(x, 404, "There is no simulation called " + simulation + " in this lab.");
             return;
         }
 
         Run running = current;
         if (running != null && !running.done) {
-            fail(x, 409, running.scenario + " is still running. It will finish, or you can wait it out.");
+            fail(x, 409, running.simulation + " is still running. It will finish, or you can wait it out.");
             return;
         }
-        Run run = new Run(runs_.incrementAndGet(), scenario);
+        Run run = new Run(runs_.incrementAndGet(), simulation);
         current = run;
         worker.submit(() -> {
-            run.say("── " + scenario + " ──\n");
+            run.say("── " + simulation + " ──\n");
             try {
-                run.code = lab.run(scenario, run::say);
+                run.code = lab.run(simulation, run::say);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 run.say("\nstopped.\n");
@@ -629,7 +635,7 @@ public final class Serve {
             }
         });
         send(x, 200, "application/json",
-                Json.write(Map.of("run", run.id, "scenario", scenario)).getBytes(StandardCharsets.UTF_8));
+                Json.write(Map.of("run", run.id, "simulation", simulation)).getBytes(StandardCharsets.UTF_8));
     }
 
     /** What the current run has said since byte {@code from}. */
@@ -643,13 +649,13 @@ public final class Serve {
         } else {
             Tail tail = r.from((long) number(query(x).getOrDefault("from", "0")));
             body.put("run", r.id);
-            body.put("scenario", r.scenario);
+            body.put("simulation", r.simulation);
             body.put("text", tail.text());
             body.put("next", tail.next());
             body.put("done", r.done);
             body.put("ok", r.done && r.code == 0);
             if (r.done) {
-                Path trace = lab.trace(r.scenario);
+                Path trace = lab.trace(r.simulation);
                 if (trace != null && Files.exists(trace))
                     body.put("trace", "traces/" + trace.getFileName());
             }
@@ -708,8 +714,8 @@ public final class Serve {
                         .filter(p -> !p.getFileName().toString().endsWith(".bill.json"))
                         // The index is in the directory it indexes, and it is not a run.
                         .filter(p -> !p.getFileName().toString().equals("index.json"))
-                        // A run is named after the scenario it came from, so it is
-                        // ordered the way the scenario list is: 2- before 10-, not
+                        // A run is named after the simulation it came from, so it is
+                        // ordered the way the simulation list is: 2- before 10-, not
                         // the character-by-character order a plain sort gives, which
                         // reads a numbered tour out in the wrong sequence.
                         .sorted(Lab::byName).toList();

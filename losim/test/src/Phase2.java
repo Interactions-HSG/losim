@@ -9,10 +9,10 @@ import losim.t.*;
 import losim.trace.Telemetry;
 
 /**
- * Phase 2, direct mode: everything a scenario declares, and everything it is
+ * Phase 2, direct mode: everything a simulation declares, and everything it is
  * refused for declaring.
  *
- * <p>Two halves. The first is that a scenario error reads like a compiler error,
+ * <p>Two halves. The first is that a simulation error reads like a compiler error,
  * with the line it was written on, because the alternative is discovering a typo
  * as a puzzling number three minutes into a run. The second is that a fault
  * written at an instant actually lands at that instant, and does what it says.
@@ -26,10 +26,10 @@ public class Phase2 {
         if (ok) pass++; else fail++;
     }
 
-    /** Runs the loader over an inline scenario and returns the message it refused with. */
+    /** Runs the loader over an inline simulation and returns the message it refused with. */
     static String refusal(String yaml) {
         try {
-            Loader.of(Yaml.parse("scenario.yaml", yaml));
+            Loader.of(Yaml.parse("simulation.yaml", yaml));
             return null;
         } catch (RuntimeException e) {
             return e.getMessage();
@@ -39,7 +39,7 @@ public class Phase2 {
     static void refuses(String what, String yaml, String mustMention) {
         String message = refusal(yaml);
         boolean ok = message != null && message.contains(mustMention)
-                  && message.matches("^scenario\\.yaml:\\d+:.*");
+                  && message.matches("^simulation\\.yaml:\\d+:.*");
         check(ok, what + (message == null ? " — but it was accepted"
                                           : "  ->  " + message.split("\n")[0]));
     }
@@ -77,7 +77,7 @@ public class Phase2 {
      *
      * <p>Machines are found by what they serve and called over a channel losim made,
      * so the call is a real one: latency, bytes, a span beneath the handler that
-     * made it, and whatever the scenario is doing to the machine at the other end.
+     * made it, and whatever the simulation is doing to the machine at the other end.
      * A handler can ask who its peers are, but reaching them needs exactly this:
      * without a channel losim made, the only way to fan out would be a channel of
      * its own, which is exactly what the verifier flags.
@@ -136,7 +136,7 @@ public class Phase2 {
     }
 
     public static void main(String[] args) throws Exception {
-        System.out.println("Phase 2 — a scenario, and what it is refused for\n");
+        System.out.println("Phase 2 — a simulation, and what it is refused for\n");
         refusals();
         durations();
         pools();
@@ -146,7 +146,7 @@ public class Phase2 {
         rpcFailures();
         disk();
         endToEnd();
-        // Last, deliberately. The reference scenario above turns on a kill landing
+        // Last, deliberately. The reference simulation above turns on a kill landing
         // while a call is in flight, and a section added in front of it changes the
         // JVM it runs in; this one asserts structure, so nothing upstream can move it.
         forwarding();
@@ -157,7 +157,7 @@ public class Phase2 {
     // -------------------------------------------------------------- file:line
 
     static void refusals() {
-        System.out.println("=== a scenario error names the line it is on ===");
+        System.out.println("=== a simulation error names the line it is on ===");
         refuses("an instance type that does not exist",
                 CLUSTER.replace("master: { instance: m5.large", "master: { instance: m5.mega"),
                 "unknown instance type");
@@ -176,7 +176,7 @@ public class Phase2 {
         refuses("a probability outside zero and one",
                 CLUSTER + "network: { loss: 4 }\n",
                 "a probability");
-        // runs: names code by path, and a path is the one thing about a scenario
+        // runs: names code by path, and a path is the one thing about a simulation
         // that can be checked before anything is built. All four of these used to
         // be a run that started and then could not find a class.
         refuses("a runs: value that is not a .java file",
@@ -223,7 +223,7 @@ public class Phase2 {
         refuses("and neither is one with a wall-clock unit",
                 workers("    failures:\n      - { kill: true, at: 900ms }\n"),
                 "does not say what kind of time it is");
-        var s = Loader.of(Yaml.parse("scenario.yaml", workers(
+        var s = Loader.of(Yaml.parse("simulation.yaml", workers(
                 "    failures:\n      - { kill: true, at: 2 refSeconds }\n"
               + "      - { freeze: true, at: 900 refMs }\n")));
         var written = s.nodes().stream().filter(m -> m.name().equals("w0")).findFirst().get();
@@ -232,7 +232,7 @@ public class Phase2 {
               "refSeconds and refMs are the same scale, an order of magnitude apart");
         System.out.println("    '2s' would be ambiguous between two seconds of the simulated world");
         System.out.println("    and two seconds of your afternoon, and those differ by k_time —");
-        System.out.println("    which whoever writes the scenario never sees.");
+        System.out.println("    which whoever writes the simulation never sees.");
         System.out.println();
     }
 
@@ -240,7 +240,7 @@ public class Phase2 {
 
     static void pools() {
         System.out.println("=== pools, and the deliberate straggler ===");
-        var s = Loader.of(Yaml.parse("scenario.yaml", """
+        var s = Loader.of(Yaml.parse("simulation.yaml", """
                 nodes:
                   master: { instance: m5.large, zone: eu-a }
                   workers:
@@ -278,11 +278,11 @@ public class Phase2 {
                   - { method: Volley.Hit, attempts: 3, backoff: 10 refMs }
                 """;
         String message = null;
-        try { Simulate.of(Loader.of(Yaml.parse("scenario.yaml", unsafe))); }
+        try { Simulate.of(Loader.of(Yaml.parse("simulation.yaml", unsafe))); }
         catch (RuntimeException e) { message = e.getMessage(); }
         check(message != null && message.contains("is refused")
               && message.contains("idempotency_level")
-              && message.matches("(?s)^scenario\\.yaml:\\d+:.*"),
+              && message.matches("(?s)^simulation\\.yaml:\\d+:.*"),
               "it is refused at load, with the line and what to do about it");
         if (message != null) System.out.println("    " + message.replace(". ", ".\n    "));
 
@@ -298,7 +298,7 @@ public class Phase2 {
               "and 'unsafe: true' allows it — one visible line in a diff, which is the point");
 
         String missing = null;
-        try { Simulate.of(Loader.of(Yaml.parse("scenario.yaml", CLUSTER + """
+        try { Simulate.of(Loader.of(Yaml.parse("simulation.yaml", CLUSTER + """
                 retries:
                   - { method: Worker.Map, attempts: 2 }
                 """))); }
@@ -309,7 +309,7 @@ public class Phase2 {
         // And it actually retries.
         Pinger.HITS.set(0);
         Pinger.failFirst = 2;
-        var result = Simulate.of(Loader.of(Yaml.parse("scenario.yaml", """
+        var result = Simulate.of(Loader.of(Yaml.parse("simulation.yaml", """
                 nodes:
                   master: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/RetryJob.java } }
                   workers: { count: 1, prefix: w, instance: m5.large, zone: z, runs: { Volley: losim/test/src/Pinger.java } }
@@ -337,7 +337,7 @@ public class Phase2 {
 
     static boolean runs(String yaml) {
         try {
-            Simulate.of(Loader.of(Yaml.parse("scenario.yaml", yaml)));
+            Simulate.of(Loader.of(Yaml.parse("simulation.yaml", yaml)));
             return true;
         } catch (Exception e) {
             System.out.println("    unexpectedly refused: " + e.getMessage());
@@ -349,7 +349,7 @@ public class Phase2 {
 
     static void failures() throws Exception {
         System.out.println("=== every failure lands where the simulation put it ===");
-        var result = Simulate.of(Loader.of(Yaml.parse("scenario.yaml", """
+        var result = Simulate.of(Loader.of(Yaml.parse("simulation.yaml", """
                 seed: 3
                 nodes:
                   master: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/WaitJob.java } }
@@ -435,7 +435,7 @@ public class Phase2 {
                     + "  losim/test/src/Pinger.java: { Hit: { fixed: 1 refMs } }\n";
         var afternoons = new ArrayList<List<String>>();
         for (long seed : new long[]{1, 1, 2}) {
-            var tel = Simulate.of(Loader.of(Yaml.parse("scenario.yaml", yaml.formatted(seed))))
+            var tel = Simulate.of(Loader.of(Yaml.parse("simulation.yaml", yaml.formatted(seed))))
                     .telemetry();
             afternoons.add(tel.events().stream().filter(e -> e.kind().equals("failure"))
                     .map(e -> e.vm() + "@" + Math.round((Double) e.detail().get("atRefMs")))
@@ -511,7 +511,7 @@ public class Phase2 {
         // before a single call is made.
         boolean caught = false;
         try {
-            Simulate.of(Loader.of(Yaml.parse("scenario.yaml",
+            Simulate.of(Loader.of(Yaml.parse("simulation.yaml",
                     badRpc("          Hitt:\n            - { drop: true, per: 3 calls }\n"))));
         } catch (Exception e) {
             caught = e.getMessage() != null && e.getMessage().contains("serves no rpc of that name");
@@ -520,7 +520,7 @@ public class Phase2 {
         check(caught, "an rpc the service does not serve is refused with its line, because a "
               + "failure that belongs to nothing quietly never fires");
 
-        var tel = Simulate.of(Loader.of(Yaml.parse("scenario.yaml",
+        var tel = Simulate.of(Loader.of(Yaml.parse("simulation.yaml",
                 badRpc("          Hit:\n            - { status: UNAVAILABLE, per: 2 calls }\n"))))
                 .telemetry();
         var refused = tel.events().stream().filter(e -> e.kind().equals("rpc_failure")).toList();
@@ -539,7 +539,7 @@ public class Phase2 {
 
     static void disk() throws Exception {
         System.out.println("=== a full disk refuses the write ===");
-        var result = Simulate.of(Loader.of(Yaml.parse("scenario.yaml", """
+        var result = Simulate.of(Loader.of(Yaml.parse("simulation.yaml", """
                 nodes:
                   master: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/WordCountJob.java } }
                   workers:
@@ -568,7 +568,7 @@ public class Phase2 {
     // ---------------------------------------------------------------- the run
 
     static void endToEnd() throws Exception {
-        System.out.println("=== the reference scenario, end to end ===");
+        System.out.println("=== the reference simulation, end to end ===");
         var result = Wordcount.result();
         var tel = result.telemetry();
         System.out.printf("    %s in %.0f refMs: %d events, %d spans, %d series%n",

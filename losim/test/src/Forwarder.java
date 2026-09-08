@@ -11,7 +11,7 @@ import losim.t.WorkerGrpc;
  * channel from losim rather than building one. What comes back is an ordinary
  * {@code io.grpc.Channel}: the call site below is plain generated-stub gRPC, and it
  * is a real call with latency, byte counts, a span under this handler's span, and
- * everything a scenario does to the machine at the other end.
+ * everything a simulation does to the machine at the other end.
  */
 public final class Forwarder extends WorkerBase {
 

@@ -65,7 +65,7 @@ public interface LosimCtx {
     /**
      * How many units this call processed.
      *
-     * <p>Two things need it. The scenario's {@code refNsPerUnit:} is charged
+     * <p>Two things need it. The simulation's {@code refNsPerUnit:} is charged
      * against it,
      * and the scaler engine needs to know which independent variable a cost site
      * is a function of — units, or distinct keys, or bytes — because fitting a
@@ -108,7 +108,7 @@ public interface LosimCtx {
      * busy: a backoff occupies no vCPU, so counting it as occupancy would overstate
      * how loaded the cluster was.
      *
-     * <p>The scenario's {@code takes:} is the right way to declare what a
+     * <p>The simulation's {@code simulatedDuration:} is the right way to declare what a
      * handler's <i>work</i> costs, and it is a table, so it is fixed per rpc. This
      * is for a duration only the running program knows: a backoff that grows with
      * the attempt, a poll interval, a lease held until something else happens.
@@ -140,7 +140,7 @@ public interface LosimCtx {
     Spec here();
 
     /**
-     * The scenario's seed.
+     * The simulation's seed.
      *
      * <p>For a handler that generates rather than reads its data. It has to come
      * from here: a workload drawn from a constant of its own is a workload whose
@@ -202,7 +202,7 @@ public interface LosimCtx {
     Channel channelTo(String machine);
 
     /**
-     * Simulated milliseconds since the run began — the clock the scenario was
+     * Simulated milliseconds since the run began — the clock the simulation was
      * written against, not wall clock. Reading {@code System.nanoTime()} instead
      * reports the compressed clock as though it were the simulated one, which is
      * why the verifier flags it (D11).

@@ -10,7 +10,7 @@ import losim.verify.Trust;
 /**
  * Scaled mode: shrink the world, run it, and project the answer back.
  *
- * <p>There is exactly one scaled mode and it always uses the engine. A scenario
+ * <p>There is exactly one scaled mode and it always uses the engine. A simulation
  * cannot hand-declare a shrink factor and bypass this, because a factor somebody
  * guessed is a third mode whose numbers nobody could account for.
  *

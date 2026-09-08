@@ -81,13 +81,13 @@ public final class Clock {
      * <p>Building six in-process servers costs real milliseconds, and at a k_time
      * of ten that is hundreds of reference milliseconds of a run that has not begun.
      * Left alone it puts every fault written for an early instant in the past, so
-     * they all fire at once during setup — and it means an instant in the scenario
+     * they all fire at once during setup — and it means an instant in the simulation
      * is not the same instant in the trace, which is the one correspondence a reader
      * needs.
      */
     public void restart() { originNs = System.nanoTime(); }
 
-    /** Simulated milliseconds since this clock began — what the scenario is written in. */
+    /** Simulated milliseconds since this clock began — what the simulation is written in. */
     public double nowMs() { return (System.nanoTime() - originNs) / 1e6 * kTime; }
 
     /** Wall-clock nanoseconds since this clock began. */

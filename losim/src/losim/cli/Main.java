@@ -14,7 +14,7 @@ import losim.sim.Simulation;
 import losim.trace.Telemetry;
 import losim.verify.Trust;
 
-/** Runs a scenario and writes the trace everything downstream reads. */
+/** Runs a simulation and writes the trace everything downstream reads. */
 public final class Main {
 
     /**
@@ -51,13 +51,13 @@ public final class Main {
         speakUtf8();
         try { System.exit(run(args)); }
         catch (IllegalArgumentException e) {
-            // A scenario error is the user's, and should read like a compiler
+            // A simulation error is the user's, and should read like a compiler
             // error rather than like something went wrong inside losim.
             System.err.println(e.getMessage());
             System.exit(2);
         }
         catch (Exception e) {
-            // Anything else is losim's, not the scenario's, and one line of it is
+            // Anything else is losim's, not the simulation's, and one line of it is
             // not enough to find: the message names what went wrong and only the
             // stack names where. Kept behind a switch so an ordinary run still
             // reads like a tool rather than like a crash.
@@ -234,12 +234,12 @@ public final class Main {
         String seed = option(args, "--seed", null);
         var level = Telemetry.Level.valueOf(option(args, "--telemetry", "FULL"));
 
-        Simulation scenario = Loader.load(file);
+        Simulation simulation = Loader.load(file);
         // A second file's weather over somebody else's cluster, for running their
         // design in a world they did not write. It may not touch the cluster.
         String over = option(args, "--overlay", null);
-        if (over != null) scenario = Loader.overlay(scenario, Path.of(over));
-        if (seed != null) scenario = withSeed(scenario, Long.parseLong(seed));
+        if (over != null) simulation = Loader.overlay(simulation, Path.of(over));
+        if (seed != null) simulation = withSeed(simulation, Long.parseLong(seed));
 
         // A wider or narrower cluster, without editing anybody's file. `+1` is
         // relative because the interesting question is almost never "run it on
@@ -247,8 +247,8 @@ public final class Main {
         // where a routing scheme that counts machines comes apart.
         String workers = option(args, "--workers", null);
         if (workers != null) {
-            int pool = biggestPool(scenario);
-            scenario = scenario.withWorkers(workers.startsWith("+") || workers.startsWith("-")
+            int pool = biggestPool(simulation);
+            simulation = simulation.withWorkers(workers.startsWith("+") || workers.startsWith("-")
                     ? Math.max(1, pool + Integer.parseInt(workers.substring(workers.charAt(0) == '+' ? 1 : 0)))
                     : Integer.parseInt(workers));
         }
@@ -257,16 +257,16 @@ public final class Main {
         Path target = Path.of(out != null ? out
                 : "build/" + file.getFileName().toString().replaceAll("\\.ya?ml$", "") + ".json");
 
-        if (scenario.mode() == Simulation.Mode.SCALED) {
-            int code = scaled(scenario, loader, level, cp, target);
+        if (simulation.mode() == Simulation.Mode.SCALED) {
+            int code = scaled(simulation, loader, level, cp, target);
             show(args, target);
             return code;
         }
 
-        var result = Simulate.of(scenario, loader, level, Trust.of(scenario, paths(cp)));
+        var result = Simulate.of(simulation, loader, level, Trust.of(simulation, paths(cp)));
         result.trace().writeTo(target);
 
-        System.out.printf("%s  seed %d  %s in %.0f refMs%n", file.getFileName(), scenario.seed(),
+        System.out.printf("%s  seed %d  %s in %.0f refMs%n", file.getFileName(), simulation.seed(),
                 result.completed() ? "completed" : "did not complete", result.durationRefMs());
         if (result.failure() != null) System.out.println("  " + result.failure());
         System.out.print(wire(result));
@@ -282,7 +282,7 @@ public final class Main {
 
         show(args, target);
 
-        // An invariant the scenario asserted and the run broke is a failure of the
+        // An invariant the simulation asserted and the run broke is a failure of the
         // run, not of losim — so it is worth an exit code a script can read.
         return result.completed() ? 0 : 1;
     }
@@ -295,7 +295,7 @@ public final class Main {
      * to pass it is covered anyway, because a redirected stream is not a terminal
      * and this does not fire.
      *
-     * <p>Both modes come through here, so a scaled scenario and a direct one open
+     * <p>Both modes come through here, so a scaled simulation and a direct one open
      * the viewer the same way: a student at a terminal gets one whichever kind of
      * run this was, and an explicit `--view` is always honoured.
      */
@@ -402,7 +402,7 @@ public final class Main {
      *
      * <p>Written as a scan rather than as `args[1]`, because `losim run --no-view
      * thing.yaml` must mean what it looks like it means: taking the second
-     * argument on faith would read that as "no such scenario: --no-view", which
+     * argument on faith would read that as "no such simulation: --no-view", which
      * is the sort of message that sends somebody looking in the wrong place — and
      * `losim bill --prices expensive.yaml trace.json` would read the same way. So
      * every subcommand's arguments are found here, this way, rather than at a
@@ -434,7 +434,7 @@ public final class Main {
      * Serve the viewer on the run that was just made, and keep serving it.
      *
      * <p>The trace's own directory is what is served, so `--out` decides what is
-     * in the picker: run three scenarios into one directory and all three are
+     * in the picker: run three simulations into one directory and all three are
      * there to compare. It does not return — a viewer that closed itself the
      * moment it opened would be a screenshot.
      */

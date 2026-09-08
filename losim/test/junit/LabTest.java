@@ -29,7 +29,7 @@ class LabTest {
     void classesAreTheFallback() throws Exception {
         // The reason there is a fallback at all: the classpath the build resolves is
         // the simulator and gRPC, and the lab's own output is deliberately not on it,
-        // so the JVM running `losim run` has never heard of the class a scenario
+        // so the JVM running `losim run` has never heard of the class a simulation
         // names. Nothing caught that for a release, because the console passes --cp
         // itself and every test went through the console.
         var log = new StringBuilder();
@@ -40,7 +40,7 @@ class LabTest {
                 "so a run with no --cp has to be sent there");
 
         // And a project nobody has built yet says so about the class, not about a
-        // directory: "" leaves the refusal naming what the scenario asked for.
+        // directory: "" leaves the refusal naming what the simulation asked for.
         Path fresh = Files.createTempDirectory(Path.of("build"), "unbuilt-lab-");
         try {
             assertEquals("", new Lab(fresh).classesIfBuilt(),
@@ -91,7 +91,7 @@ class LabTest {
     }
 
     @Test
-    @DisplayName("scenarios come from simulations/, and from a loose file at the root")
+    @DisplayName("simulations come from simulations/, and from a loose file at the root")
     void findsScenariosInTheFolderAndAtTheRoot() throws Exception {
         Path loose = root.resolve("loose.yaml");
         Files.writeString(loose, "nodes:\n  a: { instance: m5.large, zone: eu-central-1a }\n");
@@ -105,7 +105,7 @@ class LabTest {
     }
 
     @Test
-    @DisplayName("numbered scenarios list in their numbers' order, not their digits'")
+    @DisplayName("numbered simulations list in their numbers' order, not their digits'")
     void ordersScenariosTheWayAPersonNumbersThem() throws Exception {
         Path dir = root.resolve("simulations");
         String[] made = {"2-two.yaml", "10-ten.yaml", "1-one.yaml", "9-nine.yaml", "01-one.yaml",
@@ -130,10 +130,10 @@ class LabTest {
     }
 
     @Test
-    @DisplayName("runs list in the same order their scenarios do")
+    @DisplayName("runs list in the same order their simulations do")
     void ordersRunsTheSameWay() {
         // `Serve`'s run index sorts by this same comparator. A run is named after
-        // the scenario it came from, so a tour numbered to be read in order has
+        // the simulation it came from, so a tour numbered to be read in order has
         // to come out in that order on the Runs page too — a plain string sort
         // would instead list a sixteen-stop tour as 1, 10, 11, … 2, 3.
         var files = new java.util.ArrayList<>(java.util.List.of(
@@ -149,16 +149,16 @@ class LabTest {
     }
 
     @Test
-    @DisplayName("a scenario by name, and the first one when none is named")
+    @DisplayName("a simulation by name, and the first one when none is named")
     void scenarioLookup() {
-        assertNotNull(lab.scenario("main.yaml"));
-        assertEquals("main.yaml", lab.scenario(null).getFileName().toString());
-        assertEquals("main.yaml", lab.scenario("").getFileName().toString());
-        assertNull(lab.scenario("nope.yaml"));
+        assertNotNull(lab.simulation("main.yaml"));
+        assertEquals("main.yaml", lab.simulation(null).getFileName().toString());
+        assertEquals("main.yaml", lab.simulation("").getFileName().toString());
+        assertNull(lab.simulation("nope.yaml"));
     }
 
     @Test
-    @DisplayName("a trace is named after its scenario, not the other way round")
+    @DisplayName("a trace is named after its simulation, not the other way round")
     void traceNaming() {
         assertEquals("main.json", lab.trace("main.yaml").getFileName().toString());
         assertNull(lab.trace("nope.yaml"));
@@ -200,11 +200,11 @@ class LabTest {
     }
 
     @Test
-    @DisplayName("a scenario nobody wrote is refused, not silently skipped")
+    @DisplayName("a simulation nobody wrote is refused, not silently skipped")
     void refusesAnUnknownScenario() throws Exception {
         StringBuilder log = new StringBuilder();
         int code = lab.run("ghost.yaml", log::append);
         assertEquals(2, code);
-        assertTrue(log.toString().contains("no scenario called ghost.yaml"), log::toString);
+        assertTrue(log.toString().contains("no simulation called ghost.yaml"), log::toString);
     }
 }

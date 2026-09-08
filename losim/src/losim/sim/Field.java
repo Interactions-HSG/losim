@@ -103,7 +103,7 @@ public final class Field {
      *
      * <p><b>A bare number is refused.</b> "2s" is ambiguous between two seconds of
      * the simulated world and two seconds of your afternoon, and those differ by
-     * {@code k_time}, which the person writing the scenario never sees. So the unit
+     * {@code k_time}, which the person writing the simulation never sees. So the unit
      * has to be said: {@code 900 refMs}, {@code 2 refSeconds}.
      */
     public double refMs() {

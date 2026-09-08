@@ -4,7 +4,7 @@ import losim.sim.Loader;
 import losim.trace.Telemetry;
 
 /**
- * The reference run, loaded from the scenario the way anyone else would load it.
+ * The reference run, loaded from the simulation the way anyone else would load it.
  *
  * <p>Everything the telemetry is held to is asked of this: a cluster of seven, one
  * machine reclaimed after it has mapped but before it is asked to reduce, and one

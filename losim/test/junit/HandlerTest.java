@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
  * anything.
  *
  * <p>This is the test that decides whether the service shape was worth its twelve
- * lines of adapter. There is no cluster here, no scenario, no interceptor and no
+ * lines of adapter. There is no cluster here, no simulation, no interceptor and no
  * clock — just a class, constructed, with a method called on it. Set a breakpoint
  * on the line below and step into {@code map}: it is ordinary Java, and stopping
  * on it stops nothing else, because nothing else is running.

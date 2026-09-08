@@ -7,17 +7,17 @@ import losim.sim.Field;
 import losim.sim.Yaml;
 
 /**
- * What an existing scenario looks like to the authoring form.
+ * What an existing simulation looks like to the authoring form.
  *
  * <p>The mirror image of {@link Palette}: that reads a lab's code and says
- * what <i>could</i> be placed; this reads a scenario already on disk and says
+ * what <i>could</i> be placed; this reads a simulation already on disk and says
  * what <i>was</i> — a pool, an instance, a set of zones, which classes run on
  * it, and the weather — in the same shape the form composes a new one in.
  *
  * <p><b>Parses nothing itself.</b> {@link Yaml#parse} is called once, by
  * {@link Loader#of}, which is asked first: a file that would not load at all
- * fails there, with the loader's own line-numbered refusal, so "this scenario
- * is broken" and "this scenario is valid but the form has no control for
+ * fails there, with the loader's own line-numbered refusal, so "this simulation
+ * is broken" and "this simulation is valid but the form has no control for
  * something in it" are never confused with each other. What follows is a
  * second walk of the same parsed tree — the relationship {@link Loader}'s own
  * private methods already have to it — not a second grammar.
@@ -27,7 +27,7 @@ import losim.sim.Yaml;
  * key and the line, never a Draft missing it silently and a save that drops
  * what it never showed.
  *
- * <p>The list is empty. A scenario the console can run but cannot open is a dead
+ * <p>The list is empty. A simulation the console can run but cannot open is a dead
  * end in a course whose interface <i>is</i> the console, so every key
  * {@link Loader} accepts is read back here — every fault kind, the workload, the
  * mode, the per-pool caps, the prefix, the per-machine overrides, the retry
@@ -62,7 +62,7 @@ public final class Draft {
     public record Runs(String file, java.util.Map<String, List<RpcFailure>> failures) {}
 
     /**
-     * One machine in a pool, differing from its siblings.
+     * One node in a pool, differing from its siblings.
      *
      * <p>An empty string or a null number falls back to the pool's own value,
      * because that is what a key the file left out means. A pool of eight where
@@ -70,7 +70,7 @@ public final class Draft {
      * where one has a smaller disk shows a machine filling up while its
      * neighbours do not.
      */
-    public record Override(String machine, String instance, String zone,
+    public record Override(String node, String instance, String zone,
                            Double memoryMb, Double diskMb, List<Failure> failures) {}
 
     /**
@@ -122,7 +122,17 @@ public final class Draft {
      * control would be a form where the heading can be edited into naming
      * nothing.
      */
-    public record Duration(String runs, String rpc, double fixedRefMs, double perUnitRefMs) {}
+    /**
+     * @param perUnitRefNs nanoseconds, which is the unit the file writes it in and
+     *                     the only one it is readable in — a per-unit term is
+     *                     small. The engine keeps reference milliseconds
+     *                     throughout, so this is converted back on the way out and
+     *                     rounded to whole nanoseconds: a hundred-thousandth of a
+     *                     millisecond does not survive a double intact, and a
+     *                     fraction of a nanosecond is far below anything the clock
+     *                     can serve.
+     */
+    public record Duration(String runs, String rpc, double fixedRefMs, long perUnitRefNs) {}
 
     /**
      * The workload, at full size.
@@ -137,9 +147,15 @@ public final class Draft {
      */
     public record Workload(String source, String unit, long count) {}
 
-    public record Of(String name, long seed, double scale, String mode,
-                      Net net, List<Pool> pools,
-                      List<Retry> retries, List<Duration> simulatedDuration, Workload input) {}
+    /**
+     * A simulation, in the shape the form composes one in.
+     *
+     * <p>No mode. Above {@code scale: 1} a simulation is a model of something
+     * bigger and there is nothing else it could be, so there is nothing to
+     * select and no control to draw.
+     */
+    public record Of(String name, long seed, double scale, Net net, List<Pool> pools,
+                     List<Retry> retries, List<Duration> simulatedDuration, Workload input) {}
 
     /**
      * @param name the file's own name, {@code two-machines.yaml} — trimmed to the
@@ -156,9 +172,9 @@ public final class Draft {
         var sc = Loader.of(root);   // the real check, first — baseline correctness is never re-done below
 
         // The form has a control for every key `Loader.of` allows at the top
-        // level, so nothing there is refused: `sc.net()`, `sc.mode()`,
-        // `sc.workload()` and `sc.tightMargin()` below are read straight off the
-        // loader's own already-resolved answer and there is nothing to walk.
+        // level, so nothing there is refused: `sc.net()` and `sc.input()` below
+        // are read straight off the loader's own already-resolved answer, and
+        // there is nothing to walk.
 
         var pools = new ArrayList<Pool>();
         for (var entry : root.at("nodes").map().entrySet()) {
@@ -182,7 +198,7 @@ public final class Draft {
                 }
             }
             if (!spec.opt("zone").present()) throw spec.fail(
-                    "'" + poolName + "' has no zone: — the form always writes one, so a scenario"
+                    "'" + poolName + "' has no zone: — the form always writes one, so a simulation"
                     + " without one did not come from it. Add a zone: and open it here again.");
             String instance = spec.at("instance").str();
             var zones = spec.at("zone").strings();
@@ -232,13 +248,14 @@ public final class Draft {
 
         var durations = new ArrayList<Duration>();
         // Absent is not empty to `map()`, which refuses anything that is not a
-        // block — and a scenario with no costs in it is the ordinary case.
+        // block — and a simulation with no costs in it is the ordinary case.
         Field priced = root.opt("simulatedDuration");
         for (var runs : (priced.present() ? priced.map() : java.util.Map.<String, Field>of()).entrySet()) {
             for (var rpc : runs.getValue().map().entrySet()) {
                 Field body = rpc.getValue();
                 durations.add(new Duration(runs.getKey(), rpc.getKey(),
-                        body.opt("fixed").refMs(0), body.opt("perUnit").refMs(0)));
+                        body.opt("fixed").refMs(0),
+                        Math.round(body.opt("perUnit").refMs(0) * 1e6)));
             }
         }
 
@@ -252,7 +269,6 @@ public final class Draft {
                 sc.net().jitterRefMs(), sc.net().loss());
 
         return new Of(name.replaceAll("\\.ya?ml$", ""), sc.seed(), sc.scale(),
-                sc.mode().name().toLowerCase(),
                 net, List.copyOf(pools),
                 List.copyOf(retries), List.copyOf(durations), input);
     }

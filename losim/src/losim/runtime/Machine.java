@@ -282,7 +282,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
     }
 
     /**
-     * The same, knowing the line of the scenario that asked for it.
+     * The same, knowing the line of the simulation that asked for it.
      *
      * <p>What this machine can and cannot serve is decided here, when the service
      * is bound and its methods are known — the loader cannot do it, because it has
@@ -295,9 +295,9 @@ public final class Machine implements Bound, Telemetry.Sampled {
     }
 
     /**
-     * The same, under the name the scenario placed it by.
+     * The same, under the name the simulation placed it by.
      *
-     * <p>That name is how {@code takes:} finds it: a cost is written under what
+     * <p>That name is how {@code simulatedDuration:} finds it: a cost is written under what
      * {@code runs:} says, so the two spell one thing one way.
      */
     public Machine serves(java.util.function.Supplier<? extends BindableService> factory,
@@ -421,7 +421,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
         for (var offered : factories) {
             BindableService s = offered.factory().get();
             roots.add(s);                                // a machine's data hangs off its services
-            // What the scenario called this, so `takes:` can be looked up under the
+            // What the simulation called this, so `simulatedDuration:` can be looked up under the
             // same word the person wrote. Falling back to the class's own name for
             // a cluster built in code, which named nothing.
             String named = offered.named() != null ? offered.named() : nameOf(s.getClass());
@@ -579,7 +579,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
     Cost takenBy(String fullMethodName) { return declared.get(fullMethodName); }
 
     /**
-     * Re-reads the scenario's costs, for the methods this machine now serves.
+     * Re-reads the simulation's costs, for the methods this machine now serves.
      *
      * <p>Called when the cluster is told what things cost and again whenever this
      * machine rebuilds its services, because a machine that was killed and came
@@ -596,7 +596,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
 
     /**
      * What to call a service nobody named — a cluster built in code rather than from
-     * a scenario.
+     * a simulation.
      *
      * <p>Its own class, unless that is an anonymous one: {@code new VolleyBase(){…}}
      * has no simple name at all, and a cost keyed on the empty string would belong

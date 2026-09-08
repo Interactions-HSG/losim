@@ -6,13 +6,13 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * What an existing scenario looks like to the authoring form — and what it
+ * What an existing simulation looks like to the authoring form — and what it
  * refuses rather than shows with something quietly missing.
  *
  * <p>No lab and no compile: every case here is a plain string in, a record or a
  * refusal out. The paths under {@code runs:} are this repository's own, because
  * the loader does stat them — a path is a thing that either exists or does not,
- * and saying so on its line is the whole reason a scenario names code by path.
+ * and saying so on its line is the whole reason a simulation names code by path.
  * What the loader still does not do is load anything: whether that file's class
  * compiles, and whether it implements the service it is filed under, are a run's
  * questions and are asked where there is a bound server to answer them.
@@ -232,7 +232,7 @@ class DraftTest {
     }
 
     @Test
-    @DisplayName("a scenario the loader itself would refuse is refused with the loader's own words")
+    @DisplayName("a simulation the loader itself would refuse is refused with the loader's own words")
     void aBrokenScenarioNeverReachesTheDraftWalk() {
         // No `machines:` at all — the loader's own refusal, not a Draft-shaped one.
         String said = refusal("");
@@ -247,11 +247,10 @@ class DraftTest {
                 nodes:
                   a: { instance: m5.large, zone: eu-central-1a, runs: { Worker: losim/test/src/Counter.java } }
                 """);
-        // Derived from the scale, and the form draws it rather than offering it: a
-        // simulation above scale 1 is a model of something bigger and there is
-        // nothing else it could be. A `mode:` control was a second way to say what
-        // `scale:` already says, and two controls can disagree.
-        assertEquals("scaled", d.mode());
+        // One number, and nothing beside it. Above scale 1 a simulation is a model
+        // of something bigger and there is nothing else it could be, so the draft
+        // carries no mode: a second field saying what `scale:` already says is a
+        // second field that can disagree with it.
         assertEquals(6.0, d.scale(), 1e-9);
 
         var e = Draft.of("main.yaml", """
@@ -259,7 +258,7 @@ class DraftTest {
                   a: { instance: m5.large, zone: eu-central-1a, runs: { Worker: losim/test/src/Counter.java } }
                 """);
         assertEquals(1.0, e.scale(), 1e-9,
-                "a scenario that never mentions a scale is a run of itself, not a model of "
+                "a simulation that never mentions a scale is a run of itself, not a model of "
                 + "something bigger");
     }
 
@@ -275,7 +274,7 @@ class DraftTest {
         assertEquals(1024.0, d.pools().get(0).diskMb(), 1e-9);
         // The third state. A pool that never mentioned a cap has the instance
         // type's own, and reading that back as 0 would be a machine that cannot
-        // hold anything — a legal scenario, and not this one.
+        // hold anything — a legal simulation, and not this one.
         assertNull(d.pools().get(1).memoryMb());
         assertNull(d.pools().get(1).diskMb());
     }
@@ -297,7 +296,7 @@ class DraftTest {
                 """);
         var over = d.pools().get(0).overrides();
         assertEquals(3, over.size());
-        assertEquals("w1", over.get(0).machine());
+        assertEquals("w1", over.get(0).node());
         assertEquals("a1.medium", over.get(0).instance());
         // Empty and null are "the pool's own", which is what a missing key means.
         assertEquals("", over.get(0).zone());

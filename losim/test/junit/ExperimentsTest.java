@@ -51,7 +51,7 @@ class ExperimentsTest {
     }
 
     @Test
-    @DisplayName("run(scenario).done() writes a trace and says so")
+    @DisplayName("run(simulation).done() writes a trace and says so")
     void runsAScenarioAndWritesATrace() {
         String out = captured(() -> Experiments.in(root.toString()).run("main.yaml").done());
         assertTrue(Files.exists(root.resolve(Lab.RESULTS).resolve("main.json")), out);
@@ -59,7 +59,7 @@ class ExperimentsTest {
     }
 
     @Test
-    @DisplayName("two scenarios chained are two runs, not one overwriting the other")
+    @DisplayName("two simulations chained are two runs, not one overwriting the other")
     void chainsMultipleRuns() throws Exception {
         Files.writeString(root.resolve("simulations/second.yaml"), """
                 nodes:
@@ -78,19 +78,19 @@ class ExperimentsTest {
     }
 
     @Test
-    @DisplayName("a scenario that does not exist is reported, and the run beside it still happens")
+    @DisplayName("a simulation that does not exist is reported, and the run beside it still happens")
     void aMissingScenarioDoesNotStopTheRest() {
         String out = captured(() ->
                 Experiments.in(root.toString()).run("ghost.yaml").run("main.yaml").done());
-        assertTrue(out.contains("there is no scenario called ghost.yaml"), out);
+        assertTrue(out.contains("there is no simulation called ghost.yaml"), out);
         assertTrue(Files.exists(root.resolve(Lab.RESULTS).resolve("main.json")), out);
-        // Only the scenario that actually ran counts toward the total — the
+        // Only the simulation that actually ran counts toward the total — the
         // refusal above never reaches Lab.run, so there is nothing to have failed.
         assertTrue(out.contains("1 run"), out);
     }
 
     @Test
-    @DisplayName("runAll() runs every scenario the lab has")
+    @DisplayName("runAll() runs every simulation the lab has")
     void runsEverything() throws Exception {
         Files.writeString(root.resolve("simulations/third.yaml"), """
                 nodes:

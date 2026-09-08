@@ -6,12 +6,12 @@ import java.util.List;
 /**
  * How many times to try again, and what the schema had to say about it.
  *
- * <p>Retrying is an operational decision, so it lives in the scenario where it can
+ * <p>Retrying is an operational decision, so it lives in the simulation where it can
  * be diffed and swept. Whether retrying is <i>safe</i> is a property of the method,
  * so it lives in the {@code .proto} as {@code option idempotency_level}. The two
  * have to agree, and losim refuses at load when they do not.
  *
- * <p>A scenario can still retry a method the schema calls unsafe, by writing
+ * <p>A simulation can still retry a method the schema calls unsafe, by writing
  * {@code unsafe: true}. That is the point: it makes "we retry a call that is not
  * safe to run twice" one visible line in a diff rather than an emergent property of
  * a configuration nobody read.

@@ -10,12 +10,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Every scenario this repository carries still loads.
+ * Every simulation this repository carries still loads.
  *
- * <p>A scenario is data rather than code, so nothing compiles it and nothing
+ * <p>A simulation is data rather than code, so nothing compiles it and nothing
  * reads it until somebody opens the one that broke — and a catalogue edit, such
  * as deleting an instance family, is exactly the kind of change that can orphan
- * many scenarios at once, without touching a single scenario file, while every
+ * many simulations at once, without touching a single simulation file, while every
  * other check suite stays green.
  *
  * <p>Loading only, not running: running them is minutes of cluster time and
@@ -26,12 +26,12 @@ import org.junit.jupiter.api.Test;
 class GalleryTest {
 
     /**
-     * Where scenarios live.
+     * Where simulations live.
      *
      * <p>{@code demo/} is in {@code .gitignore}, so it is here as a bonus rather
      * than a requirement: present on a machine that has the gallery, absent in a
      * fresh clone, and this test must pass in both. The tracked directories are
-     * the ones that must never be empty — if they are, the scenarios moved and
+     * the ones that must never be empty — if they are, the simulations moved and
      * this test would otherwise sit here passing on nothing at all.
      */
     private static final List<String> TRACKED = List.of("tests/simulations", "losim/test/simulations");
@@ -47,12 +47,12 @@ class GalleryTest {
     }
 
     @Test
-    @DisplayName("every scenario in the repository loads, so a catalogue change cannot quietly orphan one")
+    @DisplayName("every simulation in the repository loads, so a catalogue change cannot quietly orphan one")
     void everyScenarioLoads() throws Exception {
         var files = new ArrayList<Path>();
         for (String dir : TRACKED) {
             var found = yamlUnder(Path.of(dir));
-            assertFalse(found.isEmpty(), "no scenarios under " + dir + " — have they moved?");
+            assertFalse(found.isEmpty(), "no simulations under " + dir + " — have they moved?");
             files.addAll(found);
         }
         // Whatever the gallery holds, if this machine has one.
@@ -67,7 +67,7 @@ class GalleryTest {
             }
         }
         assertTrue(broken.isEmpty(),
-                broken.size() + " of " + files.size() + " scenarios no longer load:\n  "
+                broken.size() + " of " + files.size() + " simulations no longer load:\n  "
                 + String.join("\n  ", broken));
     }
 }

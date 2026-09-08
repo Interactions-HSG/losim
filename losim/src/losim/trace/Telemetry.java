@@ -158,7 +158,7 @@ public final class Telemetry {
 
     public Clock clock()      { return clock; }
     public double kTime()     { return clock.kTime(); }
-    /** Simulated milliseconds — what the scenario was written in, not wall clock. */
+    /** Simulated milliseconds — what the simulation was written in, not wall clock. */
     public double now()       { return clock.nowMs(); }
 
     // ------------------------------------------------------------------- record
@@ -244,7 +244,7 @@ public final class Telemetry {
      * The finest the sampler will ever tick, in <b>real</b> milliseconds.
      *
      * <p>Real, not reference: the floor is a property of the machine doing the
-     * sampling, not of the scenario being sampled. What it costs must not land on
+     * sampling, not of the simulation being sampled. What it costs must not land on
      * the counters it is reading (D13), and a sampler woken faster than this spends
      * more of a core than the cluster it is watching.
      */

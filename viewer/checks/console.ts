@@ -22,7 +22,7 @@
  * ticks differ between two points on the clock, the chart is lying about its own
  * shape and the trend you read off it is not there.
  *
- * The designer is here for its shell only. Its substance is a scenario file
+ * The designer is here for its shell only. Its substance is a simulation file
  * handed to the Java loader, and `s11-author.ts` is where that is answered —
  * against a real lab, because a fixture of "what the loader accepts" would be a
  * third opinion about a format two programs already have to agree on.
@@ -84,7 +84,7 @@ try {
 }
 const load = async (p: string) => import(pathToFileURL(join(BUILT, p)).href);
 const { Cost } = await load('components/console/Cost.js');
-const { Scenarios } = await load('components/console/Scenarios.js');
+const { Simulations } = await load('components/console/Simulations.js');
 const { FilmView } = await load('components/console/FilmView.js');
 const { Gallery } = await load('components/console/Gallery.js');
 const { Overview } = await load('components/console/Overview.js');
@@ -97,7 +97,7 @@ const { ConsoleContext } = await load('lib/console.js');
 const WHEN = [0, 0.07, 0.31, 0.5, 0.83, 1];
 const VIEWS: [View, () => ReactNode][] = [
   ['runs', Gallery],
-  ['scenarios', Scenarios],
+  ['simulations', Simulations],
   ['overview', Overview],
   ['film', FilmView],
   ['usage', Usage],

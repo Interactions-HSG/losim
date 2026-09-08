@@ -27,7 +27,7 @@ public final class T7 {
                         + " refMs").toList());
         double at = kills.isEmpty() ? -1 : Expect.num(kills.get(0).get("t"));
         e.check(at > 150 && at < 280,
-                String.format("and it fired at about the 200 refMs the scenario wrote, not "
+                String.format("and it fired at about the 200 refMs the simulation wrote, not "
                         + "wherever the host got round to it (%.0f refMs)", at));
 
         var drawn = e.of("failure");

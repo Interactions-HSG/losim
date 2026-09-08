@@ -249,7 +249,7 @@ public final class Scan {
             new String[]{"InsecureChannelCredentials", "there is no transport to secure —"
                     + " a call never leaves the JVM"},
             new String[]{"newFixedThreadPool", "the pool is the machine, sized by the"
-                    + " instance type in the scenario"},
+                    + " instance type in the simulation"},
             new String[]{"System.out.print", "it goes to the run's own stdout, attributed to"
                     + " no machine and absent from the trace and the film."
                     + " Losim.current().log(…) puts it in that machine's event channel"},
@@ -296,7 +296,7 @@ public final class Scan {
 
         if (text.contains("static void main(")) {
             findings.add(new Finding(Kind.DEAD, "main(String[]) and its arguments",
-                    "a machine has no command line. Worse than dead: with no scenario"
+                    "a machine has no command line. Worse than dead: with no simulation"
                     + " named, losim runs the first class it finds with a main — so"
                     + " pressing the arrow could start this one, and it would try to bind"
                     + " a port inside a lab.",
@@ -307,7 +307,7 @@ public final class Scan {
             int at = text.indexOf(pattern);
             if (at < 0) continue;
             findings.add(new Finding(Kind.DEAD, "it builds its own server",
-                    "the scenario places services on machines, and the cluster builds every"
+                    "the simulation places services on machines, and the cluster builds every"
                     + " server. A server built here is never intercepted, so nothing it"
                     + " answers is timed, priced or drawn.",
                     new At(file, lineOf(text, at))));
@@ -629,7 +629,7 @@ public final class Scan {
             findings.add(new Finding(Kind.MISSING, "no rpc declares an idempotency_level",
                     "no retry policy can attach to one that does not:"
                     + " `option idempotency_level = IDEMPOTENT;` says running it twice is"
-                    + " safe, and a scenario cannot retry a call the schema will not"
+                    + " safe, and a simulation cannot retry a call the schema will not"
                     + " vouch for.", new At(first.file(), first.line())));
         }
     }

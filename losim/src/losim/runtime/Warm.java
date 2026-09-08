@@ -18,9 +18,9 @@ import losim.trace.Telemetry;
  *
  * <p>The first gRPC call a JVM makes is enormously more expensive than every
  * call after it — class loading down the whole stack, the interceptor chain, the
- * marshallers, and a cold JIT on all of it. Measured on a tour scenario: a
+ * marshallers, and a cold JIT on all of it. Measured on a tour simulation: a
  * handler declared at {@code refMs: 5} was billed <b>320 refMs</b> on the
- * first call and 6 to 9 refMs on every call after. The same scenario run three
+ * first call and 6 to 9 refMs on every call after. The same simulation run three
  * times in one JVM pays it once:
  *
  * <pre>
@@ -37,7 +37,7 @@ import losim.trace.Telemetry;
  *
  * <p>So it is paid here, once per JVM, on a throwaway cluster of losim's own that
  * appears in no trace, before {@link Machines#begin()} zeroes the clock. Setup
- * belongs to no scenario.
+ * belongs to no simulation.
  *
  * <p><b>What it does not fix.</b> This warms losim's path, not the student's
  * types: after warming, the first handler is around 50 refMs rather than 320,
@@ -80,7 +80,7 @@ final class Warm {
      *
      * <p>Never throws. A warm-up that failed costs a slow first call, which is
      * the situation this exists to improve rather than a situation it may create:
-     * refusing to run a scenario because the optimisation did not work would be
+     * refusing to run a simulation because the optimisation did not work would be
      * strictly worse than the bug.
      */
     static void once() {

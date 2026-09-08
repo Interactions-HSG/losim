@@ -1,14 +1,14 @@
 'use client';
 
 /**
- * The button beside every scenario.
+ * The button beside every simulation.
  *
  * This is what the whole lab server is for. A student has an editor and a
  * browser; everything a command line was doing — generate from the schema,
- * compile it, run the scenario, bill the trace — happens behind one arrow.
+ * compile it, run the simulation, bill the trace — happens behind one arrow.
  *
  * **Pressing it does not stay here.** Streaming a build's own output inline,
- * under the row that started it, would conflate "is my scenario right" and
+ * under the row that started it, would conflate "is my simulation right" and
  * "did the last run finish" into the same page, and a student watching text
  * scroll is not looking at a cluster. The build itself is followed by the
  * console, not by this component, so it outlives whichever page you are on;
@@ -22,12 +22,12 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { useConsole } from '../lib/console.tsx';
-import { project, type Project, type Scenario } from '../lib/lab.ts';
+import { project, type Project, type Simulation } from '../lib/lab.ts';
 
 export function Lab({
   onEdit,
 }: {
-  /** Load an existing scenario's file back into the console for editing. */
+  /** Load an existing simulation's file back into the console for editing. */
   onEdit: (name: string) => void;
 }) {
   const { setHasLab, openAt, watching, building, startBuild, go } = useConsole();
@@ -40,7 +40,7 @@ export function Lab({
     return found;
   }, [setHasLab]);
 
-  // `watching` catches a scenario written from the form above; `building`
+  // `watching` catches a simulation written from the form above; `building`
   // catches the run that just finished — the trace it wrote is what turns the
   // row's "last run" button on.
   useEffect(() => {
@@ -60,15 +60,15 @@ export function Lab({
   return (
     <section className="lab">
       <div className="rows">
-        {lab.scenarios.length === 0 && (
+        {lab.simulations.length === 0 && (
           <div className="row">
             <span className="empty">
-              No scenarios yet. Write one above and it appears here.
+              No simulations yet. Write one above and it appears here.
             </span>
           </div>
         )}
-        {lab.scenarios.map((sc: Scenario) => {
-          const running = building?.scenario === sc.name;
+        {lab.simulations.map((sc: Simulation) => {
+          const running = building?.simulation === sc.name;
           return (
             <div key={sc.name} className={`row${running ? ' running' : ''}`}>
               <button
@@ -79,7 +79,7 @@ export function Lab({
                   !lab.started
                     ? 'there is no code in this lab yet — that is the exercise'
                     : building != null
-                      ? `${building.scenario} is running`
+                      ? `${building.simulation} is running`
                       : `run ${sc.name}`
                 }
                 aria-label={`run ${sc.name}`}

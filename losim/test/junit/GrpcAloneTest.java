@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Test;
  *
  * <p>So this starts a {@link Server}, binds the student's own service to it,
  * opens a {@link ManagedChannel} and calls the generated blocking stub. Every
- * type here is grpc-java's or the schema's. There is no scenario, no cluster, no
+ * type here is grpc-java's or the schema's. There is no simulation, no cluster, no
  * compressed clock and no interceptor, and losim's runtime is never started —
  * the last test says so out loud, so that this one cannot quietly stop being
  * true.

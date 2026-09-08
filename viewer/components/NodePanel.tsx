@@ -427,6 +427,7 @@ const TOLD = new Set([
   'retry',
   'rpc_timeout',
   'rpc_error',
+  'rpc_failure',
   'failed',
   // What this node said about itself, in time order among the things that
   // were done to it — which is the order a narration is written to be read in.

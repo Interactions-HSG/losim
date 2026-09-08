@@ -10,7 +10,7 @@
  * tab.
  */
 import { Cost } from '../components/console/Cost.tsx';
-import { Scenarios } from '../components/console/Scenarios.tsx';
+import { Simulations } from '../components/console/Simulations.tsx';
 import { FilmView } from '../components/console/FilmView.tsx';
 import { Gallery } from '../components/console/Gallery.tsx';
 import { Overview } from '../components/console/Overview.tsx';
@@ -36,8 +36,8 @@ function View() {
           there is a lab behind this page at all — and hidden rather than
           unmounted, so a run started here goes on being followed while you look
           at something else. */}
-      <div className="host" hidden={view !== 'scenarios'}>
-        <Scenarios />
+      <div className="host" hidden={view !== 'simulations'}>
+        <Simulations />
       </div>
 
       {view === 'runs' && <Gallery />}

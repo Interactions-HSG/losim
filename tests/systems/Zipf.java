@@ -12,7 +12,7 @@ import java.util.Random;
  * Uniformly random words would give {@code b = 1} for everything and every case
  * below would pass without testing anything.
  *
- * <p>Seeded from the scenario, so a sweep varies the data and not only the weather.
+ * <p>Seeded from the simulation, so a sweep varies the data and not only the weather.
  */
 public final class Zipf {
 

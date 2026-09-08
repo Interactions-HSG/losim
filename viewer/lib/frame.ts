@@ -448,6 +448,12 @@ const NOTABLE = new Set([
   // that then cascaded is the moment somebody is looking for, and it has to be
   // a moment they can step to.
   'rpc_error',
+  // One rpc going wrong on one node and not its peers, which is the case a
+  // design handles worst and the reason `failures:` is written inside `runs:`.
+  // It is not a `rpc_error`: the caller of a `status` failure gets a code the
+  // handler never saw, and a `slow` one gets a correct answer late — so the
+  // moment worth stepping to is the node deciding, not the call ending.
+  'rpc_failure',
   'failed',
   'over_horizon',
   // Narration, which is an instant somebody chose. `write/telemetry.mdx` offers
@@ -456,7 +462,7 @@ const NOTABLE = new Set([
   // reaching the terminal and the trace, so it belongs among the reachable stops
   // rather than being left to reveal(), which is the opposite of what the two
   // are for. A log line is sparse by intent, and it is the one marker here the
-  // author placed deliberately rather than the weather placing it for them.
+  // author placed deliberately rather than a failures: line placing it for them.
   'log',
 ]);
 

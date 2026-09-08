@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
 /**
  * Where a machine is, and how far it is from another one.
  *
- * <p>A scenario places machines in <b>zones</b> — {@code eu-central-1a} — and
+ * <p>A simulation places machines in <b>zones</b> — {@code eu-central-1a} — and
  * two things follow from a zone that nothing else in losim knows how to work
  * out. The first is latency, which the network already models. The second is
  * <b>what it costs to talk</b>, and that is why this exists: a byte sent to the
@@ -22,9 +22,9 @@ import java.util.regex.Pattern;
  * costs <i>is</i> a choice, and lives in {@code prices/} where it can be
  * distorted for an exercise without touching the simulator.
  *
- * <p><b>Nothing here is validated against.</b> A scenario may use any zone name
+ * <p><b>Nothing here is validated against.</b> A simulation may use any zone name
  * it likes — {@code rack-3}, {@code left}, {@code eu-central-1a} — because
- * refusing a name would break every scenario ever written against an earlier
+ * refusing a name would break every simulation ever written against an earlier
  * losim for the sake of a table this file happens to carry. A name that is not
  * known is its own region on an unknown continent, and priced as the cheaper
  * kind of distance rather than the more expensive one: see {@link #between}.
@@ -34,7 +34,7 @@ public final class Regions {
     /**
      * One region.
      *
-     * @param name      as a scenario writes it — {@code eu-central-1}, {@code switzerlandnorth}
+     * @param name      as a simulation writes it — {@code eu-central-1}, {@code switzerlandnorth}
      * @param provider  {@code aws} or {@code azure}, for nothing but the reader's benefit
      * @param continent what decides whether traffic to it crosses an ocean
      * @param where     the city anybody would actually name it by

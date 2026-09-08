@@ -242,7 +242,7 @@ public final class Dev {
                     run("t12-overhead", "t12-overhead.yaml");
                     assertThat("T12", trace("t12-spill"), summary("t12-overhead"));
                 }
-                // One scenario, four times. The plan cache is keyed on the
+                // One simulation, four times. The plan cache is keyed on the
                 // telemetry level as well as on the code, or three of these would
                 // silently reuse the first one's plan and the case would be
                 // checking nothing at all.
@@ -284,10 +284,10 @@ public final class Dev {
          * <p>Its exit code is discarded on purpose: a run that fails is a result
          * here, and two cases assert on the summary of one that could not start.
          */
-        private void run(String name, String scenario, String... extra) throws Exception {
+        private void run(String name, String simulation, String... extra) throws Exception {
             List<String> argv = new ArrayList<>(List.of(java(), "-Xmx3g", "-cp", lab,
                     "losim.cli.Main", "simulate", "--no-view",
-                    root.resolve("tests/simulations/" + scenario).toString(),
+                    root.resolve("tests/simulations/" + simulation).toString(),
                     "--cp", out.resolve("classes").toString(),
                     "--out", trace(name)));
             argv.addAll(List.of(extra));

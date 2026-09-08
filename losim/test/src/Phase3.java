@@ -28,7 +28,7 @@ public class Phase3 {
 
     static ClassLoader loader() { return Phase3.class.getClassLoader(); }
 
-    /** Where a test's handler actually lives, since a scenario names code by path. */
+    /** Where a test's handler actually lives, since a simulation names code by path. */
     static String src(String cls) { return "losim/test/src/" + cls + ".java"; }
 
     static String cluster(String service, double scale) {
@@ -221,7 +221,7 @@ public class Phase3 {
         return "count=" + m.get("count") + " type=" + m.get("type");
     }
 
-    /** The refusal a scenario earns, checked to carry the line it is about. */
+    /** The refusal a simulation earns, checked to carry the line it is about. */
     static String refusedBy(Simulation s, String line) throws Exception {
         try {
             losim.runtime.Simulate.of(s, loader());
@@ -400,7 +400,7 @@ public class Phase3 {
         // Four 2-vCPU machines: eight cores. Observed under-saturated, projected
         // saturated. Four calls fit under eight cores; thirty-two are four waves of
         // them. The scale beside each is what the engine is asked to project across,
-        // and the call count is now the scenario's to say rather than a division
+        // and the call count is now the simulation's to say rather than a division
         // buried in the job.
         var small = Loader.of(Yaml.parse("sched.yaml", yaml.formatted(2, 4)));
         var big = Loader.of(Yaml.parse("sched.yaml", yaml.formatted(16, 32)));
@@ -480,7 +480,7 @@ public class Phase3 {
         System.out.printf("  %d probe runs the first time (%.1fs); the second run took %.1fs%n",
                 first.plan().gridRuns(), fitted, cached);
         check(!first.planWasCached() && second.planWasCached(),
-              "the plan is fitted once and cached against the scenario and the code it profiles");
+              "the plan is fitted once and cached against the simulation and the code it profiles");
         // Not `cached < fitted`: with both warm they are the same number and the
         // comparison is a coin toss. A fit is 28 probe runs against a lookup, which
         // is an order of magnitude, so ask for a margin that could not come up by

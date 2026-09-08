@@ -11,7 +11,7 @@ import losim.trace.Telemetry;
  *
  * <pre>
  *   data size      x  cluster size  x  fault schedule
- *   1k 2k 4k 8k    x  2, 4        x  none | the scenario's        x 3+ seeds, median taken
+ *   1k 2k 4k 8k    x  2, 4        x  none | the simulation's        x 3+ seeds, median taken
  * </pre>
  *
  * <p>Varying the axes <b>independently</b> is the whole reason this is a grid and
@@ -31,7 +31,7 @@ public record Grid(List<List<Probe>> dataLadder,
                    List<Probe> weathered,
                    List<String> notes) {
 
-    /** Seeds are drawn from the scenario's, so a plan is reproducible from the file. */
+    /** Seeds are drawn from the simulation's, so a plan is reproducible from the file. */
     public static long[] seedsFrom(long seed, int n) {
         var out = new long[n];
         for (int i = 0; i < n; i++) out[i] = seed * 1000L + i;
@@ -94,7 +94,7 @@ public record Grid(List<List<Probe>> dataLadder,
         return new Grid(dataLadder, clusterLadder, clean, weathered, notes);
     }
 
-    /** The cluster the scenario declares: every machine that serves something. */
+    /** The cluster the simulation declares: every machine that serves something. */
     static int workersIn(Simulation s) { return s.workers(); }
 
     /** How many runs this grid cost. Worth saying out loud, since the plan is cached on it. */
@@ -109,7 +109,7 @@ public record Grid(List<List<Probe>> dataLadder,
      * How much more a resource costs when things go wrong.
      *
      * <p>{@code demand = base(size, cluster) * amplification(failures)}. One is returned
-     * when the scenario declares no weather, and that is recorded as a limit of the
+     * when the simulation declares no weather, and that is recorded as a limit of the
      * model rather than as an absence of one.
      */
     public double amplification(String resource) {

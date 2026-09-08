@@ -36,7 +36,7 @@ export function Shell({ children }: { children: ReactNode }) {
     // Only with a lab behind the page: the designer reads its classes off what
     // the project compiles to, and there is nothing to read without one.
     ...(hasLab
-      ? [{ id: 'scenarios' as View, label: 'Scenarios', icon: '✎' }]
+      ? [{ id: 'simulations' as View, label: 'Simulations', icon: '✎' }]
       : []),
   ];
   const open: Item[] = [
@@ -61,11 +61,11 @@ export function Shell({ children }: { children: ReactNode }) {
         <span className="svc">Decentralized Systems Lab</span>
         <span className="grow" />
         {/* The one chip that belongs here: a build is true globally, not of one
-            page — pressing ▶ on Scenarios moves you to Runs before it finishes,
+            page — pressing ▶ on Simulations moves you to Runs before it finishes,
             so this is the only place left that says it is still going. */}
         {building && (
           <span className="chip dark building">
-            <i className="dot" aria-hidden /> building {building.scenario}
+            <i className="dot" aria-hidden /> building {building.simulation}
           </span>
         )}
       </header>

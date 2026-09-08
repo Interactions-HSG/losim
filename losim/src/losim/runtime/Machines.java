@@ -81,7 +81,7 @@ public final class Machines implements AutoCloseable {
     }
 
     /**
-     * Installs the scenario's retry policies.
+     * Installs the simulation's retry policies.
      *
      * <p>Checked against what the cluster actually serves before anything runs: a
      * policy naming a method no machine offers, or retrying one the schema does not
@@ -173,7 +173,7 @@ public final class Machines implements AutoCloseable {
 
     Map<String, Cost> costs() { return costs; }
 
-    /** The scenario's seed, so a machine can hand it to a handler that generates data. */
+    /** The simulation's seed, so a machine can hand it to a handler that generates data. */
     public long seed() { return seed; }
 
     /**
@@ -289,9 +289,9 @@ public final class Machines implements AutoCloseable {
     /**
      * The run begins here.
      *
-     * <p>Zeroes the clock, so that an instant written in the scenario is the same
+     * <p>Zeroes the clock, so that an instant written in the simulation is the same
      * instant in the trace, and announces the cluster. Everything before this — the
-     * servers starting, the pools filling — is setup, and belongs to no scenario.
+     * servers starting, the pools filling — is setup, and belongs to no simulation.
      */
     public Machines begin() {
         clock.restart();

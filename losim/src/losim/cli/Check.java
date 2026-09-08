@@ -77,7 +77,7 @@ public final class Check {
             System.out.println();
             if (dead.stream().anyMatch(f -> f.what().startsWith("main("))) {
                 System.out.println("""
-                      ! main() is not merely dead. With no scenario named, losim runs the first
+                      ! main() is not merely dead. With no simulation named, losim runs the first
                         class it finds containing `static void main(` — so pressing the arrow
                         could launch one of these, and it would try to bind a port inside a lab.
                     """);

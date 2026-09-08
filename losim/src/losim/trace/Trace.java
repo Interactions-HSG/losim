@@ -28,7 +28,7 @@ public final class Trace {
      * <p>At <b>4</b> the driver object went away. The channel of per-node totals
      * is called {@code nodes} rather than {@code machines}; {@code meta.job} —
      * the name of a class — becomes {@code meta.entry}, the node that runs
-     * {@code losim.Job}; {@code meta.scenario} becomes {@code meta.simulation};
+     * {@code losim.Job}; {@code meta.simulation} becomes {@code meta.simulation};
      * {@code job_failed} becomes {@code failed}; and the {@code job}, {@code
      * phase} and {@code compute} span kinds are gone, leaving {@code rpc} and
      * {@code handler}. The {@code losim.Job/Run} handler span is the root.

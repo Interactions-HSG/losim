@@ -22,9 +22,9 @@ import java.util.List;
  * }
  * }</pre>
  *
- * <p>Each {@code run} builds the system, runs the scenario, and writes a trace;
+ * <p>Each {@code run} builds the system, runs the simulation, and writes a trace;
  * {@code show} opens the viewer on all of them at once and stays open. Two
- * scenarios run this way are two runs side by side in the picker, which is the
+ * simulations run this way are two runs side by side in the picker, which is the
  * only way to compare a design against itself.
  *
  * <p><b>Why this exists at all.</b> Everything here can also be done from a
@@ -51,33 +51,33 @@ public final class Experiments {
     }
 
     /**
-     * Build the lab and run it in the scenario you name.
+     * Build the lab and run it in the simulation you name.
      *
-     * <p>A failure is reported and does not stop the rest: when three scenarios
+     * <p>A failure is reported and does not stop the rest: when three simulations
      * are being compared, the one that fell over is a result about the design and
      * the other two are still worth looking at.
      */
-    public Experiments run(String scenario) {
-        if (lab.scenario(scenario) == null) {
-            System.out.println("there is no scenario called " + scenario + " in this lab");
+    public Experiments run(String simulation) {
+        if (lab.simulation(simulation) == null) {
+            System.out.println("there is no simulation called " + simulation + " in this lab");
             System.out.println("  there is: " + lab.simulationNames());
             failed++;
             return this;
         }
         try {
-            int code = lab.run(scenario, System.out::print);
+            int code = lab.run(simulation, System.out::print);
             if (code != 0) failed++;
-            ran.add(scenario);
+            ran.add(simulation);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (IOException e) {
-            System.out.println("could not run " + scenario + ": " + e.getMessage());
+            System.out.println("could not run " + simulation + ": " + e.getMessage());
             failed++;
         }
         return this;
     }
 
-    /** Every scenario in the lab, one after another. */
+    /** Every simulation in the lab, one after another. */
     public Experiments runAll() {
         for (String name : lab.simulationNames()) run(name);
         return this;

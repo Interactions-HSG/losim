@@ -78,7 +78,7 @@ public class Debugger {
         System.out.println("\nQ3  why did it stall?");
         // Silence *during* the run, which is the only kind that is a stall. Before
         // the first call there is nothing in flight and nothing to explain: the gap
-        // between the scenario header and the first rpc is the JVM waking up, and on
+        // between the simulation header and the first rpc is the JVM waking up, and on
         // a slow host it is the widest gap in the trace — wider than the deadline
         // this question is about. A check that picks the widest gap anywhere is a
         // check that asks a different question on a two-core runner than on a laptop.
