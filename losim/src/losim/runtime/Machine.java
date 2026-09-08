@@ -134,6 +134,16 @@ public final class Machine implements Bound, Telemetry.Sampled {
     final AtomicLong losimStops = new AtomicLong();
 
     private final List<Object> roots = new CopyOnWriteArrayList<>();
+
+    /**
+     * What every service on this machine can see, and no other machine can.
+     *
+     * <p>Emptied in {@link #start()}, which is where a rebuildable machine gets
+     * fresh service instances — so the store is lost exactly when the fields are,
+     * and a restart means one thing rather than two.
+     */
+    private final java.util.concurrent.ConcurrentMap<String, Object> store =
+            new ConcurrentHashMap<>();
     private final Map<String, Cost> declared = new ConcurrentHashMap<>();
     private final Map<String, String> runsAs = new ConcurrentHashMap<>();
     private final Map<String, ManagedChannel> dialled = new ConcurrentHashMap<>();
@@ -305,6 +315,13 @@ public final class Machine implements Bound, Telemetry.Sampled {
         };
         releaseName();
         roots.clear();
+        // A root, so what the store holds counts against the memory cap like
+        // anything a service holds in a field. Emptied first: this is the same
+        // moment a rebuildable machine gets fresh services, and a machine that came
+        // back remembering its cache while forgetting its fields would be neither
+        // a restart nor a survival.
+        store.clear();
+        roots.add(store);
         declared.clear();
         served.clear();
         var b = InProcessServerBuilder.forName(name).executor(queueing);
@@ -700,6 +717,10 @@ public final class Machine implements Bound, Telemetry.Sampled {
     }
 
     @Override public double clockMs() { return tel().now(); }
+
+    @Override public long seed() { return machines.seed(); }
+
+    @Override public java.util.concurrent.ConcurrentMap<String, Object> local() { return store; }
 
     // -------------------------------------------------------------------- disk
 

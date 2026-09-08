@@ -26,6 +26,10 @@ final class Absent implements LosimCtx {
     @Override public void sleep(double refMs)               { }
 
     @Override public String machine()                        { throw absent("machine()"); }
+    @Override public long seed()                             { throw absent("seed()"); }
+    @Override public java.util.concurrent.ConcurrentMap<String, Object> local() {
+        throw absent("local()");
+    }
     @Override public Spec here()                             { throw absent("here()"); }
     @Override public List<String> peers()                    { throw absent("peers()"); }
     @Override public List<String> peersServing(String s)     { throw absent("peersServing()"); }

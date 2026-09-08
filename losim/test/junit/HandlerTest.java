@@ -61,6 +61,10 @@ class HandlerTest {
         assertTrue(e.getMessage().contains("no simulation is running"));
         assertThrows(IllegalStateException.class, () -> Losim.current().peers());
         assertThrows(IllegalStateException.class, () -> Losim.current().clockMs());
+        assertThrows(IllegalStateException.class, () -> Losim.current().seed());
+        // A store outside a run would be a handler sharing state with nothing, and
+        // a test asserting over it would be asserting over its own scratch map.
+        assertThrows(IllegalStateException.class, () -> Losim.current().local());
         // A fabricated empty cluster would let this test pass while asserting nothing,
         // which is worse than failing.
     }

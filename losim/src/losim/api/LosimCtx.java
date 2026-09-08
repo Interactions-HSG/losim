@@ -139,6 +139,37 @@ public interface LosimCtx {
      */
     Spec here();
 
+    /**
+     * The scenario's seed.
+     *
+     * <p>For a handler that generates rather than reads its data. It has to come
+     * from here: a workload drawn from a constant of its own is a workload whose
+     * every run is the same afternoon, and a sweep of twenty seeds is meant to vary
+     * the data as well as the weather.
+     */
+    long seed();
+
+    /**
+     * This machine's own store, shared by every service running on it.
+     *
+     * <p>Two services on one machine are two objects with no reference between
+     * them, which is not what a real process is: one process holds one cache, one
+     * index, one connection pool, and every part of it can see them. This is that,
+     * and nothing more — a map owned by the machine, reachable from no other
+     * machine, and <b>emptied when the machine restarts</b>, because a restart
+     * losing what it was holding is the whole reason a restart is interesting.
+     *
+     * <p>What it holds is walked by the retained-heap measurement like anything a
+     * service holds in a field, so it counts against the machine's memory cap. What
+     * it costs to read is the program's, not losim's: a lookup here is a hash
+     * lookup, of the same order as the field access it replaces, and bracketing it
+     * to hand back the nanoseconds was measured at 76 ns spent to hide 10.
+     *
+     * <p>Not a way around the pool. Work still runs on the machine's own threads;
+     * this is only how two services on the same machine stop being strangers.
+     */
+    java.util.concurrent.ConcurrentMap<String, Object> local();
+
     /** Every other machine in the cluster, by name. */
     List<String> peers();
 

@@ -30,6 +30,7 @@ public final class Machines implements AutoCloseable {
     final Telemetry tel;
     final Clock clock;
     final Net net;
+    final long seed;
 
     private final Map<String, Machine> machines = new ConcurrentHashMap<>();
     private final List<String> order = new CopyOnWriteArrayList<>();
@@ -38,12 +39,15 @@ public final class Machines implements AutoCloseable {
     private volatile List<Retry> retries = List.of();
     private volatile Map<String, Cost> costs = Map.of();
 
-    public Machines(Telemetry tel) { this(tel, new Net(0)); }
+    public Machines(Telemetry tel) { this(tel, new Net(0), 0); }
 
-    public Machines(Telemetry tel, Net net) {
+    public Machines(Telemetry tel, Net net) { this(tel, net, 0); }
+
+    public Machines(Telemetry tel, Net net, long seed) {
         this.tel = tel;
         this.clock = tel.clock();
         this.net = net;
+        this.seed = seed;
     }
 
     /**
@@ -119,6 +123,9 @@ public final class Machines implements AutoCloseable {
     }
 
     Map<String, Cost> costs() { return costs; }
+
+    /** The scenario's seed, so a machine can hand it to a handler that generates data. */
+    public long seed() { return seed; }
 
     public Telemetry telemetry() { return tel; }
     public Clock clock()         { return clock; }

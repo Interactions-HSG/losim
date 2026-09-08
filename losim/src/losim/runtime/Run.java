@@ -155,7 +155,7 @@ public final class Run {
         boolean completed = false;
         double started;
 
-        try (var machines = new Machines(tel, net)) {
+        try (var machines = new Machines(tel, net, s.seed())) {
             var byName = new LinkedHashMap<String, Machine>();
             for (MachineSpec m : s.machines()) {
                 var spec = InstanceCatalog.get(m.instance());

@@ -30,6 +30,12 @@ public interface Bound {
     /** Simulated milliseconds since the run began. */
     double clockMs();
 
+    /** The scenario's seed. */
+    long seed();
+
+    /** This machine's own store, shared by every service on it. */
+    java.util.concurrent.ConcurrentMap<String, Object> local();
+
     /**
      * A channel to a peer, made once and owned by the machine.
      *
