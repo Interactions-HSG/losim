@@ -50,9 +50,10 @@ page does exactly that, and the page after adds the weather.
 
 <ParamField path="scale" type="number" default="1">
   How many times bigger the design is than the run measuring it. At 1 there is no
-  model: the job gets one record and every number on screen is what happened.
+  model: the job is handed exactly the input `input:` declares, and every number on
+  screen is what happened.
 
-  Above 1 the scenario is a model of `scale x 8000` records, and the engine works
+  Above 1 the scenario is a model, the job has to implement `Scalable`, and the engine works
   out for itself how to build it. [scale ->](/ref/scale)
 </ParamField>
 

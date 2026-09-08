@@ -107,7 +107,7 @@ Per machine, per tick:
 | `allocMb` | what your program has allocated so far, cumulative |
 
 The heap walk costs about 0.06 µs per object, so a busy machine is walked every
-eighth tick rather than every tick. `retainMb` therefore steps rather than glides ; 
+eighth tick rather than every tick. `retainMb` therefore steps rather than glides ;
 that is the cadence, not your program.
 
 <Note>
@@ -150,7 +150,7 @@ allocated nothing apart from one that could no longer be read.
   <Accordion title="reveal the variable, not just the size" icon="eye">
     `reveal("distinctItems", index.size())` tells the scale engine what your memory
     is *really* a function of. Peak memory on an accumulating machine is usually a
-    function of how many distinct things it saw, not how many records went past ; 
+    function of how many distinct things it saw, not how many units went past ;
     and the two grow at different rates. Fitting against the wrong one gives an
     exponent that will not survive a change of input. [Writing to
     scale ->](/write/writing-to-scale)

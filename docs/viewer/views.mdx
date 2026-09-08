@@ -111,11 +111,11 @@ boundary in a metadata header** ;  so this is a real distributed call stack, not
 per-machine timeline with guessed connections.
 
 ```
-phase    thumbnails                 coordinator   1991 → 3581
-  rpc    Thumbnailer.Thumbnail      coordinator   2040 → 3575     to w2
-    handler Thumbnailer.Thumbnail   w2            2042 → 3554
-      rpc  Registry.Announce        w2            2069 → 2140     to desk
-        handler Registry.Announce   desk          2072 → 2116
+phase    thumbnails                 coordinator   1991 -> 3581
+  rpc    Thumbnailer.Thumbnail      coordinator   2040 -> 3575     to w2
+    handler Thumbnailer.Thumbnail   w2            2042 -> 3554
+      rpc  Registry.Announce        w2            2069 -> 2140     to desk
+        handler Registry.Announce   desk          2072 -> 2116
 ```
 
 Four machines deep, reading as one stack. That is the thing you cannot get from
@@ -126,7 +126,7 @@ others, and that **most of the wall clock at the top is the bottom waiting**.
 ### A bar is not one duration
 
 ```
-Thumbnail → w2   ├─┤███████████████████████████████├──┤
+Thumbnail -> w2   |-|███████████████████████████████|--|
                  out   queue      working          back
 ```
 
@@ -185,7 +185,7 @@ is the shape of this system** ;  by keeping nothing but the shape.
   <Card title="Edges weighted by bytes" icon="weight-hanging">
     Not by call count, because a system's shape is where its **data** goes. A
     coordinator asking forty machines a one-word question has forty thin edges; the
-    one call that moved a megabyte is the fat one. Cross-zone edges are tinted ; 
+    one call that moved a megabyte is the fat one. Cross-zone edges are tinted ;
     the same fact the ledger charges for.
   </Card>
 </Columns>
@@ -251,7 +251,7 @@ No bill beside the trace ;  a file you dragged onto the page ;  means no money s
 | | |
 |---|---|
 | `Space` | play / pause |
-| `→` `←` | one frame; **Shift** for ten |
+| `->` `<-` | one frame; **Shift** for ten |
 | `]` `[` | jump to the next / previous **event** |
 | `Esc` | unpin the machine panel |
 
@@ -369,4 +369,3 @@ edit exactly one line of the YAML, run it again into a second file, and put the 
 up together ;  the difference on the stage is then attributable to that line and
 nothing else.
 </Tip>
-

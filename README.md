@@ -10,9 +10,8 @@ The system has two parts:
 - the student's code, running with real gRPC, real allocation, and real threads
 - losim, which sits around it and models machines, time, failures, and scaling
 
-That separation is why "out of memory" is a real failure here. The machine is made
-small, so a design that would fail at 16 GiB can fail here at 16 MiB for the same
-reason.
+The machine is made small, so a design that would fail at 16 GiB can fail here at
+16 MiB for the same reason. The failure belongs to the program under test.
 
 ## Try it
 

@@ -64,7 +64,7 @@ actual wall time  =  refMs x (2 / vcpu) x degradeFactor / k_time
 | a machine under `degrade: factor: 4` | x4 on top |
 
 <Warning>
-That multiplication applies to **work** ;  what `takes:` declares. It does **not** apply to
+The multiplication applies to **work** ;  what `takes:` declares. It does **not** apply to
 waiting: a machine at half speed computes slower but does not wait longer, so
 `Losim.current().sleep(refMs)` is divided by `k_time` and nothing else.
 </Warning>
@@ -83,4 +83,4 @@ the remaining time by `k_time` in the client interceptor, at the one place where
 your intent is still visible.
 
 `Thread.sleep(200)` is 200 milliseconds of **your afternoon** ;  the one duration in
-a run that `k_time` never touches. That is why it is flagged.
+a run that `k_time` never touches. The is why it is flagged.

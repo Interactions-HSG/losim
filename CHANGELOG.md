@@ -6,6 +6,99 @@ A version is what a lab resolves from Gradle, so it is a fact about a jar rather
 than about a branch. Every release is cut from a tag whose name and `./VERSION`
 are checked against each other before anything is built.
 
+## 2.0.0
+
+**Every lab breaks, in two places, and both are one line each.** A workload's size
+was in three different vocabularies and one of them was in your Java. It is one
+vocabulary now, and it is in the scenario.
+
+### The two edits
+
+```bash
+# 1. In every scenario: the per-unit cost key was renamed.
+grep -rl refNsPerRecord scenarios/ | xargs sed -i '' 's/refNsPerRecord/refNsPerUnit/g'
+```
+
+An unknown key under `takes:` is refused at load with the line it is on, so this
+one announces itself the first time you press run.
+
+```java
+// 2. In the job: cluster.records() and cluster.units() are gone.
+public final class FillUp implements losim.api.Scalable {
+
+    @Override public Input.Shape shape() {
+        return Input.Shape.counting("items", "item").with("valueBytes");
+    }
+
+    @Override public void run(Cluster cluster, Input at) throws Exception {
+        byte[] value = new byte[(int) at.value("valueBytes")];
+        for (long i = 0; i < at.count("items"); i++) ...
+    }
+}
+```
+
+```yaml
+input:
+  items:      240      # a count: every count shrinks by one factor
+  valueBytes: 65536    # a constant: shape rather than size, held at every rung
+```
+
+`losim adopt` and `losim check` find the old call and print this with the line it
+is on, and the AGENTS.md they write carries the conversion as a numbered edit. See
+[Scalable ->](/ref/api-scalable) and [input: ->](/ref/input).
+
+### Why the job cannot hold the number
+
+A size written into a constant cannot be swept and cannot be varied by an overlay.
+Worse, it makes a direct run a **different amount of work** from the scaled run
+that is meant to model it. `ITEMS_UNSCALED = 240` beside `scale x 8000` is two
+workloads wearing one name.
+
+So the job declares what its input is *made of*, and the scenario says how much.
+The parts are named by the job, so a store writes `items`, a join writes `orders`
+and `customers`, and nothing anywhere has to pretend a blob has records.
+
+Above `scale: 1` a plain `Job` is now refused. A model of a bigger run is the same
+job asked to do more, and a job that cannot be asked was never modelling anything.
+
+### `records` is `units`
+
+Three things were called records and only one of them ever was.
+
+| was | is |
+|---|---|
+| `takes: { refNsPerRecord }` | `refNsPerUnit` |
+| `Losim.current().records(n)` | `.units(n)` |
+| `Cluster.records()` / `Cluster.units()` | deleted ;  the input arrives as a parameter |
+| the fitted axis, the span field, `meta.scale.records` | `units` |
+
+A blob store has no records, and neither does a sort. The engine's own axis is
+`units`, the sum of an input's counts, and the scenario never needs the word at all, because each part carries the name the job gave it.
+
+<Note>
+**Old traces.** Nothing in the viewer reads either field, so they open as before.
+`losim bill --diff` against a pre-2.0.0 trace reports the run size as `null`, and
+the plan cache under `build/.losim-plans/` is regenerated on the next scaled run.
+</Note>
+
+### `fleet` is `cluster`
+
+The API a job holds has been `Cluster` since the beginning and every page around it
+said "fleet". No scenario key, trace field or class a lab can reach changes ;
+`losim.runtime.Fleet` is internal and is now `Machines` ;  but the manual, the
+console and every refusal message say one word.
+
+### Also
+
+- **The console writes `input:`.** The palette carries each `Scalable` class's
+  `shape()`, so the form draws one row per part with the job's own noun beside it,
+  and cannot write a part the job does not consume or leave out one it does.
+- **`losim check` reads scenarios.** A scenario above `scale: 1` naming a plain
+  `Job` is reported before anything is built.
+- A test guard written as `if (sink.hashCode() == 42) fail("unreachable")` was
+  reachable on about one run in seventy-six. Fixed, and measured rather than
+  guessed at.
+
 ## 1.5.0
 
 **Every lab with a committed `lib/` breaks, and this is how to fix one.** losim is
@@ -247,7 +340,7 @@ would be saying nothing.
 A declared toolchain is a claim, and it has to check out.
 
 `build/losim-toolchain.properties` is generated and never committed, and that is
-not enough to stop it travelling: copy a working directory that has run Gradle ; 
+not enough to stop it travelling: copy a working directory that has run Gradle ;
 which is exactly what marking a submission is ;  and it arrives holding absolute
 paths from somebody else's laptop. A grading container honoured them and reported
 
@@ -297,7 +390,7 @@ package can be called `.anything`.
 narrower version of the same trap: a lab keeping its sources at the root rather
 than under `src/` still has `input` reserved there. That skip is correct and it
 was still invisible, so it is stated on the compile line instead of being
-inferred from an error somewhere else. losim's own output ;  `gen/`, `build/` ; 
+inferred from an error somewhere else. losim's own output ;  `gen/`, `build/` ;
 says nothing, because Java under `gen/` is Java losim put there, and a warning
 that fires every run is a warning nobody reads.
 
@@ -447,7 +540,7 @@ staged the committed export by hand; they now all call `viewer/stage.sh`.
 - `t11` asserted a speedup and was really measuring the host: eight workers sleep
   their declared costs concurrently anywhere, but the protobuf and gRPC around
   those sleeps need cores a two-core runner has not got, and the figure fell from
-  3.10 to 1.29 as CI machines varied. It now asserts how the work was *divided* ; 
+  3.10 to 1.29 as CI machines varied. It now asserts how the work was *divided* ;
   80 chunks on the busiest machine at two workers against 20 at eight ;  which no
   host can move.
 - Three assertions passed over empty collections and so proved nothing. Fixed and

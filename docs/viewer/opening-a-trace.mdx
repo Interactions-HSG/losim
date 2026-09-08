@@ -23,7 +23,7 @@ the picker; drop one in and it is there.
 The directory is created for you whether or not anything is in it.
 </Note>
 
-**`show()` opens the viewer on the runs it just made.** The lab server on port 8000
+**`show()` opens the viewer on the runs it made.** The lab server on port 8000
 shows *everything* you have ever run. Both read the same directory; they differ only
 in what they put in front of you, which is why listing two `run` lines and pressing ▶
 is how you get exactly two runs side by side.
@@ -34,7 +34,7 @@ picture also shows the run behind it. If your picker is empty, that is not a bro
 install ;  it means `build/runs` is empty, and the fix is to run something.
 </Warning>
 
-## Or just drop it on the page
+## Or drop it on the page
 
 Drag any `.json` anywhere onto the window. It opens the same way ;  it is a **raw
 losim trace**, exactly as `losim run` wrote it, with nothing baked in between. A trace
@@ -66,7 +66,7 @@ at the moment the run is made. The viewer loads it **by convention** ;  `foo.jso
 
 <Warning>
 A trace you **drag onto the page** has no bill beside it, so the money is simply not
-shown. That is the right failure: the viewer never prices anything itself, because two
+shown. The is the right failure: the viewer never prices anything itself, because two
 implementations of a pricing model are two accountants who will eventually disagree.
 
 A run made by pressing ▶ always has its bill beside it, because pricing is part of the

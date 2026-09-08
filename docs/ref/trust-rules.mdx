@@ -98,7 +98,7 @@ bound"*, attached to the machine and to the figure it undermines.
     **Instead:** `Losim.current().channelTo(peer)` or `cluster.channelTo(machine)`.
 
     <Note>
-    This is exactly what a [level-3 debugging harness](/write/debugging) uses ;  and
+    The is exactly what a [level-3 debugging harness](/write/debugging) uses ;  and
     correctly, because there is no simulation to be wrong about. Keep such code in a
     test source set that no service or job references, and the walk never reaches it.
     </Note>
@@ -157,7 +157,7 @@ was fitted to meant anything.
 The rules are applied to a class **and every class it is declared inside**. So a
 service written as a nested class carries whatever its enclosing class does.
 
-This is the finding most likely to surprise somebody who has just adopted an
+The is the finding most likely to surprise somebody who has adopted an
 existing project, because the grpc-java quickstart puts the handler exactly there:
 
 ```java
@@ -173,7 +173,7 @@ srv  built its own channel or server, which no interceptor is attached to
 ```
 
 ;  and the machine's wire figures are marked, though the handler itself does
-nothing wrong. **Move the service to a file of its own.** That is edit one on the
+nothing wrong. **Move the service to a file of its own.** The is edit one on the
 [adoption page](/start/adopt), and it is the whole of the fix.
 
 <Note>

@@ -109,7 +109,7 @@ the size of what was taken off it before believing it. So both the bytes and the
 number of metered stops travel in the trace.
 </Note>
 
-## Does it actually work?
+## Does it work?
 
 Measured at the extreme ;  a thousand `reveal` calls per handler, where losim charges
 itself **54 MB** and meters **162,000 regions**:
@@ -125,7 +125,7 @@ rendered, and a thousand reveals per handler), the fitted allocation exponent mo
 
 <Warning>
 **The extreme case is mandatory.** At one `reveal` per handler, a leak that halved an
-exponent would be undetectable. This is the thing that regresses invisibly: every
+exponent would be undetectable. The is the thing that regresses invisibly: every
 number stays plausible and only the projection is wrong. The law your code is
 projected by does not depend on how much you instrumented it.
 </Warning>

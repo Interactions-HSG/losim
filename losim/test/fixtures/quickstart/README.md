@@ -1,6 +1,6 @@
 # A project shaped like the grpc-java quickstart
 
-Not a copy of it: written to its shape, which is what `losim adopt` has to meet.
+This fixture follows the structure that `losim adopt` checks.
 A server that binds a port with the handler nested inside it, a client that dials
 a host, a `.proto` with no idempotency on anything, and a Gradle build with the
 `application` plugin and `grpc-netty-shaded`.

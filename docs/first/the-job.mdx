@@ -23,11 +23,15 @@ import lab.pb.*;
 import losim.api.Cluster;
 import losim.api.Job;
 
-public final class ThumbnailJob implements Job {
+public final class ThumbnailJob implements Scalable {
 
-    private static final int FRAMES_PER_BATCH = 25;
+    private static final int FRAMES_PER_BATCH = 25;   // how it batches, not how big the album is
 
-    @Override public void run(Cluster cluster) throws Exception {
+    @Override public Input.Shape shape() {
+        return Input.Shape.counting("frames", "frame");
+    }
+
+    @Override public void run(Cluster cluster, Input at) throws Exception {
 
         // 1. Who can do the work? By what they serve, never by hostname.
         List<String> workers = cluster.serving("Thumbnailer");
@@ -54,7 +58,7 @@ public final class ThumbnailJob implements Job {
         // 3. The album. Work the job does itself needs a span, or the busiest
         //    stretch of the run reads as idle.
         List<Frame> album = cluster.compute("read the album",
-                () -> Album.of(cluster.units(), cluster.seed()));
+                () -> Album.of(at.count("frames"), cluster.seed()));
 
         // 4. Fan out. Every call is asynchronous, so they overlap.
         int thumbs = 0, failed = 0;
@@ -129,7 +133,7 @@ final class Album {
     finding that out still costs a call and a deadline ;  which is exactly what
     happens in step 4 when a batch does not come back.
 
-    The argument is the **service name from your `.proto`** ;  `Thumbnailer` ; 
+    The argument is the **service name from your `.proto`** ;  `Thumbnailer` ;
     not the Java class that implements it. Those are two different namespaces and
     mixing them up is the most common first mistake. [More ->](/write/finding-peers)
   </Accordion>
@@ -170,12 +174,13 @@ final class Album {
     using a core.
   </Accordion>
 
-  <Accordion title="units() and seed() ;  where the workload comes from" icon="dice">
-    `cluster.units()` is how much work this run is to do. In direct mode it is
-    what the scenario declared. In scaled mode it is what the engine chose ;  a
-    fraction of full scale, picked so the machines and the workload shrink by the
-    same factor. **A job that ignores it cannot be scaled, and the trace will say
-    so.**
+  <Accordion title="Input and seed() ;  where the workload comes from" icon="dice">
+    `at.count("frames")` is how many frames this run is to do. In a direct run it is
+    exactly what the scenario's [`input:`](/ref/input) block says; in a scaled one it
+    is a fraction of it, picked so the machines and the workload shrink by the same
+    factor. **The number is never in the Java** ;  that is what
+    [`Scalable`](/ref/api-scalable) is for, and a plain `Job` above `scale: 1` is
+    refused.
 
     `cluster.seed()` is the scenario's seed. A job that generates its own input
     needs one and it has to come from here: a sweep of seeds is meant to vary the

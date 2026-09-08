@@ -1,6 +1,6 @@
 ---
 title: "Job"
-description: "The one thing in a scenario that is code."
+description: "The Java class that drives a scenario."
 icon: "play"
 ---
 
@@ -73,12 +73,11 @@ public final class MyJob implements Job {
         var workers = cluster.serving("Worker");
         if (workers.isEmpty()) throw new IllegalStateException("nobody serves Worker");
 
-        var input = cluster.compute("prepare",
-                () -> Input.of(cluster.units(), cluster.seed()));
+        var work = cluster.compute("prepare", () -> Batches.of(cluster.seed()));
 
         try (var p = cluster.phase("work")) {
             var inflight = new ArrayList<ListenableFuture<Reply>>();
-            for (var piece : pieces(input))
+            for (var piece : pieces(work))
                 inflight.add(WorkerGrpc
                         .newFutureStub(cluster.channelTo(pick(workers)))
                         .withDeadlineAfter(2_000, TimeUnit.MILLISECONDS)

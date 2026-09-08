@@ -28,8 +28,8 @@ means in any other Java program, because nothing else is running.
 
 ```java
 @Test void oneFrameBecomesOneThumbnail() {
-    var shrinker = new Shrinker();                       // ← breakpoint here
-    Thumbs thumbs = shrinker.thumbnail(oneBatch());      // ← step into this
+    var shrinker = new Shrinker();                       // <- breakpoint here
+    Thumbs thumbs = shrinker.thumbnail(oneBatch());      // <- step into this
     assertEquals(1, thumbs.getThumbsCount());
 }
 ```
@@ -111,7 +111,7 @@ class WireTest {
     }
 
     @Test void aBatchSurvivesTheWire() {
-        Thumbs thumbs = stub.thumbnail(batchOf(3));      // ← step into the handler
+        Thumbs thumbs = stub.thumbnail(batchOf(3));      // <- step into the handler
         assertEquals(3, thumbs.getThumbsCount());
     }
 

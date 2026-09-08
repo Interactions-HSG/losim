@@ -43,16 +43,12 @@ public final class MyJob implements Job {
 
 ## The workload
 
-<ResponseField name="units()" type="long">
-  How many units this run is to process.
-
-  One, unless the scenario declared a [scale](/ref/scale) ;  then `scale x 8000` in
-  direct mode, and in scaled mode what the engine chose: a fraction of full scale,
-  picked so that the machines and the workload shrink by the same factor and the
-  ratios a design lives or dies by are preserved.
-
-  **A job that ignores this cannot be scaled, and the trace will say so.**
-</ResponseField>
+<Note>
+**There is no `units()` here.** A job whose input has a size implements
+[`Scalable`](/ref/api-scalable) and is handed it, so the sizes live in the
+scenario's [`input:`](/ref/input) block where a sweep can vary them. A size read off
+the cluster was a size the scenario could not name a part of.
+</Note>
 
 <ResponseField name="seed()" type="long">
   The scenario's seed.

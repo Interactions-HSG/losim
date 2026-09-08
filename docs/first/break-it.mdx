@@ -39,7 +39,7 @@ Three batches lost, and each one cost the coordinator **its full 2000 refMs
 deadline** before it found out. The run went from 2416 refMs to 3980.
 
 <Note>
-That is the lesson, and it is not a bug in losim. A dead machine, a cut link and a
+The is the lesson, and it is not a bug in losim. A dead machine, a cut link and a
 lost packet are **one event from the caller**: nothing answers, and you find out by
 running out of time. Modelling any of them as an immediate `UNAVAILABLE` would turn
 the most instructive failure in distributed systems (you cannot tell a slow peer
@@ -67,7 +67,7 @@ network:
 </CodeGroup>
 
 All three produce the same thing at the call site: a `rpc_timeout` event and a
-`DEADLINE_EXCEEDED` status, with `why` recording which it actually was ;  so the
+`DEADLINE_EXCEEDED` status, with `why` recording which it was ;  so the
 trace can tell them apart even though your program could not.
 
 ## The whole catalogue of weather
@@ -150,14 +150,14 @@ slow part.
 ## Now make it survive
 
 The obvious fix is a shorter deadline plus a retry, and losim will stop you here.
-That is the point:
+The is the point:
 
 ```yaml
 retries:
   - { method: Thumbnail, attempts: 3, backoff: 50 refMs, multiplier: 2 }
 ```
 
-This one is allowed, because `Thumbnail` declared `NO_SIDE_EFFECTS` in the
+The one is allowed, because `Thumbnail` declared `NO_SIDE_EFFECTS` in the
 `.proto`. Try it on a method that declared nothing and the run refuses at load,
 naming the file and the line. [Why the gate exists ->](/write/retries)
 

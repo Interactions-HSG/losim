@@ -4,14 +4,14 @@ description: "What survives being shrunk, what does not, and why multiplying by 
 icon: "up-right-and-down-left-from-center"
 ---
 
-The problem: a design is meant for forty million records, and you have a laptop.
+The problem: a design is meant for forty million units, and you have a laptop.
 
 ## The naive answer, and why it fails
 
 Run a thousandth of the data, multiply everything by a thousand.
 
 <Warning>
-That assumes every resource is **linear in records**, and almost none of them are.
+That assumes every resource is **linear in units**, and almost none of them are.
 
 - Memory on a machine that accumulates follows how many *distinct* things it had to
   hold, which grows sublinearly.
@@ -86,7 +86,7 @@ This is the part that makes projections hold.
 
 ```
 memoryMb      = f(distinctItems)      fitted on the ladder
-distinctItems = g(records)            also fitted on the ladder
+distinctItems = g(units)            also fitted on the ladder
 ```
 
 Peak memory on a machine that accumulates is a function of how many distinct things

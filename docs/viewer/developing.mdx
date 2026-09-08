@@ -68,8 +68,7 @@ the export goes is how the export and the thing serving it drift apart.
 ## `losim dev viewer check`
 
 Everything about the viewer that **a machine can decide**, in one command. It needs
-`losim dev viewer traces` to have run, because these check against runs that actually
-happened rather than against fixtures that agree with them by construction.
+`losim dev viewer traces` to have run, because these check against runs that happened rather than against fixtures that agree with them by construction.
 
 | | |
 |---|---|
@@ -99,7 +98,7 @@ deleting any of the four breaks `losim dev viewer check`.
 sidecar. Nothing imports the last two, `film.py` is imported only by them, and `manim`
 is not installed here ;  so they cannot run and nothing depends on them.
 
-This is why the glyph paths were authored in SVG's own convention and compared by
+The is why the glyph paths were authored in SVG's own convention and compared by
 **string equality** rather than by looking at two pictures and arguing about them.
 </Note>
 
@@ -137,7 +136,7 @@ where those are answered: `losim dev viewer serve`, then look.
     nothing supports).
 
     The classification is matched against the exact line labels `losim.price.Bill`
-    writes. That coupling is deliberate and checked: an unrecognised line is `unknown`
+    writes. The coupling is deliberate and checked: an unrecognised line is `unknown`
     and attributed to nobody, rather than guessed at.
   </Accordion>
 
@@ -182,7 +181,7 @@ where those are answered: `losim dev viewer serve`, then look.
 
 | | |
 |---|---|
-| `trace.duration` | covers **every event**, not just the job |
+| `trace.duration` | covers **every event**, not the job |
 | `trace.jobRefMs` | `meta.durationRefMs` ;  what the money is priced against |
 
 They differ because the heap walk runs every eighth tick, so an out-of-memory can land
@@ -219,7 +218,7 @@ because losim is a library and your traces live in your project, not in this tre
 
 <Warning>
 `build/served` is a **mirror of the last sweep**: anything not swept this time
-is deleted from it. That is what makes a collection un-askable-for once asked for,
+is deleted from it. The is what makes a collection un-askable-for once asked for,
 rather than something that accumulates forever.
 </Warning>
 

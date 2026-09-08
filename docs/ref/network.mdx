@@ -68,7 +68,7 @@ catch (StatusRuntimeException e) {
 }
 ```
 
-Nothing answers, and the caller finds out by running out of time. That is
+Nothing answers, and the caller finds out by running out of time. The is
 deliberately **not** modelled as an immediate `UNAVAILABLE`: a socket that refuses
 is a machine that answered, and the interesting failure is the one where nothing
 answers at all ;  where you cannot tell a slow peer from a gone one.
@@ -97,7 +97,7 @@ counted.
 answered. A machine whose only cross-zone traffic is other people's requests therefore
 shows `crossZoneMb: 0`.
 
-That is the reading you want when the question is *which design is expensive*: the
+The is the reading you want when the question is *which design is expensive*: the
 egress on the bill follows whoever decided to reach across a zone, so it changes when
 you change the placement, and not when you change who happens to hold the data.
 </Note>

@@ -1,0 +1,103 @@
+---
+title: "Scalable"
+description: "A job that declares input parts so scenarios can vary their size."
+icon: "arrow-up-right-dots"
+---
+
+```java
+public final class FillUp implements losim.api.Scalable {
+
+    @Override public Input.Shape shape() {
+        return Input.Shape.counting("items", "item").with("valueBytes");
+    }
+
+    @Override public void run(Cluster cluster, Input at) throws Exception {
+        byte[] value = new byte[(int) at.value("valueBytes")];
+        for (long i = 0; i < at.count("items"); i++) put(cluster, i, value);
+    }
+}
+```
+
+The difference from [`Job`](/ref/api-job) is one parameter, and it is the difference
+between a run and a model of a run. A plain `Job` does whatever it does; how much
+work that was is a fact about its Java. A `Scalable` job is **told** how much to do,
+so the engine can ask it the same question at four sizes and say what a fifth would
+cost.
+
+**Required above `scale: 1`.** A scenario that asks for a model and names a plain
+`Job` is refused with the line `job:` is on.
+
+<Note>
+`Scalable` is not a subtype of `Job`. A class would then have two `run` methods and
+the loader would have to guess which one the scenario meant.
+</Note>
+
+## The interface
+
+<ResponseField name="shape()" type="Input.Shape">
+  What this job's input is made of ;  its parts, named, with no sizes in them. The
+  sizes are the scenario's, under [`input:`](/ref/input).
+
+  Called once, before the run, to check the scenario against it. Whatever it returns
+  has to be the same every time: it is a declaration, not a decision.
+
+  ```java
+  Input.Shape.counting("orders", "order")     // a count, with its singular noun
+             .andCounting("customers", "customer")
+             .with("lineItems")               // a constant: shape, not size
+  ```
+</ResponseField>
+
+<ResponseField name="run(Cluster cluster, Input at)" type="void">
+  Runs the job over an input of the size losim chose. Everything about the workload's
+  size comes through `at`; a number here that was not read from it is a number no
+  scenario can move.
+</ResponseField>
+
+## Input
+
+<ResponseField name="count(String part)" type="long">
+  How many of that part **this run** is to process ;  the full size the scenario
+  declared, times the fraction of it this run is doing.
+
+  Refuses a part that is a constant, or one the shape does not declare. Both are a
+  typo in the job rather than a smaller run.
+</ResponseField>
+
+<ResponseField name="value(String part)" type="long">
+  A constant, at what the scenario said, whatever rung the run is on. Counts are
+  readable this way too, which is occasionally what you want for a message.
+</ResponseField>
+
+<ResponseField name="units()" type="long">
+  Every count added up: the one number the [scale engine](/engine/why-scaling) works
+  in.
+
+  The parts move together, so their total is enough to say how big a run was ;  and
+  one axis is what makes a projection from four rungs honest rather than a surface
+  fitted through too few points.
+</ResponseField>
+
+<ResponseField name="shape()" type="Input.Shape">
+  What the input is made of, for a job that wants to say so in a log.
+</ResponseField>
+
+## Converting a job that had a constant
+
+```java
+private static final int ITEMS_UNSCALED = 240;   // <- delete
+...
+long asked = cluster.records();                  // <- gone in 2.0.0
+final int items = asked > 1 ? (int) asked : ITEMS_UNSCALED;
+```
+
+becomes `shape()`, a `run` with a second parameter, and two lines in the scenario:
+
+```yaml
+input:
+  items: 240
+```
+
+The direct run then does 240 items **because the file says so**, and the same job
+scales without another edit. `losim adopt` finds the old call and says this, with
+the line it is on.

@@ -78,7 +78,7 @@ Wrap the machine's executor with Context.currentContextExecutor.
     ;  that is what the pool is.
   </Card>
   <Card title="Call more machines" icon="server">
-    Work is spread by **calling peers**, not by starting threads. That is the
+    Work is spread by **calling peers**, not by starting threads. The is the
     whole model: a cluster gets faster by being a cluster.
   </Card>
 </Columns>
@@ -105,7 +105,7 @@ public final class Shrinker extends ThumbnailerBase {
 ```
 
 <Tip>
-This is worth causing on purpose once. Set a service's instance to `c5.4xlarge`
+The is worth causing on purpose once. Set a service's instance to `c5.4xlarge`
 (16 vCPUs), fan out enough calls to keep them all busy, use a plain `HashMap`, and
 watch what comes out. It is the cheapest lesson in the course.
 </Tip>
@@ -120,7 +120,7 @@ machines:
 ```
 
 Dispatch eight 100 refMs calls at it and you get roughly four waves, not one and not
-eight. That is the model working, and it is the thing to check first if a cluster's
+eight. The is the model working, and it is the thing to check first if a cluster's
 timings look impossibly good.
 
 ## See it
@@ -147,7 +147,7 @@ events on the scrubber. Pin `small` in the [machine panel](/viewer/views) and wa
 `inflight` sit at 2 while `queued` climbs. Then change the instance to `c5.4xlarge`
 and run it again into `build/runs/queueing-16.json`; put the two up
 [on one clock](/viewer/views#two-runs-on-one-clock) and watch where the `queue_wait`
-markers are on each. That is the whole difference between the two runs, in the one
+markers are on each. The is the whole difference between the two runs, in the one
 place it is visible.
 
 

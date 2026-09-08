@@ -8,7 +8,7 @@ icon: "hard-drive"
 Losim.current().wroteDisk(bytes);
 ```
 
-That is the whole API. There is no file, no path and no stream. The point is to
+The is the whole API. There is no file, no path and no stream. The point is to
 make a design that does not fit on its disks fail here for the reason it would
 fail there, not to persist anything.
 
@@ -46,7 +46,7 @@ machine's disk figure becomes a lower bound and the verifier says so beside it.
 
 ## Declaring the write
 
-Whatever your design would actually have written, in bytes:
+Whatever your design would have written, in bytes:
 
 ```java
 byte[] payload = spill.toByteArray();
@@ -60,7 +60,7 @@ Losim.current().wroteDisk(spill.getSerializedSize());
 ```
 
 <Note>
-Nothing checks that you declared the truth, and nothing can. This is a claim about
+Nothing checks that you declared the truth, and nothing can. The is a claim about
 your design, like a declared duration ;  and like one, what matters is that it is
 consistent between the designs you are comparing.
 </Note>
@@ -103,7 +103,7 @@ Choosing an instance family is itself a design decision, and the bill will price
 Disk is often the resource whose law the engine **refuses**, and for an instructive
 reason: code that spills only above a threshold behaves differently small than
 large, so the ladder bends between the low end and the high end. R² over the whole
-ladder still scores about 0.74 ;  which a merely noisy straight line reaches just as
+ladder still scores about 0.74 ;  which a merely noisy straight line reaches as
 easily ;  so no threshold on R² could separate them. The engine splits the ladder
 instead. [Refusals ->](/engine/refusals)
 </Tip>

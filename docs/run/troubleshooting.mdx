@@ -73,8 +73,8 @@ Exit code **2**, with the file and line. These read like compiler errors on purp
   <Accordion title="the job was still running after 120 seconds of real time">
     A backstop, not a deadline, and the line between *slow* and *stuck*. Look for a
     call with no deadline (five reference seconds each), a coordinator waiting on a
-    machine that was killed, or a loop that never terminates because
-    `cluster.units()` was ignored.
+    machine that was killed, or a loop that never terminates because the
+    `Input` was ignored.
   </Accordion>
   <Accordion title="'this thread has no machine'">
     Work started on a thread the machine did not create. [Concurrency

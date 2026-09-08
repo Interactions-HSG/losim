@@ -1,21 +1,18 @@
 ---
 title: "Two layers"
-description: "The design decision everything else follows from."
+description: "The boundary between the program and the simulation."
 icon: "layer-group"
 ---
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  losim                                                       │
-│    ClientSide + ServerSide interceptors on every call        │
-│    a machine model that caps memory and disk                 │
-│    a compressed clock                                        │
-│    a scaler engine, a verifier, a bill                       │
-├─────────────────────────────────────────────────────────────┤
-│  your system                                                 │
-│    real .proto, real generated stubs, real marshalling       │
-│    real threads, real allocation, real contention            │
-└─────────────────────────────────────────────────────────────┘
+losim
+  ClientSide + ServerSide interceptors on every call
+  a machine model that caps memory and disk
+  a compressed clock
+  a scaler engine, a verifier, a bill
+your system
+  real .proto, real generated stubs, real marshalling
+  real threads, real allocation, real contention
                     one JVM, one laptop
 ```
 

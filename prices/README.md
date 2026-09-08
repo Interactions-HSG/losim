@@ -8,7 +8,7 @@ java -cp "$CP" losim.cli.Main bill build/runs/mine.json --prices prices/ap-north
 ```
 
 Nothing here changes what a run *does*. Billing is a pure function of the trace,
-so the same run can be priced in ten places without being run again ;  which is
+so the same run can be priced in ten places without being run again. This answers
 the point: *would this design still be sensible in Tokyo?* is a question you
 answer by re-billing, not by re-running.
 

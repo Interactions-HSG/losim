@@ -98,6 +98,7 @@
               "ref/chaos",
               "ref/retries",
               "ref/takes",
+              "ref/input",
               "ref/scale"
             ]
           },
@@ -107,7 +108,8 @@
               "ref/api-losim",
               "ref/api-spec",
               "ref/api-cluster",
-              "ref/api-job"
+              "ref/api-job",
+              "ref/api-scalable"
             ]
           },
           {

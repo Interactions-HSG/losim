@@ -1,0 +1,88 @@
+---
+title: "input"
+description: "How big each part of the job's input is, at full size."
+icon: "database"
+---
+
+```yaml
+input:
+  items:      240
+  valueBytes: 65536
+```
+
+The job says what its input is made of; this says how much of each. Neither number
+is in anybody's Java, which is the point: a workload size written into a constant
+cannot be swept, cannot be varied by an overlay, and makes a direct run a different
+amount of work from the scaled run that is meant to model it.
+
+The names come from the job. There is no fixed vocabulary here ;  a store writes
+`items`, a join writes `orders` and `customers`, a blob store writes `blobs` and
+`blobBytes`. They come from the job's [`shape()`](/ref/api-scalable), and a name it
+does not declare is refused with the line it is on.
+
+## Counts and constants
+
+<ParamField path="a count" type="whole number">
+  A quantity that grows with the run: items, rows, orders. **Every count shrinks by
+  the same factor**, so a rung of the probe ladder is the same design at a smaller
+  size and the ratios it lives or dies by survive.
+
+  The job declares it with a singular noun ;  `counting("items", "item")` ;  so a run
+  can say what it did two hundred and forty of.
+</ParamField>
+
+<ParamField path="a constant" type="whole number">
+  Shape rather than size: a value's length, a fan-out, a key width. **Held at what
+  this file says, whatever rung the run is on**, because a store of a tenth as many
+  items is still a store of 64 KB values.
+
+  Declared with `with("valueBytes")`, and read with `at.value(...)` rather than
+  `at.count(...)`.
+</ParamField>
+
+Plain numbers, with the unit in the name you chose ;  `valueBytes: 65536`, not
+`64 KB`. The is the same rule [`memoryMb`](/ref/machines) follows. Time is the one
+thing in a scenario that has to name its unit, because simulated seconds and yours
+differ by a factor nobody sees.
+
+<Note>
+**A quantity the program discovers as it runs is neither, and does not belong here.**
+A vocabulary, a count of distinct keys, a fan-out that depends on the data: those
+are [revealed](/ref/api-losim) while the job runs and fitted against the counts,
+which is how the engine learns that a vocabulary saturates where a disk does not.
+</Note>
+
+## What it is at scale
+
+The sizes here are the input at **full** size. What a run does is that
+times `units / (scale x 8000)` ;  which is 1 for a direct run, and whatever rung the
+[scale engine](/ref/scale) picked otherwise.
+
+```yaml
+scale: 6
+input:
+  lines:        48000
+  wordsPerLine: 8
+```
+
+At the top rung of the ladder that is 8000 lines of eight words; at the bottom,
+1000 lines of eight words. The lines move and the words do not.
+
+## What is refused
+
+| | |
+|---|---|
+| a part the job does not consume | with the line the part is on |
+| a part the job consumes and this file leaves out | with the line `job:` is on |
+| `input:` at all, under a plain `Job` | a plain `Job` is never handed one |
+| a part sized `0` | not a smaller run: no run at all |
+| a count that shrinks to none at the chosen rung | refused rather than rounded up, which would change the ratios |
+
+All five happen before the run opens, so they read as a line to fix rather than as
+a design that fell over.
+
+<Note>
+An [overlay](/ref/cli-run) cannot change `input:`. An overlay changes the weather ;
+a scenario whose workload had been swapped out underneath it is no longer a run of
+that design, and the two could not be compared.
+</Note>

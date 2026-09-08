@@ -31,7 +31,7 @@ Grouped by when it happens. Scenario errors read like compiler errors on purpose
 | `retrying lab.Volley.Hit is refused ;  its .proto declares no idempotency_level ...` | declare it, or write `unsafe: true` |
 | `mode is 'direct' or 'scaled', not 'auto'` | |
 | `scaled mode measures a small run and projects it up, and at scale 1 there is nothing above the run to project to` | |
-| `a workload has at least one record` | |
+| `a part of an input is at least one of something` | |
 | `lab.Router.Watch is a server-streaming rpc, and losim prices a call as one request and one response ...` | make it unary; see below |
 | `lab.Thing.Say carries a marshaller of its own rather than a protobuf one ...` | losim weighs a call by its serialized protobuf size |
 | `no such scenario: thumbs.yaml` | |
@@ -107,7 +107,7 @@ and a law fitted to either comes out smooth, confident and false.
 | `the ladder bends: over the lower half it grows as units^0.59 ...` | move the probe ladder to one side of the threshold |
 | `its exponent moves by 0.66 between independent seed sets ...` | normal for the timeline; give handlers more to do, or accept it |
 | `it was never measured above zero, so there is nothing to fit` | your system never used that resource |
-| `nothing measured varied with it, so it has no law here` | the job probably ignores `cluster.units()` |
+| `nothing measured varied with it, so it has no law here` | the job probably ignores the `Input` it was handed |
 | `memoryMb at 8000 units is only 2.4x its own fixed overhead ...` | bigger rungs on the ladder |
 | `at 8000 units the cluster would hold 4200 MB, and this host offers 1843 MB ...` | more heap, or a smaller rung |
 | `this run is clocked at 40x real time, and ... costs ... refMs` | a cost site too fine for the clock; there is no compression to turn down |

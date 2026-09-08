@@ -15,7 +15,7 @@ public record Spec(String machine, String instance, String zone, int vcpu,
 }
 ```
 
-<ResponseField name="machine()" type="String">This machine's name, e.g. `"w3"`.</ResponseField>
+<ResponseField name="machine()" type="String">The machine's name, e.g. `"w3"`.</ResponseField>
 <ResponseField name="instance()" type="String">Its instance type, e.g. `"a1.medium"`.</ResponseField>
 <ResponseField name="zone()" type="String">Its availability zone.</ResponseField>
 <ResponseField name="vcpu()" type="int">How many threads its pool has.</ResponseField>
@@ -30,7 +30,7 @@ public record Spec(String machine, String instance, String zone, int vcpu,
 
   Deliberately crude, and deliberately **not** a score losim computes for you.
   Placing work well is the exercise, and a ready-made ranking is the exercise
-  already done. This is the obvious first thing to try, which is what makes it a
+  already done. The is the obvious first thing to try, which is what makes it a
   useful thing to beat.
 </ResponseField>
 
@@ -71,7 +71,7 @@ So a service that wants to be placed well answers a question about itself:
 not what the instance type says at full scale. In scaled mode the engine has solved
 for them.
 
-That is deliberate, and it matters: a job that places work by comparing them places
+The is deliberate, and it matters: a job that places work by comparing them places
 it the **same way at either scale**, which is the property the whole scale model
 exists to preserve.
 

@@ -77,8 +77,8 @@ losim/src/losim/cli/     losim run | bill | diff
 **Your code compiles against `build/losim.jar` and the vendored jars ;  never
 against `losim/src`.**
 
-This is not bureaucracy. The jar exposes exactly one package a program may
-mention, `losim.api`, and that package depends on no runtime type. That is what
+The is not bureaucracy. The jar exposes exactly one package a program may
+mention, `losim.api`, and that package depends on no runtime type. The is what
 lets a handler be compiled, constructed and unit-tested with nothing simulating
 anything. A system that reached into `losim.runtime` would be a system that could
 only run inside the simulator, which is the opposite of the point.
@@ -110,7 +110,7 @@ refit. [More on that ->](/engine/probe-grid)
 
 You do not have to do anything: the lab server is already showing every trace under
 `build/runs`, and `show()` in `RunExperiments.java` opens the viewer on whatever it
-just ran. [The viewer ->](/viewer/index)
+ran. [The viewer ->](/viewer/index)
 
 
 ## The manual's own check
@@ -119,7 +119,7 @@ just ran. [The viewer ->](/viewer/index)
 bin/losim dev docs check
 ```
 
-This repository ships worked solutions to the coursework. The manual must not
+The repository ships worked solutions to the coursework. The manual must not
 contain them, and "must not" is a thing you check rather than a thing you
 remember ;  so every page is scanned against a rule set in `docs-check/`, and the
 check tests itself against known-bad and known-good samples before it scans

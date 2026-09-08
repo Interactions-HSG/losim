@@ -20,7 +20,7 @@ into losim's classes. This one is the product surface, and the difference is the
 point:
 
 - the systems compile against `build/losim.jar` and the vendored gRPC **alone**,
-  never against `losim/src` ;  the same rule a lab is under, kept true by being used;
+  never against `losim/src`; this is the same rule a lab is under, kept true by being used;
 - every case runs through `losim run <scenario.yaml> --cp ...`, so the scenario
   grammar, the class loading and the exit codes are exercised rather than bypassed;
 - every assertion reads the **trace JSON off disk**. The trace is the interchange

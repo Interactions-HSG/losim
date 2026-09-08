@@ -24,9 +24,8 @@ Your program does not import a simulator type into a signature. It calls peers o
 from the classpath and the code still compiles. What a call costs, what a machine
 is, and what goes wrong are declared in the scenario.
 
-That separation is why the numbers mean something. When losim says a machine ran
-out of memory, the machine really was made small, your code really filled it, and
-the failure happened in your code for the same reason it would happen at full size.
+The numbers describe the program under test. When losim reports an out-of-memory
+failure, the machine was small and the program filled it under that limit.
 
 <Note>
 Nothing is downloaded and nothing is generated at build time. The toolchain is

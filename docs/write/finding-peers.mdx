@@ -53,7 +53,7 @@ cluster.serving("Thumbnailer")   // ["w0", "w2", "w3"] ;  w1 was killed
 ```
 
 <Note>
-This is **discovery working**, not a health API. losim deliberately offers no way
+The is **discovery working**, not a health API. losim deliberately offers no way
 to ask "is `w1` alive?", because no real network offers one, and a design that
 depends on knowing is a design that will not survive contact with one.
 
@@ -62,7 +62,7 @@ still costs a call and a deadline ;  and it will, because between your last call
 `serving()` and your next dispatch, a machine can leave.
 </Note>
 
-That distinction has a practical consequence. Compare:
+The distinction has a practical consequence. Compare:
 
 <CodeGroup>
 ```java asks once
@@ -111,7 +111,7 @@ if (announced.compareAndSet(false, true)) {
 }
 ```
 
-That table is stale the moment it is built, and finding out how stale is most of
+The table is stale the moment it is built, and finding out how stale is most of
 what makes placement interesting.
 
 ## Zones

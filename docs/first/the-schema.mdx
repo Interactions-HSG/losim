@@ -58,7 +58,7 @@ service Thumbnailer {
 <AccordionGroup>
   <Accordion title="A batch, not a frame" icon="layer-group" defaultOpen>
     `Thumbnail` takes a `Batch` rather than one `Frame`, and that changes what the
-    system is, not just how fast it runs.
+    system is, not how fast it runs.
 
     Every call costs a round trip on the wire, a declared fixed duration, and a
     row in the trace. A design that sends one frame per call is a design whose
@@ -67,7 +67,7 @@ service Thumbnailer {
     schema has to let you turn it.
 
     It also gives the handler something to declare: `refNsPerUnit` is charged
-    against however many frames were actually in the batch.
+    against however many frames were in the batch.
   </Accordion>
 
   <Accordion title="`idempotency_level`, and why it is not decoration" icon="rotate">
@@ -96,7 +96,7 @@ service Thumbnailer {
     A real process can read its own cgroup limit and its own instance metadata
     without a network, and cannot read yours at all. So an orchestrator that wants
     to send small work to small machines has to **ask**, over gRPC, like a
-    scheduler does. That is the whole reason a resource manager has a registration
+    scheduler does. The is the whole reason a resource manager has a registration
     call, and handing your coordinator a free table of everyone's capacity would
     teach that placement is a lookup ;  when the interesting part is that the table
     is stale the moment it is built.
@@ -106,12 +106,12 @@ service Thumbnailer {
 ## Generating the Java
 
 **You do not run `protoc`.** Pressing the ▶ does it, with the vendored compiler and
-the plugin that matches your machine, every time ;  so a schema you just edited is
+the plugin that matches your machine, every time ;  so a schema you edited is
 never one stale build away from the code that uses it.
 
 Generated code lands in **`<system>/gen/`**, beside the system rather than under
-`build/`. That is an editor decision: `lab.pb.Batch` resolves and completion works with
-nothing configured, and you can open what `protoc` actually produced if you are
+`build/`. The is an editor decision: `lab.pb.Batch` resolves and completion works with
+nothing configured, and you can open what `protoc` produced if you are
 curious. It is gitignored, and you never edit it.
 
 losim's trust verifier knows to skip it ;  recognised by protobuf's own superclass and

@@ -32,7 +32,7 @@ icon: "server"
     can call from a plain unit test and one you cannot.
   </Step>
   <Step title="Keep every losim type out of every signature">
-    `Thumbs thumbnail(Batch)` mentions nothing of losim's. That is what makes the
+    `Thumbs thumbnail(Batch)` mentions nothing of losim's. The is what makes the
     handler an ordinary object.
   </Step>
 </Steps>
@@ -70,7 +70,7 @@ One instance per machine, built when the machine starts serving. Whatever your
 service holds in fields is that machine's data, and it is exactly what the
 retained-heap walk measures.
 
-That has one consequence worth planning for:
+The has one consequence worth planning for:
 
 | how the scenario declares it | what a restart does |
 |---|---|
@@ -84,7 +84,7 @@ The trace says which happened:
               "note": "fresh services: whatever it was holding is gone" } }
 ```
 
-That is what makes "who redoes the work" a real question rather than a formality.
+The is what makes "who redoes the work" a real question rather than a formality.
 
 ## Several services on one machine
 
@@ -115,7 +115,7 @@ Free to call: every field is final on the machine and the record is built once,
 before it boots. Nothing here is measured.
 
 <Note>
-**Local knowledge only.** This machine's, never a peer's. A real process can read
+**Local knowledge only.** The machine's, never a peer's. A real process can read
 its own cgroup ceiling and its own instance metadata without a network, and cannot
 read anyone else's at all.
 

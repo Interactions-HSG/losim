@@ -147,7 +147,7 @@ for (int attempt = 1; ; attempt++) {
 }
 ```
 
-Retrying the *same* peer that just failed is what the declarative policy does.
+Retrying the *same* peer that failed is what the declarative policy does.
 Retrying a **different** one is usually the better design, and only your code can
 decide that.
 

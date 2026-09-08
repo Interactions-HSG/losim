@@ -13,7 +13,7 @@ retries:
 ## Fields
 
 <ParamField path="method" type="string" required>
-  Matched against every method the cluster actually serves:
+  Matched against every method the cluster serves:
 
   | form | example |
   |---|---|
@@ -41,7 +41,7 @@ retries:
 </ParamField>
 
 <ParamField path="unsafe" type="boolean" default="false">
-  Retry a method the schema does not declare safe. This is the point of the gate,
+  Retry a method the schema does not declare safe. The is the point of the gate,
   not a way round it: it makes *"we retry a call that is not safe to run twice"* one
   visible line in a diff.
 </ParamField>

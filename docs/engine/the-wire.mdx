@@ -1,6 +1,6 @@
 ---
 title: "The wire"
-description: "Two interceptors, and the work between a call site and a handler."
+description: "The interceptors between a call site and a handler."
 icon: "right-left"
 ---
 
@@ -9,14 +9,14 @@ separate transport and no message bus.
 
 ```text
 caller                                                   callee
-  │
-  ├─ Retrying          (only if the scenario declared a policy)
-  │    └─ ClientSide   the network, byte counts, spans, deadlines
-  │         │
-  │         ├──── in-process transport ────────────────┐
-  │                                                    │
-  │                                        ServerSide ─┤  cost, context, records
-  │                                                    └─ your handler
+  |
+  +-- Retrying          (only if the scenario declared a policy)
+  |    +-- ClientSide   the network, byte counts, spans, deadlines
+  |         |
+  |         +---- in-process transport ----------------+
+  |                                                     |
+  |                                        ServerSide ---+  cost, context, units
+  |                                                     +-- your handler
 ```
 
 ## Before the call is made

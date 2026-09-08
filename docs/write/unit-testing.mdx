@@ -4,7 +4,7 @@ description: "An ordinary object, an ordinary method, and no simulation at all."
 icon: "vial"
 ---
 
-This is what the adapter was for. A handler is a plain method, so it gets a plain
+The is what the adapter was for. A handler is a plain method, so it gets a plain
 test:
 
 ```java test/ShrinkerTest.java
@@ -74,7 +74,7 @@ not, because a fabricated cluster would make a passing test meaningless.
 ```
 
 <Note>
-**That asymmetry is deliberate.** A silent `reveal` lets a handler be called
+**The asymmetry is deliberate.** A silent `reveal` lets a handler be called
 directly from a test. A *fabricated* empty cluster would let the same test pass while
 asserting nothing ;  which is worse than failing.
 
@@ -119,7 +119,7 @@ logic has no branch for whether a simulation is running.
 ## Running the tests
 
 JUnit is not vendored for lab use ;  it belongs to a test and must not be reachable
-from a system. This repository keeps its own copy under `vendor/test-jars/` and
+from a system. The repository keeps its own copy under `vendor/test-jars/` and
 runs it on a separate classpath:
 
 ```bash
@@ -140,7 +140,7 @@ Everything interesting about a cluster:
 
 | | |
 |---|---|
-| whether the fan-out actually overlapped | a run, and the span tree |
+| whether the fan-out overlapped | a run, and the span tree |
 | whether a machine ran out of memory | a run, with a cap |
 | whether the coordinator noticed a dead peer | a run, with a fault |
 | what any of it cost | a run, and the bill |

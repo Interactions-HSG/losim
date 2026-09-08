@@ -42,9 +42,9 @@ you work with a coding agent, that file is written for it.
 ### 1. The handler comes out of the bootstrap
 
 ```java
-public class HelloWorldServer {                     // ← all of this goes
+public class HelloWorldServer {                     // <- all of this goes
   public static void main(String[] args) { ... }
-  static class GreeterImpl extends GreeterGrpc.GreeterImplBase {   // ← this stays
+  static class GreeterImpl extends GreeterGrpc.GreeterImplBase {   // <- this stays
     @Override public void sayHello(HelloRequest req, StreamObserver<HelloReply> out) { ... }
   }
 }

@@ -21,7 +21,7 @@ than a made-up amount.
 </ParamField>
 
 <ParamField path="refNsPerUnit" type="number" default="0">
-  What each record processed adds, in reference **nanoseconds**. The handler
+  What each unit processed adds, in reference **nanoseconds**. The handler
   declares the count with `Losim.current().units(n)`, and this part is slept
   **after the body returns**, before the response leaves ;  because a caller waits
   for work that has not finished, and by then the handler has said how much there

@@ -52,10 +52,10 @@ Knowing what happens when explains most of the error messages:
     address.
   </Step>
   <Step title="Machines are built and start serving">
-    One in-process server each, one pool each, sized to the instance's vCPUs. This
+    One in-process server each, one pool each, sized to the instance's vCPUs. The
     is where a missing class or a missing no-argument constructor is discovered.
   </Step>
-  <Step title="Retry policies are checked against what the cluster actually serves">
+  <Step title="Retry policies are checked against what the cluster serves">
     A policy naming an unserved method, or retrying one the schema does not declare
     safe, is refused **here** ;  before a single call is made.
   </Step>
@@ -94,7 +94,7 @@ Knowing what happens when explains most of the error messages:
   Where to write the trace.
 </ParamField>
 <ParamField path="--seed <n>" type="long">
-  Overrides the scenario's seed. This is what a sweep is made of.
+  Overrides the scenario's seed. The is what a sweep is made of.
 </ParamField>
 <ParamField path="--telemetry <level>" type="FULL | NO_PAYLOAD | OFF" default="FULL">
   How much is recorded.

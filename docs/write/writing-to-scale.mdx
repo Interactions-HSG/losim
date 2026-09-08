@@ -10,17 +10,35 @@ what it actually observed.
 
 That only works if your system cooperates. Four things.
 
-## 1. Take the workload from `Cluster`, not from a constant
+## 1. Implement `Scalable`, so the size is the scenario's to say
 
 ```java
-List<Frame> album = cluster.compute("read the album",
-        () -> Album.of(cluster.units(), cluster.seed()));   // ← both from the scenario
+public final class Slideshow implements Scalable {
+
+    @Override public Input.Shape shape() {
+        return Input.Shape.counting("frames", "frame").with("frameKb");
+    }
+
+    @Override public void run(Cluster cluster, Input at) {
+        List<Frame> album = cluster.compute("read the album",
+                () -> Album.of(at.count("frames"), (int) at.value("frameKb"), cluster.seed()));
 ```
 
+```yaml
+input:
+  frames:  40000000
+  frameKb: 512
+```
+
+Both numbers are in the file, so a sweep can vary either and two designs can be
+compared at one size. See [`Scalable`](/ref/api-scalable) and
+[`input:`](/ref/input).
+
 <Warning>
-A job that generates a fixed amount of work **cannot be scaled**, and the trace
-will say so: the engine varies `units` up the probe ladder, sees nothing move,
-and finds that no resource is a function of anything.
+A plain [`Job`](/ref/api-job) above `scale: 1` is **refused**, with the line `job:`
+is on. It keeps its size in its own Java, so the engine has nothing to vary: it
+would climb the probe ladder, see nothing move, and find that no resource is a
+function of anything.
 
 The same goes for the seed. A workload that draws from a constant of its own is a
 workload whose every run is the same afternoon ;  so the engine's twenty probe runs
@@ -46,7 +64,7 @@ Losim.current().reveal("payloadKb", bytes / 1024.0);
 ```
 
 Peak memory on a machine that accumulates is usually **not** a function of how many
-records went past. It is a function of how many *distinct* things it had to hold ; 
+units went past. It is a function of how many *distinct* things it had to hold ;
 and that grows at a different rate. Fit against the wrong variable and you get an
 exponent that will not survive a change of input.
 
@@ -158,7 +176,7 @@ until the cluster bill arrives.
     dominated by something the workload does not move.
   </Accordion>
   <Accordion title="Declare faults if you want the projection to survive them" icon="cloud-bolt">
-    A killed machine's work is redone elsewhere, so a survivor absorbs its share ; 
+    A killed machine's work is redone elsewhere, so a survivor absorbs its share ;
     measured, that roughly doubles peak memory. A model fitted only on clean runs
     under-predicts by that much, and it under-predicts **optimistically**.
 

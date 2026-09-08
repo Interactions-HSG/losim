@@ -18,7 +18,7 @@ the design that survives all six is not the design that survives any one of them
 
     **Breaks:** the assumption that a peer you found is a peer you can reach.
 
-    You find out by running out of time. `cluster.serving(...)` stops listing it ; 
+    You find out by running out of time. `cluster.serving(...)` stops listing it ;
     but only from the next call, so work already dispatched still costs a full
     deadline.
 

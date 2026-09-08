@@ -31,8 +31,8 @@ build chose.
 `build/losim-toolchain.properties`:
 
 ```
-losim=1.5.0
-classpath=/.../losim-1.5.0.jar:/.../grpc-api-1.83.1.jar:...
+losim=2.0.0
+classpath=/.../losim-2.0.0.jar:/.../grpc-api-1.83.1.jar:...
 protoc=/.../build/losim/bin/protoc
 protoc-gen-grpc-java=/.../build/losim/bin/protoc-gen-grpc-java
 ```
@@ -42,7 +42,7 @@ in and nothing to configure: a directory is a lab if a build here declared a
 classpath, and it is that classpath that gets compiled and run against.
 
 <Warning>
-It names absolute paths on one machine, so it is generated and never committed ; 
+It names absolute paths on one machine, so it is generated and never committed ;
 `build/` is gitignored. Copy a working directory to another machine (which is what
 marking a submission is) and the file arrives naming a laptop that is not there.
 losim disregards it and says so, rather than reporting the code as broken; the fix
@@ -87,9 +87,9 @@ the tag in a header. No token, no rate limit, and nothing downloaded.
 
 ```
 1.4.0
-1.5.0 is released.
+2.0.0 is released.
 
-  Change losimVersion in build.gradle.kts to 1.5.0 and run ./losim.
+  Change losimVersion in build.gradle.kts to 2.0.0 and run ./losim.
   Nothing else moves: the viewer and the manual are inside the jar,
   and your scenarios, schema and Java are untouched by a version.
 ```

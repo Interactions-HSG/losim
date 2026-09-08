@@ -83,7 +83,7 @@ yourself is flagged.
 ## 4. The scenario is data, and it is checked before anything runs
 
 The cluster, its weather and its bad afternoon are a YAML file. Nothing in it is
-computed; anything that needs code points at a class by name. That is what lets two
+computed; anything that needs code points at a class by name. The is what lets two
 designs be compared by comparing two files.
 
 Everything that can be wrong is refused **at load, with the line it was written
@@ -113,7 +113,7 @@ two runs weeks apart stay comparable. [Full format ->](/ref/trace)
 
 A scenario in `mode: scaled` declares a size no laptop can hold. losim shrinks the
 workload **and the machines** by the same factor, runs what fits, and projects
-full-scale numbers from what it actually observed.
+full-scale numbers from what it observed.
 
 The projection is not a multiplication. The engine fits a law per resource against
 whichever variable that resource is really a function of, then tries to break it:

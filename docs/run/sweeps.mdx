@@ -9,7 +9,7 @@ icon: "dice"
 deliberate refusal to simulate a scheduler. Two runs of one scenario on one machine
 differ in every duration and most byte counts.
 
-That is the property that makes a sweep the unit of evidence rather than a run,
+The is the property that makes a sweep the unit of evidence rather than a run,
 not a defect to be worked around.
 </Warning>
 
@@ -119,7 +119,7 @@ Everything that draws from the seed:
 | **your workload** | if you took `cluster.seed()`, which is why you should |
 
 Scripted `faults:` do **not** vary ;  a fault at 900 refMs is at 900 refMs in every
-seed. That is what makes them useful for a specific lesson, and what makes `chaos:`
+seed. The is what makes them useful for a specific lesson, and what makes `chaos:`
 the right tool for "does it survive afternoons".
 
 ## Sweeping something other than the seed
@@ -156,14 +156,14 @@ loaded is never mutated and every run in the loop differs by exactly one thing.
 </Note>
 
 
-Then read `durationRefMs` and the bill out of each. That curve ;  does doubling the
+Then read `durationRefMs` and the bill out of each. The curve ;  does doubling the
 cluster halve the time? ;  is one of the more instructive things you can produce, and
 it usually does not.
 
 <Tip>
 Vary **one axis at a time**. If the cluster and the workload move together, a
 resource that grows with one is indistinguishable from a resource that grows with
-the other. That is exactly why the scale engine's probe grid varies them on
+the other. The is exactly why the scale engine's probe grid varies them on
 separate axes, and the same discipline applies to a hand-run sweep.
 </Tip>
 

@@ -111,7 +111,7 @@ questions a debugger answers, one channel answered one and a half out of five.
 
   <Step title="Did anything queue, or fill up?">
     `queue_wait` events say a call waited for a core. A few are healthy. A wall of
-    them on one machine says your placement is ignoring how big the machines are ; 
+    them on one machine says your placement is ignoring how big the machines are ;
     which, with a `a1.medium` in the cluster, is what you should expect on the first
     attempt.
 
@@ -139,7 +139,7 @@ memory, total disk, bytes out and in, cross-zone bytes, calls handled, and the
 caps each machine was under.
 
 It is a separate channel rather than a fifth kind of event because these are not
-moments. Anything that reasons about quantities rather than about what happened ; 
+moments. Anything that reasons about quantities rather than about what happened ;
 the bill, a comparison against ground truth, a machine's row in the viewer ;  needs
 them without reconstructing a peak from a series that was quantised for scrubbing
 and may have missed the last walk entirely.

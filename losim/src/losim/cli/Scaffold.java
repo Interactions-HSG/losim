@@ -29,7 +29,7 @@ final class Scaffold {
 
     /** What this jar calls itself, which is what an adopted project should ask for. */
     static String version() {
-        return Version.known() ? Version.get() : "1.5.0";
+        return Version.known() ? Version.get() : "2.0.0";
     }
 
     /**

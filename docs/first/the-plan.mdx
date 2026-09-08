@@ -1,10 +1,10 @@
 ---
 title: "1. The plan"
-description: "What we are building, and the four files it takes."
+description: "The cluster built in this tutorial and its four files."
 icon: "list-check"
 ---
 
-We are going to build a small cluster that makes thumbnails: a coordinator reads an
+Build a small cluster that makes thumbnails: a coordinator reads an
 album, hands batches of frames to whichever machines can shrink them, and collects
 the results. Then we are going to make its afternoon go badly and watch what
 happens.
@@ -48,11 +48,11 @@ yours to write.
 
 ```
   coordinator (m5.large, eu-central-1a)   runs the job
-      │
-      ├── w0  c5.large  eu-central-1a  ┐
-      ├── w1  c5.large  eu-central-1b  │  all four serve Thumbnailer
-      ├── w2  c5.large  eu-central-1a  │  so the job finds them by that,
-      └── w3  a1.medium eu-central-1b  ┘  never by name
+      |
+      +-- w0  c5.large  eu-central-1a  +
+      +-- w1  c5.large  eu-central-1b  |  all four serve Thumbnailer
+      +-- w2  c5.large  eu-central-1a  |  so the job finds them by that,
+      +-- w3  a1.medium eu-central-1b  +  never by name
 ```
 
 `w3` is deliberately the odd one out ;  **one core against everyone else's two**,

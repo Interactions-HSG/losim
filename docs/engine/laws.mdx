@@ -41,7 +41,7 @@ A variable that is not `units` is **itself fitted against units**:
 
 ```
 memoryMb      = f(distinctItems)
-distinctItems = g(records)
+distinctItems = g(units)
 ```
 
 So the projection composes two well-behaved laws instead of one fragile one. The
@@ -65,7 +65,7 @@ Not by R². In order:
     projected.
 
     Anything else has to earn its place by **halving** the variance the simpler
-    answer leaves unexplained. Otherwise a variable that is merely records-plus-a-
+    answer leaves unexplained. Otherwise a variable that is merely units-plus-a-
     constant wins on a hair of R² and then extrapolates its own offset as though it
     were growth.
   </Step>
@@ -120,7 +120,7 @@ printed beside the law when it is meaningfully above 1:
 
 ## The plan travels
 
-Every law, every variable-of-records law, every refusal and every solved cap is
+Every law, every variable-of-units law, every refusal and every solved cap is
 written into the trace ;  so `projected = f(observed)` is recomputable by whoever
 reads it, rather than a number they have to take on trust.
 

@@ -13,7 +13,7 @@ five real milliseconds and two hundred simulated ones.
 
 ## A declared cost is fixed per rpc
 
-`takes:` is a table in the scenario, so it is fixed per rpc. This is for a duration
+`takes:` is a table in the scenario, so it is fixed per rpc. The is for a duration
 **only the running program knows**: a backoff that grows with the attempt, a poll
 interval, a lease held until something else happens. No table can carry any of
 those, which is why both exist.
@@ -23,7 +23,7 @@ those, which is why both exist.
 Because `k_time` never touches it. `Thread.sleep(200)` waits two hundred
 milliseconds of *your afternoon*, which at a compression of forty is eight thousand
 milliseconds of the simulated world ;  the one duration in a run that does not move
-when the compression does. That is why the verifier flags it, and this is what it
+when the compression does. The is why the verifier flags it, and this is what it
 flags it in favour of.
 
 ## Waiting is not work, and two things follow
