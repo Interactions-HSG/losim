@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -66,7 +67,7 @@ public final class Scan {
      * @param line   the line its declaration is on, 1-based
      */
     public record Service(String name, String pkg, Path file, int line, boolean nested,
-                          String base) {
+                          String base, boolean entry) {
 
         /** What {@code runs:} has to say, which is a class and not a file. */
         public String qualified() { return pkg.isEmpty() ? name : pkg + "." + name; }
@@ -112,7 +113,6 @@ public final class Scan {
     public static Scan of(Path root) throws IOException {
         Scan s = new Scan(root.toAbsolutePath().normalize());
         s.read();
-        s.scaled();
         s.judge();
         return s;
     }
@@ -143,10 +143,11 @@ public final class Scan {
         }
         walk(".proto", protos);
         walk(".java", sources);
-        walk(".yaml", scenarios);
-        walk(".yml", scenarios);
+        walk(".yaml", simulations);
+        walk(".yml", simulations);
         for (Path p : protos) proto(p);
         for (Path p : sources) java(p);
+        for (Path p : simulations) yaml(p);
     }
 
     /**
@@ -250,10 +251,7 @@ public final class Scan {
     private static final Pattern PACKAGE = Pattern.compile(
             "(?m)^\\s*package\\s+([A-Za-z_$][\\w$.]*)\\s*;");
 
-    /** Classes that implement {@code Job} and not {@code Scalable}, by simple name. */
-    private final Set<String> plainJobs = new LinkedHashSet<>();
-
-    private final List<Path> scenarios = new ArrayList<>();
+    private final List<Path> simulations = new ArrayList<>();
 
     private void java(Path file) throws IOException {
         String text = Files.readString(file);
@@ -262,12 +260,15 @@ public final class Scan {
 
         Matcher m = IMPL_BASE.matcher(text);
         while (m.find()) {
+            // losim.Job is the one service losim ships, so a class extending its
+            // ImplBase is where a simulation starts. Distinguished from an
+            // assignment's own service called Job by the package it comes from,
+            // which is the only thing text can go on.
+            boolean entry = m.group(4).equals("Job")
+                    && (m.group(3).startsWith("losim.pb.") || text.contains("losim.pb"));
             services.add(new Service(m.group(2), in, file, lineOf(text, m.start()),
-                    !m.group(1).isEmpty(), m.group(3)));
+                    !m.group(1).isEmpty(), m.group(3), entry));
         }
-        Matcher j = PLAIN_JOB.matcher(text);
-        while (j.find()) if (!text.contains("Scalable")) plainJobs.add(j.group(1));
-
         Matcher b = BINDABLE.matcher(text);
         while (b.find()) {
             boolean alsoImplBase = services.stream()
@@ -312,18 +313,15 @@ public final class Scan {
                     new At(file, lineOf(text, at))));
             break;
         }
-        // The 2.0.0 break, caught before the compiler catches it — and with better
-        // words, because javac will only say the method does not exist.
-        for (String gone : List.of("cluster.records()", "cluster.units()")) {
-            int at = text.indexOf(gone);
-            if (at < 0) continue;
-            findings.add(new Finding(Kind.REFUSED, gone + " no longer exists",
-                    "a job that has a size implements losim.api.Scalable: it declares what"
-                    + " its input is made of, and is handed it. The number is then in the"
-                    + " scenario's input: block, where a sweep can vary it — read it with"
-                    + " at.count(\"...\"). AGENTS.md has the conversion.",
-                    new At(file, lineOf(text, at))));
-            break;
+        // The 3.0.0 break, caught before the compiler catches it — and with better
+        // words, because javac will only say the type does not exist. Every one of
+        // these is the same mistake: the thing that starts the work used to be a
+        // Java object losim constructed, and is now a service a node runs.
+        for (String[] gone : GONE_FROM_JAVA) {
+            Matcher g = Pattern.compile(gone[0]).matcher(text);
+            if (!g.find()) continue;
+            findings.add(new Finding(Kind.REFUSED, gone[1], gone[2],
+                    new At(file, lineOf(text, g.start()))));
         }
         for (String[] dead : DEAD_GIVEAWAYS) {
             int at = text.indexOf(dead[0]);
@@ -333,36 +331,221 @@ public final class Scan {
         }
     }
 
-    private static final Pattern PLAIN_JOB = Pattern.compile(
-            "class\\s+(\\w+)[^{]*\\bimplements\\b[^{]*\\bJob\\b");
+    /**
+     * What a 2.x assignment says, what to call it now, and why.
+     *
+     * <p>Matched as text, so a project that has not been compiled since the break
+     * is told what to do rather than handed a page of javac. Each is a refusal
+     * because none of these types exists: the run does not start.
+     */
+    private static final List<String[]> GONE_FROM_JAVA = List.of(
+            new String[]{"\\bimplements\\s+[^{]*\\bScalable\\b",
+                    "it implements losim.api.Scalable, which no longer exists",
+                    "what starts the work is a service now: extend"
+                    + " losim.pb.JobGrpc.JobImplBase and put what built the input in"
+                    + " Load, which runs off the clock. The sizes move to the"
+                    + " simulation's input: block. AGENTS.md has the conversion."},
+            new String[]{"\\bimplements\\s+[^{]*\\bJob\\b",
+                    "it implements losim.api.Job, which no longer exists",
+                    "what starts the work is a service now: extend"
+                    + " losim.pb.JobGrpc.JobImplBase, and a node runs it the way it runs"
+                    + " any other service. AGENTS.md has the conversion."},
+            new String[]{"\\bCluster\\b",
+                    "it uses losim.api.Cluster, which no longer exists",
+                    "everything Cluster offered is on Losim.current(): peersServing,"
+                    + " channelTo, node, seed, log. A Job is handed nothing, because it"
+                    + " is a handler like every other handler."},
+            new String[]{"\\bInput\\.Shape\\b|\\bInput\\.of\\(",
+                    "it declares an input shape, which no longer exists",
+                    "the simulation's input: block says source, unit and count, and"
+                    + " losim.Job's Load is handed all three already shrunk to the size"
+                    + " this run is doing."});
 
-    private static final Pattern SCENARIO_JOB = Pattern.compile("(?m)^job:\\s*(\\S+)");
-    private static final Pattern SCENARIO_SCALE = Pattern.compile("(?m)^scale:\\s*([0-9.]+)");
+    // ---------------------------------------------------------------------- yaml
 
     /**
-     * A scenario asking for a model, driven by a job that cannot be asked for more.
+     * One {@code key:} in a simulation, and the keys it is written inside.
      *
-     * <p>Not wrong — it is refused at the run, loudly and with the line. It is here
-     * because {@code losim check} answers before the first build, and this is the
-     * one thing a lab mid-migration will hit that costs it every scaled run it has.
+     * @param path  the enclosing keys, outermost first — {@code [nodes, w9, runs]}
+     * @param value what followed the colon on the same line, or "" for a block
      */
-    private void scaled() throws IOException {
-        for (Path file : scenarios) {
-            String text = Files.readString(file);
-            Matcher job = SCENARIO_JOB.matcher(text);
-            Matcher scale = SCENARIO_SCALE.matcher(text);
-            if (!job.find() || !scale.find()) continue;
-            if (Double.parseDouble(scale.group(1)) <= 1) continue;
-            String named = job.group(1);
-            String bare = named.substring(named.lastIndexOf('.') + 1);
-            if (!plainJobs.contains(bare)) continue;
-            findings.add(new Finding(Kind.MISSING, bare + " cannot be run at another size",
-                    "this scenario is a model of " + scale.group(1) + " times the run, and a"
-                    + " plain losim.api.Job has no way of being asked to do more — its size"
-                    + " is a constant in its own Java. Implement losim.api.Scalable and put"
-                    + " the sizes in an input: block. AGENTS.md has the conversion.",
-                    new At(file, lineOf(text, job.start()))));
+    private record Key(List<String> path, String name, String value, int line) {}
+
+    /**
+     * Every key in a YAML file, by indentation, with what it is written inside.
+     *
+     * <p>Not a YAML parser and not trying to be. It reads what indentation says,
+     * which is all these detectors ask: whether a key is at the top level, which
+     * service a {@code failures:} block belongs to, and whether a {@code runs:} was
+     * written as a list. Anything it misreads it misreads into saying nothing,
+     * because a path it could not follow matches no rule below.
+     */
+    private static final Pattern YAML_KEY =
+            Pattern.compile("^(\\s*)([A-Za-z_][\\w.\\-]*)\\s*:\\s*(.*?)\\s*$");
+    private static final Pattern YAML_ITEM = Pattern.compile("^(\\s*)-\\s*(.*?)\\s*$");
+
+    private static List<Key> keys(String text) {
+        var out = new ArrayList<Key>();
+        var stack = new ArrayList<int[]>();          // indent of each open key
+        var names = new ArrayList<String>();
+        String[] lines = text.split("\n", -1);
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i];
+            String bare = line.strip();
+            if (bare.isEmpty() || bare.startsWith("#")) continue;
+
+            Matcher item = YAML_ITEM.matcher(line);
+            if (item.matches()) {
+                // A list item under whatever key is open. Recorded as a key named
+                // "-" so a rule can ask whether a block is a list without having to
+                // look at the raw lines again.
+                int indent = item.group(1).length();
+                while (!stack.isEmpty() && stack.get(stack.size() - 1)[0] >= indent) {
+                    stack.remove(stack.size() - 1);
+                    names.remove(names.size() - 1);
+                }
+                out.add(new Key(List.copyOf(names), "-", item.group(2), i + 1));
+                continue;
+            }
+
+            Matcher m = YAML_KEY.matcher(line);
+            if (!m.matches()) continue;
+            int indent = m.group(1).length();
+            while (!stack.isEmpty() && stack.get(stack.size() - 1)[0] >= indent) {
+                stack.remove(stack.size() - 1);
+                names.remove(names.size() - 1);
+            }
+            out.add(new Key(List.copyOf(names), m.group(2), m.group(3), i + 1));
+            stack.add(new int[]{indent});
+            names.add(m.group(2));
         }
+        return out;
+    }
+
+    /**
+     * Top-level keys 3.0 deleted, and what to write instead.
+     *
+     * <p>Refusals rather than warnings because the loader refuses them too: it
+     * allows six keys and names the line of any seventh. This says the same thing
+     * before the first build, which is where somebody converting a lab is standing.
+     */
+    private static final Map<String, String> GONE_FROM_YAML = Map.of(
+            "job", "A node runs it: `runs: { losim.Job: src/YourJob.java }`. Which node"
+                 + " the work starts on is the system's own arrangement, not a key that"
+                 + " selects among several.",
+            "start", "A node runs it: `runs: { losim.Job: src/YourJob.java }`.",
+            "mode", "There is nothing left to select. `scale: 1` is a direct simulation,"
+                  + " and anything above it is a model of one.",
+            "machines", "It is `nodes:`. A machine is what Lecture 1 calls a node.",
+            "takes", "It is `simulatedDuration:`, keyed on the .java file rather than the"
+                   + " class, with fixed: and perUnit: carrying their units in the value.",
+            "chaos", "It is `failures:`, written inside the node it happens to, with per:"
+                   + " for a standing rate and at: for one instant.",
+            "faults", "It is `failures:`, written inside the node it happens to, with at:"
+                    + " for one instant and per: for a standing rate.",
+            "tightMargin", "Nothing replaces it. It was a comment the loader read, and a"
+                         + " comment is a comment.");
+
+    private void yaml(Path file) throws IOException {
+        String text = Files.readString(file);
+        List<Key> keys = keys(text);
+
+        for (Key k : keys) {
+            if (!k.path().isEmpty()) continue;
+            String instead = GONE_FROM_YAML.get(k.name());
+            if (instead == null) continue;
+            findings.add(new Finding(Kind.REFUSED, k.name() + ": is not read any more",
+                    instead, new At(file, k.line())));
+        }
+
+        for (Key k : keys) {
+            if (k.name().equals("runs")) runs(file, keys, k);
+            if (k.name().equals("-") && k.path().size() >= 1
+                    && k.path().get(k.path().size() - 1).equals("runs")) {
+                findings.add(new Finding(Kind.REFUSED, "runs: is written as a list",
+                        "it is a map from the service name a peer is found by to the"
+                        + " .java file that implements it —"
+                        + " `runs: { Thumbnailer: src/Shrinker.java }`. A list names one"
+                        + " thing where two are needed, and neither of them is the one"
+                        + " peersServing looks up.", new At(file, k.line())));
+            }
+            failures(file, keys, k);
+        }
+    }
+
+    private static final Pattern INLINE = Pattern.compile("([\\w.]+)\\s*:\\s*([^,{}]+)");
+
+    /** Each service a {@code runs:} places, and the file it says implements it. */
+    private void runs(Path file, List<Key> keys, Key runs) {
+        var placed = new ArrayList<Key>();
+        if (runs.value().startsWith("{")) {
+            Matcher m = INLINE.matcher(runs.value());
+            while (m.find()) placed.add(new Key(List.of(), m.group(1), m.group(2).strip(),
+                                               runs.line()));
+        } else if (runs.value().startsWith("[")) {
+            findings.add(new Finding(Kind.REFUSED, "runs: is written as a list",
+                    "it is a map from the service name a peer is found by to the .java"
+                    + " file that implements it —"
+                    + " `runs: { Thumbnailer: src/Shrinker.java }`.",
+                    new At(file, runs.line())));
+            return;
+        } else {
+            for (Key k : keys) if (under(k, runs)) placed.add(k);
+        }
+        for (Key k : placed) {
+            // A list item is not a placement of anything — the list itself is the
+            // mistake, and it is refused once rather than once per entry.
+            if (k.name().equals("-")) continue;
+            // The longhand: `Service:` with `file:` and `failures:` beneath it. The
+            // path is what says which, so nothing here has to guess.
+            if (k.value().isEmpty()) continue;
+            if (k.value().endsWith(".java")) continue;
+            findings.add(new Finding(Kind.REFUSED, k.name() + " is placed as "
+                    + k.value() + ", which is not a .java file",
+                    "runs: names the file that implements the service, relative to the"
+                    + " project root — src/Shrinker.java, not a class. losim reads the"
+                    + " file's package line to find the class, so one string names one"
+                    + " piece of code and there is no second way to spell it.",
+                    new At(file, k.line())));
+        }
+    }
+
+    /**
+     * An rpc that a {@code failures:} block names and its service does not serve.
+     *
+     * <p>The first of three answers to the same question, and the only one that
+     * answers before the project compiles. The loader cannot: it never loads a
+     * class, so it records the name and defers. {@code Machines} can, and does, by
+     * asking the bound server what it actually serves — which is why a typo is
+     * caught early here and is impossible to run past there.
+     */
+    private void failures(Path file, List<Key> keys, Key block) {
+        if (!block.name().equals("failures")) return;
+        List<String> path = block.path();
+        // Rpc level, and only rpc level: [nodes, <node>, runs, <service>, failures].
+        // A node's own failures: is a list and its path ends at the node.
+        if (path.size() < 2 || !path.get(path.size() - 2).equals("runs")) return;
+        String service = path.get(path.size() - 1);
+        var served = rpcs.stream().filter(r -> r.service().equals(service))
+                .map(Rpc::name).toList();
+        if (served.isEmpty()) return;             // no .proto for it here to be sure with
+        for (Key k : keys) {
+            if (!under(k, block) || k.name().equals("-")) continue;
+            if (served.contains(k.name())) continue;
+            findings.add(new Finding(Kind.REFUSED, service + " serves no rpc called "
+                    + k.name(),
+                    "it serves " + String.join(", ", served) + ". A failure that belongs"
+                    + " to nothing is a failure that quietly never fires, so it is a"
+                    + " refusal rather than a warning.", new At(file, k.line())));
+        }
+    }
+
+    /** Whether {@code k} is written directly inside {@code parent}. */
+    private static boolean under(Key k, Key parent) {
+        List<String> inside = k.path();
+        if (inside.size() != parent.path().size() + 1) return false;
+        if (!inside.get(inside.size() - 1).equals(parent.name())) return false;
+        return inside.subList(0, parent.path().size()).equals(parent.path());
     }
 
     // -------------------------------------------------------------------- judging
@@ -403,6 +586,14 @@ public final class Scan {
                     + " server, its channel, its statics — is read as this service's."
                     + " Move it to a file of its own.",
                     new At(s.file(), s.line())));
+        }
+        if (!services.isEmpty() && services.stream().noneMatch(Service::entry)) {
+            findings.add(new Finding(Kind.MISSING, "nothing here implements losim.Job",
+                    "a simulation starts when losim calls Job.Run on the one node that"
+                    + " runs it, so until some class extends losim.pb.JobGrpc.JobImplBase"
+                    + " there is nothing to start. Load builds the workload off the"
+                    + " clock; Run is the simulation. AGENTS.md has the conversion.",
+                    null));
         }
         boolean anyIdempotent = rpcs.stream().anyMatch(Rpc::idempotent);
         if (!rpcs.isEmpty() && !anyIdempotent) {

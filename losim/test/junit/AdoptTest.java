@@ -100,18 +100,24 @@ class AdoptTest {
     }
 
     @Test
-    @DisplayName("a call to cluster.records() will not run, and a scaled plain Job merely will not scale")
+    @DisplayName("a lab from before 3.0 is refused in Java and in YAML, and told what to write")
     void theBreak() throws Exception {
         Scan s = scaled();
-        assertTrue(saw(s, Scan.Kind.REFUSED, "cluster.records() no longer exists"),
-                "a method that is gone is a project that will not compile, not a hint");
-        // And the second one is deliberately *not* refused. The run does happen; it
-        // is the model that cannot be built, which is a different sentence and a
-        // different heading in the report.
-        assertTrue(saw(s, Scan.Kind.MISSING, "Filler cannot be run at another size"),
-                "a scenario asking for a model of forty times the run, driven by a plain Job");
-        assertFalse(saw(s, Scan.Kind.REFUSED, "cannot be run at another size"),
-                "a plain Job under a scaled scenario runs — it just cannot be modelled");
+        // Both halves, because a project converted in only one of them is the
+        // ordinary half-done state and the report has to name what is left.
+        assertTrue(saw(s, Scan.Kind.REFUSED, "implements losim.api.Job"),
+                "a type that is gone is a project that will not compile, not a hint");
+        assertTrue(saw(s, Scan.Kind.REFUSED, "losim.api.Cluster"),
+                "and what the job was handed is gone with it");
+        assertTrue(saw(s, Scan.Kind.REFUSED, "job: is not read any more"),
+                "the key that named it is gone too, and the file says so before javac does");
+
+        // Everything above is a refusal. A project part-way through this is not
+        // running at all, so nothing here may come back as merely worth doing —
+        // that heading is for a run that happens and is less than it could be.
+        assertTrue(s.of(Scan.Kind.MISSING).stream()
+                        .noneMatch(f -> String.valueOf(f.what()).contains("losim.api")),
+                "a deleted type is refused, never suggested");
     }
 
     @Test
