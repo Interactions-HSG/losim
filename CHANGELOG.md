@@ -12,12 +12,14 @@ rather than about a branch. Every release is cut from a tag whose name and
 failed before publishing anything, so there is no 3.0.0 jar and never was. Coming
 from 2.x, this is the release that carries the 3.0 break.
 
-<b>Everything in the 3.0.0 section below applies to this release.</b> It is a hard
-break: `losim.api.Job`, `Scalable`, `Cluster` and `Input.Shape` are deleted rather
-than deprecated, `machines:` is `nodes:`, `faults:` and `chaos:` are one `failures:`
-list written inside whatever it happens to, `takes:` is `simulatedDuration:`, and
-`losim run` and `losim diff` are refused with the new name printed. Read it before
-changing `losimVersion`. A project pinned to 2.x keeps resolving and is untouched.
+**Everything in the 3.0.0 section of
+[CHANGELOG.md](https://github.com/Interactions-HSG/losim/blob/v3.0.1/CHANGELOG.md)
+applies to this release.** It is a hard break: `losim.api.Job`, `Scalable`,
+`Cluster` and `Input.Shape` are deleted rather than deprecated, `machines:` is
+`nodes:`, `faults:` and `chaos:` are one `failures:` list written inside whatever
+it happens to, `takes:` is `simulatedDuration:`, and `losim run` and `losim diff`
+are refused with the new name printed. Read it before changing `losimVersion`. A
+project pinned to 2.x keeps resolving and is untouched.
 
 What 3.0.1 changes on top of that:
 
