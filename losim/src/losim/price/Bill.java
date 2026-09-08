@@ -43,7 +43,7 @@ public final class Bill {
 
     public static Both of(Map<String, Object> trace, PriceList prices) {
         var meta = sub(trace, "meta");
-        var machines = rows(trace, "machines");
+        var machines = rows(trace, "nodes");
         var events = rows(trace, "events");
         boolean scaled = "scaled".equals(meta.get("mode"));
 

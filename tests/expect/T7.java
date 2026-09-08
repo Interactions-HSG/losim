@@ -46,7 +46,7 @@ public final class T7 {
 
         // And what was not declared safe never got as far as running.
         String refused = Expect.text(args.length > 1 ? args[1] : "");
-        e.check(refused.contains("t7-unsafe.yaml:13:") && refused.contains("lab.Volley.Hit"),
+        e.check(refused.contains("t7-unsafe.yaml:12:") && refused.contains("lab.Volley.Hit"),
                 "the policy on a method the schema does not call safe was refused with the "
                 + "line it was written on, before a single call was made — a duplicate write "
                 + "discovered in a trace is a much worse way to find this out");

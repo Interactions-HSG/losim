@@ -20,18 +20,31 @@ public final class Trace {
     /**
      * Bumped only when a shape changes incompatibly, which is meant never to happen.
      *
-     * <p>The machine totals carry {@code losimStops}, not {@code losimRegions}:
-     * {@code egressMb} already keys its entries by region — a place — so a field
-     * on the same object also called "region" would carry two different senses
-     * of the word.
+     * <p>It has happened twice. At 3 the machine totals gained
+     * {@code losimStops}, not {@code losimRegions}: {@code egressMb} already keys
+     * its entries by region — a place — so a field on the same object also called
+     * "region" would carry two different senses of the word.
+     *
+     * <p>At <b>4</b> the driver object went away. The channel of per-node totals
+     * is called {@code nodes} rather than {@code machines}; {@code meta.job} —
+     * the name of a class — becomes {@code meta.entry}, the node that runs
+     * {@code losim.Job}; {@code meta.scenario} becomes {@code meta.simulation};
+     * {@code job_failed} becomes {@code failed}; and the {@code job}, {@code
+     * phase} and {@code compute} span kinds are gone, leaving {@code rpc} and
+     * {@code handler}. The {@code losim.Job/Run} handler span is the root.
+     *
+     * <p>This is the escape hatch to the extend-additively rule, used
+     * deliberately and once. {@code losim compare} reads this number first and
+     * refuses to say anything else when two traces disagree on it, which is the
+     * only reason a rename is survivable at all.
      */
-    public static final int SCHEMA_VERSION = 3;
+    public static final int SCHEMA_VERSION = 4;
 
     private final Map<String, Object> meta = new LinkedHashMap<>();
     private final List<Telemetry.Event> events = new ArrayList<>();
     private final List<Telemetry.Span> spans = new ArrayList<>();
     private final Map<String, Telemetry.Series> series = new TreeMap<>();
-    private final List<Map<String, Object>> machines = new ArrayList<>();
+    private final List<Map<String, Object>> nodes = new ArrayList<>();
     private double[] sampleTimes = new double[0];
     private double sampleDtMs;
 
@@ -47,7 +60,7 @@ public final class Trace {
      * them without having to reconstruct a peak from a sampled series that was
      * quantised for scrubbing and may have missed the last walk entirely.
      */
-    public Trace machine(Map<String, Object> totals) { machines.add(totals); return this; }
+    public Trace node(Map<String, Object> totals) { nodes.add(totals); return this; }
 
     /** Takes everything a recorder holds. Ordered by time, so a reader can scrub. */
     public static Trace of(Telemetry tel) {
@@ -140,7 +153,7 @@ public final class Trace {
         }
         ser.put("channels", channels);
         root.put("series", ser);
-        root.put("machines", machines);
+        root.put("nodes", nodes);
 
         return Json.write(root);
     }

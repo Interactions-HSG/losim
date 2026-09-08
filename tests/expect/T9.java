@@ -19,7 +19,18 @@ public final class T9 {
         // Every server span opened under the client span of the call that reached it,
         // and that client span belongs to a different machine. Both halves matter: the
         // first is causality, the second is that it crossed a boundary to get there.
-        var handlers = e.spansOf("handler");
+        // losim.Job/Run apart: it is the root, because losim called it from outside
+        // the system and there is no client span above it. Everything else in the
+        // trace hangs beneath it.
+        var roots = e.spansOf("handler").stream()
+                .filter(s -> String.valueOf(s.get("label")).startsWith("losim.Job")).toList();
+        e.check(roots.size() == 1 && Expect.lng(roots.get(0).get("parent")) == 0,
+                "the losim.Job/Run handler is the one root — there is no separate span kind "
+                + "for the thing that starts the work, because it is an ordinary handler on "
+                + "an ordinary node");
+
+        var handlers = e.spansOf("handler").stream()
+                .filter(s -> !String.valueOf(s.get("label")).startsWith("losim.Job")).toList();
         int crossed = 0;
         var orphans = new ArrayList<String>();
         for (var h : handlers) {
@@ -30,7 +41,7 @@ public final class T9 {
         e.check(orphans.isEmpty(), handlers.size() + " server spans, every one of them opened "
                 + "under the call that reached it" + (orphans.isEmpty() ? "" : " — except " + orphans));
         e.check(crossed == handlers.size(),
-                "and in every case the parent is on another machine (" + crossed + "/"
+                "and in every case the parent is on another node (" + crossed + "/"
                 + handlers.size() + ") — which is what makes it a distributed call stack "
                 + "rather than a local one that happens to nest");
 

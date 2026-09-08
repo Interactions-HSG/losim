@@ -95,10 +95,7 @@ public record Grid(List<List<Probe>> dataLadder,
     }
 
     /** The cluster the scenario declares: every machine that serves something. */
-    static int workersIn(Scenario s) {
-        long serving = s.nodes().stream().filter(m -> !m.runs().isEmpty()).count();
-        return (int) Math.max(1, serving);
-    }
+    static int workersIn(Scenario s) { return s.workers(); }
 
     /** How many runs this grid cost. Worth saying out loud, since the plan is cached on it. */
     public int runs() {

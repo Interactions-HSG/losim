@@ -1,9 +1,13 @@
 import io.grpc.StatusRuntimeException;
+import io.grpc.stub.StreamObserver;
 import java.util.concurrent.TimeUnit;
 import lab.pb.Chunk;
 import lab.pb.WorkerGrpc;
-import losim.api.Cluster;
-import losim.api.Job;
+import losim.api.Losim;
+import losim.pb.Input;
+import losim.pb.JobGrpc;
+import losim.pb.Result;
+import losim.pb.Workload;
 
 /**
  * Asks for something that takes 500 refMs and waits 200 for it.
@@ -13,9 +17,15 @@ import losim.api.Job;
  * 10 ms and the handler really sleeps 25. Both sides compressed by the same factor
  * means the lesson — this deadline is too short — survives the compression.
  */
-public final class Impatient implements Job {
-    @Override public void run(Cluster cluster) {
-        var channel = cluster.channelTo("srv");
+public final class Impatient extends JobGrpc.JobImplBase {
+
+    @Override public void load(Input in, StreamObserver<Workload> out) {
+        out.onNext(Workload.newBuilder().setCount(in.getCount()).build());
+        out.onCompleted();
+    }
+
+    @Override public void run(Workload work, StreamObserver<Result> out) {
+        var channel = Losim.current().channelTo("srv");
         var request = Chunk.newBuilder().setText("anything").setLines(1).build();
 
         // Twice. The first call through a channel pays for every class on the path
@@ -32,6 +42,7 @@ public final class Impatient implements Job {
                 outcome = "gave up: " + e.getStatus().getCode();
             }
         }
-        cluster.done(outcome);
+        out.onNext(Result.newBuilder().putAnswer("outcome", outcome).build());
+        out.onCompleted();
     }
 }

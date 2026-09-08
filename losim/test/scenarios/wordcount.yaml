@@ -3,10 +3,10 @@
 # scenario where nothing goes wrong tests nothing worth testing.
 
 seed: 7
-job: WordCountJob
 
 nodes:
   master:
+    runs: { losim.Job: losim/test/src/WordCountJob.java }
     instance: m5.large
     zone: eu-central-1a
 

@@ -51,9 +51,8 @@ public class Phase2 {
      * to the end of a file any more — which is the point of moving them.
      */
     static String workers(String extra) {
-        return "job: NoopJob\n"
-             + "nodes:\n"
-             + "  master: { instance: m5.large, zone: z }\n"
+        return "nodes:\n"
+             + "  master: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/WaitJob.java } }\n"
              + "  workers:\n"
              + "    count: 2\n"
              + "    prefix: w\n"
@@ -66,9 +65,8 @@ public class Phase2 {
     }
 
     static final String CLUSTER = """
-        job: NoopJob
         nodes:
-          master: { instance: m5.large, zone: z }
+          master: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/NoopJob.java } }
           workers: { count: 2, prefix: w, instance: m5.large, zone: z, runs: { Volley: losim/test/src/Pinger.java } }
         simulatedDuration:
           losim/test/src/Pinger.java: { Hit: { fixed: 1 refMs } }
@@ -88,10 +86,9 @@ public class Phase2 {
         System.out.println("=== a handler calling another machine ===");
         var result = Run.of(Loader.of(Yaml.parse("forward.yaml", """
             seed: 3
-            job: ForwardJob
             network: { sameZone: 20 refMs }
             nodes:
-              master: { instance: m5.large, zone: z }
+              master: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/ForwardJob.java } }
               front:  { instance: m5.large, zone: z, runs: { Worker: losim/test/src/Forwarder.java } }
               back:   { instance: m5.large, zone: z, runs: { Worker: losim/test/src/Counter.java } }
             simulatedDuration:
@@ -184,35 +181,30 @@ public class Phase2 {
         // be a run that started and then could not find a class.
         refuses("a runs: value that is not a .java file",
                 """
-                job: NoopJob
                 nodes:
                   w0: { instance: m5.large, zone: z, runs: { Worker: Counter } }
                 """,
                 "is not a .java file");
         refuses("a .java file that is not there",
                 """
-                job: NoopJob
                 nodes:
                   w0: { instance: m5.large, zone: z, runs: { Worker: src/Nowhere.java } }
                 """,
                 "there is no file at");
         refuses("a file whose class is not named after it",
                 """
-                job: NoopJob
                 nodes:
                   w0: { instance: m5.large, zone: z, runs: { Worker: losim/test/src/NotItsOwnName.java } }
                 """,
                 "declares no type called NotItsOwnName");
         refuses("runs: written as a list, which says only half of what it has to",
                 """
-                job: NoopJob
                 nodes:
                   w0: { instance: m5.large, zone: z, runs: [Counter] }
                 """,
                 "names a service and the .java file that implements it");
         refuses("the same node declared twice",
                 """
-                job: NoopJob
                 nodes:
                   w0: { instance: m5.large, zone: z }
                   pool: { count: 1, prefix: w, instance: m5.large, zone: z }
@@ -249,7 +241,6 @@ public class Phase2 {
     static void pools() {
         System.out.println("=== pools, and the deliberate straggler ===");
         var s = Loader.of(Yaml.parse("scenario.yaml", """
-                job: NoopJob
                 nodes:
                   master: { instance: m5.large, zone: eu-a }
                   workers:
@@ -319,9 +310,8 @@ public class Phase2 {
         Pinger.HITS.set(0);
         Pinger.failFirst = 2;
         var result = Run.of(Loader.of(Yaml.parse("scenario.yaml", """
-                job: RetryJob
                 nodes:
-                  master: { instance: m5.large, zone: z }
+                  master: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/RetryJob.java } }
                   workers: { count: 1, prefix: w, instance: m5.large, zone: z, runs: { Volley: losim/test/src/Pinger.java } }
                 retries:
                   - { method: Volley.Poll, attempts: 4, backoff: 20 refMs, multiplier: 2 }
@@ -360,10 +350,9 @@ public class Phase2 {
     static void failures() throws Exception {
         System.out.println("=== every failure lands where the simulation put it ===");
         var result = Run.of(Loader.of(Yaml.parse("scenario.yaml", """
-                job: WaitJob
                 seed: 3
                 nodes:
-                  master: { instance: m5.large, zone: z }
+                  master: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/WaitJob.java } }
                   workers:
                     count: 4
                     prefix: w
@@ -431,10 +420,9 @@ public class Phase2 {
                 workers("    failures:\n      - { degrade: 4, at: 1 refSeconds, for: 200 refMs }\n"),
                 "does nothing to a degrade");
 
-        String yaml = "job: WaitJob\n"
-                    + "seed: %d\n"
+        String yaml = "seed: %d\n"
                     + "nodes:\n"
-                    + "  master: { instance: m5.large, zone: z }\n"
+                    + "  master: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/WaitJob.java } }\n"
                     + "  workers:\n"
                     + "    count: 6\n"
                     + "    prefix: w\n"
@@ -481,10 +469,9 @@ public class Phase2 {
 
     /** The same cluster, with something wrong with one rpc on the workers. */
     static String badRpc(String rules) {
-        return "job: WaitJob\n"
-             + "seed: 4\n"
+        return "seed: 4\n"
              + "nodes:\n"
-             + "  master: { instance: m5.large, zone: z }\n"
+             + "  master: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/WaitJob.java } }\n"
              + "  workers:\n"
              + "    count: 2\n"
              + "    prefix: w\n"
@@ -553,9 +540,8 @@ public class Phase2 {
     static void disk() throws Exception {
         System.out.println("=== a full disk refuses the write ===");
         var result = Run.of(Loader.of(Yaml.parse("scenario.yaml", """
-                job: WordCountJob
                 nodes:
-                  master: { instance: m5.large, zone: z }
+                  master: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/WordCountJob.java } }
                   workers:
                     count: 2
                     prefix: w
@@ -601,8 +587,12 @@ public class Phase2 {
         // it has answered, so there is no reduce to it to fail. Both are the
         // coordinator coping with a machine that is not there, and asserting only
         // the one a fast laptop produces is asserting the speed of the laptop.
-        boolean redid = tel.spans().stream().anyMatch(s -> s.kind.equals("compute")
-                && s.label.startsWith("local merge"));
+        // Read off the coordinator's own narration rather than off a span kind.
+        // It used to be a `compute` span, which existed because a driver object
+        // running outside every call had no span of its own; the merge now happens
+        // inside the losim.Job/Run handler, where the node is already busy for it.
+        boolean redid = tel.events().stream().anyMatch(e -> e.kind().equals("log")
+                && String.valueOf(e.detail().get("message")).startsWith("reducer"));
         boolean without = tel.events().stream().anyMatch(e -> e.kind().equals("log")
                 && String.valueOf(e.detail().get("message")).startsWith("map on"));
         System.out.printf("    it coped by %s%n", redid
@@ -612,14 +602,17 @@ public class Phase2 {
               "and coped with the machine that was not there, rather than losing the answer");
         check(tel.events().stream().anyMatch(e -> e.kind().equals("oom")),
               "the machine too small for its bucket ran out of memory, in its own code");
+        // One level down, because the answer is a losim.Result now and the map is
+        // its `answer` field. Structural either way: the point was never the string.
         var answer = tel.events().stream().filter(e -> e.kind().equals("done")).findFirst();
-        check(answer.isPresent() && answer.get().detail().get("value") instanceof Map<?, ?> m
-              && m.size() == 10,
-              "and the job still produced the right answer");
+        Object counts = answer.isPresent() && answer.get().detail().get("value") instanceof Map<?, ?> v
+                ? v.get("answer") : null;
+        check(counts instanceof Map<?, ?> m && m.size() == 10,
+              "and the simulation still produced the right answer");
         var json = result.trace().toJson();
         check(json.contains("\"spans\"") && json.contains("\"series\"")
-              && json.contains("\"scenario\""),
-              "the trace carries all three channels and the scenario it came from ("
+              && json.contains("\"simulation\""),
+              "the trace carries all three channels and the simulation it came from ("
               + json.length() / 1024 + " KB)");
         System.out.println();
     }

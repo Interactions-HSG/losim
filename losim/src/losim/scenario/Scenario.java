@@ -20,26 +20,17 @@ import losim.runtime.Retry;
 public record Scenario(
         String file,
         long seed,
-        String job,
-        /**
-         * Where {@code job:} was written, for the refusals that are about the class
-         * rather than the line — that it is not {@link losim.api.Scalable} when the
-         * scenario asks for a model, that its input has a part this file never
-         * sized. The loader never loads a class, so those questions are asked once
-         * the run has one, and they still have to read like every other refusal in
-         * the file.
-         */
-        String jobWhere,
         double scale,
         long units,
         /**
-         * How big each part of the input is, in the order the file names them.
+         * The workload: where it comes from, what one item is, and how many.
          *
-         * <p>The job says what its input is made of; this says how much. Checked
-         * against the job's own {@code shape()} at load, so a part named here that
-         * the job does not consume is refused with its line rather than ignored.
+         * <p>Three fields and no more. There is exactly one number the engine
+         * varies, so there is exactly one number to write — the shape of the data
+         * is the Job's business, declared in its own {@code .proto} and built by
+         * its own {@code Load}, where a simulation has nothing to say about it.
          */
-        List<InputSize> input,
+        InputSpec input,
         List<NodeSpec> nodes,
         NetSpec net,
         List<Retry> retries,
@@ -54,7 +45,6 @@ public record Scenario(
          * with the line it was written on.
          */
         Map<String, Cost> simulatedDuration,
-        boolean tightMargin,
         Mode mode) {
 
     /**
@@ -107,8 +97,11 @@ public record Scenario(
      * The size this design is meant to handle.
      *
      * <p>Scale 1 is not a scale model of anything — it is the run itself, and the
-     * run is whatever the job does with the one record it is given. That is what a
-     * scenario saying nothing about scale has always got, and it stays that way.
+     * work it does is exactly the {@code count:} the file wrote. That is what a
+     * simulation saying nothing about scale gets, and it is how a full-size run is
+     * written: no {@code scale:} key at all. Naming a scale and then asking for the
+     * whole of it used to need a {@code mode:} saying so, which was a second way to
+     * say what {@code scale:} already says, and the two could disagree.
      *
      * <p>Above 1 the scenario is a model of something bigger, and then the size is
      * {@code scale} times {@link #BASE} — the biggest run the engine can actually
@@ -128,8 +121,31 @@ public record Scenario(
      * to whichever one happened to move with it.
      */
     public List<Integer> workerCounts() {
-        int declared = (int) nodes.stream().filter(m -> !m.runs().isEmpty()).count();
+        int declared = workers();
         return List.of(Math.max(2, declared / 2), Math.max(3, declared));
+    }
+
+    /**
+     * How many workers this system has.
+     *
+     * <p><b>Not the node that runs {@code losim.Job}.</b> That one starts the work
+     * and is not a worker, and counting it as one is not a rounding error: the data
+     * ladder would be climbed on a cluster one node larger than the design, and
+     * every per-node peak — disk, memory — would come out proportionally low. The
+     * projection is then quietly optimistic about exactly the resources a design
+     * runs out of.
+     *
+     * <p>It was invisible until 3.0 because the thing that started the work was a
+     * driver object that ran on a node without being placed there, so a
+     * coordinator's {@code runs:} was genuinely empty. Two places asked this
+     * question and both got it wrong the same way; this is the only place that
+     * asks it now.
+     */
+    public int workers() {
+        return (int) Math.max(1, nodes.stream()
+                .filter(m -> !m.runs().isEmpty())
+                .filter(m -> !m.runs().containsKey(losim.pb.JobGrpc.SERVICE_NAME))
+                .count());
     }
 
     /**
@@ -157,19 +173,19 @@ public record Scenario(
     // system is — in one place, and makes the grid's axes explicit.
 
     public Scenario withSeed(long seed) {
-        return new Scenario(file, seed, job, jobWhere, scale, units, input, nodes,
-                net, retries, simulatedDuration, tightMargin, mode);
+        return new Scenario(file, seed, scale, units, input, nodes,
+                net, retries, simulatedDuration, mode);
     }
 
     /** The run size the engine solved for, replacing the full-scale one. */
     public Scenario withUnits(long n) {
-        return new Scenario(file, seed, job, jobWhere, scale, n, input, nodes,
-                net, retries, simulatedDuration, tightMargin, mode);
+        return new Scenario(file, seed, scale, n, input, nodes,
+                net, retries, simulatedDuration, mode);
     }
 
     public Scenario withMode(Mode m) {
-        return new Scenario(file, seed, job, jobWhere, scale, units, input, nodes,
-                net, retries, simulatedDuration, tightMargin, m);
+        return new Scenario(file, seed, scale, units, input, nodes,
+                net, retries, simulatedDuration, m);
     }
 
     /**
@@ -188,8 +204,8 @@ public record Scenario(
             out.add(new NodeSpec(m.name(), m.pool(), m.instance(), m.zone(), runs,
                     List.of(), m.memoryCapMb(), m.diskCapMb(), m.where()));
         }
-        return new Scenario(file, seed, job, jobWhere, scale, units, input, out,
-                net, retries, simulatedDuration, tightMargin, mode);
+        return new Scenario(file, seed, scale, units, input, out,
+                net, retries, simulatedDuration, mode);
     }
 
     /**
@@ -234,8 +250,8 @@ public record Scenario(
                     : new NodeSpec(m.name(), m.pool(), m.instance(), m.zone(), m.runs(),
                             live, m.memoryCapMb(), m.diskCapMb(), m.where());
         });
-        return new Scenario(file, seed, job, jobWhere, scale, units, input, out,
-                net, retries, simulatedDuration, tightMargin, mode);
+        return new Scenario(file, seed, scale, units, input, out,
+                net, retries, simulatedDuration, mode);
     }
 
     /** The same cluster with caps the engine solved for, per machine, per resource. */
@@ -246,8 +262,8 @@ public record Scenario(
             out.add(caps == null ? m : new NodeSpec(m.name(), m.pool(), m.instance(),
                     m.zone(), m.runs(), m.failures(), caps[0], caps[1], m.where()));
         }
-        return new Scenario(file, seed, job, jobWhere, scale, units, input, out,
-                net, retries, simulatedDuration, tightMargin, mode);
+        return new Scenario(file, seed, scale, units, input, out,
+                net, retries, simulatedDuration, mode);
     }
 
     /**

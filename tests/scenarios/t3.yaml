@@ -1,10 +1,11 @@
 # A handler that takes 500 refMs, asked by a caller willing to wait 200.
+#
+# This case turns on a margin: a run that flips between seeds is the margin
+# being tight, not the simulator being broken.
 seed: 1
-job: Impatient
-tightMargin: true          # this case is about a margin, and says so
 
 nodes:
-  client: { instance: m5.large, zone: eu-central-1a }
+  client: { instance: m5.large, zone: eu-central-1a, runs: { losim.Job: tests/systems/Impatient.java } }
   srv:    { instance: m5.large, zone: eu-central-1a, runs: { Volley: tests/systems/Slow.java } }
 
 # What each rpc costs on the reference machine, under the class that serves it.

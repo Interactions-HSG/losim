@@ -71,7 +71,7 @@ public final class Expect {
     /** The closing balance, per machine: what each one consumed by the time it ended. */
     @SuppressWarnings("unchecked")
     public List<Map<String, Object>> machines() {
-        return (List<Map<String, Object>>) trace.getOrDefault("machines", List.of());
+        return (List<Map<String, Object>>) trace.getOrDefault("nodes", List.of());
     }
 
     /** The cluster's total of a per-machine quantity — which is what wire and allocation are. */

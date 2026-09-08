@@ -33,12 +33,13 @@ public class Phase3 {
 
     static String cluster(String service, double scale) {
         return """
-            mode: scaled
             seed: 9
-            job: ScalableWordCount
             scale: %s
             nodes:
-              master: { instance: m5.2xlarge, zone: z }
+              master:
+                instance: m5.2xlarge
+                zone: z
+                runs: { losim.Job: %s }
               workers:
                 count: 4
                 prefix: w
@@ -46,13 +47,12 @@ public class Phase3 {
                 zone: z
                 runs: { Worker: %s }
             input:
-              lines:        %d
-              wordsPerLine: 8
-              vocabulary:   200000
+              unit:  line
+              count: %d
             simulatedDuration:
               %s: { Map: { fixed: 2 refMs, perUnit: 20000 refNs }, Reduce: { fixed: 5 refMs } }
-            """.formatted(trim(scale), src(service), Math.round(scale * Scenario.BASE),
-                          src(service));
+            """.formatted(trim(scale), src("ScalableWordCount"), src(service),
+                          Math.round(scale * Scenario.BASE), src(service));
     }
 
     /** A scale that reads as `6` rather than `6.0` in a file a person has to read. */
@@ -75,109 +75,133 @@ public class Phase3 {
     // ------------------------------------------ where the workload size lives
 
     /**
-     * The size of the input is in the file, and there is nowhere else to put it.
+     * The size of the workload is in the file, and there is nowhere else to put it.
      *
-     * <p>A job that hard-codes how much work it does cannot be swept, cannot be
+     * <p>A Job that hard-codes how much work it does cannot be swept, cannot be
      * overlaid, and — worse — does a different amount of work in a direct run from
-     * the one the scale engine models. So the job declares what its input is made of
-     * and the scenario says how much of each, and every way of getting that wrong is
-     * refused with the line somebody wrote.
+     * the one the scale engine models. So {@code input:} says how much, in three
+     * lines, and every way of getting that wrong is refused with the line somebody
+     * wrote.
+     *
+     * <p>What the file no longer says is what the workload is <i>made of</i>. That
+     * used to be a block of parts named by a Java class's own declaration, held
+     * against it once the class was loaded — the shape of the data in two places,
+     * and several numbers where the engine only ever varies one. The Job's own
+     * {@code .proto} says it now, and {@code Load} builds it.
      *
      * <p>Each refusal is run backwards. One that has never fired has proven nothing.
      */
     static void declaredInput() throws Exception {
-        System.out.println("=== the job declares the parts, the scenario declares the sizes ===");
+        System.out.println("=== the simulation says how much, and the Job says what of ===");
 
         String cluster = """
             seed: 1
-            job: Sizer
             nodes:
-              master: { instance: m5.large, zone: z }
+              master:
+                instance: m5.large
+                zone: z
+                runs: { losim.Job: losim/test/src/Sizer.java }
             """;
         var s = Loader.of(Yaml.parse("sized.yaml", cluster + """
             input:
-              items:      240
-              valueBytes: 65536
+              unit:  item
+              count: 240
             """));
-        var said = ran(s);
-        check(said.equals("items=240 valueBytes=65536 units=240"),
-              "a direct run does 240 items because the file says 240, not because the Java does");
+        check(ran(s).equals("count=239 type=item"),
+              "a direct run does 240 items because the file says 240, not because the Java"
+              + " does — and Load says it built 239 of them, which is its own business and"
+              + " is recorded apart");
 
-        // The same job, told to do a fraction of it: what the scale engine does on
-        // every rung of the ladder. Both parts are named in the same block and only
-        // one of them moves.
-        said = ran(Loader.of(Yaml.parse("sized.yaml", cluster + """
+        // The same Job, told to do a fraction of it: what the scale engine does on
+        // every rung of the ladder. Nothing in the message says which rung.
+        check(ran(Loader.of(Yaml.parse("sized.yaml", cluster + """
             scale: 6
             input:
-              items:      240
-              valueBytes: 65536
-            """)).withUnits(1000));
-        check(said.equals("items=5 valueBytes=65536 units=5"),
-              "at a forty-eighth of full size it does five items — and still 65536 byte values, "
-              + "because a constant is shape rather than size");
-
-        check(refusedBy(Loader.of(Yaml.parse("sized.yaml", cluster)), ":2:")
-                .contains("consumes 'items' and this scenario does not say how much"),
-              "backwards: a job whose input is not sized is refused, at the job: line");
-
-        check(refusedBy(Loader.of(Yaml.parse("sized.yaml", cluster + """
-            input:
-              items:      240
-              valueBytes: 65536
-              chunks:     4
-            """)), ":8:").contains("consumes no part called 'chunks'"),
-              "backwards: a part the job does not consume is refused, at its own line");
+              unit:  item
+              count: 240
+            """)).withUnits(1000)).equals("count=4 type=item"),
+              "at a forty-eighth of full size it is handed five items, and Load makes four of"
+              + " them — Run cannot tell that from the whole job, which is the property the"
+              + " two-rpc split exists to enforce");
 
         check(refusedBy(Loader.of(Yaml.parse("sized.yaml", """
             seed: 1
-            job: NoopJob
-            scale: 6
             nodes:
               master: { instance: m5.large, zone: z }
-            """)), ":2:").contains("has to implement losim.api.Scalable"),
-              "backwards: a scenario that asks for a model of six times the run, and names a "
-              + "job that cannot be asked for more, is refused at the job: line");
+            """)), ":3:").contains("no node in this simulation runs losim.Job"),
+              "backwards: a system with nothing to start it is refused, at the nodes: block");
 
         check(refusedBy(Loader.of(Yaml.parse("sized.yaml", """
             seed: 1
-            job: NoopJob
             nodes:
-              master: { instance: m5.large, zone: z }
-            input:
-              items: 240
-            """)), ":6:").contains("is a plain losim.api.Job, which is never given one"),
-              "backwards: sizing an input for a job that takes none is refused");
+              a: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/Sizer.java } }
+              b: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/NoopJob.java } }
+            """)), ":4:").contains("A simulation starts in one place"),
+              "backwards: two nodes running losim.Job is refused at the second one — two"
+              + " designs are two files, and nothing here picks between them");
 
         check(refusedBy(Loader.of(Yaml.parse("sized.yaml", cluster + """
             scale: 6
             input:
-              items:      20
-              valueBytes: 65536
-            """)).withUnits(1000), ":2:").contains("shrinks to none at all"),
+              unit:  item
+              count: 20
+            """)).withUnits(1000), ":5:").contains("rounds to no item at all"),
               "backwards: a count too small to survive the rung is refused rather than rounded "
               + "up, which would quietly change the design's ratios");
 
-        try {
-            Loader.of(Yaml.parse("sized.yaml", cluster + """
-                input:
-                  items: 0
-                """));
-            check(false, "backwards: a part sized zero is refused at load");
-        } catch (IllegalArgumentException e) {
-            check(e.getMessage().contains("which is not a smaller run — it is no run"),
-                  "backwards: a part sized zero is refused at load: " + e.getMessage());
-        }
+        refusedAtLoad(cluster + """
+            input:
+              unit:  item
+              count: 0
+            """, "which is not a smaller run — it is no run",
+            "backwards: a workload sized zero");
+
+        refusedAtLoad(cluster + """
+            input:
+              source: data/nowhere/
+              unit:   item
+              count:  4
+            """, "there is nothing at 'data/nowhere/'",
+            "backwards: a source that is not there, named on its own line");
+
+        refusedAtLoad(cluster + """
+            input:
+              unit:  ""
+              count: 4
+            """, "unit: is what one item is called",
+            "backwards: a blank unit, which would leave three numbers counting nothing");
+
+        refusedAtLoad(cluster + """
+            input:
+              unit:  item
+              count: 4
+              parts: 3
+            """, "unknown key 'parts'",
+            "backwards: the parts block that used to live here");
         System.out.println();
     }
 
-    /** What the job logged, which is the only thing {@link Sizer} does. */
+    /** A simulation the loader itself refuses, before anything is built. */
+    static void refusedAtLoad(String yaml, String says, String what) {
+        try {
+            Loader.of(Yaml.parse("sized.yaml", yaml));
+            check(false, what + " is refused at load");
+        } catch (IllegalArgumentException e) {
+            check(e.getMessage().contains(says), what + " is refused at load: " + e.getMessage());
+        }
+    }
+
+    /** What {@link Sizer} answered, which is the only thing it does. */
     static String ran(Scenario s) throws Exception {
         var result = losim.runtime.Run.of(s, loader());
-        if (!result.completed()) throw new IllegalStateException("the run did not finish");
-        return result.telemetry().events().stream()
-                .filter(e -> e.kind().equals("log"))
-                .map(e -> String.valueOf(e.detail().get("message")))
-                .findFirst().orElse("nothing was logged");
+        if (!result.completed()) throw new IllegalStateException(
+                "the run did not finish: " + result.failure());
+        var done = result.telemetry().events().stream()
+                .filter(e -> e.kind().equals("done")).findFirst();
+        Object answer = done.isPresent() && done.get().detail().get("value") instanceof Map<?, ?> v
+                ? v.get("answer") : null;
+        if (!(answer instanceof Map<?, ?> m)) return "nothing was answered";
+        return "count=" + m.get("count") + " type=" + m.get("type");
     }
 
     /** The refusal a scenario earns, checked to carry the line it is about. */
@@ -338,10 +362,12 @@ public class Phase3 {
         System.out.println("=== the timeline is reconstructed, not multiplied ===");
         String yaml = """
             seed: 4
-            job: BatchJob
             scale: %d
             nodes:
-              master: { instance: m5.2xlarge, zone: z }
+              master:
+                instance: m5.2xlarge
+                zone: z
+                runs: { losim.Job: losim/test/src/BatchJob.java }
               workers:
                 count: 4
                 prefix: w
@@ -349,7 +375,8 @@ public class Phase3 {
                 zone: z
                 runs: { Volley: losim/test/src/Slow.java }
             input:
-              calls: %d
+              unit:  call
+              count: %d
             simulatedDuration:
               losim/test/src/Slow.java: { Hit: { fixed: 200 refMs }, Poll: { fixed: 200 refMs } }
             """;

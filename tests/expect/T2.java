@@ -18,8 +18,13 @@ public final class T2 {
         var calls = e.of("rpc_call");
         var starts = e.of("handler_start");
         var ends = e.of("handler_end");
-        e.check(calls.size() == 2 && starts.size() == 2 && ends.size() == 2,
-                "two calls, each one rpc_call -> handler_start -> handler_end (" + calls.size()
+        // Two calls the system made, and three handlers: losim.Job/Run is the third,
+        // because the thing that starts the work is a service like any other. It
+        // opens no rpc_call, because nobody in the system called it — losim did,
+        // from outside, and charged the call to nobody.
+        e.check(calls.size() == 2 && starts.size() == 3 && ends.size() == 3,
+                "two calls, each one rpc_call -> handler_start -> handler_end, plus the "
+                + "handler that is the simulation (" + calls.size()
                 + "/" + starts.size() + "/" + ends.size() + ")");
 
         var mapCall = calls.stream()

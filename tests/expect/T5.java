@@ -13,8 +13,12 @@ public final class T5 {
     public static void main(String[] args) {
         var e = Expect.of("t5-contention", args);
 
-        // The warm-up call first, then the eight that are the case.
+        // The warm-up call first, then the eight that are the case. losim.Job/Run is
+        // a handler too and is filtered out: it is the caller, it occupies a thread
+        // on a different node, and counting it here would be counting the storm and
+        // the thing that made it as the same kind of work.
         var handlers = e.spansOf("handler").stream()
+                .filter(s -> !String.valueOf(s.get("label")).startsWith("losim.Job"))
                 .sorted(Comparator.comparingDouble(s -> Expect.num(s.get("t0")))).toList();
         e.check(handlers.size() == Storm.CALLS + 1,
                 Storm.CALLS + " calls were served, plus one to warm the path (" + handlers.size() + ")");

@@ -195,11 +195,15 @@ public class Debugger {
         for (var s : handlers.stream().filter(x -> x.detail.containsKey("error")).toList())
             System.out.printf("    %-7s %-24s %s  ->  FAILED: %s%n", s.vm, s.label,
                     Values.summary(s.detail.get("arg")), s.detail.get("error"));
-        // Any compute span: the job does one unconditionally at the end, so this
-        // asks whether telemetry records a computation no call carried — which is
-        // the question — rather than whether a reducer happened to die first.
-        var merge = tel.spans().stream().filter(s -> s.kind.equals("compute")).findFirst();
-        merge.ifPresent(s -> System.out.printf("    %-7s %-24s ->  %s%n",
+        // Work no call carried used to need a span kind of its own, because the
+        // thing driving the run was a driver object that ran outside every call and
+        // so had no span and no occupancy. It is a handler now — losim.Job/Run —
+        // and everything the coordinator does locally happens inside it, on a
+        // thread of the node it is on. So the question is the same and the answer
+        // is one of the two span kinds left.
+        var driving = tel.spans().stream()
+                .filter(s -> s.kind.equals("handler") && s.label.startsWith("losim.Job")).findFirst();
+        driving.ifPresent(s -> System.out.printf("    %-7s %-24s ->  %s%n",
                 s.vm, s.label, Values.summary(s.detail.get("result"))));
         long accounted = handlers.stream()
                 .filter(s -> s.detail.containsKey("arg"))
@@ -209,8 +213,12 @@ public class Debugger {
         check(!handlers.isEmpty() && accounted == handlers.size(),
               "every handled call records what went in and what came out — or why it did not, "
               + "because the one call worth looking at must not be the one blank row");
-        check(merge.isPresent() && merge.get().detail.containsKey("result"),
-              "and a computation no RPC carried is telemetrized too, with its answer");
+        long beneath = driving.map(d -> tel.spans().stream()
+                .filter(s -> s.parent == d.id).count()).orElse(0L);
+        check(driving.isPresent() && driving.get().parent == 0 && beneath > 0,
+              "and the work no RPC carried is telemetrized too — it is the root handler, "
+              + beneath + " calls hang beneath it, and the node was busy for the merging it "
+              + "did between them");
         var done = tel.events().stream().filter(e -> e.kind().equals("done")).findFirst();
         check(done.isPresent() && done.get().detail().get("value") instanceof Map,
               "the job's own answer is structured, not a toString()");

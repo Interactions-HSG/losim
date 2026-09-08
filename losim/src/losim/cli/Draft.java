@@ -125,18 +125,21 @@ public final class Draft {
     public record Duration(String runs, String rpc, double fixedRefMs, double perUnitRefMs) {}
 
     /**
-     * One part of the input, at full size.
+     * The workload, at full size.
      *
-     * <p>The names are the job's own, so the form cannot offer a fixed list of
-     * them: {@code items}, {@code orders}, {@code valueBytes}. What it can do is
-     * refuse to lose one, which is why this is here rather than only in the file.
+     * <p>Three controls, and the form can draw all three, which is why the parts
+     * list it replaced is gone: those were named by a Java class's own
+     * declaration, so the form had to ask the code what fields to draw before it
+     * could draw any.
+     *
+     * @param source empty when the simulation named none, which is a workload
+     *               generated from the seed rather than read
      */
-    public record Part(String name, long n) {}
+    public record Workload(String source, String unit, long count) {}
 
-    public record Of(String name, String job, long seed, double scale,
-                      boolean tightMargin, String mode,
+    public record Of(String name, long seed, double scale, String mode,
                       Net net, List<Pool> pools,
-                      List<Retry> retries, List<Duration> simulatedDuration, List<Part> input) {}
+                      List<Retry> retries, List<Duration> simulatedDuration, Workload input) {}
 
     /**
      * @param name the file's own name, {@code two-machines.yaml} — trimmed to the
@@ -239,15 +242,17 @@ public final class Draft {
             }
         }
 
-        // Straight off the loader's answer, which has already checked the shape and
-        // the sign; there is nothing here the form could ask a better question about.
-        var input = sc.input().stream().map(i -> new Part(i.name(), i.n())).toList();
+        // Straight off the loader's answer, which has already checked the source,
+        // the shape and the sign; there is nothing here the form could ask a better
+        // question about.
+        var input = new Workload(sc.input().source() == null ? "" : sc.input().source(),
+                sc.input().unit(), sc.input().count());
 
         var net = new Net(sc.net().sameZoneRefMs(), sc.net().crossZoneRefMs(),
                 sc.net().jitterRefMs(), sc.net().loss());
 
-        return new Of(name.replaceAll("\\.ya?ml$", ""), sc.job(), sc.seed(), sc.scale(),
-                sc.tightMargin(), sc.mode().name().toLowerCase(),
+        return new Of(name.replaceAll("\\.ya?ml$", ""), sc.seed(), sc.scale(),
+                sc.mode().name().toLowerCase(),
                 net, List.copyOf(pools),
                 List.copyOf(retries), List.copyOf(durations), input);
     }

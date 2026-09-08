@@ -28,8 +28,14 @@ public final class Plans {
     /**
      * What this plan was fitted from.
      *
-     * <p>The scenario as loaded — so a comment or a reformat does not invalidate it,
-     * but a changed fault does — and every class the job might use, by content.
+     * <p>The simulation as loaded — so a comment or a reformat does not invalidate
+     * it, but a changed failure does — and every class it might use, by content.
+     *
+     * <p><b>The input is in the key.</b> It used to be the job's class name and
+     * nothing else, which meant two files differing only in how much work they
+     * declared shared one plan: the second would be answered with the first's
+     * numbers. It was latent while a job's size lived in its own Java; now that
+     * {@code input:} is the whole of what the workload is, it would not be.
      *
      * <p><b>And the telemetry level, which is not a detail.</b> A probe grid and the
      * run it is fitting must be watched the same way, or the fit describes a
@@ -40,7 +46,7 @@ public final class Plans {
      */
     public static String key(Scenario s, Telemetry.Level level, List<Path> code) {
         var sb = new StringBuilder();
-        sb.append(level).append('|').append(s.job()).append('|').append(s.units())
+        sb.append(level).append('|').append(s.input()).append('|').append(s.units())
           .append('|').append(s.seed())
           .append('|').append(s.scale());
         for (var m : s.nodes())

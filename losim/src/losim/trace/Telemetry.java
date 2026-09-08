@@ -220,6 +220,24 @@ public final class Telemetry {
 
     // ------------------------------------------------------------------- sample
 
+    /**
+     * Throws away everything recorded so far.
+     *
+     * <p>For {@code losim.Job/Load}, which runs against a system that is up and
+     * serving and is charged to nobody. It goes through the same interceptors as
+     * any other call and so writes the same spans and events; a trace that kept
+     * them would show a handler nobody called, before a run that had not started.
+     *
+     * <p>Span ids are not reset. They are only ever compared, never counted, and
+     * restarting them would make two spans in one file share a number.
+     */
+    public void forget() {
+        events.clear();
+        spans.clear();
+        series.clear();
+        sampleTimes.clear();
+    }
+
     public void register(Sampled s) { sampled.add(s); }
 
     /**

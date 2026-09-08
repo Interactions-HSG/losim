@@ -1,13 +1,11 @@
 # Eight workers. If the engine has folded the cluster dimension into the data
 # dimension, this is the cell where it shows: a resource that is really a function
 # of the data will look like a function of the cluster, and be wrong about both.
-mode: scaled
 seed: 11
-job: Elastic
 scale: 6
 
 nodes:
-  master: { instance: m5.2xlarge, zone: eu-central-1a }
+  master: { instance: m5.2xlarge, zone: eu-central-1a, runs: { losim.Job: tests/systems/Elastic.java } }
   workers:
     count: 8
     prefix: w
@@ -15,12 +13,11 @@ nodes:
     zone: eu-central-1a
     runs: { Worker: tests/systems/Combiner.java }
 
-# The corpus, at full size. The job says what its input is made of; this
-# says how much of each part there is.
+# The corpus, at full size. One number, because there is one number the engine
+# varies: what a line is made of is the Job's business, declared in its own code.
 input:
-  lines:        48000
-  wordsPerLine: 8
-  vocabulary:   200000
+  unit:  line
+  count: 48000
 
 
 # What each rpc costs on the reference machine, under the class that serves it.

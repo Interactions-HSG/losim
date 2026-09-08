@@ -175,13 +175,12 @@ public class Phase4 {
     static String cluster(String w0, String w1) {
         return """
             seed: 4
-            job: WordCountJob
             nodes:
-              master: { instance: m5.large, zone: z }
+              master: { instance: m5.large, zone: z, runs: { losim.Job: %s } }
               w0: { instance: m5.large, zone: z, runs: { Worker: %s } }
               w1: { instance: m5.large, zone: z, runs: { Worker: %s } }
             simulatedDuration:
-            %s""".formatted(src(w0), src(w1), costs(w0, w1));
+            %s""".formatted(src("WordCountJob"), src(w0), src(w1), costs(w0, w1));
     }
 
     /**
@@ -259,20 +258,20 @@ public class Phase4 {
               "w0's disk figure is a lower bound; everything else about w0, and everything"
               + " about w1, still means what it says");
 
-        // The job runs on the first machine in the file, so that is whose counters it
-        // lands on and whose figures it can spoil.
+        // What starts the work is a service placed by runs: like any other, so the
+        // node it is flagged on is the node the file put it on. It used to be the
+        // first machine in the file, whether or not anybody meant it to be there.
         var byJob = Loader.of(Yaml.parse("trust.yaml", """
             seed: 4
-            job: ClockingJob
             nodes:
               master: { instance: m5.large, zone: z }
               w0: { instance: m5.large, zone: z, runs: { Worker: losim/test/src/Counter.java } }
+              w1: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/Peeker.java } }
             """));
         var jobTrust = Trust.of(byJob, List.of(CODE));
-        check(jobTrust.machines().equals(Set.of("master")),
-              "and a job that reads the real clock flags the machine it runs on, which is the"
-              + " first in the file — the job is not a machine, but its allocation and its"
-              + " wall clock land on one");
+        check(jobTrust.machines().equals(Set.of("w1")),
+              "and a Job that reads the real clock flags the node runs: put it on, and not"
+              + " some other one — its allocation and its wall clock land where it is placed");
         System.out.println();
     }
 

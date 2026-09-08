@@ -40,7 +40,8 @@ public final class Diff {
         var aspects = new ArrayList<Aspect>();
 
         aspects.add(new Aspect("schema", true, left.get("schema"), right.get("schema")));
-        for (String key : List.of("scenario", "job", "seed", "scale", "telemetry", "mode",
+        for (String key : List.of("simulation", "entry", "seed", "scale", "unit", "count",
+                                  "loaded", "telemetry", "mode",
                                   "schemaVersion", "trusted", "completed"))
             if (meta(left).containsKey(key) || meta(right).containsKey(key))
                 aspects.add(new Aspect("meta." + key, true, meta(left).get(key), meta(right).get(key)));
@@ -54,7 +55,7 @@ public final class Diff {
         aspects.addAll(shared("what each event kind carries", shape(left), shape(right)));
         aspects.addAll(shared("what each span kind is labelled", spanShape(left), spanShape(right)));
         aspects.add(new Aspect("sampled channels", true, channels(left), channels(right)));
-        aspects.add(new Aspect("machines", true, machineNames(left), machineNames(right)));
+        aspects.add(new Aspect("nodes", true, nodeNames(left), nodeNames(right)));
 
         // Attribution is structural; the fitted numbers are not. Which variable a
         // resource turned out to be a function of is a fact about the program, and it
@@ -170,8 +171,8 @@ public final class Diff {
         return new TreeSet<>(((Map<String, Object>) series.getOrDefault("channels", Map.of())).keySet());
     }
 
-    private static List<String> machineNames(Map<String, Object> t) {
-        return rows(t, "machines").stream().map(m -> String.valueOf(m.get("name"))).sorted().toList();
+    private static List<String> nodeNames(Map<String, Object> t) {
+        return rows(t, "nodes").stream().map(m -> String.valueOf(m.get("name"))).sorted().toList();
     }
 
     @SuppressWarnings("unchecked")

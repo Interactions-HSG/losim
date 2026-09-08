@@ -1,9 +1,13 @@
 import io.grpc.StatusRuntimeException;
+import io.grpc.stub.StreamObserver;
 import java.util.concurrent.TimeUnit;
 import lab.pb.Chunk;
 import lab.pb.WorkerGrpc;
-import losim.api.Cluster;
-import losim.api.Job;
+import losim.api.Losim;
+import losim.pb.Input;
+import losim.pb.JobGrpc;
+import losim.pb.Result;
+import losim.pb.Workload;
 
 /**
  * The same call twice, against a deadline that can be met and one that cannot.
@@ -15,9 +19,15 @@ import losim.api.Job;
  * <p>Both in one run so that the case tests the claim in both directions. A check
  * that only ever fires proves nothing about when it should stay quiet.
  */
-public final class Budget implements Job {
-    @Override public void run(Cluster cluster) {
-        var channel = cluster.channelTo("srv");
+public final class Budget extends JobGrpc.JobImplBase {
+
+    @Override public void load(Input in, StreamObserver<Workload> out) {
+        out.onNext(Workload.newBuilder().setCount(in.getCount()).build());
+        out.onCompleted();
+    }
+
+    @Override public void run(Workload work, StreamObserver<Result> out) {
+        var channel = Losim.current().channelTo("srv");
         var request = Chunk.newBuilder().setText("anything").setLines(40_000).build();
         var said = new StringBuilder();
         for (int refMs : new int[] {2000, 600}) {
@@ -30,6 +40,7 @@ public final class Budget implements Job {
                 said.append(refMs).append(':').append(e.getStatus().getCode()).append(' ');
             }
         }
-        cluster.done(said.toString().trim());
+        out.onNext(Result.newBuilder().putAnswer("deadlines", said.toString().trim()).build());
+        out.onCompleted();
     }
 }

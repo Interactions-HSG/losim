@@ -1,12 +1,13 @@
 # 40000 units at 0.02 refMs each, asked for twice: once with 2000 refMs of
 # patience and once with 600. The fixed cost is 2 refMs, so neither deadline looks
 # wrong until the handler declares its count.
+#
+# This case turns on a margin: a run that flips between seeds is the margin
+# being tight, not the simulator being broken.
 seed: 1
-job: Budget
-tightMargin: true          # this case is about a margin, and says so
 
 nodes:
-  client: { instance: m5.large, zone: eu-central-1a }
+  client: { instance: m5.large, zone: eu-central-1a, runs: { losim.Job: tests/systems/Budget.java } }
   srv:    { instance: m5.large, zone: eu-central-1a, runs: { Worker: tests/systems/Steady.java } }
 
 # What each rpc costs on the reference machine, under the class that serves it.

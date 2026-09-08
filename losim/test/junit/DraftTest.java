@@ -25,14 +25,12 @@ class DraftTest {
     @DisplayName("a pool of one keeps the pool's own name, and needs no count or prefix")
     void poolOfOne() {
         var d = Draft.of("main.yaml", """
-                job: WordCountJob
                 nodes:
                   master:
                     instance: m5.large
                     zone: eu-central-1a
                 """);
         assertEquals("main", d.name());
-        assertEquals("WordCountJob", d.job());
         assertEquals(1, d.pools().size());
         var p = d.pools().get(0);
         assertEquals("master", p.name());
@@ -46,7 +44,6 @@ class DraftTest {
     @DisplayName("a pool dealt over three zones, running a service")
     void poolOverZones() {
         var d = Draft.of("spread.yaml", """
-                job: WordCountJob
                 nodes:
                   coordinator: { instance: m5.large, zone: eu-central-1a }
                   workers: { instance: c5.large, zone: [eu-central-1a, eu-central-1b, eu-central-1c], count: 6, prefix: workers, runs: { Worker: losim/test/src/Counter.java } }
@@ -68,7 +65,6 @@ class DraftTest {
     @DisplayName("a kill and its restart, read back in refMs")
     void killFailure() {
         var d = Draft.of("main.yaml", """
-                job: J
                 nodes:
                   a:
                     instance: m5.large
@@ -87,7 +83,6 @@ class DraftTest {
     @DisplayName("a freeze holds for a while; one that says nothing holds for the loader's own default")
     void freezeFailure() {
         var d = Draft.of("main.yaml", """
-                job: J
                 nodes:
                   a:
                     instance: m5.large
@@ -109,7 +104,6 @@ class DraftTest {
     @DisplayName("a degrade carries its factor in its value — it has no end")
     void degradeFailure() {
         var d = Draft.of("main.yaml", """
-                job: J
                 nodes:
                   a:
                     instance: m5.large
@@ -126,7 +120,6 @@ class DraftTest {
     @DisplayName("a rate reads back as a rate, and names no instant")
     void drawnFailure() {
         var d = Draft.of("main.yaml", """
-                job: J
                 nodes:
                   a:
                     instance: m5.large
@@ -144,7 +137,6 @@ class DraftTest {
     @DisplayName("an rpc failure reads back under the rpc it happens to")
     void rpcFailure() {
         var d = Draft.of("main.yaml", """
-                job: J
                 nodes:
                   a:
                     instance: m5.large
@@ -181,7 +173,6 @@ class DraftTest {
     @DisplayName("the network, read back in the four numbers it is written in")
     void network() {
         var d = Draft.of("main.yaml", """
-                job: J
                 network: { sameZone: 0.5 refMs, crossZone: 30 refMs, jitter: 2 refMs, loss: 0.01 }
                 nodes:
                   a: { instance: m5.large, zone: eu-central-1a }
@@ -196,7 +187,6 @@ class DraftTest {
     @DisplayName("no network: at all is four zeros — instant and lossless, the same file either way")
     void networkAbsent() {
         var d = Draft.of("main.yaml", """
-                job: J
                 nodes:
                   a: { instance: m5.large, zone: eu-central-1a }
                 """);
@@ -210,7 +200,6 @@ class DraftTest {
     @DisplayName("a network setting only one of the four leaves the rest at zero")
     void networkPartial() {
         var d = Draft.of("main.yaml", """
-                job: J
                 network: { loss: 0.2 }
                 nodes:
                   a: { instance: m5.large, zone: eu-central-1a }
@@ -223,7 +212,6 @@ class DraftTest {
     @DisplayName("a retry, unsafe or not, with no multiplier")
     void retryRule() {
         var d = Draft.of("main.yaml", """
-                job: J
                 nodes:
                   a: { instance: m5.large, zone: eu-central-1a, count: 2, prefix: a, runs: { Worker: losim/test/src/Counter.java } }
                 retries:
@@ -247,40 +235,26 @@ class DraftTest {
     @DisplayName("a scenario the loader itself would refuse is refused with the loader's own words")
     void aBrokenScenarioNeverReachesTheDraftWalk() {
         // No `machines:` at all — the loader's own refusal, not a Draft-shaped one.
-        String said = refusal("job: J\n");
+        String said = refusal("");
         assertTrue(said.contains("main.yaml:"), said);
-    }
-
-    @Test
-    @DisplayName("tightMargin: reads back as the marker it is")
-    void tightMarginReadsBack() {
-        assertTrue(Draft.of("main.yaml", """
-                job: J
-                tightMargin: true
-                nodes:
-                  a: { instance: m5.large, zone: eu-central-1a }
-                """).tightMargin());
-        assertFalse(Draft.of("main.yaml", """
-                job: J
-                nodes:
-                  a: { instance: m5.large, zone: eu-central-1a }
-                """).tightMargin(), "false is what a scenario gets by saying nothing");
     }
 
     @Test
     @DisplayName("scale reads back, and defaults to 1 — one run, nothing projected")
     void scaleReadsBack() {
         var d = Draft.of("main.yaml", """
-                job: J
                 scale: 6
                 nodes:
                   a: { instance: m5.large, zone: eu-central-1a, runs: { Worker: losim/test/src/Counter.java } }
                 """);
-        assertEquals("direct", d.mode());
+        // Derived from the scale, and the form draws it rather than offering it: a
+        // simulation above scale 1 is a model of something bigger and there is
+        // nothing else it could be. A `mode:` control was a second way to say what
+        // `scale:` already says, and two controls can disagree.
+        assertEquals("scaled", d.mode());
         assertEquals(6.0, d.scale(), 1e-9);
 
         var e = Draft.of("main.yaml", """
-                job: J
                 nodes:
                   a: { instance: m5.large, zone: eu-central-1a, runs: { Worker: losim/test/src/Counter.java } }
                 """);
@@ -290,24 +264,9 @@ class DraftTest {
     }
 
     @Test
-    @DisplayName("mode: scaled reads back as scaled")
-    void scaledMode() {
-        var d = Draft.of("main.yaml", """
-                job: J
-                mode: scaled
-                scale: 125
-                nodes:
-                  a: { instance: m5.large, zone: eu-central-1a, runs: { Worker: losim/test/src/Counter.java } }
-                """);
-        assertEquals("scaled", d.mode());
-        assertEquals(125.0, d.scale(), 1e-9);
-    }
-
-    @Test
     @DisplayName("a pool's caps read back, and null is not zero")
     void poolCaps() {
         var d = Draft.of("main.yaml", """
-                job: J
                 nodes:
                   a: { instance: m5.large, zone: eu-central-1a, memoryMb: 4096, diskMb: 1024 }
                   b: { instance: m5.large, zone: eu-central-1a }
@@ -325,7 +284,6 @@ class DraftTest {
     @DisplayName("a pool's overrides read back, one entry per machine set apart")
     void poolOverrides() {
         var d = Draft.of("main.yaml", """
-                job: J
                 nodes:
                   workers:
                     instance: c5.large
@@ -351,7 +309,6 @@ class DraftTest {
         // A pool nobody made an exception in carries none, rather than one empty
         // entry per machine.
         assertTrue(Draft.of("main.yaml", """
-                job: J
                 nodes:
                   a: { instance: m5.large, zone: eu-central-1a }
                 """).pools().get(0).overrides().isEmpty());
@@ -365,7 +322,6 @@ class DraftTest {
         // entry: what it cannot read it cannot write back, and a save would drop
         // it without saying so.
         String said = refusal("""
-                job: J
                 nodes:
                   workers:
                     instance: c5.large
@@ -382,7 +338,6 @@ class DraftTest {
     @DisplayName("a pool with no zone: is refused — the form always writes one")
     void poolWithNoZone() {
         assertTrue(refusal("""
-                job: J
                 nodes:
                   a: { instance: m5.large }
                 """).contains("zone"));
@@ -392,7 +347,6 @@ class DraftTest {
     @DisplayName("a prefix that names the machines apart from their pool reads back")
     void prefixReadsBack() {
         var d = Draft.of("main.yaml", """
-                job: J
                 nodes:
                   mappers: { instance: c5.large, zone: eu-central-1a, count: 4, prefix: m }
                 """);
@@ -403,7 +357,6 @@ class DraftTest {
         // A pool that never said one is named after itself, which is what the
         // loader does with it.
         var e = Draft.of("main.yaml", """
-                job: J
                 nodes:
                   workers: { instance: c5.large, zone: eu-central-1a, count: 2 }
                 """);
@@ -417,7 +370,6 @@ class DraftTest {
         // files are one machine; they disagree about what it is called, and
         // every fault points at a name.
         String said = refusal("""
-                job: J
                 nodes:
                   a: { instance: m5.large, zone: eu-central-1a, count: 1 }
                 """);
@@ -428,7 +380,6 @@ class DraftTest {
     @DisplayName("every failure kind the loader accepts opens in the form")
     void everyKindOpens() {
         var d = Draft.of("main.yaml", """
-                job: J
                 nodes:
                   a:
                     instance: m5.large
@@ -492,7 +443,7 @@ class DraftTest {
 
     /** What one bad failure entry on one node is refused with. */
     private static String failureRefusal(String entry) {
-        return refusal("job: J\n"
+        return refusal(""
                      + "nodes:\n"
                      + "  a:\n"
                      + "    instance: m5.large\n"
@@ -505,7 +456,6 @@ class DraftTest {
     @DisplayName("a retry's multiplier reads back, and 1 is the flat default")
     void retryMultiplier() {
         var d = Draft.of("main.yaml", """
-                job: J
                 nodes:
                   a: { instance: m5.large, zone: eu-central-1a }
                 retries:

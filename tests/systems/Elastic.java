@@ -10,16 +10,18 @@ import java.util.concurrent.TimeUnit;
 import lab.pb.Chunk;
 import lab.pb.Counts;
 import lab.pb.WorkerGrpc;
-import losim.api.Cluster;
-import losim.api.Input;
-import losim.api.Scalable;
+import losim.api.Losim;
+import losim.pb.Input;
+import losim.pb.JobGrpc;
+import losim.pb.Result;
+import losim.pb.Workload;
 
 /**
  * A word count whose size is whatever it is asked for.
  *
- * <p>This is what makes a job scalable: every number describing the corpus arrives in
- * the {@link Input}, so the scenario decides how much work there is. A job that held
- * its own size could not be shrunk, and the engine would have nothing to turn.
+ * <p>This is what makes a Job scalable: how many lines there are arrives in the
+ * {@link Workload}, so the simulation decides how much work there is. A Job that
+ * held its own size could not be shrunk, and the engine would have nothing to turn.
  *
  * <p>Two phases, deliberately of different shapes. The map phase fans out over every
  * worker at once, so it is the part that gets faster when the cluster grows. The
@@ -27,12 +29,14 @@ import losim.api.Scalable;
  * part that does not. A projection that cannot tell those apart will say a design
  * scales when it does not.
  *
- * <p>The corpus is generated a chunk at a time and never held whole. At full scale
- * the input lives on disk and no coordinator holds it, so a coordinator that held it
- * here would put a linear term in the one machine whose memory is meant to be flat —
- * and the fitted memory law would faithfully follow it.
+ * <p>The corpus is generated a chunk at a time in {@code Run} and never held whole
+ * — not built in {@code Load}, which is the tempting mistake now that there is a
+ * place to build it. At full scale the input lives on disk and no coordinator holds
+ * it, so a coordinator that held it here would put a linear term in the one node
+ * whose memory is meant to be flat, and the fitted memory law would faithfully
+ * follow it. What {@code Load} hands over is how many lines to make.
  */
-public final class Elastic implements Scalable {
+public final class Elastic extends JobGrpc.JobImplBase {
 
     /**
      * Small enough that the smallest rung of a probe ladder is still many chunks.
@@ -48,37 +52,42 @@ public final class Elastic implements Scalable {
     /** Chunks allowed in flight at once, so fanning out does not mean holding the corpus. */
     static final int IN_FLIGHT = 8;
 
-    @Override public Input.Shape shape() {
-        return Input.Shape.counting("lines", "line").with("wordsPerLine").with("vocabulary");
+    /** The shape of the data, which is the Job's business and nowhere in the file. */
+    static final int WORDS_PER_LINE = 8;
+    static final int VOCABULARY = 200_000;
+
+    @Override public void load(Input in, StreamObserver<Workload> out) {
+        out.onNext(Workload.newBuilder().setCount(in.getCount()).setType(in.getUnit()).build());
+        out.onCompleted();
     }
 
-    @Override public void run(Cluster cluster, Input at) throws Exception {
-        var workers = cluster.serving("Worker");
+    @Override public void run(Workload work, StreamObserver<Result> out) throws RuntimeException {
+        var here = Losim.current();
+        var workers = here.peersServing("Worker");
         if (workers.isEmpty()) throw new IllegalStateException("nobody serves Worker");
 
         var stubs = new ArrayList<WorkerGrpc.WorkerStub>();
         var blocking = new ArrayList<WorkerGrpc.WorkerBlockingStub>();
         for (String w : workers) {
-            var channel = cluster.channelTo(w);
+            var channel = here.channelTo(w);
             stubs.add(WorkerGrpc.newStub(channel));
             blocking.add(WorkerGrpc.newBlockingStub(channel));
         }
 
-        long units = at.count("lines");
-        int wordsPerLine = (int) at.value("wordsPerLine");
-        var corpus = new Zipf((int) at.value("vocabulary"), 1.1, cluster.seed());
+        long units = work.getCount();
+        var corpus = new Zipf(VOCABULARY, 1.1, here.seed());
         int chunks = (int) ((units + LINES_PER_CHUNK - 1) / LINES_PER_CHUNK);
 
         // Fanned out across every worker at once — which is what makes this the phase
         // a bigger cluster finishes sooner.
         var lost = new ConcurrentLinkedQueue<Chunk>();
-        try (var phase = cluster.phase("map")) {
-            var room = new Semaphore(IN_FLIGHT);
-            var done = new CountDownLatch(chunks);
+        var room = new Semaphore(IN_FLIGHT);
+        var done = new CountDownLatch(chunks);
+        try {
             for (int i = 0; i < chunks; i++) {
                 int lines = (int) Math.min(LINES_PER_CHUNK, units - (long) i * LINES_PER_CHUNK);
                 var text = new StringBuilder();
-                for (String line : corpus.lines(lines, wordsPerLine)) {
+                for (String line : corpus.lines(lines, WORDS_PER_LINE)) {
                     if (text.length() > 0) text.append(' ');
                     text.append(line);
                 }
@@ -94,52 +103,44 @@ public final class Elastic implements Scalable {
                           });
             }
             done.await(120, TimeUnit.SECONDS);
-            phase.note("chunks", chunks);
-        }
+        } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
 
         // Whatever did not come back has to be done again somewhere else, and that is
         // not bookkeeping: it is why a cluster that loses a machine needs more memory
         // than one that does not. Some survivor absorbs the dead machine's bucket, and
         // a model fitted only on clean runs under-predicts by exactly that much —
         // optimistically, which is the worst direction to be wrong in.
-        if (!lost.isEmpty()) {
-            try (var phase = cluster.phase("remap")) {
-                int redone = 0;
-                for (Chunk chunk = lost.poll(); chunk != null; chunk = lost.poll()) {
-                    for (String worker : cluster.serving("Worker")) {
-                        try {
-                            WorkerGrpc.newBlockingStub(cluster.channelTo(worker))
-                                    .withDeadlineAfter(8000, TimeUnit.MILLISECONDS).map(chunk);
-                            redone++;
-                            break;
-                        } catch (StatusRuntimeException e) {
-                            // That one is gone too. Try the next; there is no third outcome.
-                        }
-                    }
+        for (Chunk chunk = lost.poll(); chunk != null; chunk = lost.poll()) {
+            for (String worker : here.peersServing("Worker")) {
+                try {
+                    WorkerGrpc.newBlockingStub(here.channelTo(worker))
+                            .withDeadlineAfter(8000, TimeUnit.MILLISECONDS).map(chunk);
+                    break;
+                } catch (StatusRuntimeException e) {
+                    // That one is gone too. Try the next; there is no third outcome.
                 }
-                phase.note("redone", redone);
             }
         }
 
-        // And this one is one call per worker and a merge here, so a bigger cluster
-        // makes it no shorter. Nothing distinguishes the two phases but their shape.
+        // And this one is one call per worker and a merge here, so a bigger system
+        // makes it no shorter. Nothing distinguishes the two stretches but their
+        // shape — and the merge runs on the thread serving losim.Job/Run, so the
+        // node is busy for it without anything having to say so.
         var merged = new TreeMap<String, Integer>();
-        try (var phase = cluster.phase("collect")) {
-            for (int i = 0; i < blocking.size(); i++) {
-                try {
-                    var bucket = blocking.get(i).withDeadlineAfter(8000, TimeUnit.MILLISECONDS)
-                            .reduce(Counts.getDefaultInstance()).getCountsMap();
-                    final Map<String, Integer> into = merged;
-                    cluster.compute("merge " + workers.get(i), () -> {
-                        bucket.forEach((word, n) -> into.merge(word, n, Integer::sum));
-                        return into;
-                    });
-                } catch (StatusRuntimeException e) {
-                    cluster.log(workers.get(i) + " did not answer: " + e.getStatus().getCode());
-                }
+        for (int i = 0; i < blocking.size(); i++) {
+            try {
+                blocking.get(i).withDeadlineAfter(8000, TimeUnit.MILLISECONDS)
+                        .reduce(Counts.getDefaultInstance()).getCountsMap()
+                        .forEach((word, n) -> merged.merge(word, n, Integer::sum));
+            } catch (StatusRuntimeException e) {
+                here.log(workers.get(i) + " did not answer: " + e.getStatus().getCode());
             }
-            phase.note("keys", merged.size());
         }
-        cluster.done(Map.of("units", units, "chunks", chunks, "distinct", merged.size()));
+        out.onNext(Result.newBuilder()
+                .putAnswer("units", String.valueOf(units))
+                .putAnswer("chunks", String.valueOf(chunks))
+                .putAnswer("distinct", String.valueOf(merged.size()))
+                .build());
+        out.onCompleted();
     }
 }

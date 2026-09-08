@@ -1,15 +1,27 @@
-import losim.api.Cluster;
-import losim.api.Job;
+import io.grpc.stub.StreamObserver;
+import losim.pb.Input;
+import losim.pb.JobGrpc;
+import losim.pb.Result;
+import losim.pb.Workload;
 
 /**
- * A job that measures its own phases with the wrong clock.
+ * A Job that measures itself with the wrong clock.
  *
- * <p>A job is not a machine, but it runs on one — the first in the file — so its
- * allocation and its wall clock land on that machine's counters, and so does this.
+ * <p>It runs on a node like any other service, so its allocation and its wall
+ * clock land on that node's counters — and so does this.
  */
-public final class ClockingJob implements Job {
-    @Override public void run(Cluster cluster) {
+public final class ClockingJob extends JobGrpc.JobImplBase {
+
+    @Override public void load(Input in, StreamObserver<Workload> out) {
+        out.onNext(Workload.newBuilder().setCount(in.getCount()).build());
+        out.onCompleted();
+    }
+
+    @Override public void run(Workload work, StreamObserver<Result> out) {
         long began = System.currentTimeMillis();
-        cluster.done("took " + (System.currentTimeMillis() - began) + "ms");
+        out.onNext(Result.newBuilder()
+                .putAnswer("tookMs", String.valueOf(System.currentTimeMillis() - began))
+                .build());
+        out.onCompleted();
     }
 }

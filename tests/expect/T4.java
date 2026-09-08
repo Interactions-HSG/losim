@@ -18,11 +18,15 @@ public final class T4 {
                 + "the path — each an ordinary unary call, because that is what it is ("
                 + calls.size() + ")");
 
+        // The two players. The umpire is in this list too, because losim.Job/Run is
+        // a handler served on it — which is the point of the flip and not a third
+        // arrow: nobody in this system called it.
         Set<String> served = e.of("handler_end").stream()
+                .filter(x -> !String.valueOf(Expect.detail(x).get("method")).startsWith("losim.Job"))
                 .map(x -> String.valueOf(x.get("vm"))).collect(Collectors.toSet());
         e.check(served.equals(Set.of("left", "right")),
                 "both directions were served — " + served + " — so the topology has two "
-                + "machines and two arrows, not one");
+                + "nodes and two arrows, not one");
 
         // Each hit declares 200 refMs, which at k_time 10 is 20 ms of host time. Ten
         // of them awaited would be at least a hundred; dispatched, it is about one.
@@ -30,7 +34,7 @@ public final class T4 {
         String how = done.isEmpty() ? "" : String.valueOf(Expect.detail(done.get(0)).get("value"));
         e.note(how);
         double returned = how.isEmpty() ? 999
-                : Double.parseDouble(how.replaceAll(".*in ([0-9.]+) ms.*", "$1"));
+                : Double.parseDouble(how.replaceAll(".*returnedMs=([0-9.-]+).*", "$1"));
         e.check(returned < 30.0,
                 "and the caller was not blocked: ten calls declaring 200 refMs each were "
                 + "dispatched in " + returned + " ms of host time, where awaiting even one "

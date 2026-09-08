@@ -214,6 +214,34 @@ public final class Machine implements Bound, Telemetry.Sampled {
     /** Which region its zone is in — what decides the price of talking to it. */
     public String region()   { return region; }
     public boolean alive() { return alive; }
+
+    /**
+     * Zeroes every counter, as though this node had done nothing yet.
+     *
+     * <p>For the one thing that happens on a node and is charged to nobody:
+     * {@code losim.Job/Load}, which reads the input before the simulation starts.
+     * Reading a file is not part of the design being measured, so what it spent is
+     * taken back rather than subtracted later — the ledger is the thing every
+     * figure in the trace is read off, and a correction applied afterwards is a
+     * correction somebody has to remember to apply.
+     */
+    void forget() {
+        bytesIn.set(0);
+        bytesOut.set(0);
+        handled.set(0);
+        diskBytes.set(0);
+        crossZoneBytes.set(0);
+        egressTo.clear();
+        losimBytes.set(0);
+        losimNanos.set(0);
+        losimStops.set(0);
+        // Not `retained`: what the node is holding it is still holding, and a
+        // Workload that Load built and Run has yet to see is genuinely in memory.
+        // The high-water mark is reset, because the peak of a run should be a peak
+        // the run reached.
+        peakRetainedBytes.set(retainedBytes.get());
+        allocHighWater.set(0);
+    }
     public double memoryCapMb() { return memoryCapMb; }
 
     // ------------------------------------------------------------------ serving
@@ -486,7 +514,14 @@ public final class Machine implements Bound, Telemetry.Sampled {
     double effectiveFactor() { return machineFactor * degraded; }
 
     /** Brings a dead machine back. What it remembers depends on how it was registered. */
+    /** How many times this node has been restarted, for a refusal that has to say so. */
+    public int restarts() { return restarts.get(); }
+
+    private final java.util.concurrent.atomic.AtomicInteger restarts =
+            new java.util.concurrent.atomic.AtomicInteger();
+
     public void restart() {
+        restarts.incrementAndGet();
         if (stopped) return;
         boolean fresh = rebuildable;
         alive = true;

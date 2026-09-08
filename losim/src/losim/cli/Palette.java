@@ -11,9 +11,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
-import losim.api.Input;
-import losim.api.Job;
-import losim.api.Scalable;
 
 /**
  * What the lab's code offers a machine.
@@ -72,32 +69,28 @@ public final class Palette {
     public record Method(String name, boolean idempotent) {}
 
     /**
-     * Everything in the lab that a scenario could point at.
+     * Everything in the assignment a simulation could point at.
      *
-     * @param jobs     classes implementing {@link Job}, or {@link Scalable} if their input
-     *                 has a size. A scenario names exactly one
-     * @param services classes a machine can be given
+     * <p>One list. What starts the work is a service like any other — the one
+     * whose {@code qualified} name is {@code losim.Job} — so there is no second
+     * list to be in, and nothing here has to construct a student's class to find
+     * out what it is. That used to be the one place a form built one, to ask a
+     * driver object what its input was made of; the input is three lines of YAML
+     * now and the form draws all three without asking anybody.
+     *
+     * @param services classes a node can be given
      * @param other    how many other classes there are, so a student can tell the
      *                 difference between "nothing here is a service" and "nothing
      *                 here compiled"
      */
-    /**
-     * What one job's input is made of, in the order it declares the parts.
-     *
-     * <p>So the form can draw a row per part and nothing else: a scenario sizing a
-     * part the job does not consume is refused at the run, and a form that could
-     * write one would be a form that produces files the run rejects.
-     *
-     * <p>{@code noun} is the singular of the thing being counted, and {@code null}
-     * for a constant — which is the difference between a part that shrinks with the
-     * run and one that is held.
-     */
-    public record Consumes(String cls, List<Part> parts) {
-        public record Part(String name, String noun) {}
-    }
+    public record Offer(List<Service> services, int other) {
 
-    public record Offer(List<String> jobs, List<Consumes> consumes,
-                        List<Service> services, int other) {}
+        /** The classes that implement {@code losim.Job}, of which a simulation runs one. */
+        public List<String> jobs() {
+            return services.stream().filter(sv -> sv.qualified().equals("losim.Job"))
+                    .map(Service::cls).sorted().toList();
+        }
+    }
 
     private Palette() {}
 
@@ -109,8 +102,6 @@ public final class Palette {
      * @param sources the lab's sources, only so a service can be pointed back at one
      */
     public static Offer of(Path classes, Lab lab, List<Path> sources) throws IOException {
-        List<String> jobs = new ArrayList<>();
-        List<Consumes> shapes = new ArrayList<>();
         List<Service> services = new ArrayList<>();
         int other = 0;
 
@@ -119,10 +110,10 @@ public final class Palette {
         for (String part : lab.cp().split(File.pathSeparator)) {
             if (!part.isBlank()) urls.add(Path.of(part).toUri().toURL());
         }
-        // The parent is losim's own loader, so `losim.api.Job` and `io.grpc` are
-        // the same classes here as they are in the run — an `isAssignableFrom`
-        // against a second copy of an interface is always false, and the symptom
-        // would be a lab whose services all vanished from the list.
+        // The parent is losim's own loader, so `io.grpc.BindableService` is the
+        // same class here as it is in the run — an `isAssignableFrom` against a
+        // second copy of an interface is always false, and the symptom would be an
+        // assignment whose services all vanished from the list.
         try (var loader = new URLClassLoader(urls.toArray(URL[]::new), Palette.class.getClassLoader())) {
             Class<?> bindable;
             try {
@@ -130,7 +121,7 @@ public final class Palette {
             } catch (ClassNotFoundException e) {
                 // No gRPC on the lab's classpath at all. Nothing here can be a
                 // service, and saying that is better than saying nothing.
-                return new Offer(List.of(), List.of(), List.of(), 0);
+                return new Offer(List.of(), 0);
             }
             for (String name : names(classes)) {
                 Class<?> type;
@@ -143,11 +134,6 @@ public final class Palette {
                 }
                 if (type.isInterface() || type.isEnum() || type.isAnnotation()
                         || Modifier.isAbstract(type.getModifiers())) {
-                    continue;
-                }
-                if (Job.class.isAssignableFrom(type) || Scalable.class.isAssignableFrom(type)) {
-                    jobs.add(name);
-                    if (Scalable.class.isAssignableFrom(type)) consumes(type, name, shapes);
                     continue;
                 }
                 if (!bindable.isAssignableFrom(type)) { other++; continue; }
@@ -167,33 +153,8 @@ public final class Palette {
                 services.add(new Service(name, bare, full, methods, sourceOf(lab, sources, name)));
             }
         }
-        jobs.sort(Comparator.naturalOrder());
-        shapes.sort(Comparator.comparing(Consumes::cls));
         services.sort(Comparator.comparing(Service::cls));
-        return new Offer(List.copyOf(jobs), List.copyOf(shapes), List.copyOf(services), other);
-    }
-
-    /**
-     * What a {@link Scalable} job says its input is made of.
-     *
-     * <p>The one place here that builds a student's class. It is the same thing the
-     * run does a moment before it starts, and for the same reason: {@code shape()}
-     * is an instance method because a job is an ordinary object, and a declaration
-     * cannot be read without one. A constructor that throws costs the form its rows
-     * and nothing else — the run then refuses with the parts it wanted, which is a
-     * better first failure than a form guessing at names.
-     */
-    private static void consumes(Class<?> type, String name, List<Consumes> into) {
-        try {
-            var c = type.getDeclaredConstructor();
-            c.setAccessible(true);
-            var parts = new ArrayList<Consumes.Part>();
-            for (Input.Shape.Part p : ((Scalable) c.newInstance()).shape().parts())
-                parts.add(new Consumes.Part(p.name(), p.noun()));
-            into.add(new Consumes(name, List.copyOf(parts)));
-        } catch (ReflectiveOperationException | RuntimeException ignored) {
-            // Not a job the form can help with. It is still in the list.
-        }
+        return new Offer(List.copyOf(services), other);
     }
 
     /**

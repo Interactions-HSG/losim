@@ -1,10 +1,9 @@
 # Split, map, shuffle, reduce. Four mappers and two reducers, nothing going wrong:
 # whatever this case reports is what the pipeline does when it is left alone.
 seed: 2
-job: WordCount
 
 nodes:
-  master: { instance: m5.large, zone: eu-central-1a }
+  master: { instance: m5.large, zone: eu-central-1a, runs: { losim.Job: tests/systems/WordCount.java } }
   mappers:
     count: 4
     prefix: m

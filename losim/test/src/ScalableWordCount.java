@@ -1,77 +1,87 @@
 import io.grpc.StatusRuntimeException;
+import io.grpc.stub.StreamObserver;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import losim.api.Cluster;
-import losim.api.Input;
-import losim.api.Scalable;
+import losim.api.Losim;
+import losim.pb.Input;
+import losim.pb.JobGrpc;
+import losim.pb.Result;
+import losim.pb.Workload;
 import losim.t.*;
 
 /**
  * A word count whose size is whatever it is asked for.
  *
- * <p>This is what makes a job scalable: every number describing the corpus arrives
- * in the {@link Input}, so the scenario decides how much work there is. A job that
- * held its own size could not be shrunk, and the engine would have nothing to turn.
+ * <p>This is what makes a Job scalable: how many lines there are arrives in the
+ * {@link Workload}, so the simulation decides how much work there is. A Job that
+ * held its own size could not be shrunk, and the engine would have nothing to
+ * turn.
  *
- * <p>The corpus is generated a chunk at a time and never held whole. At full scale
+ * <p>The corpus is generated a chunk at a time in {@code Run} and never held
+ * whole — not built in {@code Load}, which is the tempting mistake. At full scale
  * the input lives on disk and no coordinator holds it, so a coordinator that held
- * it here would put a linear term in the one machine whose memory is supposed to be
- * flat, and the fitted memory law would follow it.
+ * it here would put a linear term in the one node whose memory is supposed to be
+ * flat, and the fitted memory law would follow it. What {@code Load} hands over is
+ * how many lines to make, which is a number.
  */
-public final class ScalableWordCount implements Scalable {
+public final class ScalableWordCount extends JobGrpc.JobImplBase {
 
-    /** How many lines go in one call. The job's own batching, not the input's size. */
+    /** How many lines go in one call. The Job's own batching, not the workload's size. */
     static final int LINES_PER_CHUNK = 200;
 
-    @Override public Input.Shape shape() {
-        return Input.Shape.counting("lines", "line").with("wordsPerLine").with("vocabulary");
+    /** The shape of the data, which is the Job's business and nowhere in the file. */
+    static final int WORDS_PER_LINE = 8;
+    static final int VOCABULARY = 200_000;
+
+    @Override public void load(Input in, StreamObserver<Workload> out) {
+        out.onNext(Workload.newBuilder().setCount(in.getCount()).setType(in.getUnit()).build());
+        out.onCompleted();
     }
 
-    @Override public void run(Cluster cluster, Input at) {
-        var workers = cluster.serving("Worker");
+    @Override public void run(Workload work, StreamObserver<Result> out) {
+        var here = Losim.current();
+        var workers = here.peersServing("Worker");
         if (workers.isEmpty()) throw new IllegalStateException("nobody serves Worker");
 
-        long lines = at.count("lines");
-        int wordsPerLine = (int) at.value("wordsPerLine");
-        // Seeded from the scenario, so a sweep varies the data and not only the weather.
-        var corpus = new Corpus((int) at.value("vocabulary"), 1.1, cluster.seed());
+        long lines = work.getCount();
+        // Seeded from the simulation, so a sweep varies the data and not only the weather.
+        var corpus = new Corpus(VOCABULARY, 1.1, here.seed());
         var stubs = new ArrayList<WorkerGrpc.WorkerBlockingStub>();
-        for (String w : workers) stubs.add(WorkerGrpc.newBlockingStub(cluster.channelTo(w)));
+        for (String w : workers) stubs.add(WorkerGrpc.newBlockingStub(here.channelTo(w)));
 
         int chunks = 0;
-        try (var phase = cluster.phase("map")) {
-            for (long done = 0; done < lines; done += LINES_PER_CHUNK) {
-                int batch = (int) Math.min(LINES_PER_CHUNK, lines - done);
-                var text = new StringBuilder();
-                for (var line : corpus.lines(batch, wordsPerLine)) {
-                    if (text.length() > 0) text.append(' ');
-                    text.append(line);
-                }
-                var stub = stubs.get(chunks % stubs.size());
-                try {
-                    stub.withDeadlineAfter(4000, TimeUnit.MILLISECONDS)
-                        .map(Chunk.newBuilder().setText(text.toString()).setLines(batch).build());
-                } catch (StatusRuntimeException e) {
-                    cluster.log("chunk " + chunks + " lost: " + e.getStatus().getCode());
-                }
-                chunks++;
+        for (long done = 0; done < lines; done += LINES_PER_CHUNK) {
+            int batch = (int) Math.min(LINES_PER_CHUNK, lines - done);
+            var text = new StringBuilder();
+            for (var line : corpus.lines(batch, WORDS_PER_LINE)) {
+                if (text.length() > 0) text.append(' ');
+                text.append(line);
             }
-            phase.note("chunks", chunks);
+            var stub = stubs.get(chunks % stubs.size());
+            try {
+                stub.withDeadlineAfter(4000, TimeUnit.MILLISECONDS)
+                    .map(Chunk.newBuilder().setText(text.toString()).setLines(batch).build());
+            } catch (StatusRuntimeException e) {
+                here.log("chunk " + chunks + " lost: " + e.getStatus().getCode());
+            }
+            chunks++;
         }
 
         var merged = new TreeMap<String, Integer>();
-        try (var phase = cluster.phase("collect")) {
-            for (int i = 0; i < stubs.size(); i++) {
-                try {
-                    stubs.get(i).withDeadlineAfter(4000, TimeUnit.MILLISECONDS)
-                        .reduce(Counts.getDefaultInstance()).getCountsMap()
-                        .forEach((k, v) -> merged.merge(k, v, Integer::sum));
-                } catch (StatusRuntimeException e) {
-                    cluster.log(workers.get(i) + " did not answer: " + e.getStatus().getCode());
-                }
+        for (int i = 0; i < stubs.size(); i++) {
+            try {
+                stubs.get(i).withDeadlineAfter(4000, TimeUnit.MILLISECONDS)
+                    .reduce(Counts.getDefaultInstance()).getCountsMap()
+                    .forEach((k, v) -> merged.merge(k, v, Integer::sum));
+            } catch (StatusRuntimeException e) {
+                here.log(workers.get(i) + " did not answer: " + e.getStatus().getCode());
             }
-            phase.note("keys", merged.size());
         }
-        cluster.done(Map.of("lines", lines, "chunks", chunks, "distinct", merged.size()));
+        out.onNext(Result.newBuilder()
+                .putAnswer("lines", String.valueOf(lines))
+                .putAnswer("chunks", String.valueOf(chunks))
+                .putAnswer("distinct", String.valueOf(merged.size()))
+                .build());
+        out.onCompleted();
     }
 }

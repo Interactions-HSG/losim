@@ -1,7 +1,19 @@
-import losim.api.Cluster;
-import losim.api.Job;
+import io.grpc.stub.StreamObserver;
+import losim.pb.Input;
+import losim.pb.JobGrpc;
+import losim.pb.Result;
+import losim.pb.Workload;
 
-/** A job that does nothing, for scenarios whose point is what happens before one runs. */
-public final class NoopJob implements Job {
-    @Override public void run(Cluster cluster) { cluster.done("nothing to do"); }
+/** A Job that does nothing, for simulations whose point is what happens before one runs. */
+public final class NoopJob extends JobGrpc.JobImplBase {
+
+    @Override public void load(Input in, StreamObserver<Workload> out) {
+        out.onNext(Workload.newBuilder().setCount(in.getCount()).build());
+        out.onCompleted();
+    }
+
+    @Override public void run(Workload work, StreamObserver<Result> out) {
+        out.onNext(Result.newBuilder().putAnswer("did", "nothing to do").build());
+        out.onCompleted();
+    }
 }

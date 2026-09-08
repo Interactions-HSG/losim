@@ -103,6 +103,7 @@ final class ServerSide implements ServerInterceptor {
                         * node.machines().clock.kTime() / 1e6;
 
         long parentId = parentOf(headers);
+        final boolean outside = headers.get(Machines.OUTSIDE) != null;
 
         // As a number, because the client side writes it as one: the same call has to
         // be the same value on both sides of it, or nothing downstream can join them.
@@ -185,9 +186,14 @@ final class ServerSide implements ServerInterceptor {
 
             @Override public void onMessage(Q message) {
                 long b0 = Meter.allocNow(), n0 = System.nanoTime();
-                long bytes = Wire.sizeOf(message);
-                node.bytesIn.addAndGet(bytes);
-                span.detail.put("inBytes", bytes);
+                // Weighed unless it came from outside the system — see
+                // Machines.OUTSIDE. Nothing crossed a wire to get here, and the
+                // argument is one this node built itself.
+                if (!outside) {
+                    long bytes = Wire.sizeOf(message);
+                    node.bytesIn.addAndGet(bytes);
+                    span.detail.put("inBytes", bytes);
+                }
                 if (tel.payloads()) span.detail.put("arg", Values.render(message));
                 node.chargeTo(span, Meter.allocNow() - b0, System.nanoTime() - n0);
                 super.onMessage(message);

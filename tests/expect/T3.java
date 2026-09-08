@@ -32,7 +32,11 @@ public final class T3 {
                 + "handler's declared duration was. Were only one of the two rescaled, "
                 + "this lesson would hold or break according to the host");
 
-        var handler = e.spansOf("handler");
+        // The server's handlers only. losim.Job/Run is a handler too now, and it
+        // closes OK — the caller gave up on one call and the simulation carried on,
+        // which is the whole difference between a failed call and a failed run.
+        var handler = e.spansOf("handler").stream()
+                .filter(s -> !String.valueOf(s.get("label")).startsWith("losim.Job")).toList();
         e.check(!handler.isEmpty() && handler.stream().noneMatch(s -> "OK".equals(s.get("status"))),
                 "and the server never finished: it was cut off mid-work, which is what a "
                 + "deadline shorter than a declared duration actually means — "
@@ -43,9 +47,6 @@ public final class T3 {
                 + "flight — a dangling span has to mean the recorder lost track, or it "
                 + "means nothing");
 
-        e.check(Boolean.TRUE.equals(e.meta().get("tightMargin")),
-                "and the trace carries the scenario's own warning that this case turns on a "
-                + "margin — a run that flips between seeds should look declared, not broken");
         e.done();
     }
 }

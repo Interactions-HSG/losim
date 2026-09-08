@@ -41,7 +41,7 @@ public final class TBill {
                 + "and one number cannot say that");
 
         double capacity = observed.byBucket().get("capacity");
-        long machines = read(args[1]).get("machines") instanceof List<?> l ? l.size() : 0;
+        long machines = read(args[1]).get("nodes") instanceof List<?> l ? l.size() : 0;
         e.check(capacity > 0 && observed.items().stream()
                         .filter(i -> i.bucket().equals("capacity")).count() == machines,
                 "capacity is a line per machine at its catalogue rate — an idle machine costs "

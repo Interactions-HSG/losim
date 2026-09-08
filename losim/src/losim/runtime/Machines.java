@@ -27,6 +27,22 @@ public final class Machines implements AutoCloseable {
     static final Metadata.Key<String> PARENT =
             Metadata.Key.of("losim-parent-span", Metadata.ASCII_STRING_MARSHALLER);
 
+    /**
+     * Marks the one call nobody in the system made: losim's own, to
+     * {@code losim.Job}.
+     *
+     * <p>What it buys is the byte count. Every other call has a caller who
+     * marshalled the request and was charged for it, and the invariant that makes
+     * the accounting checkable is that what the callers sent is exactly what the
+     * servers received. This call has no caller — and its argument is a
+     * {@code Workload} the entry node built itself, moments earlier, in
+     * {@code Load}. Counting it as bytes received would bill a node for ingress on
+     * its own output, and for a Job whose Load builds something large it would bill
+     * it a great deal.
+     */
+    static final Metadata.Key<String> OUTSIDE =
+            Metadata.Key.of("losim-outside", Metadata.ASCII_STRING_MARSHALLER);
+
     final Telemetry tel;
     final Clock clock;
     final Net net;

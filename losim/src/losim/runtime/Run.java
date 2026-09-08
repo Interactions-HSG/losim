@@ -5,12 +5,10 @@ import io.grpc.Channel;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Supplier;
-import losim.api.Cluster;
-import losim.api.Input;
-import losim.api.Job;
-import losim.api.Scalable;
+import losim.pb.Input;
+import losim.pb.JobGrpc;
+import losim.pb.Workload;
 import losim.res.InstanceCatalog;
-import losim.scenario.InputSize;
 import losim.scenario.Scenario;
 import losim.scenario.Scenario.*;
 import losim.time.Clock;
@@ -24,12 +22,15 @@ import losim.verify.Trust;
  * A scenario, actually run.
  *
  * <p>Everything the file declared is assembled here in one order that matters:
- * the machines and their services first, because the retry gate has to be checked
- * against what the cluster really serves; then the failures, which need every node
- * to exist before one can be aimed at; then the sampler; and only then the job.
+ * the nodes and their services first, because the retry gate has to be checked
+ * against what the system really serves; then {@code losim.Job/Load}, off the
+ * clock, which is the last thing that happens before anything is measured; then
+ * the failures, which need every node to exist before one can be aimed at; then
+ * the sampler; and only then {@code losim.Job/Run}.
  *
- * <p>The run ends when the job returns, throws, or outstays its welcome. All three
- * are recorded — a run that failed is a result, not an absence of one.
+ * <p>The simulation ends when {@code Run} returns, fails, or outstays its
+ * welcome. All three are recorded — a run that failed is a result, not an absence
+ * of one.
  */
 public final class Run {
 
@@ -178,53 +179,63 @@ public final class Run {
             machines.costing(s.simulatedDuration());
 
 
-            machines.begin();
-            tel.event("-", "scenario", "file", s.file(), "seed", s.seed(), "scale", s.scale(),
-                      "machines", s.nodes().size(), "job", s.job(),
-                      "tightMargin", s.tightMargin() ? true : null);
+            Machine entry = byName.get(entryNode(s));
 
-            // On the machines, at the start, before anything they do is measured: a
+            // Off the clock and off the trace, and before either exists. Reading a
+            // file is not part of the design being measured, so `Load` runs first,
+            // against a system that is up and serving, and then everything it spent
+            // is taken back: the ledgers to zero, and the events and spans it wrote
+            // thrown away. Only then does `begin()` zero the clock and announce the
+            // nodes — which is why it is in this order and not the other one, where
+            // the wipe would take the boot events with it.
+            Workload work;
+            try (var outside = new Outside(entry.name)) {
+                work = outside.blocking().load(input(s));
+                for (Machine m : machines.all()) m.forget();
+                tel.forget();
+            } catch (io.grpc.StatusRuntimeException e) {
+                throw new IllegalArgumentException("losim.Job/Load failed on " + entry.name
+                        + ": " + describe(e) + ". Load runs before anything is measured, so a"
+                        + " simulation whose input cannot be built has not started.");
+            }
+
+            machines.begin();
+            tel.event("-", "simulation", "file", s.file(), "seed", s.seed(), "scale", s.scale(),
+                      "nodes", s.nodes().size(), "entry", entry.name,
+                      "unit", s.input().unit(), "count", s.input().count(),
+                      "loaded", work.getCount());
+
+            // On the nodes, at the start, before anything they do is measured: a
             // figure that is a lower bound should say so beside itself, not in a log.
             trust.recordInto(tel);
 
             machines.startSampling();
 
-            // Scheduled only now, against a clock that starts at zero, so a fault
+            // Scheduled only now, against a clock that starts at zero, so a failure
             // written at 120 refMs lands at 120 refMs in the trace.
             var dispatcher = new Dispatcher(clock);
             schedule(s, machines, byName, dispatcher, tel);
             dispatcher.start();
 
-            Machine entry = byName.values().iterator().next();
-            var cluster = new Live(machines, entry, tel, s.seed());
-            Object job = job(s.job(), loader);
-            // Resolved before the span opens, because an input the scenario did not
-            // describe is a line to fix rather than a run that failed: inside the
-            // span it would come out as a job that threw, which is what a design
-            // falling over looks like.
-            Input input = sized(s, job);
             started = tel.now();
-            var span = tel.open(entry.name, "job", s.job());
-            try {
-                entry.submit(() -> {
-                    try {
-                        if (job instanceof Scalable scalable) scalable.run(cluster, input);
-                        else ((Job) job).run(cluster);
-                    }
-                    catch (Exception e) { throw new CompletionException(e); }
-                }).get(WATCHDOG_SECONDS, TimeUnit.SECONDS);
+            try (var outside = new Outside(entry.name)) {
+                var call = outside.futures().run(work);
+                losim.pb.Result answer = call.get(WATCHDOG_SECONDS, TimeUnit.SECONDS);
                 completed = true;
-                tel.close(span, "OK");
+                tel.event(entry.name, "done", "value", Values.render(answer));
             } catch (ExecutionException e) {
-                Throwable cause = e.getCause() instanceof CompletionException c ? c.getCause() : e.getCause();
-                failure = cause.getClass().getSimpleName() + ": " + cause.getMessage();
-                tel.close(span, "FAILED", "error", failure);
-                tel.event(entry.name, "job_failed", "error", failure);
+                failure = describe(e.getCause());
+                // A node that restarted took its server down with it, and gRPC
+                // cancels what was in flight. Saying only CANCELLED leaves the one
+                // fact a reader cannot recover: which of the two happened.
+                if (!entry.alive() || entry.restarts() > 0)
+                    failure += " — " + entry.name + " runs losim.Job and was restarted, which"
+                            + " takes its server down and cancels the call it was serving";
+                tel.event(entry.name, "failed", "error", failure);
             } catch (TimeoutException e) {
-                failure = "the job was still running after " + WATCHDOG_SECONDS
+                failure = "losim.Job/Run was still running after " + WATCHDOG_SECONDS
                         + " seconds of real time, which is not a slow run — it is a stuck one";
-                tel.close(span, "TIMEOUT", "error", failure);
-                tel.event(entry.name, "job_failed", "error", failure);
+                tel.event(entry.name, "failed", "error", failure);
             }
 
             dispatcher.close();
@@ -251,14 +262,19 @@ public final class Run {
             }
 
             var trace = Trace.of(tel)
-                    .meta("scenario", s.file())
+                    .meta("simulation", s.file())
                     .meta("seed", s.seed())
-                    .meta("job", s.job())
+                    .meta("entry", entry.name)
                     .meta("scale", s.scale())
+                    .meta("unit", s.input().unit())
+                    .meta("count", s.input().count())
+                    // What Load actually built, beside what it was asked for. A
+                    // Load that quietly returns a tenth of its count is how a
+                    // fitted exponent goes wrong for a reason nobody finds.
+                    .meta("loaded", work.getCount())
                     .meta("completed", completed)
                     .meta("durationRefMs", Math.round(ended - started));
             if (failure != null) trace.meta("failure", failure);
-            if (s.tightMargin()) trace.meta("tightMargin", true);
             if (trust.checked()) trace.meta("trusted", trust.clean());
             // What the clock was calibrated to, and how still the host was while
             // it was measured. Written always, not only when something is wrong:
@@ -313,7 +329,7 @@ public final class Run {
                 m.put("losimStops", t.losimStops());
                 m.put("memCapMb", Machine.round(t.memoryCapMb()));
                 m.put("alive", t.alive());
-                trace.machine(m);
+                trace.node(m);
             }
             return new Result(trace, tel, completed, failure, ended - started, totals, trust);
         }
@@ -364,82 +380,113 @@ public final class Run {
         };
     }
 
-    /** The job, which is a {@link Job} or a {@link Scalable} and nothing else. */
-    private static Object job(String className, ClassLoader loader) {
-        try {
-            Class<?> type = Class.forName(className, true, loader);
-            if (!Job.class.isAssignableFrom(type) && !Scalable.class.isAssignableFrom(type))
-                throw new IllegalArgumentException("'" + className + "' is named as the job, so it"
-                        + " has to implement losim.api.Job, or losim.api.Scalable if its input has"
-                        + " a size");
-            var c = type.getDeclaredConstructor();
-            c.setAccessible(true);
-            return c.newInstance();
-        } catch (ClassNotFoundException e) {
-            throw new IllegalArgumentException("no class called '" + className + "' is on the"
-                    + " classpath to run as the job. Compile the project first; --cp says which"
-                    + " directory the classes are in.");
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException("could not build the job '" + className + "'", e);
-        }
-    }
-
-    /** A scale as somebody wrote it: 6 rather than 6.0. */
-    private static String trim(double scale) {
-        return scale == Math.rint(scale) ? String.valueOf((long) scale) : String.valueOf(scale);
+    /**
+     * The one node that runs {@code losim.Job}, which is where the work starts.
+     *
+     * <p>Exactly one. Zero is a system nothing can start; two is two designs, and
+     * two designs are two files compared with {@code losim compare} rather than
+     * one file that has to pick. There is no key that picks, which is the point:
+     * the system's shape is the design.
+     */
+    private static String entryNode(Scenario s) {
+        var found = new ArrayList<NodeSpec>();
+        for (NodeSpec m : s.nodes())
+            if (m.runs().containsKey(JobGrpc.SERVICE_NAME)) found.add(m);
+        if (found.size() == 1) return found.get(0).name();
+        if (found.isEmpty()) throw new IllegalArgumentException(s.nodes().get(0).where()
+                + ": no node in this simulation runs " + JobGrpc.SERVICE_NAME + ", so there is"
+                + " nothing to start. One node's runs: says { " + JobGrpc.SERVICE_NAME
+                + ": <path>.java }, and the file it names implements Load and Run.");
+        throw new IllegalArgumentException(found.get(1).where() + ": '" + found.get(1).name()
+                + "' runs " + JobGrpc.SERVICE_NAME + ", and so does '" + found.get(0).name()
+                + "' at " + found.get(0).where() + ". A simulation starts in one place. Two"
+                + " designs are two files, compared with losim compare.");
     }
 
     /**
-     * The input this run is to process, or {@code null} for a job that takes none.
+     * What the simulation declared, shrunk to the size this run is measuring.
      *
-     * <p>Where the scenario and the job are held against each other. The loader
-     * never loads a class, so it cannot know whether {@code items:} is a part of
-     * anything; by here the job exists and can be asked, and every answer is refused
-     * with the line somebody wrote — the same discipline {@link Machines#costing} uses
-     * for a {@code takes:} key naming an rpc that is not served.
+     * <p>The file's {@code count:} is the workload at <i>full</i> scale. What this
+     * run does is that times {@code units / fullUnits}: 1 for a direct run, and the
+     * rung the engine picked otherwise.
      *
-     * <p>The scenario's sizes are the input at <i>full</i> scale. What this run does
-     * is that times {@code units / fullUnits}: 1 for a direct run, and the rung the
-     * engine picked otherwise. Every count moves by the same factor, so a rung is
-     * the same design at a smaller size rather than a different one.
+     * <p>Nothing in the message says which rung it is. A Job that could tell a
+     * probe run from the full one could behave differently at the two sizes, and
+     * then the ladder would be a ladder of different designs.
      */
-    private static Input sized(Scenario s, Object job) {
-        if (!(job instanceof Scalable scalable)) {
-            // Above scale 1 the scenario is asking for a model, and a model is the
-            // same job asked to do more. A plain Job has no way of being asked: its
-            // size is a constant in its own Java, where no scenario can reach it.
-            if (s.scale() > 1) throw new IllegalArgumentException(s.jobWhere() + ": '" + s.job()
-                    + "' is the job of a scenario at scale " + trim(s.scale()) + ", so it has to"
-                    + " implement losim.api.Scalable. It declares what its input is made of and"
-                    + " the input: block says how big each part is; there is nothing here for the"
-                    + " engine to vary.");
-            if (!s.input().isEmpty()) throw new IllegalArgumentException(s.input().get(0).where()
-                    + ": this scenario sizes an input and '" + s.job() + "' is a plain"
-                    + " losim.api.Job, which is never given one. Implement losim.api.Scalable, or"
-                    + " delete the input: block.");
-            return null;
+    private static Input input(Scenario s) {
+        var spec = s.input();
+        long count = Math.round(spec.count() * (s.units() / (double) s.fullUnits()));
+        if (count < 1) throw new IllegalArgumentException(spec.where() + ": count is "
+                + spec.count() + " at full scale, and this run is measuring "
+                + s.units() + " of " + s.fullUnits() + " — which rounds to no "
+                + spec.unit() + " at all. Raise the count, or lower the scale.");
+        var in = Input.newBuilder().setUnit(spec.unit()).setCount(count);
+        if (spec.source() != null) in.setSource(spec.source());
+        return in.build();
+    }
+
+    /** What went wrong, as one line, from whichever kind of wrapper carries it. */
+    private static String describe(Throwable t) {
+        if (t instanceof CompletionException c && c.getCause() != null) t = c.getCause();
+        if (t instanceof io.grpc.StatusRuntimeException g) {
+            var st = g.getStatus();
+            return st.getDescription() == null ? st.getCode().name()
+                    : st.getCode().name() + ": " + st.getDescription();
         }
-        Input.Shape shape = scalable.shape();
-        var declared = new LinkedHashMap<String, Long>();
-        for (InputSize size : s.input()) {
-            if (shape.part(size.name()) == null) throw new IllegalArgumentException(size.where()
-                    + ": '" + s.job() + "' consumes no part called '" + size.name() + "'. Its"
-                    + " shape() declares " + shape + ".");
-            declared.put(size.name(), size.n());
+        return t.getClass().getSimpleName() + ": " + t.getMessage();
+    }
+
+    // -------------------------------------------------------------- the first call
+
+    /**
+     * The call that starts the simulation, made from outside the system.
+     *
+     * <p>A plain in-process channel with no {@link ClientSide} on it, because
+     * there is no caller for it to charge: nobody's bytes, nobody's latency,
+     * nobody's failure injection. The entry node's {@code bytesIn} does gain the
+     * request's size, and that is correct — it genuinely received it.
+     *
+     * <p>The channel is shut down in a {@code finally}, which is what this class
+     * exists for. A probe grid is about thirty simulations, and thirty leaked
+     * in-process transports is not a hypothetical.
+     */
+    private static final class Outside implements AutoCloseable {
+        private final io.grpc.ManagedChannel channel;
+
+        Outside(String node) {
+            this.channel = io.grpc.inprocess.InProcessChannelBuilder.forName(node)
+                    .directExecutor()
+                    .intercept(new io.grpc.ClientInterceptor() {
+                        @Override public <Q, S> io.grpc.ClientCall<Q, S> interceptCall(
+                                io.grpc.MethodDescriptor<Q, S> md, io.grpc.CallOptions opts,
+                                io.grpc.Channel next) {
+                            return new io.grpc.ForwardingClientCall
+                                    .SimpleForwardingClientCall<>(next.newCall(md, opts)) {
+                                @Override public void start(Listener<S> l, io.grpc.Metadata h) {
+                                    h.put(Machines.OUTSIDE, "1");
+                                    super.start(l, h);
+                                }
+                            };
+                        }
+                    })
+                    .build();
         }
-        for (String part : shape.names())
-            if (!declared.containsKey(part)) throw new IllegalArgumentException(s.jobWhere()
-                    + ": '" + s.job() + "' consumes '" + part + "' and this scenario does not say"
-                    + " how much. Every part of an input is sized under input:, because a size"
-                    + " that is not in the file is a size no sweep can vary.");
-        try {
-            return Input.of(shape, declared, s.units() / (double) s.fullUnits());
-        } catch (IllegalArgumentException e) {
-            // Input.of guards itself for anyone building one by hand; reached from a
-            // file, it has already been checked against the shape, so what is left is
-            // the run size against the sizes — and that is the scenario's line too.
-            throw new IllegalArgumentException(s.jobWhere() + ": " + e.getMessage());
-        }
+
+        /**
+         * The stub, with no deadline on it.
+         *
+         * <p>The watchdog is a real-time limit on a run that has stopped moving,
+         * and a gRPC deadline is simulated time — which stops advancing at exactly
+         * the moment a stuck run needs to be noticed. So the deadline is
+         * {@code future.get(WATCHDOG_SECONDS)} and the cancellation it throws.
+         */
+        JobGrpc.JobFutureStub futures() { return JobGrpc.newFutureStub(channel); }
+
+        /** For {@code Load}, which is not on the watchdog because it is not the run. */
+        JobGrpc.JobBlockingStub blocking() { return JobGrpc.newBlockingStub(channel); }
+
+        @Override public void close() { channel.shutdownNow(); }
     }
 
     // ------------------------------------------------------------------- weather
@@ -534,54 +581,4 @@ public final class Run {
         next[0].run();
     }
 
-    // ------------------------------------------------------------------- cluster
-
-    /** The cluster as the job sees it, and the channels it opened along the way. */
-    private static final class Live implements Cluster {
-        private final Machines machines;
-        private final Machine here;
-        private final Telemetry tel;
-
-        private final long seed;
-
-        Live(Machines machines, Machine here, Telemetry tel, long seed) {
-            this.machines = machines; this.here = here; this.tel = tel;
-            this.seed = seed;
-        }
-
-        @Override public List<String> machines() { return machines.names(); }
-        @Override public List<String> serving(String service) { return machines.serving(service); }
-
-        // The machine's own, not the job's: a handler on this machine and the job
-        // driving it should not be holding two channels to the same peer, and only
-        // one of the two would then be closed by anybody.
-        @Override public Channel channelTo(String machine) { return here.dial(machine); }
-
-        @Override public double clockMs() { return tel.now(); }
-        @Override public long seed() { return seed; }
-        @Override public void log(String message) { tel.event(here.name, "log", "message", message); }
-        @Override public <T> T compute(String label, Supplier<T> body) {
-            return here.compute(label, body);
-        }
-        @Override public Phase phase(String label) {
-            Telemetry.Span span = tel.open(here.name, "phase", label);
-            var restore = io.grpc.Context.current()
-                    .withValue(Telemetry.SPAN, span).attach();
-            return new Phase() {
-                @Override public Phase note(String key, Object value) {
-                    span.detail.put(key, Values.render(value));
-                    return this;
-                }
-                @Override public void close() {
-                    io.grpc.Context.current().detach(restore);
-                    tel.close(span, "OK");
-                }
-            };
-        }
-
-        @Override public void done(Object answer) {
-            tel.event(here.name, "done", "value", Values.render(answer));
-        }
-
-    }
 }

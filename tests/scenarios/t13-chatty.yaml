@@ -3,13 +3,11 @@
 # This is the extreme case, and it is mandatory rather than thorough: at one reveal
 # per handler an observer effect that halves a fitted exponent is undetectable. Every
 # number stays plausible, nothing looks broken, and only the projection is wrong.
-mode: scaled
 seed: 13
-job: Elastic
 scale: 6
 
 nodes:
-  master: { instance: m5.2xlarge, zone: eu-central-1a }
+  master: { instance: m5.2xlarge, zone: eu-central-1a, runs: { losim.Job: tests/systems/Elastic.java } }
   workers:
     count: 4
     prefix: w
@@ -17,12 +15,11 @@ nodes:
     zone: eu-central-1a
     runs: { Worker: tests/systems/Chatty.java }
 
-# The corpus, at full size. The job says what its input is made of; this
-# says how much of each part there is.
+# The corpus, at full size. One number, because there is one number the engine
+# varies: what a line is made of is the Job's business, declared in its own code.
 input:
-  lines:        48000
-  wordsPerLine: 8
-  vocabulary:   200000
+  unit:  line
+  count: 48000
 
 # What each rpc costs on the reference machine, under the class that serves it.
 # The handlers declare nothing: a duration is a claim about the machine a design

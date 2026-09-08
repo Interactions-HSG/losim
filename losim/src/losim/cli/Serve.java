@@ -338,22 +338,10 @@ public final class Serve {
             services.add(row);
         }
         body.put("compiled", true);
+        // Which of the services below is the one the simulation starts in. Not a
+        // second list of a different kind of thing: they are all services, and this
+        // one answers to losim.Job.
         body.put("jobs", offer.jobs());
-        List<Object> consumes = new ArrayList<>();
-        for (Palette.Consumes c : offer.consumes()) {
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("cls", c.cls());
-            List<Object> parts = new ArrayList<>();
-            for (Palette.Consumes.Part p : c.parts()) {
-                Map<String, Object> one = new LinkedHashMap<>();
-                one.put("name", p.name());
-                one.put("noun", p.noun());
-                parts.add(one);
-            }
-            row.put("parts", parts);
-            consumes.add(row);
-        }
-        body.put("consumes", consumes);
         body.put("services", services);
         body.put("other", offer.other());
         send(x, 200, "application/json", Json.write(body).getBytes(StandardCharsets.UTF_8));
@@ -543,20 +531,15 @@ public final class Serve {
             takes.add(row);
         }
 
-        List<Object> input = new ArrayList<>();
-        for (Draft.Part part : d.input()) {
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("name", part.name());
-            row.put("n", part.n());
-            input.add(row);
-        }
+        Map<String, Object> input = new LinkedHashMap<>();
+        input.put("source", d.input().source());
+        input.put("unit", d.input().unit());
+        input.put("count", d.input().count());
 
         Map<String, Object> draft = new LinkedHashMap<>();
         draft.put("name", d.name());
-        draft.put("job", d.job());
         draft.put("seed", d.seed());
         draft.put("scale", d.scale());
-        draft.put("tightMargin", d.tightMargin());
         draft.put("mode", d.mode());
         Map<String, Object> net = new LinkedHashMap<>();
         net.put("sameZoneRefMs", d.net().sameZoneRefMs());
@@ -792,14 +775,14 @@ public final class Serve {
                 if (m.get("meta") instanceof Map<?, ?> meta) {
                     Object d = meta.get("durationRefMs");
                     if (d instanceof Number n) row.put("durationRefMs", n.doubleValue());
-                    Object job = meta.get("job");
-                    if (job != null) row.put("job", String.valueOf(job));
-                    Object scenario = meta.get("scenario");
-                    if (scenario != null) row.put("scenario", String.valueOf(scenario));
+                    Object entry = meta.get("entry");
+                    if (entry != null) row.put("entry", String.valueOf(entry));
+                    Object simulation = meta.get("simulation");
+                    if (simulation != null) row.put("simulation", String.valueOf(simulation));
                     if (Boolean.FALSE.equals(meta.get("completed"))) row.put("completed", false);
                 }
-                if (m.get("machines") instanceof List<?> l) {
-                    row.put("machines", l.size());
+                if (m.get("nodes") instanceof List<?> l) {
+                    row.put("nodes", l.size());
                     List<String> zones = new ArrayList<>();
                     for (Object o : l) {
                         if (o instanceof Map<?, ?> mm && mm.get("zone") instanceof String z

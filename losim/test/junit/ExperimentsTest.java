@@ -62,9 +62,8 @@ class ExperimentsTest {
     @DisplayName("two scenarios chained are two runs, not one overwriting the other")
     void chainsMultipleRuns() throws Exception {
         Files.writeString(root.resolve("scenarios/second.yaml"), """
-                job: WordCountJob
                 nodes:
-                  a: { instance: m5.large, zone: eu-central-1a }
+                  a: { instance: m5.large, zone: eu-central-1a, runs: { losim.Job: src/WordCountJob.java } }
                   b: { instance: c5.large, zone: eu-central-1a, count: 2, prefix: b, runs: { Worker: src/Counter.java } }
                 """);
         try {
@@ -94,9 +93,8 @@ class ExperimentsTest {
     @DisplayName("runAll() runs every scenario the lab has")
     void runsEverything() throws Exception {
         Files.writeString(root.resolve("scenarios/third.yaml"), """
-                job: WordCountJob
                 nodes:
-                  a: { instance: m5.large, zone: eu-central-1a }
+                  a: { instance: m5.large, zone: eu-central-1a, runs: { losim.Job: src/WordCountJob.java } }
                   b: { instance: c5.large, zone: eu-central-1a, count: 2, prefix: b, runs: { Worker: src/Counter.java } }
                 """);
         try {

@@ -94,7 +94,7 @@ class LabTest {
     @DisplayName("scenarios come from scenarios/, and from a loose file at the root")
     void findsScenariosInTheFolderAndAtTheRoot() throws Exception {
         Path loose = root.resolve("loose.yaml");
-        Files.writeString(loose, "job: WordCountJob\nmachines:\n  a: { instance: m5.large, zone: eu-central-1a }\n");
+        Files.writeString(loose, "nodes:\n  a: { instance: m5.large, zone: eu-central-1a }\n");
         try {
             var names = lab.scenarioNames();
             assertTrue(names.contains("main.yaml"));

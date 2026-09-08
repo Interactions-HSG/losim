@@ -1,10 +1,9 @@
 # One client, one server, one unary call. Nothing else, on purpose: if this case
 # ever fails, nothing further up the suite means anything.
 seed: 1
-job: OneCall
 
 nodes:
-  client: { instance: m5.large, zone: eu-central-1a }
+  client: { instance: m5.large, zone: eu-central-1a, runs: { losim.Job: tests/systems/OneCall.java } }
   srv:    { instance: m5.large, zone: eu-central-1a, runs: { Worker: tests/systems/Mapper.java } }
 
 # What each rpc costs on the reference machine, under the class that serves it.

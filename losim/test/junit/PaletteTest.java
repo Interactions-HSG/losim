@@ -41,7 +41,7 @@ class PaletteTest {
     }
 
     @Test
-    @DisplayName("a class implementing Job is a job, alphabetically")
+    @DisplayName("a class serving losim.Job is where a simulation starts, alphabetically")
     void findsTheJobs() {
         assertEquals(java.util.List.of("NoisyJob", "WordCountJob"), offer.jobs());
     }
@@ -49,9 +49,13 @@ class PaletteTest {
     @Test
     @DisplayName("a class extending a service's ImplBase is a service, with its methods")
     void findsTheService() {
-        assertEquals(1, offer.services().size(),
+        // Three services, and the two that answer to losim.Job are in this list
+        // like everything else. There is no second list to be in: the thing that
+        // starts the work is a service, and that is the whole of 3.0.
+        assertEquals(3, offer.services().size(),
                 () -> "found: " + offer.services().stream().map(Palette.Service::cls).toList());
-        Palette.Service worker = offer.services().get(0);
+        Palette.Service worker = offer.services().stream()
+                .filter(sv -> sv.qualified().equals("losim.t.Worker")).findFirst().orElseThrow();
         assertEquals("Counter", worker.cls());
         assertEquals("Worker", worker.service());
         assertEquals("losim.t.Worker", worker.qualified());

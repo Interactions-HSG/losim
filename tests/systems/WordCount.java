@@ -5,8 +5,11 @@ import lab.pb.Chunk;
 import lab.pb.Counts;
 import lab.pb.ShufflerGrpc;
 import lab.pb.WorkerGrpc;
-import losim.api.Cluster;
-import losim.api.Job;
+import losim.api.Losim;
+import losim.pb.Input;
+import losim.pb.JobGrpc;
+import losim.pb.Result;
+import losim.pb.Workload;
 
 /**
  * Split, map, shuffle, reduce — the pipeline most of the suite's harder cases run on.
@@ -17,7 +20,7 @@ import losim.api.Job;
  * coordinator waits out its own deadline, learns nothing about why, and does the
  * work itself.
  */
-public final class WordCount implements Job {
+public final class WordCount extends JobGrpc.JobImplBase {
 
     /** Fixed, so an assertion can compute the right answer independently. */
     public static final String[] CORPUS = {
@@ -38,47 +41,45 @@ public final class WordCount implements Job {
         return Chunk.newBuilder().setText(CORPUS[i]).setLines(1).build();
     }
 
-    @Override public void run(Cluster cluster) throws Exception {
-        List<String> mappers = cluster.serving("Worker");
-        List<String> reducers = cluster.serving("Shuffler");
+    @Override public void load(Input in, StreamObserver<Workload> out) {
+        out.onNext(Workload.newBuilder().setCount(in.getCount()).build());
+        out.onCompleted();
+    }
+
+    @Override public void run(Workload work, StreamObserver<Result> out) {
+        var here = Losim.current();
+        List<String> mappers = here.peersServing("Worker");
+        List<String> reducers = here.peersServing("Shuffler");
         if (mappers.isEmpty() || reducers.isEmpty())
-            throw new IllegalStateException("this cluster has no pipeline to run");
+            throw new IllegalStateException("this system has no pipeline to run");
 
         var mapped = new ConcurrentHashMap<Integer, Counts>();
-        try (var phase = cluster.phase("map")) {
-            phase.note("chunks", CORPUS.length).note("mappers", mappers.size());
-            var done = new CountDownLatch(CORPUS.length);
-            for (int i = 0; i < CORPUS.length; i++) {
-                final int at = i;
-                WorkerGrpc.newStub(cluster.channelTo(mappers.get(i % mappers.size())))
-                    .withDeadlineAfter(3000, TimeUnit.MILLISECONDS)
-                    .map(chunk(i), new StreamObserver<Counts>() {
-                             @Override public void onNext(Counts c) { mapped.put(at, c); }
-                             @Override public void onError(Throwable t) { done.countDown(); }
-                             @Override public void onCompleted() { done.countDown(); }
-                         });
-            }
-            done.await(60, TimeUnit.SECONDS);
+        var done = new CountDownLatch(CORPUS.length);
+        for (int i = 0; i < CORPUS.length; i++) {
+            final int at = i;
+            WorkerGrpc.newStub(here.channelTo(mappers.get(i % mappers.size())))
+                .withDeadlineAfter(3000, TimeUnit.MILLISECONDS)
+                .map(chunk(i), new StreamObserver<Counts>() {
+                         @Override public void onNext(Counts c) { mapped.put(at, c); }
+                         @Override public void onError(Throwable t) { done.countDown(); }
+                         @Override public void onCompleted() { done.countDown(); }
+                     });
         }
+        await(done, 60);
 
         // Whatever did not come back has to be redone somewhere else. Nobody said
-        // which machine died or why — the coordinator knows only that a chunk it
-        // sent out has no answer, and that is the whole of what it gets to work with.
-        if (mapped.size() < CORPUS.length) {
-            try (var phase = cluster.phase("remap")) {
-                phase.note("missing", CORPUS.length - mapped.size());
-                for (int i = 0; i < CORPUS.length; i++) {
-                    if (mapped.containsKey(i)) continue;
-                    for (String worker : mappers) {
-                        try {
-                            mapped.put(i, WorkerGrpc.newBlockingStub(cluster.channelTo(worker))
-                                    .withDeadlineAfter(3000, TimeUnit.MILLISECONDS).map(chunk(i)));
-                            break;
-                        } catch (RuntimeException e) {
-                            // That one is gone too. Try the next; the answer is exact
-                            // or the job has failed, and there is no third outcome.
-                        }
-                    }
+        // which node died or why — the coordinator knows only that a chunk it sent
+        // out has no answer, and that is the whole of what it gets to work with.
+        for (int i = 0; i < CORPUS.length; i++) {
+            if (mapped.containsKey(i)) continue;
+            for (String worker : mappers) {
+                try {
+                    mapped.put(i, WorkerGrpc.newBlockingStub(here.channelTo(worker))
+                            .withDeadlineAfter(3000, TimeUnit.MILLISECONDS).map(chunk(i)));
+                    break;
+                } catch (RuntimeException e) {
+                    // That one is gone too. Try the next; the answer is exact or the
+                    // simulation has failed, and there is no third outcome.
                 }
             }
         }
@@ -92,24 +93,31 @@ public final class WordCount implements Job {
                     buckets.get(Math.floorMod(word.hashCode(), reducers.size())).merge(word, n, Integer::sum));
 
         var answer = new TreeMap<String, Integer>();
-        try (var phase = cluster.phase("reduce")) {
-            phase.note("buckets", buckets.size());
-            for (int r = 0; r < reducers.size(); r++) {
-                final Map<String, Integer> bucket = buckets.get(r);
-                final String reducer = reducers.get(r);
-                if (bucket.isEmpty()) continue;
-                try {
-                    Counts folded = ShufflerGrpc.newBlockingStub(cluster.channelTo(reducer))
-                            .withDeadlineAfter(3000, TimeUnit.MILLISECONDS)
-                            .fold(Counts.newBuilder().putAllCounts(bucket).build());
-                    answer.putAll(folded.getCountsMap());
-                } catch (RuntimeException e) {
-                    // The reducer did not answer. Nobody said why, and nobody will:
-                    // redo its bucket here, which is the exercise.
-                    answer.putAll(cluster.compute("local merge after " + reducer, () -> bucket));
-                }
+        for (int r = 0; r < reducers.size(); r++) {
+            final Map<String, Integer> bucket = buckets.get(r);
+            final String reducer = reducers.get(r);
+            if (bucket.isEmpty()) continue;
+            try {
+                Counts folded = ShufflerGrpc.newBlockingStub(here.channelTo(reducer))
+                        .withDeadlineAfter(3000, TimeUnit.MILLISECONDS)
+                        .fold(Counts.newBuilder().putAllCounts(bucket).build());
+                answer.putAll(folded.getCountsMap());
+            } catch (RuntimeException e) {
+                // The reducer did not answer. Nobody said why, and nobody will: redo
+                // its bucket here, on the thread serving losim.Job/Run — which is
+                // what makes this node busy for exactly as long as it takes.
+                answer.putAll(bucket);
             }
         }
-        cluster.done(answer);
+        var built = Result.newBuilder();
+        answer.forEach((word, n) -> built.putAnswer(word, String.valueOf(n)));
+        out.onNext(built.build());
+        out.onCompleted();
+    }
+
+    /** Waiting, without making every caller declare it can be interrupted. */
+    private static void await(CountDownLatch latch, int seconds) {
+        try { latch.await(seconds, TimeUnit.SECONDS); }
+        catch (InterruptedException e) { Thread.currentThread().interrupt(); }
     }
 }

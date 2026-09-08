@@ -52,7 +52,7 @@ public final class Loader {
      */
     public static Scenario overlay(Scenario base, Path file) throws IOException {
         Node over = Yaml.parse(file);
-        over.onlyAllows("seed", "network", "nodes", "retries", "tightMargin");
+        over.onlyAllows("seed", "network", "nodes", "retries");
 
         var nodes = base.nodes();
         if (over.opt("nodes").present()) {
@@ -83,8 +83,6 @@ public final class Loader {
         return new Scenario(
                 base.file(),
                 over.opt("seed").present() ? (long) over.at("seed").num(base.seed()) : base.seed(),
-                base.job(),
-                base.jobWhere(),
                 base.scale(),
                 base.units(),
                 base.input(),
@@ -92,17 +90,14 @@ public final class Loader {
                 over.opt("network").present() ? network(over.opt("network")) : base.net(),
                 over.opt("retries").present() ? retries(over.opt("retries")) : base.retries(),
                 base.simulatedDuration(),
-                over.opt("tightMargin").present() ? over.at("tightMargin").bool(false) : base.tightMargin(),
                 base.mode());
     }
 
     public static Scenario of(Node root) {
-        root.onlyAllows("seed", "job", "scale", "nodes", "input",
-                        "network", "retries", "simulatedDuration",
-                        "tightMargin", "mode");
+        root.onlyAllows("seed", "scale", "nodes", "input", "network", "retries",
+                        "simulatedDuration");
 
         long seed = (long) root.opt("seed").num(1);
-        String job = root.at("job").str();
         double scale = root.opt("scale").num(1);
         if (scale < 1) throw root.at("scale").fail(
                 "scale is how many times bigger the design is than the run measuring it, so it"
@@ -122,27 +117,15 @@ public final class Loader {
         var takes = simulatedDuration(root.opt("simulatedDuration"));
         var input = input(root.opt("input"));
 
-        var mode = mode(root.opt("mode"));
-        if (mode == Scenario.Mode.SCALED && scale <= 1)
-            throw root.at("mode").fail("scaled mode measures a small run and projects it up, and"
-                    + " at scale 1 there is nothing above the run to project to. Raise the scale,"
-                    + " or run it directly.");
+        // Derived, not declared. A simulation above scale 1 is a model of
+        // something bigger and there is nothing else it could be; at scale 1 there
+        // is nothing above the run to project to. A `mode:` key was a second way
+        // to say what `scale:` already says, and the two could disagree.
+        var mode = scale > 1 ? Scenario.Mode.SCALED : Scenario.Mode.DIRECT;
 
-        var s = new Scenario(root.where().split(":")[0], seed, job, root.at("job").where(), scale,
-                0, input, machines, net, retries, takes,
-                root.opt("tightMargin").bool(false), mode);
+        var s = new Scenario(root.where().split(":")[0], seed, scale, 0,
+                input, machines, net, retries, takes, mode);
         return s.withUnits(s.fullUnits());
-    }
-
-    private static Scenario.Mode mode(Node node) {
-        if (!node.present()) return Scenario.Mode.DIRECT;
-        String m = node.str().trim().toUpperCase();
-        try { return Scenario.Mode.valueOf(m); }
-        catch (IllegalArgumentException e) {
-            throw node.fail("mode is 'direct' or 'scaled', not '" + node.str() + "'. There are"
-                    + " only two: scaled mode always uses the engine, because a hand-declared"
-                    + " shrink factor would be a third mode whose numbers nobody could account for.");
-        }
     }
 
     // ----------------------------------------------------------------- machines
@@ -511,46 +494,53 @@ public final class Loader {
     // -------------------------------------------------------------------- input
 
     /**
-     * How big each part of the input is.
+     * The workload, at full size.
      *
      * <pre>
      * input:
-     *   items:      240
-     *   valueBytes: 65536
+     *   source: data/frames/     # a file, a folder, or left out entirely
+     *   unit:   frame
+     *   count:  30000
      * </pre>
      *
-     * <p>The names are the job's, not losim's: a {@code Scalable} job declares what
-     * its input is made of and this file says how much of each. So a store reads
-     * {@code items}, a join reads {@code orders} and {@code customers}, and nothing
-     * anywhere has to pretend a blob has records.
+     * <p>One number, because there is one number the engine varies. What used to
+     * be here was a block of parts named by the job's own {@code shape()} — as
+     * many numbers as the class declared, checked against it once the class was
+     * loaded. The Job's own {@code .proto} says what its data is made of now, and
+     * a simulation has nothing to add to that but how much of it there is.
      *
-     * <p>Plain numbers, with the unit in the name — the same rule {@code memoryMb}
-     * follows, and the reason {@code takes:} writes bare numbers under keys that
-     * say what they are.
-     *
-     * <p>Nothing is checked here beyond the shape and the sign. Whether the job
-     * consumes a part called {@code items} is a question about a class the loader
-     * has not loaded — it never loads one — so it is asked by
-     * {@link losim.runtime.Run} once the job is built, and refused there with the
-     * line each size was written on.
+     * <p>{@code source:} is stat'ed here. A path is the one thing about a
+     * workload that can be checked before anything runs, and a simulation that
+     * spends its setup reading a file that is not there should say so on the line
+     * naming it.
      */
-    private static List<InputSize> input(Node node) {
-        var out = new ArrayList<InputSize>();
-        if (!node.present()) return out;
-        var seen = new LinkedHashSet<String>();
-        for (var part : node.map().entrySet()) {
-            String name = part.getKey().trim();
-            Node body = part.getValue();
-            if (!seen.add(name)) throw body.fail("'" + name + "' is sized twice");
-            double n = body.num();
-            if (n != Math.rint(n)) throw body.fail("'" + name + "' is " + n + ". An input is"
-                    + " counted in whole things, and a constant that is not whole is one whose"
-                    + " unit is wrong — say what it is in, and put that in the name.");
-            if (n < 1) throw body.fail("'" + name + "' is " + (long) n + ", which is not a"
-                    + " smaller run — it is no run. Remove the part, or give it a size.");
-            out.add(new InputSize(name, (long) n, body.where()));
+    private static InputSpec input(Node node) {
+        if (!node.present()) return InputSpec.none(node.where());
+        node.onlyAllows("source", "unit", "count");
+
+        String source = null;
+        if (node.opt("source").present()) {
+            source = node.at("source").str().trim();
+            if (!Files.exists(Path.of(source))) throw node.at("source").fail(
+                    "there is nothing at '" + source + "'. A source is a file or a folder,"
+                    + " relative to the project — the directory holding proto/, src/ and the"
+                    + " simulations. Leave it out entirely and Load generates the workload from"
+                    + " the seed instead.");
         }
-        return out;
+
+        String unit = node.opt("unit").str("unit").trim();
+        if (unit.isEmpty()) throw node.at("unit").fail(
+                "unit: is what one item is called, singular — frame, line, order. It is the same"
+                + " word Losim.current().units(n) counts and perUnit: prices, so a blank one"
+                + " leaves three numbers counting something nobody named.");
+
+        double n = node.opt("count").num(1);
+        if (n != Math.rint(n)) throw node.at("count").fail("count is " + n + ". A workload is"
+                + " counted in whole things, and a count that is not whole is one whose unit is"
+                + " wrong — say what one item is, and put that in unit:.");
+        if (n < 1) throw node.at("count").fail("count is " + (long) n + ", which is not a"
+                + " smaller run — it is no run.");
+        return new InputSpec(source, unit, (long) n, node.where());
     }
 
     // -------------------------------------------------------------------- takes

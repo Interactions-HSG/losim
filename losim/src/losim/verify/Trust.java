@@ -56,12 +56,14 @@ public final class Trust {
         var walked = new TreeSet<String>();
         var generated = new TreeSet<String>();
         String unavailable = null;
-        boolean first = true;
 
         for (var m : s.nodes()) {
+            // Every class the node runs, and no special case for the one that
+            // starts the work: losim.Job is a service like any other, placed by
+            // runs: like any other, and walking it was a separate line only for
+            // as long as it was a separate kind of thing.
             var roots = new ArrayList<String>();
             for (var svc : m.runs().values()) roots.add(svc.className());
-            if (first) { roots.add(s.job()); first = false; }
             var report = verifier.from(roots, services);
             walked.addAll(report.walked());
             generated.addAll(report.generated());

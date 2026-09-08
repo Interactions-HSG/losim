@@ -46,8 +46,13 @@ public final class Schedule {
      * model cannot guess.
      */
     public static List<Task> tasksOf(Telemetry tel, Map<String, Double> projectedByLabel) {
+        // Every handler but the one nobody called. That one is losim.Job/Run: it is
+        // the whole run, it occupies its node for the whole run, and its duration is
+        // the very number this replay exists to reconstruct. Feeding it in as a task
+        // makes the answer depend on the observed makespan it was supposed to
+        // replace, and the reconstruction quietly becomes a multiplication.
         var handlers = tel.spans().stream()
-                .filter(s -> s.kind.equals("handler") && s.t1 >= 0)
+                .filter(s -> s.kind.equals("handler") && s.t1 >= 0 && s.parent != 0)
                 .sorted(Comparator.comparingDouble(s -> s.t0))
                 .toList();
         var byParent = new LinkedHashMap<Long, List<Telemetry.Span>>();

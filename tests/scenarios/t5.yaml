@@ -1,10 +1,9 @@
 # Eight calls costing 100 refMs each, into a machine with two vCPUs. Four waves,
 # not one: the machine's executor is its vCPU model, and this is what says so.
 seed: 1
-job: Storm
 
 nodes:
-  client: { instance: m5.large, zone: eu-central-1a }
+  client: { instance: m5.large, zone: eu-central-1a, runs: { losim.Job: tests/systems/Storm.java } }
   srv:    { instance: m5.large, zone: eu-central-1a, runs: { Worker: tests/systems/Grinder.java } }   # 2 vCPU
 
 # What each rpc costs on the reference machine, under the class that serves it.

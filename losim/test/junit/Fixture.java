@@ -24,12 +24,12 @@ final class Fixture {
     /** The scenario every fixture ships with, proven against a real run. */
     static final String SCENARIO = """
             seed: 1
-            job: WordCountJob
 
             nodes:
               coordinator:
                 instance: m5.large
                 zone: eu-central-1a
+                runs: { losim.Job: src/WordCountJob.java }
               workers:
                 instance: c5.large
                 zone: eu-central-1a
@@ -60,17 +60,16 @@ final class Fixture {
         copy(Path.of("losim/test/src/WorkerBase.java"), root.resolve("src/WorkerBase.java"));
         copy(Path.of("losim/test/src/WordCountJob.java"), root.resolve("src/WordCountJob.java"));
 
-        // A job whose static initializer would misbehave if it ever ran: it
+        // A Job whose static initializer would misbehave if it ever ran: it
         // writes the marker file `Palette.of` must never cause to appear.
         String markerPath = marker(root).toAbsolutePath().toString().replace("\\", "\\\\");
         Files.writeString(root.resolve("src/NoisyJob.java"), """
-                public final class NoisyJob implements losim.api.Job {
+                public final class NoisyJob extends losim.pb.JobGrpc.JobImplBase {
                     static {
                         try {
                             java.nio.file.Files.writeString(java.nio.file.Path.of("%s"), "touched");
                         } catch (java.io.IOException ignored) { }
                     }
-                    @Override public void run(losim.api.Cluster cluster) throws Exception { }
                 }
                 """.formatted(markerPath));
 
