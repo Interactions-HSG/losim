@@ -60,6 +60,9 @@ class AllocMeterTest {
      * carries how many raw falls the run actually caught, so a green result still
      * says whether it exercised the case or merely failed to provoke it.
      */
+    /** Where the burning loop's bytes go, so nothing about it can be elided. */
+    private volatile long allocated;
+
     @Test
     @DisplayName("a machine's reported allocation never falls, however the raw counter behaves")
     void reportedAllocationIsMonotonic() throws Exception {
@@ -68,12 +71,19 @@ class AllocMeterTest {
             var m = machines.machine("m", "m5.large", "z");
             var stop = new AtomicBoolean();
             // On the machine's own pool threads, which are the ones it meters.
+            //
+            // The sum is what keeps the allocation from being optimised away: it
+            // escapes into a field the JIT cannot see past. It is not an assertion
+            // and must not become one — this loop runs about 28 million times in
+            // its two seconds, so a guard like `if (sink.hashCode() == 42) fail()`
+            // is not unreachable at all. It fires on roughly one run in seventy.
             var burning = m.submit(() -> {
-                Object sink = null;
+                long live = 0;
                 for (int i = 0; !stop.get(); i++) {
-                    sink = (i % 512 == 0) ? new byte[1 << 20] : new byte[1 << 8];
-                    if (sink.hashCode() == 42) fail("unreachable, and keeps the sink live");
+                    byte[] sink = (i % 512 == 0) ? new byte[1 << 20] : new byte[1 << 8];
+                    live += sink.length;
                 }
+                allocated = live;
             });
 
             long rawFalls = 0, prevRaw = -1, prevReported = -1;
@@ -89,6 +99,7 @@ class AllocMeterTest {
             }
             stop.set(true);
             burning.get();
+            assertTrue(allocated > 0, "the burning loop actually allocated something");
             // Not an assertion: a run that provoked none has proven nothing, and
             // saying so is better than a green tick that implies otherwise.
             System.out.println("  (raw counter fell " + rawFalls + " times during this run)");
