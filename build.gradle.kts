@@ -90,6 +90,13 @@ tasks.named<ProcessResources>("processResources") {
     // What `losim adopt` writes into the project it adopts. A resource rather than
     // a string constant, so it is written and reviewed as prose.
     from("losim/agents") { include("AGENTS.md"); into("losim") }
+
+    // losim's own schema, so a system can `import "losim/job.proto"` without
+    // fetching anything. It travels as the .proto only: the classes generated from
+    // it are in this jar already, and a project that generated its own copy would
+    // compile one that parent-first delegation never loads. So this is an include
+    // path for protoc and never an input file to it.
+    from("losim/proto") { into("losim/proto") }
 }
 
 // A jar that shipped the sidebar but not the pages would render a manual of dead

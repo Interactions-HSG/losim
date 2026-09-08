@@ -72,6 +72,7 @@ public final class Dev {
             case "viewer" -> dev.viewer(args);
             case "docs"   -> dev.docs(args);
             case "vendor" -> dev.vendor();
+            case "proto"  -> dev.proto();
             default -> {
                 System.err.println("""
                     usage: losim dev test  [Phase1 Phase2 …]   losim's own acceptance criteria
@@ -86,6 +87,8 @@ public final class Dev {
                            losim dev docs check [--rules]   does the manual give an assignment away
 
                            losim dev vendor                 fetch the toolchain into vendor/
+                           losim dev proto                  regenerate losim/src/losim/pb from
+                                                            losim/proto, and say if it changed
 
                     All of them assume build/losim.jar is current. `bin/losim` makes sure of
                     that before it starts a JVM; if you are calling java directly, run
@@ -775,6 +778,67 @@ public final class Dev {
     // ------------------------------------------------------------------------ the toolchain, vendored
 
     /**
+     * losim's own schema, into {@code losim/src/losim/pb}.
+     *
+     * <p>Committed rather than built, for the same reason the vendored jars are:
+     * protoc exists here for two platforms, so a build that ran it could not run
+     * anywhere else. Generated code in {@code losim/src} is the price of losim
+     * building on a machine nobody vendored a compiler for.
+     *
+     * <p>Reports whether anything changed, and that is the point of running it in
+     * CI: the committed files and the {@code .proto} must be the same statement,
+     * and a {@code .proto} edited without this verb is a schema the jar does not
+     * actually ship.
+     */
+    private int proto() throws Exception {
+        Path protos = root.resolve("losim/proto");
+        Path into = root.resolve("losim/src/losim/pb");
+        Path staged = Files.createTempDirectory("losim-proto");
+        try {
+            // The include root is losim/proto, so the descriptor records
+            // "losim/job.proto" — the same string an assignment writes in its
+            // import. Generated against a deeper root it would record "job.proto",
+            // and the two would be different files to protobuf.
+            if (protoc(protos, staged, List.of(protos.resolve("losim/job.proto"))) != 0) return 1;
+            Path made = staged.resolve("losim/pb");
+            var changed = new ArrayList<String>();
+            for (Path fresh : children(made)) {
+                String name = fresh.getFileName().toString();
+                if (!name.endsWith(".java")) continue;
+                Path old = into.resolve(name);
+                if (!Files.exists(old) || !Files.readString(old).equals(Files.readString(fresh))) {
+                    changed.add(name);
+                }
+                Files.createDirectories(into);
+                Files.copy(fresh, old, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+            // package-info.java is written by hand and lives beside the generated
+            // files; protoc does not produce it and must not be read as having
+            // deleted it.
+            for (Path had : children(into)) {
+                String name = had.getFileName().toString();
+                if (!name.endsWith(".java") || name.equals("package-info.java")) continue;
+                if (!Files.exists(made.resolve(name))) {
+                    Files.delete(had);
+                    changed.add(name + " (gone)");
+                }
+            }
+            if (changed.isEmpty()) {
+                System.out.println("losim/src/losim/pb is what losim/proto says");
+                return 0;
+            }
+            System.out.println("regenerated " + String.join(", ", changed));
+            return 0;
+        } finally {
+            try (Stream<Path> walk = Files.walk(staged)) {
+                walk.sorted(java.util.Comparator.reverseOrder()).forEach(f -> {
+                    try { Files.deleteIfExists(f); } catch (IOException ignored) { }
+                });
+            }
+        }
+    }
+
+    /**
      * The gRPC toolchain, into the repository.
      *
      * <p>losim must behave identically in the devcontainer, on a laptop and in a
@@ -960,7 +1024,17 @@ public final class Dev {
      * plugin have to agree with the jars in {@code vendor/jars}, and a machine's
      * own protoc agrees with nothing in particular.
      */
-    private int protoc(Path protos, Path gen) throws Exception {
+    private int protoc(Path protos, Path gen, Path... alsoInclude) throws Exception {
+        var files = new ArrayList<Path>();
+        for (Path p : children(protos)) {
+            if (p.getFileName().toString().endsWith(".proto")) files.add(p);
+        }
+        return protoc(protos, gen, files, alsoInclude);
+    }
+
+    /** The same, over an explicit list, when the files are not the include root's own children. */
+    private int protoc(Path protos, Path gen, List<Path> files, Path... alsoInclude)
+            throws Exception {
         Path bin = root.resolve("vendor/bin");
         Path compiler = bin.resolve("protoc-" + Lab.platform());
         Path plugin = bin.resolve("protoc-gen-grpc-java-" + Lab.platform());
@@ -973,9 +1047,12 @@ public final class Dev {
                 "--plugin=protoc-gen-grpc-java=" + plugin,
                 "--java_out=" + gen, "--grpc-java_out=" + gen,
                 "-I", protos.toString()));
-        for (Path p : children(protos)) {
-            if (p.getFileName().toString().endsWith(".proto")) argv.add(p.toString());
-        }
+        // On the include path and never in the input list. A schema that is only
+        // imported must not be generated again here: its classes are compiled
+        // already, and a second copy of them is one nothing will ever load and
+        // everything that counts schemas will miscount.
+        for (Path also : alsoInclude) { argv.add("-I"); argv.add(also.toString()); }
+        for (Path p : files) argv.add(p.toString());
         return exec(argv);
     }
 

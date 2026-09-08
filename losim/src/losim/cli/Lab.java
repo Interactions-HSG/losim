@@ -676,6 +676,29 @@ public final class Lab {
                 """.formatted(TOOLCHAIN);
     }
 
+    /**
+     * losim's own schema, on disk where protoc can read it.
+     *
+     * <p>Written out rather than pointed at. {@link Bundled} hands back a path
+     * inside a zip filesystem, which every part of losim can read and protoc
+     * cannot — it is a separate process taking a file name. A kilobyte, rewritten
+     * on every build, because a stale copy after an upgrade would be a schema the
+     * jar no longer ships.
+     *
+     * @return the include root, or null in a jar built without the schema
+     */
+    private Path ownSchema() throws IOException {
+        String at = "losim/job.proto";
+        Path root = this.root.resolve("build/losim/proto");
+        Path out = root.resolve(at);
+        try (var in = Lab.class.getResourceAsStream("/losim/proto/" + at)) {
+            if (in == null) return null;
+            Files.createDirectories(out.getParent());
+            Files.copy(in, out, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }
+        return root;
+    }
+
     private int generate(List<Path> protos, Path gen, Consumer<String> log) throws IOException, InterruptedException {
         Path protoc = tool("protoc");
         Path plugin = tool("protoc-gen-grpc-java");
@@ -690,6 +713,14 @@ public final class Lab {
         // An include path per schema directory, because an `import` is resolved
         // against the include path and nobody said where these files must live.
         for (Path p : protos) { argv.add("-I"); argv.add(p.getParent().toString()); }
+        // And losim's own, so `import "losim/job.proto"` resolves without anybody
+        // fetching anything. On the include path and never in the input list: the
+        // classes it declares are in the jar this project already compiles against,
+        // and generating them again here would compile a copy that parent-first
+        // delegation then never loads — a protoc run and a javac run spent on
+        // classes nothing uses, in a directory that then claims to hold losim's.
+        Path own = ownSchema();
+        if (own != null) { argv.add("-I"); argv.add(own.toString()); }
         for (Path p : protos) argv.add(p.toString());
         log.accept("Reading the schema…\n");
         return exec(argv, log);
