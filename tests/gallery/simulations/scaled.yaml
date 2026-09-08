@@ -1,0 +1,43 @@
+# The same design, declared six times bigger than anything that will be executed.
+#
+# `scale: 6` is the whole difference from direct.yaml. Nothing here processes
+# 48,000 frames. The engine climbs a short ladder of small results, fits a law per
+# resource against whatever that resource turns out to be a function of, and
+# projects — with an error bar, and with a refusal wherever the ladder bends.
+#
+# Watch which variable each law is fitted against. Disk is fitted against the
+# workload and comes out linear, because every batch is written out whether or not
+# its assets were new. Memory is fitted against `distinctAssets`, which is a number
+# Shrinker.java reveals about itself, and comes out linear in *that* — while the
+# catalogue itself grows sublinearly in frames, because popular assets come back.
+# An engine that fitted both against the same variable would be right about at
+# most one of them and plausible about both.
+#
+# The makespan is refused rather than projected. That is the engine declining to
+# extrapolate across a bend it can see, and it is a better answer than a number.
+seed: 7
+scale: 6
+
+nodes:
+  master:
+    instance: m5.2xlarge
+    zone:     eu-central-1a
+    runs:     { losim.Job: tests/gallery/systems/RenderMaster.java }
+  renderers:
+    count:    4
+    prefix:   r
+    instance: r5.large
+    zone:     eu-central-1a
+    runs:     { Thumbnailer: tests/gallery/systems/Shrinker.java }
+
+# The workload at full size, which is the size nothing here will process. One
+# number, because there is one number the engine turns: what a frame is made of is
+# the job's business, declared in its own code.
+input:
+  unit:  frame
+  count: 48000
+
+simulatedDuration:
+  tests/gallery/systems/Shrinker.java:
+    Thumbnail: { fixed: 3 refMs, perUnit: 240000 refNs }
+    Totals:    { fixed: 5 refMs }

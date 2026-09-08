@@ -1,0 +1,37 @@
+# One renderer dies partway through and comes back a second later.
+#
+# Nothing tells the coordinator that r1 is gone. It learns the only way anything
+# learns: batches it handed out stop coming back. Those batches have to be redone
+# on a survivor, so some other renderer ends up holding r1's catalogue as well as
+# its own — which is why a cluster that loses a node needs more memory than one
+# that does not, and why a model fitted only on clean results under-predicts.
+#
+# Read the trace against direct.yaml. Same design, same frames, one bad minute.
+seed: 3
+
+nodes:
+  master:
+    instance: m5.large
+    zone:     eu-central-1a
+    runs:     { losim.Job: tests/gallery/systems/RenderMaster.java }
+  renderers:
+    count:    4
+    prefix:   r
+    instance: c5.large
+    zone:     eu-central-1a
+    runs:     { Thumbnailer: tests/gallery/systems/Shrinker.java }
+    # One node of the pool is not like its siblings, which is what overrides: is
+    # for. Written on the pool instead, all four would die.
+    overrides:
+      r1:
+        failures:
+          - { kill: true, at: 400 refMs, restartAfter: 1 refSeconds }
+
+input:
+  unit:  frame
+  count: 6000
+
+simulatedDuration:
+  tests/gallery/systems/Shrinker.java:
+    Thumbnail: { fixed: 3 refMs, perUnit: 240000 refNs }
+    Totals:    { fixed: 5 refMs }

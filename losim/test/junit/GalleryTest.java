@@ -28,13 +28,19 @@ class GalleryTest {
     /**
      * Where simulations live.
      *
-     * <p>{@code demo/} is in {@code .gitignore}, so it is here as a bonus rather
-     * than a requirement: present on a machine that has the gallery, absent in a
+     * <p>The gallery is one of them. It is a tracked directory like the other
+     * two: worked examples are reviewed like anything else this repository
+     * ships, and a catalogue edit that orphaned one would otherwise be found by
+     * whoever opened it next rather than here.
+     *
+     * <p>{@code demo/} is in {@code .gitignore}, so it is a bonus rather than a
+     * requirement: a project somebody has on this machine and nobody has in a
      * fresh clone, and this test must pass in both. The tracked directories are
      * the ones that must never be empty — if they are, the simulations moved and
      * this test would otherwise sit here passing on nothing at all.
      */
-    private static final List<String> TRACKED = List.of("tests/simulations", "losim/test/simulations");
+    private static final List<String> TRACKED = List.of(
+            "tests/simulations", "tests/gallery/simulations", "losim/test/simulations");
     private static final String UNTRACKED = "demo";
 
     private static List<Path> yamlUnder(Path dir) throws Exception {

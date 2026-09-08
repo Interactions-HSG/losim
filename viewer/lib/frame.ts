@@ -440,6 +440,13 @@ const NOTABLE = new Set([
   // would hide the whole of what it teaches.
   'heal',
   'retry',
+  // Both ends again, for the same reason `thaw` sits beside `freeze` and `heal`
+  // beside `partition`. `]` walking into a retry and straight past the attempt
+  // that worked leaves the reader parked on the question with the answer off
+  // screen — and a retry that eventually succeeded is a different finding from
+  // one that ran out of attempts, which is precisely the distinction this event
+  // carries in its `status`.
+  'retry_done',
   'rpc_timeout',
   // The other half of the same ternary. `Dropped.java:78` and
   // `ClientSide.java:139` both read `? "rpc_timeout" : "rpc_error"` — one call

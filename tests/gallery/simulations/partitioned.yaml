@@ -1,0 +1,44 @@
+# The network splits, and then it comes back.
+#
+# r0 is not dead. It boots, it answers, it holds everything it has ever rendered
+# — and for six hundred reference milliseconds the coordinator cannot reach it.
+# From master's side that is indistinguishable from a dead node: batches go out
+# and nothing comes back, and there is no way to tell the two apart from here.
+# That is the whole difficulty, and it is why the coordinator does the only thing
+# it can, which is to hand the work to somebody else.
+#
+# Then it heals, and r0 is back with a catalogue nobody needed. The work it was
+# doing has been done twice. Look at what r0 holds at the end against what it
+# contributed: a partition costs a cluster its memory on both sides of the split.
+#
+# A partition is the one failure that names another node, because reachability is
+# a property of a pair and one of the two ends has to be written down.
+seed: 4
+
+network: { sameZone: 2 refMs, crossZone: 25 refMs }
+
+nodes:
+  master:
+    instance: m5.large
+    zone:     eu-central-1a
+    runs:     { losim.Job: tests/gallery/systems/RenderMaster.java }
+  renderers:
+    count:    4
+    prefix:   r
+    instance: c5.large
+    zone:     eu-central-1a
+    runs:     { Thumbnailer: tests/gallery/systems/Shrinker.java }
+    overrides:
+      r0:
+        failures:
+          - { partition: master, at: 300 refMs }
+          - { heal: master, at: 900 refMs }
+
+input:
+  unit:  frame
+  count: 6000
+
+simulatedDuration:
+  tests/gallery/systems/Shrinker.java:
+    Thumbnail: { fixed: 3 refMs, perUnit: 240000 refNs }
+    Totals:    { fixed: 5 refMs }

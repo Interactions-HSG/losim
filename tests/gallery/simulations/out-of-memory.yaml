@@ -1,0 +1,32 @@
+# One renderer, holding every asset it has ever seen, on a node too small for the
+# catalogue it ends up with.
+#
+# Nothing here declares that it will fail. Shrinker.java keeps one decoded
+# thumbnail per distinct asset and says so to nobody; what the node holds is
+# whatever the heap walk finds it holding. So it runs out of memory for the reason
+# a real one would, and the refusal names the node, the resource, the cap and the
+# demand that was actually measured.
+#
+# `memoryMb:` is the one thing changed from a node that would have coped. Raise it
+# and the same simulation finishes.
+seed: 3
+
+nodes:
+  master:
+    instance: m5.large
+    zone:     eu-central-1a
+    runs:     { losim.Job: tests/gallery/systems/RenderMaster.java }
+  r0:
+    instance: c5.large
+    zone:     eu-central-1a
+    runs:     { Thumbnailer: tests/gallery/systems/Shrinker.java }
+    memoryMb: 2
+
+input:
+  unit:  frame
+  count: 2000
+
+simulatedDuration:
+  tests/gallery/systems/Shrinker.java:
+    Thumbnail: { fixed: 3 refMs, perUnit: 240000 refNs }
+    Totals:    { fixed: 5 refMs }

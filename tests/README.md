@@ -95,3 +95,66 @@ And one gap rather than a bug: the trace carried no per-machine totals, so nothi
 downstream — a ground-truth comparison, the bill — could read what a machine actually
 consumed. They are now a fourth top-level channel beside `events`, `spans` and
 `series`.
+
+## The gallery
+
+`tests/gallery/` is a second, smaller project beside the suite, and it is not a
+suite case. Nothing asserts anything about it. It is seven worked examples a
+student browses in the viewer, each one a design that does one thing the others do
+not, and it is here rather than in somebody's untracked working directory because
+a worked example that quietly stops loading is worse than no worked example at all
+— `GalleryTest` walks its simulations with the other two directories'.
+
+It has the same three parts the suite has, one level down:
+
+| | |
+|---|---|
+| `gallery/proto/thumbs.proto` | one schema: a service that turns frames into thumbnails, and a blob store to keep them in |
+| `gallery/systems/` | four classes — the job, the renderer, the store, and the generator that gives them data whose catalogue grows more slowly than its volume |
+| `gallery/simulations/` | seven files, differing from each other in as few lines as possible |
+
+| | what it is for |
+|---|---|
+| **direct** | the plain one. Four renderers, nothing going wrong, no `scale:` — every number in the trace was measured while it happened |
+| **scaled** | the same design declared six times bigger than anything executed. Four laws fitted, memory attributed to a revealed count rather than to the workload, and the makespan refused rather than extrapolated across a bend |
+| **kill-and-restart** | one renderer dies and comes back, and a survivor absorbs its catalogue |
+| **rate-of-failures** | `per:` at two levels: a pool that degrades on its own draw, and one node whose rpc returns UNAVAILABLE at a call rate, with a retry policy that the schema — not the file — allows |
+| **partitioned** | the network splits and heals. From the coordinator's side, unreachable and dead are the same thing |
+| **cross-zone** | three tiers in two zones, so every batch crosses once and the trace says at which hop |
+| **out-of-memory** | one renderer too small for the catalogue it ends up with. Nothing declares that it will fail |
+
+Between them they carry twenty-one event kinds, including the two the reference
+suite never produces: `heal`, which needs a run that partitions something, and
+`rpc_failure`, which needs a service that is wrong rather than a node that is
+down. `viewer/checks/stops.ts` says out loud that it cannot hold the scrubber to
+those without the gallery.
+
+Regenerating the traces is not part of any suite: it is minutes of cluster time,
+and the traces are build output. There is no verb for it yet, so it is the same
+three steps `losim dev suite` takes, by hand — compile the schema, compile the
+Java against the jar and the vendored gRPC **alone**, then one simulation per
+file:
+
+```bash
+PLATFORM=osx-aarch_64          # or linux-x86_64, or linux-aarch_64
+OUT=build/gallery
+mkdir -p $OUT/gen $OUT/classes $OUT/traces
+
+vendor/bin/protoc-$PLATFORM \
+  --plugin=protoc-gen-grpc-java=vendor/bin/protoc-gen-grpc-java-$PLATFORM \
+  --java_out=$OUT/gen --grpc-java_out=$OUT/gen \
+  -I tests/gallery/proto tests/gallery/proto/thumbs.proto
+
+javac --release 21 -d $OUT/classes \
+  -cp "$(ls vendor/jars/*.jar | tr '\n' ':')build/losim.jar" \
+  $(find $OUT/gen tests/gallery/systems -name '*.java')
+
+for s in tests/gallery/simulations/*.yaml; do
+  n=$(basename "$s" .yaml)
+  bin/losim simulate --no-view "$s" --cp $OUT/classes --out $OUT/traces/$n.json
+done
+```
+
+`losim dev viewer traces --gallery` then copies them into the picker and prices
+each one beside it. Six finish in seconds; **scaled** takes about twelve, because
+it fits its plan from twenty-eight probe results first.

@@ -1,0 +1,70 @@
+# Nothing here is scheduled. Everything here is a rate.
+#
+# `per:` is a mean gap drawn from an exponential, and it is written at two levels,
+# because there are two different things that go wrong at a rate.
+#
+# The pool goes bad as hardware: each renderer, on its own draw, becomes five
+# times slower and stays that way. A degrade has no end — nothing schedules one,
+# and the loader refuses a `for:` here rather than accept a line the simulation
+# would not honour.
+#
+# `sour` goes bad as a service. Its Thumbnail returns UNAVAILABLE every so many
+# calls, which is written under the service in runs: rather than on the node,
+# because it happens to an rpc and not to the hardware. The node is up the whole
+# time, boots like the others, answers Totals perfectly well, and is merely wrong
+# about the one thing anybody asks it for. That is the failure a health check
+# passes.
+#
+# Both blocks are written on the thing they happen to, so each renderer draws its
+# own afternoon. That is the reading that survives resizing the pool — put the
+# pool at eight and you get eight independent draws, not the same total spread
+# thinner.
+#
+# So this is what a bad afternoon looks like on average, not what one particular
+# afternoon looked like. Change only the seed and you get a different one; the
+# shape is the lesson, not the exact numbers. Read it against direct.yaml, which
+# is the same design on a good day.
+seed: 5
+
+nodes:
+  master:
+    instance: m5.large
+    zone:     eu-central-1a
+    runs:     { losim.Job: tests/gallery/systems/RenderMaster.java }
+  renderers:
+    count:    3
+    prefix:   r
+    instance: c5.large
+    zone:     eu-central-1a
+    runs:     { Thumbnailer: tests/gallery/systems/Shrinker.java }
+    failures:
+      - { degrade: 5, per: 700 refMs }
+  sour:
+    instance: c5.large
+    zone:     eu-central-1a
+    # The longhand form of runs:, which exists so a service can say what goes
+    # wrong inside it. The file: is the same string the shorthand would have been,
+    # and the failures are keyed by the rpc, because a service with two rpcs is
+    # two different things to go wrong with.
+    runs:
+      Thumbnailer:
+        file: tests/gallery/systems/Shrinker.java
+        failures:
+          Thumbnail:
+            - { status: UNAVAILABLE, per: 6 calls }
+
+input:
+  unit:  frame
+  count: 6000
+
+# Thumbnail is declared NO_SIDE_EFFECTS in the .proto, so asking again needs no
+# argument from anybody — the gate reads the schema, not this file. Take the
+# retry policy out and the answer is still right, because the coordinator redoes
+# whatever did not come back; what changes is how much later, and where.
+retries:
+  - { method: thumbs.Thumbnailer.Thumbnail, attempts: 3, backoff: 60 refMs, multiplier: 2 }
+
+simulatedDuration:
+  tests/gallery/systems/Shrinker.java:
+    Thumbnail: { fixed: 3 refMs, perUnit: 240000 refNs }
+    Totals:    { fixed: 5 refMs }

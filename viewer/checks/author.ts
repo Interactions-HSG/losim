@@ -655,12 +655,13 @@ try {
   // the console cannot have a stop that answers "the form has no control for
   // this".
   console.log('\nand every simulation this repo ships, opened and saved again\n');
-  const SHIPPED = ['tests/simulations', 'losim/test/simulations', 'demo/gallery/simulations'];
+  const SHIPPED = ['tests/simulations', 'tests/gallery/simulations', 'losim/test/simulations'];
   let opened = 0;
   for (const from of SHIPPED) {
     const where = join(ROOT, from);
-    // `demo/` is local-only and gitignored, so a fresh clone has none of it.
-    // Absent is not empty and not a failure.
+    // All three are tracked, so all three are here. The guard stays because this
+    // check is run from a working tree somebody may be halfway through moving
+    // things around in, and absent is a clearer answer than a stack trace.
     if (!existsSync(where)) { console.log(`  --  ${from} (not in this checkout)`); continue; }
     const files = readdirSync(where).filter((f) => f.endsWith('.yaml')).sort();
     const bad0 = bad;

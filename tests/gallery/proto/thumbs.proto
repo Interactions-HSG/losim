@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+// The schema the worked examples are written against: a service that turns
+// frames into thumbnails, and a blob store to keep them in.
+//
+// Deliberately ordinary protobuf. A map, an enum and an empty message, because
+// those are what a real schema has and what a trace has to render stably.
+package thumbs;
+
+option java_package = "thumbs.pb";
+option java_multiple_files = true;
+
+message Nothing {}
+
+enum Format {
+  JPEG = 0;
+  WEBP = 1;
+}
+
+// A batch of frames, named by the asset each was cut from.
+message Batch {
+  string assets = 1;   // asset ids, space separated
+  int32  frames = 2;   // how many frames this batch is
+}
+
+// Thumbnail sizes in bytes, by asset id.
+message Sizes {
+  map<string, int32> bytes = 1;
+  Format format = 2;
+}
+
+message Blob    { string key = 1; int32 bytes = 2; }
+message Receipt { string key = 1; bool stored = 2; }
+
+service Thumbnailer {
+  // Shrink a batch. Safe to run twice: the answer is a function of the batch.
+  rpc Thumbnail (Batch)   returns (Sizes) { option idempotency_level = NO_SIDE_EFFECTS; }
+
+  // Everything this node has shrunk so far, so a caller can merge the tiers.
+  rpc Totals    (Nothing) returns (Sizes) { option idempotency_level = NO_SIDE_EFFECTS; }
+}
+
+// A second service, so a renderer and a store are told apart by what they offer
+// rather than by what they are called. Peers are found by service name.
+service Store {
+  rpc Put (Blob) returns (Receipt) { option idempotency_level = IDEMPOTENT; }
+}

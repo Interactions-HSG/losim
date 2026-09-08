@@ -425,6 +425,7 @@ const TOLD = new Set([
   'partition',
   'heal',
   'retry',
+  'retry_done',
   'rpc_timeout',
   'rpc_error',
   'rpc_failure',

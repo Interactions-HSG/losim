@@ -1,0 +1,46 @@
+# Three tiers in two zones, so that where a node sits costs money and time.
+#
+# The renderers alternate between the zones and the blob store sits only in the
+# second, so every batch crosses exactly once — but at a different hop depending
+# on which renderer took it. r1 and r3 pay on the way in, from a coordinator in
+# the other zone, and then write locally. r0 and r2 are handed their batches for
+# nothing and pay on the way out to the store. The trace says which calls paid,
+# and the nodes channel says which nodes were charged for the crossing.
+#
+# Nothing in the Java knows about zones. The renderer looks for a peer serving
+# Store, finds one, and calls it; where that peer happens to be is the topology's
+# business, and moving the store is an edit to this file and to nothing else.
+#
+# Compare it with direct.yaml, which is the same design in one zone.
+seed: 8
+
+network: { sameZone: 2 refMs, crossZone: 25 refMs, jitter: 3 refMs }
+
+nodes:
+  master:
+    instance: m5.large
+    zone:     eu-central-1a
+    runs:     { losim.Job: tests/gallery/systems/RenderMaster.java }
+  renderers:
+    count:    4
+    prefix:   r
+    instance: c5.large
+    # Two zones, taken in turn: r0 and r2 are beside the coordinator, r1 and r3
+    # are not, and the trace says which calls paid for it.
+    zone:     [eu-central-1a, eu-central-1b]
+    runs:     { Thumbnailer: tests/gallery/systems/Shrinker.java }
+  blobs:
+    instance: i3.large
+    zone:     eu-central-1b
+    runs:     { Store: tests/gallery/systems/BlobStore.java }
+
+input:
+  unit:  frame
+  count: 4000
+
+simulatedDuration:
+  tests/gallery/systems/Shrinker.java:
+    Thumbnail: { fixed: 3 refMs, perUnit: 240000 refNs }
+    Totals:    { fixed: 5 refMs }
+  tests/gallery/systems/BlobStore.java:
+    Put: { fixed: 1 refMs }
