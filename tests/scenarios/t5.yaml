@@ -5,13 +5,13 @@ job: Storm
 
 nodes:
   client: { instance: m5.large, zone: eu-central-1a }
-  srv:    { instance: m5.large, zone: eu-central-1a, runs: [Grinder] }   # 2 vCPU
+  srv:    { instance: m5.large, zone: eu-central-1a, runs: { Worker: tests/systems/Grinder.java } }   # 2 vCPU
 
 # What each rpc costs on the reference machine, under the class that serves it.
 # The handlers declare nothing: a duration is a claim about the machine a design
 # would run on, so it belongs to the scenario — and a system stays plain gRPC
 # with no losim in it.
 simulatedDuration:
-  Grinder:
+  tests/systems/Grinder.java:
     Map: { fixed: 100 refMs }
     Note: { fixed: 1 refMs }

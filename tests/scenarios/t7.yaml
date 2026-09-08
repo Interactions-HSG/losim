@@ -12,13 +12,13 @@ nodes:
     prefix: m
     instance: c5.large
     zone: [eu-central-1a, eu-central-1b]
-    runs: [Mapper]
+    runs: { Worker: tests/systems/Mapper.java }
   reducers:
     count: 2
     prefix: r
     instance: r5.large
     zone: eu-central-1a
-    runs: [Reducer]
+    runs: { Shuffler: tests/systems/Reducer.java }
 
 # Killed before its chunk is handed out, not while it holds one.
 #
@@ -48,8 +48,8 @@ retries:
 # would run on, so it belongs to the scenario — and a system stays plain gRPC
 # with no losim in it.
 simulatedDuration:
-  Mapper:
+  tests/systems/Mapper.java:
     Map: { fixed: 20 refMs }
     Note: { fixed: 1 refMs }
-  Reducer:
+  tests/systems/Reducer.java:
     Fold: { fixed: 30 refMs }

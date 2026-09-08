@@ -5,13 +5,13 @@ tightMargin: true          # this case is about a margin, and says so
 
 nodes:
   client: { instance: m5.large, zone: eu-central-1a }
-  srv:    { instance: m5.large, zone: eu-central-1a, runs: [Slow] }
+  srv:    { instance: m5.large, zone: eu-central-1a, runs: { Volley: tests/systems/Slow.java } }
 
 # What each rpc costs on the reference machine, under the class that serves it.
 # The handlers declare nothing: a duration is a claim about the machine a design
 # would run on, so it belongs to the scenario — and a system stays plain gRPC
 # with no losim in it.
 simulatedDuration:
-  Slow:
+  tests/systems/Slow.java:
     Map: { fixed: 500 refMs }
     Note: { fixed: 1 refMs }

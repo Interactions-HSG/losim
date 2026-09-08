@@ -162,8 +162,9 @@ public final class Run {
                 var machine = machines.machine(m.name(), m.instance(), m.zone(),
                         m.memoryCapMb() != null ? m.memoryCapMb() : spec.memoryMb(),
                         m.diskCapMb() != null ? m.diskCapMb() : spec.storageGb() * 1024.0);
-                for (String service : m.runs())
-                    machine.serves(factory(service, loader, m.where()), service, m.where());
+                for (var svc : m.runs().values())
+                    machine.serves(factory(svc.className(), loader, svc.where()),
+                                   svc.path(), svc.where());
                 if (m.runs().isEmpty()) machine.serving();     // listening, offering nothing
                 byName.put(m.name(), machine);
             }

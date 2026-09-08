@@ -35,7 +35,7 @@ final class Fixture {
                 zone: eu-central-1a
                 count: 3
                 prefix: workers
-                runs: [Counter]
+                runs: { Worker: src/Counter.java }
             """;
 
     /**

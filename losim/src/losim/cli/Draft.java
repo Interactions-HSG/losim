@@ -47,8 +47,8 @@ public final class Draft {
      * means a machine that cannot hold anything.
      */
     public record Pool(String name, int count, String prefix, String instance,
-                       List<String> zones, List<String> runs, Double memoryMb, Double diskMb,
-                       List<Override> overrides) {}
+                       List<String> zones, java.util.Map<String, String> runs,
+                       Double memoryMb, Double diskMb, List<Override> overrides) {}
 
     /**
      * One machine in a pool, differing from its siblings.
@@ -199,7 +199,13 @@ public final class Draft {
                     + " without one did not come from it. Add a zone: and open it here again.");
             String instance = spec.at("instance").str();
             var zones = spec.at("zone").strings();
-            var runs = spec.opt("runs").present() ? spec.at("runs").strings() : List.<String>of();
+            // Service to .java path, the same pair the file writes: the form draws two
+            // columns because the file has two halves, and a form that drew one would
+            // have to invent the other on save.
+            var runs = new java.util.LinkedHashMap<String, String>();
+            if (spec.opt("runs").present())
+                for (var r : spec.at("runs").map().entrySet())
+                    runs.put(r.getKey(), r.getValue().str().trim());
             Double memoryMb = spec.opt("memoryMb").present() ? spec.at("memoryMb").num() : null;
             Double diskMb = spec.opt("diskMb").present() ? spec.at("diskMb").num() : null;
             int count = spec.opt("count").integer(0);

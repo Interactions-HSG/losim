@@ -48,9 +48,9 @@ public class Phase2 {
         job: NoopJob
         nodes:
           master: { instance: m5.large, zone: z }
-          workers: { count: 2, prefix: w, instance: m5.large, zone: z, runs: [Pinger] }
+          workers: { count: 2, prefix: w, instance: m5.large, zone: z, runs: { Volley: losim/test/src/Pinger.java } }
         simulatedDuration:
-          Pinger: { Hit: { fixed: 1 refMs } }
+          losim/test/src/Pinger.java: { Hit: { fixed: 1 refMs } }
         """;
 
     /**
@@ -71,11 +71,11 @@ public class Phase2 {
             network: { sameZone: 20 refMs }
             nodes:
               master: { instance: m5.large, zone: z }
-              front:  { instance: m5.large, zone: z, runs: [Forwarder] }
-              back:   { instance: m5.large, zone: z, runs: [Counter] }
+              front:  { instance: m5.large, zone: z, runs: { Worker: losim/test/src/Forwarder.java } }
+              back:   { instance: m5.large, zone: z, runs: { Worker: losim/test/src/Counter.java } }
             simulatedDuration:
-              Forwarder: { Map: { fixed: 1 refMs } }
-              Counter:   { Map: { fixed: 15 refMs }, Reduce: { fixed: 100 refMs } }
+              losim/test/src/Forwarder.java: { Map: { fixed: 1 refMs } }
+              losim/test/src/Counter.java:   { Map: { fixed: 15 refMs }, Reduce: { fixed: 100 refMs } }
             """)));
         var tel = result.telemetry();
         check(result.completed(), "the job finished: master called front, and front called back");
@@ -160,6 +160,37 @@ public class Phase2 {
         refuses("a probability outside zero and one",
                 CLUSTER + "network: { loss: 4 }\n",
                 "a probability");
+        // runs: names code by path, and a path is the one thing about a scenario
+        // that can be checked before anything is built. All four of these used to
+        // be a run that started and then could not find a class.
+        refuses("a runs: value that is not a .java file",
+                """
+                job: NoopJob
+                nodes:
+                  w0: { instance: m5.large, zone: z, runs: { Worker: Counter } }
+                """,
+                "is not a .java file");
+        refuses("a .java file that is not there",
+                """
+                job: NoopJob
+                nodes:
+                  w0: { instance: m5.large, zone: z, runs: { Worker: src/Nowhere.java } }
+                """,
+                "there is no file at");
+        refuses("a file whose class is not named after it",
+                """
+                job: NoopJob
+                nodes:
+                  w0: { instance: m5.large, zone: z, runs: { Worker: losim/test/src/NotItsOwnName.java } }
+                """,
+                "declares no type called NotItsOwnName");
+        refuses("runs: written as a list, which says only half of what it has to",
+                """
+                job: NoopJob
+                nodes:
+                  w0: { instance: m5.large, zone: z, runs: [Counter] }
+                """,
+                "names a service and the .java file that implements it");
         refuses("the same node declared twice",
                 """
                 job: NoopJob
@@ -205,7 +236,7 @@ public class Phase2 {
                     prefix: w
                     instance: m5.large
                     zone: [eu-a, eu-b]
-                    runs: [Pinger]
+                    runs: { Volley: losim/test/src/Pinger.java }
                     overrides:
                       w3: { instance: a1.nano }
                       w4: { memoryMb: 16 }
@@ -270,11 +301,11 @@ public class Phase2 {
                 job: RetryJob
                 nodes:
                   master: { instance: m5.large, zone: z }
-                  workers: { count: 1, prefix: w, instance: m5.large, zone: z, runs: [Pinger] }
+                  workers: { count: 1, prefix: w, instance: m5.large, zone: z, runs: { Volley: losim/test/src/Pinger.java } }
                 retries:
                   - { method: Volley.Poll, attempts: 4, backoff: 20 refMs, multiplier: 2 }
                 simulatedDuration:
-                  Pinger: { Hit: { fixed: 1 refMs } }
+                  losim/test/src/Pinger.java: { Hit: { fixed: 1 refMs } }
                 """)));
         Pinger.failFirst = 0;
         var retries = result.telemetry().events().stream()
@@ -312,7 +343,7 @@ public class Phase2 {
                 seed: 3
                 nodes:
                   master: { instance: m5.large, zone: z }
-                  workers: { count: 4, prefix: w, instance: m5.large, zone: z, runs: [Pinger] }
+                  workers: { count: 4, prefix: w, instance: m5.large, zone: z, runs: { Volley: losim/test/src/Pinger.java } }
                 faults:
                   - { at: 200 refMs, freeze: w0, for: 300 refMs }
                   - { at: 250 refMs, degrade: w1, factor: 8 }
@@ -321,7 +352,7 @@ public class Phase2 {
                   - { at: 700 refMs, kill: w3, restart_after: 300 refMs }
                   - { at: 1200 refMs, heal: [master, w3] }
                 simulatedDuration:
-                  Pinger: { Hit: { fixed: 1 refMs } }
+                  losim/test/src/Pinger.java: { Hit: { fixed: 1 refMs } }
                 """)));
         var tel = result.telemetry();
         var at = new LinkedHashMap<String, Double>();
@@ -361,11 +392,11 @@ public class Phase2 {
                 seed: %d
                 nodes:
                   master: { instance: m5.large, zone: z }
-                  workers: { count: 6, prefix: w, instance: m5.large, zone: z, runs: [Pinger] }
+                  workers: { count: 6, prefix: w, instance: m5.large, zone: z, runs: { Volley: losim/test/src/Pinger.java } }
                 chaos:
                   - { kill: { every: 3 refSeconds, among: workers } }
                 simulatedDuration:
-                  Pinger: { Hit: { fixed: 1 refMs } }
+                  losim/test/src/Pinger.java: { Hit: { fixed: 1 refMs } }
                 """;
         var afternoons = new ArrayList<List<String>>();
         for (long seed : new long[]{1, 1, 2}) {
@@ -400,11 +431,11 @@ public class Phase2 {
                     prefix: w
                     instance: m5.large
                     zone: z
-                    runs: [Counter]
+                    runs: { Worker: losim/test/src/Counter.java }
                     overrides:
                       w1: { diskMb: 1 }
                 simulatedDuration:
-                  Counter: { Map: { fixed: 15 refMs }, Reduce: { fixed: 100 refMs } }
+                  losim/test/src/Counter.java: { Map: { fixed: 15 refMs }, Reduce: { fixed: 100 refMs } }
                 """)));
         var tel = result.telemetry();
         var full = tel.events().stream().filter(e -> e.kind().equals("disk_full")).findFirst();

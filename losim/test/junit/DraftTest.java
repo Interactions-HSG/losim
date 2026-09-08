@@ -9,10 +9,13 @@ import org.junit.jupiter.api.Test;
  * What an existing scenario looks like to the authoring form — and what it
  * refuses rather than shows with something quietly missing.
  *
- * <p>No lab, no compile, no fixture: {@code Loader.of} never checks that
- * {@code job:} or {@code runs:} name real compiled classes — that is a run's
- * problem, not a load's — so every case here is a plain string in, a record
- * or a refusal out.
+ * <p>No lab and no compile: every case here is a plain string in, a record or a
+ * refusal out. The paths under {@code runs:} are this repository's own, because
+ * the loader does stat them — a path is a thing that either exists or does not,
+ * and saying so on its line is the whole reason a scenario names code by path.
+ * What the loader still does not do is load anything: whether that file's class
+ * compiles, and whether it implements the service it is filed under, are a run's
+ * questions and are asked where there is a bound server to answer them.
  */
 class DraftTest {
 
@@ -46,14 +49,16 @@ class DraftTest {
                 job: WordCountJob
                 nodes:
                   coordinator: { instance: m5.large, zone: eu-central-1a }
-                  workers: { instance: c5.large, zone: [eu-central-1a, eu-central-1b, eu-central-1c], count: 6, prefix: workers, runs: [Counter] }
+                  workers: { instance: c5.large, zone: [eu-central-1a, eu-central-1b, eu-central-1c], count: 6, prefix: workers, runs: { Worker: losim/test/src/Counter.java } }
                 """);
         assertEquals(2, d.pools().size());
         var w = d.pools().get(1);
         assertEquals("workers", w.name());
         assertEquals(6, w.count());
         assertEquals(3, w.zones().size());
-        assertEquals(java.util.List.of("Counter"), w.runs());
+        assertEquals(java.util.Map.of("Worker", "losim/test/src/Counter.java"), w.runs(),
+                "the form reads back both halves of what a node runs, or it cannot write "
+                + "the half it did not read");
     }
 
     @Test
@@ -159,7 +164,7 @@ class DraftTest {
         var d = Draft.of("main.yaml", """
                 job: J
                 nodes:
-                  a: { instance: m5.large, zone: eu-central-1a, count: 3, prefix: a, runs: [Counter] }
+                  a: { instance: m5.large, zone: eu-central-1a, count: 3, prefix: a, runs: { Worker: losim/test/src/Counter.java } }
                 chaos:
                   - { freeze: { every: 700 refMs, among: a, for: 150 refMs } }
                   - { degrade: { every: 400 refMs, among: a, factor: 3 } }
@@ -177,7 +182,7 @@ class DraftTest {
         var d = Draft.of("main.yaml", """
                 job: J
                 nodes:
-                  a: { instance: m5.large, zone: eu-central-1a, count: 2, prefix: a, runs: [Counter] }
+                  a: { instance: m5.large, zone: eu-central-1a, count: 2, prefix: a, runs: { Worker: losim/test/src/Counter.java } }
                 retries:
                   - { method: lab.Worker.Map, attempts: 3, backoff: 40 refMs, unsafe: true }
                 """);
@@ -226,7 +231,7 @@ class DraftTest {
                 job: J
                 scale: 6
                 nodes:
-                  a: { instance: m5.large, zone: eu-central-1a, runs: [Counter] }
+                  a: { instance: m5.large, zone: eu-central-1a, runs: { Worker: losim/test/src/Counter.java } }
                 """);
         assertEquals("direct", d.mode());
         assertEquals(6.0, d.scale(), 1e-9);
@@ -234,7 +239,7 @@ class DraftTest {
         var e = Draft.of("main.yaml", """
                 job: J
                 nodes:
-                  a: { instance: m5.large, zone: eu-central-1a, runs: [Counter] }
+                  a: { instance: m5.large, zone: eu-central-1a, runs: { Worker: losim/test/src/Counter.java } }
                 """);
         assertEquals(1.0, e.scale(), 1e-9,
                 "a scenario that never mentions a scale is a run of itself, not a model of "
@@ -249,7 +254,7 @@ class DraftTest {
                 mode: scaled
                 scale: 125
                 nodes:
-                  a: { instance: m5.large, zone: eu-central-1a, runs: [Counter] }
+                  a: { instance: m5.large, zone: eu-central-1a, runs: { Worker: losim/test/src/Counter.java } }
                 """);
         assertEquals("scaled", d.mode());
         assertEquals(125.0, d.scale(), 1e-9);

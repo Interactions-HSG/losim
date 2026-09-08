@@ -213,18 +213,30 @@ public record Scenario(
      * in instead, per resource, from what the engine solved for.
      */
     /**
-     * One machine, as the scenario declared it.
+     * One node, as the simulation declared it.
      *
-     * @param runs the <b>Java classes</b> this machine runs, fully qualified. Called
-     *             {@code runs} and not {@code serves} because the trace's own
-     *             {@code serves} is a different list — the <b>gRPC services</b> those
-     *             classes turned out to offer. One word for both meant a scenario
-     *             saying {@code [lab.Combiner]} produced a trace saying
-     *             {@code ["Worker"]} under the same heading.
+     * @param runs what this node serves, keyed by the service's name in the
+     *             {@code .proto} and valued by the {@code .java} file that
+     *             implements it. Both, in one key, because a scenario that named
+     *             only the class produced a trace naming only the service, under
+     *             the same heading, and nothing in the file said they were the same
+     *             thing.
      */
     public record NodeSpec(String name, String pool, String instance, String zone,
-                              List<String> runs, Double memoryCapMb, Double diskCapMb,
-                              String where) {}
+                           Map<String, ServiceSpec> runs, Double memoryCapMb, Double diskCapMb,
+                           String where) {}
+
+    /**
+     * One service a node runs: what it is called on the wire, and the file that
+     * implements it.
+     *
+     * @param service   the name in the {@code .proto}, which is what discovery uses
+     * @param path      the {@code .java} file, relative to the project root
+     * @param className what that file's class would be loaded under — its package
+     *                  declaration and its own name, derived rather than typed a
+     *                  second time
+     */
+    public record ServiceSpec(String service, String path, String className, String where) {}
 
     public record NetSpec(double sameZoneRefMs, double crossZoneRefMs,
                           double jitterRefMs, double loss) {

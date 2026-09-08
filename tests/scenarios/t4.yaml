@@ -5,13 +5,13 @@ job: Rally
 
 nodes:
   umpire: { instance: m5.large, zone: eu-central-1a }
-  left:   { instance: m5.large, zone: eu-central-1a, runs: [Volleyer] }
-  right:  { instance: m5.large, zone: eu-central-1a, runs: [Volleyer] }
+  left:   { instance: m5.large, zone: eu-central-1a, runs: { Volley: tests/systems/Volleyer.java } }
+  right:  { instance: m5.large, zone: eu-central-1a, runs: { Volley: tests/systems/Volleyer.java } }
 
 # What each rpc costs on the reference machine, under the class that serves it.
 # The handlers declare nothing: a duration is a claim about the machine a design
 # would run on, so it belongs to the scenario — and a system stays plain gRPC
 # with no losim in it.
 simulatedDuration:
-  Volleyer:
+  tests/systems/Volleyer.java:
     Hit: { fixed: 200 refMs }

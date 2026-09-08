@@ -178,23 +178,27 @@ public class Phase4 {
             job: WordCountJob
             nodes:
               master: { instance: m5.large, zone: z }
-              w0: { instance: m5.large, zone: z, runs: [%s] }
-              w1: { instance: m5.large, zone: z, runs: [%s] }
+              w0: { instance: m5.large, zone: z, runs: { Worker: %s } }
+              w1: { instance: m5.large, zone: z, runs: { Worker: %s } }
             simulatedDuration:
-            %s""".formatted(w0, w1, costs(w0, w1));
+            %s""".formatted(src(w0), src(w1), costs(w0, w1));
     }
 
     /**
      * What each of those handlers costs, written once even when both machines run
      * the same one — a scenario naming a class twice would be a duplicate key.
      */
+    /** Where a test's handler actually lives, since a scenario names code by path. */
+    static String src(String cls) { return "losim/test/src/" + cls + ".java"; }
+
     static String costs(String... classes) {
         var out = new java.util.LinkedHashSet<String>();
         for (String c : classes) {
             out.add(switch (c) {
-                case "Counter" -> "  Counter: { Map: { fixed: 15 refMs }, Reduce: { fixed: 100 refMs } }";
-                case "Peeker"  -> "  Peeker: { Map: { fixed: 5 refMs } }";
-                default        -> "  " + c + ": { Map: { fixed: 2 refMs } }";
+                case "Counter" -> "  " + src(c)
+                        + ": { Map: { fixed: 15 refMs }, Reduce: { fixed: 100 refMs } }";
+                case "Peeker"  -> "  " + src(c) + ": { Map: { fixed: 5 refMs } }";
+                default        -> "  " + src(c) + ": { Map: { fixed: 2 refMs } }";
             });
         }
         return String.join("\n", out) + "\n";
@@ -262,7 +266,7 @@ public class Phase4 {
             job: ClockingJob
             nodes:
               master: { instance: m5.large, zone: z }
-              w0: { instance: m5.large, zone: z, runs: [Counter] }
+              w0: { instance: m5.large, zone: z, runs: { Worker: losim/test/src/Counter.java } }
             """));
         var jobTrust = Trust.of(byJob, List.of(CODE));
         check(jobTrust.machines().equals(Set.of("master")),

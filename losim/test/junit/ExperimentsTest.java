@@ -65,7 +65,7 @@ class ExperimentsTest {
                 job: WordCountJob
                 nodes:
                   a: { instance: m5.large, zone: eu-central-1a }
-                  b: { instance: c5.large, zone: eu-central-1a, count: 2, prefix: b, runs: [Counter] }
+                  b: { instance: c5.large, zone: eu-central-1a, count: 2, prefix: b, runs: { Worker: src/Counter.java } }
                 """);
         try {
             String out = captured(() ->
@@ -97,7 +97,7 @@ class ExperimentsTest {
                 job: WordCountJob
                 nodes:
                   a: { instance: m5.large, zone: eu-central-1a }
-                  b: { instance: c5.large, zone: eu-central-1a, count: 2, prefix: b, runs: [Counter] }
+                  b: { instance: c5.large, zone: eu-central-1a, count: 2, prefix: b, runs: { Worker: src/Counter.java } }
                 """);
         try {
             captured(() -> Experiments.in(root.toString()).runAll().done());

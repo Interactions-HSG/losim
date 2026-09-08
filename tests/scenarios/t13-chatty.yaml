@@ -15,7 +15,7 @@ nodes:
     prefix: w
     instance: r5.large
     zone: eu-central-1a
-    runs: [Chatty]
+    runs: { Worker: tests/systems/Chatty.java }
 
 # The corpus, at full size. The job says what its input is made of; this
 # says how much of each part there is.
@@ -29,6 +29,6 @@ input:
 # would run on, so it belongs to the scenario — and a system stays plain gRPC
 # with no losim in it.
 simulatedDuration:
-  Chatty:
+  tests/systems/Chatty.java:
     Map: { fixed: 2 refMs, perUnit: 360000 refNs }
     Reduce: { fixed: 5 refMs }

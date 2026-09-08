@@ -28,6 +28,9 @@ public class Phase3 {
 
     static ClassLoader loader() { return Phase3.class.getClassLoader(); }
 
+    /** Where a test's handler actually lives, since a scenario names code by path. */
+    static String src(String cls) { return "losim/test/src/" + cls + ".java"; }
+
     static String cluster(String service, double scale) {
         return """
             mode: scaled
@@ -41,14 +44,15 @@ public class Phase3 {
                 prefix: w
                 instance: r5.large
                 zone: z
-                runs: [%s]
+                runs: { Worker: %s }
             input:
               lines:        %d
               wordsPerLine: 8
               vocabulary:   200000
             simulatedDuration:
               %s: { Map: { fixed: 2 refMs, perUnit: 20000 refNs }, Reduce: { fixed: 5 refMs } }
-            """.formatted(trim(scale), service, Math.round(scale * Scenario.BASE), service);
+            """.formatted(trim(scale), src(service), Math.round(scale * Scenario.BASE),
+                          src(service));
     }
 
     /** A scale that reads as `6` rather than `6.0` in a file a person has to read. */
@@ -343,11 +347,11 @@ public class Phase3 {
                 prefix: w
                 instance: m5.large
                 zone: z
-                runs: [Slow]
+                runs: { Volley: losim/test/src/Slow.java }
             input:
               calls: %d
             simulatedDuration:
-              Slow: { Hit: { fixed: 200 refMs }, Poll: { fixed: 200 refMs } }
+              losim/test/src/Slow.java: { Hit: { fixed: 200 refMs }, Poll: { fixed: 200 refMs } }
             """;
         // Four 2-vCPU machines: eight cores. Observed under-saturated, projected
         // saturated. Four calls fit under eight cores; thirty-two are four waves of

@@ -1,6 +1,7 @@
 package losim.scenario;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -119,6 +120,56 @@ public final class Loader {
 
     // ----------------------------------------------------------------- machines
 
+    /**
+     * What a node runs: the service, and the file that implements it.
+     *
+     * <p>A path rather than a class name, and checked here rather than at run
+     * start. A fully qualified class name is a string that looks right until a
+     * classloader disagrees with it; a path is a thing that either exists or does
+     * not, and saying so on the line it was written on is the difference between a
+     * typo and a build that ran.
+     *
+     * <p>What is <b>not</b> checked here is whether the class implements the
+     * service it is filed under. The loader loads nothing, so that question is
+     * asked once the node has a bound server to answer it — the same discipline
+     * {@code simulatedDuration:} is under.
+     */
+    private static Map<String, Scenario.ServiceSpec> runs(Node node) {
+        var out = new LinkedHashMap<String, Scenario.ServiceSpec>();
+        if (!node.present()) return out;
+        if (!node.isMap()) throw node.fail(
+                "runs: names a service and the .java file that implements it —"
+                + " { Thumbnailer: src/Shrinker.java }. A list says only half of that,"
+                + " and the half it leaves out is the one peers find a node by.");
+        for (var e : node.map().entrySet()) {
+            String service = e.getKey().trim();
+            Node value = e.getValue();
+            String said = value.str().trim();
+            if (!said.endsWith(".java")) throw value.fail(
+                    "'" + said + "' is not a .java file. runs: names the file that implements a"
+                    + " service, so that a name nothing can be found under is a line to fix rather"
+                    + " than a run that starts and then cannot build anything.");
+            Path file = Path.of(said);
+            if (!Files.isRegularFile(file)) throw value.fail(
+                    "there is no file at '" + said + "'. Paths are relative to the project — the"
+                    + " directory holding proto/, src/ and the simulations.");
+            String className;
+            try {
+                if (!JavaSource.declaresItsOwnName(file)) throw value.fail(
+                        "'" + said + "' declares no type called " + JavaSource.simpleName(file)
+                        + ", so nothing could be loaded under the name this path implies. A file"
+                        + " and the class in it have to agree before anything else can.");
+                className = JavaSource.className(file);
+            } catch (java.io.IOException io) {
+                throw value.fail("'" + said + "' could not be read: " + io.getMessage());
+            }
+            if (out.containsKey(service)) throw value.fail(
+                    "this node runs '" + service + "' twice");
+            out.put(service, new Scenario.ServiceSpec(service, said, className, value.where()));
+        }
+        return out;
+    }
+
     private static List<NodeSpec> machines(Node node) {
         var out = new ArrayList<NodeSpec>();
         for (var entry : node.map().entrySet()) {
@@ -130,8 +181,7 @@ public final class Loader {
             String instance = spec.at("instance").str();
             checkInstance(spec.at("instance"), instance);
             var zones = spec.opt("zone").present() ? spec.at("zone").strings() : List.of("default");
-            var runs = spec.opt("runs").present() ? spec.at("runs").strings()
-                                                  : List.<String>of();
+            var runs = runs(spec.opt("runs"));
             int count = spec.opt("count").integer(0);
 
             if (count == 0) {                              // a single, named machine
@@ -161,7 +211,7 @@ public final class Loader {
                         over.present() ? over.where() : spec.where()));
             }
         }
-        if (out.isEmpty()) throw node.fail("a scenario needs at least one machine");
+        if (out.isEmpty()) throw node.fail("a simulation needs at least one node");
         return out;
     }
 

@@ -5,9 +5,9 @@ job: WordCount
 
 nodes:
   master:  { instance: m5.large, zone: eu-central-1a }
-  m0:      { instance: c5.large, zone: eu-central-1a, runs: [Mapper] }
-  r0:      { instance: r5.large, zone: eu-central-1a, runs: [Reducer] }
-  umpire:  { instance: m5.large, zone: eu-central-1a, runs: [Volleyer] }
+  m0:      { instance: c5.large, zone: eu-central-1a, runs: { Worker: tests/systems/Mapper.java } }
+  r0:      { instance: r5.large, zone: eu-central-1a, runs: { Shuffler: tests/systems/Reducer.java } }
+  umpire:  { instance: m5.large, zone: eu-central-1a, runs: { Volley: tests/systems/Volleyer.java } }
 
 retries:
   - { method: lab.Volley.Hit, attempts: 3, backoff: 40 refMs }
@@ -17,10 +17,10 @@ retries:
 # would run on, so it belongs to the scenario — and a system stays plain gRPC
 # with no losim in it.
 simulatedDuration:
-  Mapper:
+  tests/systems/Mapper.java:
     Map: { fixed: 20 refMs }
     Note: { fixed: 1 refMs }
-  Reducer:
+  tests/systems/Reducer.java:
     Fold: { fixed: 30 refMs }
-  Volleyer:
+  tests/systems/Volleyer.java:
     Hit: { fixed: 200 refMs }
