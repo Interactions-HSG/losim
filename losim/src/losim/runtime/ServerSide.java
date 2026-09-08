@@ -52,6 +52,34 @@ final class ServerSide implements ServerInterceptor {
         final String method = Wire.dotted(full);
         final Cost takes = node.takenBy(full);
 
+        // losim.Job is losim's own way into the system, and it is used once.
+        //
+        // Neither half of that is checkable at load: a node can only make this call
+        // while running, and the header that marks losim's own call can be attached
+        // by anybody holding a channel — one line of MetadataUtils. So the header is
+        // what lets the refusal say which mistake was made, and the counter is what
+        // makes it true.
+        //
+        // Before the draws below, so that a call which is going to be refused does
+        // not consume a draw from the seed's stream and move every later failure.
+        if (full.startsWith(losim.pb.JobGrpc.SERVICE_NAME + "/")) {
+            String no = null;
+            if (headers.get(Machines.OUTSIDE) == null)
+                no = method + " is losim's call into the system, and nothing inside the"
+                   + " system makes it: the simulation it starts is the one already"
+                   + " running. Whatever this node wanted to do again, it does by"
+                   + " calling its own services.";
+            else if (!node.machines().firstEntry(full))
+                no = method + " has already been called. losim loads once and runs once,"
+                   + " and a second entry would be measured into the first — one"
+                   + " duration and one bill over two workloads.";
+            if (no != null) {
+                node.charge(Meter.allocNow() - a0, System.nanoTime() - t0);
+                call.close(Status.FAILED_PRECONDITION.withDescription(no), new Metadata());
+                return new ServerCall.Listener<Q>() {};
+            }
+        }
+
         // What the simulation said goes wrong with this rpc on this node, drawn
         // once for this call. Both draws happen here, before anything else, so
         // that a call which is going to be refused is refused without opening a

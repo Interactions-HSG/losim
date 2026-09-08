@@ -48,6 +48,20 @@ public final class Machines implements AutoCloseable {
     final Net net;
     final long seed;
 
+    /**
+     * Which of {@code losim.Job}'s rpcs this simulation has already been entered
+     * through.
+     *
+     * <p>Here rather than on the entry {@link Machine} because a restart rebuilds a
+     * machine and everything on it, which would clear the record in exactly the
+     * case it is wanted: the entry node is killed, comes back, and something calls
+     * {@code Run} on the fresh instance.
+     */
+    private final Set<String> entered = ConcurrentHashMap.newKeySet();
+
+    /** True the first time this simulation is entered through {@code method}. */
+    boolean firstEntry(String method) { return entered.add(method); }
+
     private final Map<String, Machine> machines = new ConcurrentHashMap<>();
     private final List<String> order = new CopyOnWriteArrayList<>();
     private final Map<String, List<String>> byService = new ConcurrentHashMap<>();
