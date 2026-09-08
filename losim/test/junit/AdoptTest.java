@@ -4,7 +4,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import losim.cli.Adopt;
-import losim.cli.Shape;
+import losim.cli.Scan;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -37,29 +37,29 @@ class AdoptTest {
         throw new IllegalStateException("no quickstart fixture beside this test");
     }
 
-    private static Shape shape() throws Exception {
-        return Shape.of(fixture());
+    private static Scan scan() throws Exception {
+        return Scan.of(fixture());
     }
 
     /** A lab written against 1.5.0: it reads its size from the cluster. */
-    private static Shape scaled() throws Exception {
+    private static Scan scaled() throws Exception {
         for (Path p : List.of(Path.of("losim/test/fixtures/scaled"),
                               Path.of("../losim/test/fixtures/scaled"))) {
-            if (Files.isDirectory(p)) return Shape.of(p);
+            if (Files.isDirectory(p)) return Scan.of(p);
         }
         throw new IllegalStateException("no scaled fixture beside this test");
     }
 
-    private static boolean saw(Shape s, Shape.Kind kind, String contains) {
+    private static boolean saw(Scan s, Scan.Kind kind, String contains) {
         return s.of(kind).stream().anyMatch(f -> f.what().contains(contains));
     }
 
     @Test
     @DisplayName("the schema is read without protoc, and the service with it")
     void schema() throws Exception {
-        Shape s = shape();
+        Scan s = scan();
         assertEquals(1, s.rpcs().size());
-        Shape.Rpc rpc = s.rpcs().get(0);
+        Scan.Rpc rpc = s.rpcs().get(0);
         assertEquals("Greeter", rpc.service());
         assertEquals("SayHello", rpc.name());
         assertFalse(rpc.streaming());
@@ -69,9 +69,9 @@ class AdoptTest {
     @Test
     @DisplayName("the handler is found where it actually is: nested inside the server")
     void nested() throws Exception {
-        Shape s = shape();
+        Scan s = scan();
         assertEquals(1, s.services().size());
-        Shape.Service greeter = s.services().get(0);
+        Scan.Service greeter = s.services().get(0);
         assertEquals("GreeterImpl", greeter.name());
         assertTrue(greeter.nested(), "it is a static nested class, which is the whole problem");
         assertEquals("io.grpc.examples.helloworld.GreeterImpl", greeter.qualified(),
@@ -81,43 +81,43 @@ class AdoptTest {
     @Test
     @DisplayName("a nested handler is a wrong number; a shutdown hook is merely dead")
     void classification() throws Exception {
-        Shape s = shape();
+        Scan s = scan();
         // The distinction the entire report is built on. A nested class is walked
         // together with the class enclosing it, so the bootstrap's own server and
         // statics are read as the service's and every figure it reports is marked.
-        assertTrue(saw(s, Shape.Kind.UNTRUSTWORTHY, "nested"));
-        assertTrue(saw(s, Shape.Kind.UNTRUSTWORTHY, "channel"),
+        assertTrue(saw(s, Scan.Kind.UNTRUSTWORTHY, "nested"));
+        assertTrue(saw(s, Scan.Kind.UNTRUSTWORTHY, "channel"),
                 "the client builds its own, which no interceptor is attached to");
         // These cost nothing and mean nothing, and no run will ever mention them —
         // which is why they are listed at all.
-        assertTrue(saw(s, Shape.Kind.DEAD, "addShutdownHook"));
-        assertTrue(saw(s, Shape.Kind.DEAD, "main("));
-        assertTrue(saw(s, Shape.Kind.DEAD, "newFixedThreadPool"));
-        assertTrue(saw(s, Shape.Kind.DEAD, "grpc-netty-shaded"));
-        assertTrue(saw(s, Shape.Kind.MISSING, "idempotency_level"));
-        assertTrue(s.of(Shape.Kind.REFUSED).isEmpty(),
+        assertTrue(saw(s, Scan.Kind.DEAD, "addShutdownHook"));
+        assertTrue(saw(s, Scan.Kind.DEAD, "main("));
+        assertTrue(saw(s, Scan.Kind.DEAD, "newFixedThreadPool"));
+        assertTrue(saw(s, Scan.Kind.DEAD, "grpc-netty-shaded"));
+        assertTrue(saw(s, Scan.Kind.MISSING, "idempotency_level"));
+        assertTrue(s.of(Scan.Kind.REFUSED).isEmpty(),
                 "the quickstart is unary and protoc-generated, so nothing here refuses it");
     }
 
     @Test
     @DisplayName("a call to cluster.records() will not run, and a scaled plain Job merely will not scale")
     void theBreak() throws Exception {
-        Shape s = scaled();
-        assertTrue(saw(s, Shape.Kind.REFUSED, "cluster.records() no longer exists"),
+        Scan s = scaled();
+        assertTrue(saw(s, Scan.Kind.REFUSED, "cluster.records() no longer exists"),
                 "a method that is gone is a project that will not compile, not a hint");
         // And the second one is deliberately *not* refused. The run does happen; it
         // is the model that cannot be built, which is a different sentence and a
         // different heading in the report.
-        assertTrue(saw(s, Shape.Kind.MISSING, "Filler cannot be run at another size"),
+        assertTrue(saw(s, Scan.Kind.MISSING, "Filler cannot be run at another size"),
                 "a scenario asking for a model of forty times the run, driven by a plain Job");
-        assertFalse(saw(s, Shape.Kind.REFUSED, "cannot be run at another size"),
+        assertFalse(saw(s, Scan.Kind.REFUSED, "cannot be run at another size"),
                 "a plain Job under a scaled scenario runs — it just cannot be modelled");
     }
 
     @Test
     @DisplayName("versions come off the build file even when it names them by variable")
     void versions() throws Exception {
-        Shape s = shape();
+        Scan s = scan();
         assertEquals("1.83.1", s.grpcVersion());
         assertEquals("3.25.9", s.protobufVersion(),
                 "the quickstart pins an old protobuf; adopting must not silently"
@@ -128,7 +128,7 @@ class AdoptTest {
     @DisplayName("a project with no schema and no service is not one to adopt")
     void nothingToAdopt(@TempDir Path empty) throws Exception {
         Files.writeString(empty.resolve("build.gradle.kts"), "plugins { java }\n");
-        Shape s = Shape.of(empty);
+        Scan s = Scan.of(empty);
         assertTrue(s.rpcs().isEmpty());
         assertTrue(s.services().isEmpty());
     }

@@ -44,7 +44,7 @@ import java.util.stream.Stream;
  * yielding <b>a wrong number rather than a broken run</b>. Dead scaffolding yields
  * neither, and adding rules for it would dilute the one list that means something.
  */
-public final class Shape {
+public final class Scan {
 
     private final Path root;
     private final List<Service> services = new ArrayList<>();
@@ -55,7 +55,7 @@ public final class Shape {
     private String build = "";
     private String buildFile = "";
 
-    private Shape(Path root) { this.root = root; }
+    private Scan(Path root) { this.root = root; }
 
     /**
      * One service implementation, and where it is.
@@ -109,8 +109,8 @@ public final class Shape {
 
     // ------------------------------------------------------------------- reading
 
-    public static Shape of(Path root) throws IOException {
-        Shape s = new Shape(root.toAbsolutePath().normalize());
+    public static Scan of(Path root) throws IOException {
+        Scan s = new Scan(root.toAbsolutePath().normalize());
         s.read();
         s.scaled();
         s.judge();

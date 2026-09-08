@@ -70,8 +70,8 @@ public final class Adopt {
         // its code is.
         boolean vendored = Files.isRegularFile(root.resolve("lib/losim.jar"));
 
-        Shape shape = Shape.of(root);
-        if (shape.protos().isEmpty() && shape.services().isEmpty()) {
+        Scan scan = Scan.of(root);
+        if (scan.protos().isEmpty() && scan.services().isEmpty()) {
             System.err.println("""
                   Nothing here looks like a gRPC project: no .proto, and no class extending a
                   protoc-generated ImplBase. Point this at the project you want to simulate,
@@ -104,15 +104,15 @@ public final class Adopt {
             return 2;
         }
 
-        found(shape, root, vendored);
-        Plan plan = plan(shape, root, vendored);
+        found(scan, root, vendored);
+        Plan plan = plan(scan, root, vendored);
         plan.print(root);
         plan.apply(root);
 
         // Read again, because the files have moved. A report naming
         // `src/main/java/…` after `src/main/java/` is gone sends somebody to a path
         // that no longer exists, and AGENTS.md would keep sending them there.
-        Shape moved = Shape.of(root);
+        Scan moved = Scan.of(root);
         write(moved, root, force, vendored);
         report(moved, root, vendored);
         return 0;
@@ -120,18 +120,18 @@ public final class Adopt {
 
     // --------------------------------------------------------------------- found
 
-    private static void found(Shape shape, Path root, boolean vendored) {
+    private static void found(Scan scan, Path root, boolean vendored) {
         var lines = new LinkedHashMap<String, String>();
-        if (!shape.buildFile().isEmpty()) {
+        if (!scan.buildFile().isEmpty()) {
             var bits = new ArrayList<String>();
-            if (!shape.grpcVersion().isEmpty()) bits.add("grpc " + shape.grpcVersion());
-            if (!shape.protobufVersion().isEmpty()) bits.add("protobuf " + shape.protobufVersion());
-            lines.put(shape.buildFile(), bits.isEmpty() ? "no versions it could name" : String.join(", ", bits));
+            if (!scan.grpcVersion().isEmpty()) bits.add("grpc " + scan.grpcVersion());
+            if (!scan.protobufVersion().isEmpty()) bits.add("protobuf " + scan.protobufVersion());
+            lines.put(scan.buildFile(), bits.isEmpty() ? "no versions it could name" : String.join(", ", bits));
         }
-        lines.put(count(shape.protos().size(), ".proto"),
-                  join(shape.protos().stream().map(p -> short_(root, p)).toList()));
-        for (Shape.Service s : shape.services()) {
-            var rpcs = shape.rpcs().stream()
+        lines.put(count(scan.protos().size(), ".proto"),
+                  join(scan.protos().stream().map(p -> short_(root, p)).toList()));
+        for (Scan.Service s : scan.services()) {
+            var rpcs = scan.rpcs().stream()
                     .map(r -> r.name() + (r.streaming() ? " (streaming)" : ""))
                     .toList();
             lines.put(count(1, "service"), s.name() + (rpcs.isEmpty() ? ""
@@ -189,7 +189,7 @@ public final class Adopt {
         }
     }
 
-    private static Plan plan(Shape shape, Path root, boolean vendored) throws IOException {
+    private static Plan plan(Scan scan, Path root, boolean vendored) throws IOException {
         var moves = new ArrayList<String[]>();
         if (!vendored) {
             if (Files.isDirectory(root.resolve("src/main/proto"))) moves.add(new String[]{"src/main/proto/", "proto/"});
@@ -220,7 +220,7 @@ public final class Adopt {
         if (Files.isRegularFile(root.resolve("build.gradle"))) {
             kept.add("build.gradle -> build.gradle.bak, because Gradle will not have two");
         }
-        if (shape.buildFileText().contains("grpc-netty")) {
+        if (scan.buildFileText().contains("grpc-netty")) {
             kept.add("grpc-netty-shaded is not carried over: there is no socket transport in");
             kept.add("a simulated network, and nothing on the lab classpath provides one");
         }
@@ -234,13 +234,13 @@ public final class Adopt {
      * <p>Written unless one is there already, which is the difference between
      * adopting a project twice and losing what somebody wrote the first time.
      */
-    private static void write(Shape shape, Path root, boolean force, boolean vendored)
+    private static void write(Scan scan, Path root, boolean force, boolean vendored)
             throws IOException {
         put(root, "build.gradle.kts",
-                Scaffold.build(shape.grpcVersion(), shape.protobufVersion()), force);
+                Scaffold.build(scan.grpcVersion(), scan.protobufVersion()), force);
         put(root, "losim", Scaffold.launcher(), force);
-        put(root, "AGENTS.md", Agents.forProject(shape, root), force);
-        if (!vendored) put(root, "simulations/1-one-call.yaml", firstScenario(shape), force);
+        put(root, "AGENTS.md", Agents.forProject(scan, root), force);
+        if (!vendored) put(root, "simulations/1-one-call.yaml", firstScenario(scan), force);
 
         // Appended rather than written: a project's own ignore file is its own.
         Path ignore = root.resolve(".gitignore");
@@ -289,11 +289,11 @@ public final class Adopt {
      * which is a better first failure than one that silently works against
      * {@code HelloWorldServer$GreeterImpl} and marks every number untrustworthy.
      */
-    private static String firstScenario(Shape shape) {
-        List<String> runs = shape.placeable().isEmpty() ? List.of("YourService") : shape.placeable();
+    private static String firstScenario(Scan scan) {
+        List<String> runs = scan.placeable().isEmpty() ? List.of("YourService") : scan.placeable();
         var takes = new ArrayList<String[]>();
         for (String cls : runs) {
-            for (Shape.Rpc r : shape.rpcs()) {
+            for (Scan.Rpc r : scan.rpcs()) {
                 if (r.streaming()) continue;
                 takes.add(new String[]{cls, r.name()});
             }
@@ -310,7 +310,7 @@ public final class Adopt {
      * this is the part somebody reads — and it is {@link Check}'s renderer, so
      * that "what is left" and "what was left" cannot come to differ.
      */
-    private static void report(Shape shape, Path root, boolean vendored) {
+    private static void report(Scan scan, Path root, boolean vendored) {
         System.out.println(vendored ? """
               No .java was touched and no scenario rewritten. What is left is yours —
               AGENTS.md has all of it, in the same classes, so your agent can work from it:"""
@@ -318,7 +318,7 @@ public final class Adopt {
               Nothing inside a .java was touched. What is left is yours — AGENTS.md has all of
               it, in the same classes, so your agent can work from it:""");
         System.out.println();
-        Check.report(root, shape);
+        Check.report(root, scan);
         System.out.println();
         System.out.println("""
               next

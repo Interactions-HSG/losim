@@ -15,7 +15,7 @@ import java.util.List;
  * just printed.
  *
  * <p>The body is a resource, so it is written and reviewed as prose rather than as
- * a string constant. What is appended is what {@link Shape} found <b>in this
+ * a string constant. What is appended is what {@link Scan} found <b>in this
  * project</b>, because an agent reading a generic file has to rediscover
  * specifics the command already knows — and because a terminal scrolls away and a
  * file in the repository does not.
@@ -23,8 +23,8 @@ import java.util.List;
 final class Agents {
     private Agents() {}
 
-    static String forProject(Shape shape, Path root) {
-        return body() + "\n" + here(shape, root);
+    static String forProject(Scan scan, Path root) {
+        return body() + "\n" + here(scan, root);
     }
 
     private static String body() {
@@ -40,24 +40,24 @@ final class Agents {
     }
 
     /** What was found here, in the three classes, with a line number each. */
-    private static String here(Shape shape, Path root) {
+    private static String here(Scan scan, Path root) {
         var sb = new StringBuilder("## This project\n\n");
         sb.append("What `losim adopt` found in this repository, at the moment it ran."
                 + " `./losim check` re-runs exactly this.\n\n");
 
-        if (!shape.services().isEmpty()) {
+        if (!scan.services().isEmpty()) {
             sb.append("**Services.** ");
             var said = new java.util.ArrayList<String>();
-            for (Shape.Service s : shape.services()) {
+            for (Scan.Service s : scan.services()) {
                 said.add("`" + s.name() + "`" + (s.nested() ? " (nested — see edit 1)" : "")
                         + " at `" + rel(root, s.file()) + ":" + s.line() + "`");
             }
             sb.append(String.join(", ", said)).append("\n\n");
         }
-        if (!shape.rpcs().isEmpty()) {
+        if (!scan.rpcs().isEmpty()) {
             sb.append("**Rpcs.**\n\n");
             sb.append("| rpc | shape | retryable |\n|---|---|---|\n");
-            for (Shape.Rpc r : shape.rpcs()) {
+            for (Scan.Rpc r : scan.rpcs()) {
                 sb.append("| `").append(r.service()).append('.').append(r.name()).append("` | ")
                   .append(r.streaming() ? "**streaming — refused**" : "unary").append(" | ")
                   .append(r.idempotent() ? "yes" : "no `idempotency_level`").append(" |\n");
@@ -66,22 +66,22 @@ final class Agents {
         }
 
         boolean any = false;
-        any |= list(sb, root, "Will not run", shape.of(Shape.Kind.REFUSED));
+        any |= list(sb, root, "Will not run", scan.of(Scan.Kind.REFUSED));
         any |= list(sb, root, "Runs, and a number comes out wrong",
-                shape.of(Shape.Kind.UNTRUSTWORTHY));
+                scan.of(Scan.Kind.UNTRUSTWORTHY));
         any |= list(sb, root, "Runs, does nothing, and nothing else will say so",
-                shape.of(Shape.Kind.DEAD));
+                scan.of(Scan.Kind.DEAD));
         any |= list(sb, root, "Not wrong, but the run will be less than it could be",
-                shape.of(Shape.Kind.MISSING));
+                scan.of(Scan.Kind.MISSING));
         if (!any) sb.append("Nothing. This project is already the shape losim runs.\n");
         return sb.toString();
     }
 
     private static boolean list(StringBuilder sb, Path root, String heading,
-                                List<Shape.Finding> found) {
+                                List<Scan.Finding> found) {
         if (found.isEmpty()) return false;
         sb.append("### ").append(heading).append("\n\n");
-        for (Shape.Finding f : found) {
+        for (Scan.Finding f : found) {
             sb.append("- **").append(f.what()).append("**");
             if (f.where() != null) {
                 sb.append(" — `").append(rel(root, f.where().file()))

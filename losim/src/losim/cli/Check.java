@@ -10,7 +10,7 @@ import java.util.Map;
 /**
  * {@code losim check} — what is still between this project and a run.
  *
- * <p>The same {@link Shape} {@code losim adopt} printed from, so the account it
+ * <p>The same {@link Scan} {@code losim adopt} printed from, so the account it
  * gave is not something to have kept: a terminal scrolls away and a command does
  * not. Nothing is compiled and nothing is run, which is the point — this answers
  * before the first build, when a project has not yet reached the state where a
@@ -26,12 +26,12 @@ public final class Check {
             System.err.println("no such directory: " + root);
             return 2;
         }
-        Shape shape = Shape.of(root);
+        Scan scan = Scan.of(root);
         System.out.printf("%s, %s, %s%n%n",
-                count(shape.services().size(), "service"),
-                count(shape.rpcs().size(), "rpc"),
-                count(shape.sources().size(), "source file"));
-        report(root, shape);
+                count(scan.services().size(), "service"),
+                count(scan.rpcs().size(), "rpc"),
+                count(scan.sources().size(), "source file"));
+        report(root, scan);
         // Not a failure exit. A project part-way through a migration is the ordinary
         // state of a project part-way through a migration, and a check that returns 1
         // for it cannot be put in front of anything without becoming a thing people
@@ -40,7 +40,7 @@ public final class Check {
     }
 
     /**
-     * Everything {@link Shape} found, in the order somebody would act on it.
+     * Everything {@link Scan} found, in the order somebody would act on it.
      *
      * <p>Shared with {@link Adopt} rather than written twice, because the whole
      * claim about {@code check} is that it says what {@code adopt} said.
@@ -53,22 +53,22 @@ public final class Check {
      * are in, one line each, compact — which is also how they read when somebody
      * opens that file to do the work.
      */
-    static void report(Path root, Shape shape) {
+    static void report(Path root, Scan scan) {
         int n = 0;
-        n = numbered(root, "will not run at all", shape.of(Shape.Kind.REFUSED), n);
+        n = numbered(root, "will not run at all", scan.of(Scan.Kind.REFUSED), n);
         n = numbered(root, "runs, and a number comes out wrong",
-                shape.of(Shape.Kind.UNTRUSTWORTHY), n);
+                scan.of(Scan.Kind.UNTRUSTWORTHY), n);
         n = numbered(root, "not wrong, but the run will be less than it could be",
-                shape.of(Shape.Kind.MISSING), n);
+                scan.of(Scan.Kind.MISSING), n);
 
-        var dead = shape.of(Shape.Kind.DEAD);
+        var dead = scan.of(Scan.Kind.DEAD);
         if (!dead.isEmpty()) {
             System.out.println("  dead rather than wrong, and no run will ever say so");
             for (var e : byFile(root, dead).entrySet()) {
                 System.out.println("      " + e.getKey());
                 int width = e.getValue().stream()
                         .mapToInt(f -> f.what().length()).max().orElse(20);
-                for (Shape.Finding f : e.getValue()) {
+                for (Scan.Finding f : e.getValue()) {
                     System.out.printf("       %-6s %-" + width + "s  %s%n",
                             f.where() == null ? "" : ":" + f.where().line(),
                             f.what(), brief(f.why()));
@@ -92,10 +92,10 @@ public final class Check {
                 + ". AGENTS.md has the same list.");
     }
 
-    private static int numbered(Path root, String heading, List<Shape.Finding> found, int n) {
+    private static int numbered(Path root, String heading, List<Scan.Finding> found, int n) {
         if (found.isEmpty()) return n;
         System.out.println("  " + heading);
-        for (Shape.Finding f : found) {
+        for (Scan.Finding f : found) {
             n++;
             System.out.printf("  %2d  %s%n", n, f.what());
             if (f.where() != null) {
@@ -108,9 +108,9 @@ public final class Check {
     }
 
     /** Grouped by the file they are in, in the order the files were read. */
-    private static Map<String, List<Shape.Finding>> byFile(Path root, List<Shape.Finding> found) {
-        var out = new LinkedHashMap<String, List<Shape.Finding>>();
-        for (Shape.Finding f : found) {
+    private static Map<String, List<Scan.Finding>> byFile(Path root, List<Scan.Finding> found) {
+        var out = new LinkedHashMap<String, List<Scan.Finding>>();
+        for (Scan.Finding f : found) {
             String where = f.where() == null ? "the build file"
                     : rel(root, f.where().file());
             out.computeIfAbsent(where, k -> new ArrayList<>()).add(f);
@@ -118,7 +118,7 @@ public final class Check {
         return out;
     }
 
-    private static String at(Path root, Shape.At where) {
+    private static String at(Path root, Scan.At where) {
         return rel(root, where.file()) + ":" + where.line();
     }
 
