@@ -24,7 +24,7 @@ memoryMb = 0.0597 + 0.00187 * revealed.distinctItems^1.013  (R2 1.0000, wobble 0
 
 Every quantity that **varied** across the ladder and could plausibly drive something:
 
-- `units` ;  what the scenario declared
+- `units` — what the scenario declared
 - every numeric `Losim.current().reveal(key, value)` your code made
 
 Each resource is fitted against **every** candidate, and the best is kept.
@@ -32,7 +32,7 @@ Each resource is fitted against **every** candidate, and the best is kept.
 <Note>
 This is why `reveal` is worth using well. `reveal("distinctItems", index.size())`
 gives the engine the chance to discover that memory follows what you hold rather than
-what went past ;  and those grow at different rates.
+what went past — and those grow at different rates.
 </Note>
 
 ## The two-step composition
@@ -105,7 +105,7 @@ fan-out is quadratic in the cluster. One exponent for all of them would be wrong
 most.
 
 Cost-site laws are kept only where they would **survive being measured again**. On
-handlers shorter than the host's own jitter, that is usually nowhere ;  which is
+handlers shorter than the host's own jitter, that is usually nowhere — which is
 exactly what the `k_time` feasibility check reads.
 
 ## Fault amplification
@@ -121,7 +121,7 @@ printed beside the law when it is meaningfully above 1:
 ## The plan travels
 
 Every law, every variable-of-units law, every refusal and every solved cap is
-written into the trace ;  so `projected = f(observed)` is recomputable by whoever
+written into the trace — so `projected = f(observed)` is recomputable by whoever
 reads it, rather than a number they have to take on trust.
 
 <Card title="A law, refused" icon="ban" href="/engine/refusals">

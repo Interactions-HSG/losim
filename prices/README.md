@@ -42,7 +42,7 @@ build in and expensive to leave, and Zurich is the other way round.
 
 They are wrong in the third decimal on purpose. A number that looked
 authoritative would be argued with instead of reasoned from, and the thing worth
-reasoning about is the *ratio* ;  that an intercontinental gigabyte costs nine
+reasoning about is the *ratio* — that an intercontinental gigabyte costs nine
 times an in-region one, everywhere, and that no amount of tuning changes which
 side of that a design's traffic lands on.
 
@@ -52,7 +52,7 @@ files are for, and nothing in `losim/` has to change.
 
 ## Talking costs what the distance costs
 
-Three rates, because there are three distances a byte can travel ;  and one that
+Three rates, because there are three distances a byte can travel — and one that
 is free:
 
 | link | rate | when |
@@ -62,8 +62,8 @@ is free:
 | same continent | `egress_cross_region_per_gb` | `eu-central-1a` -> `eu-west-1a` |
 | across an ocean | `egress_intercontinental_per_gb` | `eu-central-1a` -> `ap-northeast-1a` |
 
-A machine's zone decides which. The region is read off the zone name ;  `eu-central-1a`
-is in `eu-central-1`, `switzerlandnorth-1` is in `switzerlandnorth` ;  so there is
+A machine's zone decides which. The region is read off the zone name — `eu-central-1a`
+is in `eu-central-1`, `switzerlandnorth-1` is in `switzerlandnorth` — so there is
 nothing to declare and nothing to keep in step.
 
 The trace records the split (`egressMb`, per machine, by destination region) as
@@ -71,7 +71,7 @@ the calls happen, because only the caller knows both ends. The bill then prints
 up to three egress lines rather than one, so traffic that crossed an ocean is
 a row you can see rather than a number folded into a total.
 
-A zone losim does not recognise ;  `rack-3`, `left` ;  is its own region on an
+A zone losim does not recognise — `rack-3`, `left` — is its own region on an
 unknown continent, and traffic to it is billed at the **cross-region** rate. The
 cheaper of the two, deliberately: guessing "across an ocean" for a name nobody
 recognised would put the largest egress line on the bill on the strength of a

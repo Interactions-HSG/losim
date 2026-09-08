@@ -1,6 +1,6 @@
 ---
 title: "Spec"
-description: "What the machine serving this call is made of ;  and why it is only ever this machine's."
+description: "What the machine serving this call is made of — and why it is only ever this machine's."
 icon: "id-card"
 ---
 
@@ -26,7 +26,7 @@ public record Spec(String machine, String instance, String zone, int vcpu,
   The disk cap it is under on this run.
 </ResponseField>
 <ResponseField name="cores()" type="double">
-  `vcpu / 2.0` ;  how much work this machine can be given relative to a two-core one.
+  `vcpu / 2.0` — how much work this machine can be given relative to a two-core one.
 
   Deliberately crude, and deliberately **not** a score losim computes for you.
   Placing work well is the exercise, and a ready-made ranking is the exercise
@@ -37,7 +37,7 @@ public record Spec(String machine, String instance, String zone, int vcpu,
 ## Local knowledge only
 
 <Warning>
-There is no way to read a **peer's** `Spec`. Not by design accident ;  by design.
+There is no way to read a **peer's** `Spec`. Not by design accident — by design.
 
 A real process can read its own limits and its own instance metadata without a
 network, and cannot read anyone else's at all. An orchestrator that wants to send

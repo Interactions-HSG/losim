@@ -18,7 +18,7 @@ without anyone writing one for it.
 
 <Note>
 Adding them together would hide the trade every design makes. Replication triples
-capacity and adds to build in order to empty incidents, and one number cannot say
+capacity and adds to build in order to empty incidents — and one number cannot say
 that.
 
 A line appears only when there is a quantity to put in it. A bucket nobody could fill
@@ -28,9 +28,9 @@ is not a bucket that cost nothing.
 ## Capacity is priced in reference time
 
 The run took a few seconds of your afternoon. The job it models takes what the
-simulated clock says, and that is the number anyone would be invoiced for.
+simulated clock says, and **that** is the number anyone would be invoiced for.
 
-A machine that received a `spot_notice` is billed at the spot rate, 70% off by
+A machine that received a `spot_notice` is billed at the spot rate — 70% off by
 default, so choosing reclaimable capacity is a trade rather than a hazard.
 
 ## Two bills for a scaled run
@@ -38,16 +38,16 @@ default, so choosing reclaimable capacity is a trade rather than a hazard.
 Once for what happened, and once for the job it models.
 
 <Warning>
-A bill is quantities times prices, and the engine will not project every quantity.
+A bill is **quantities times prices**, and the engine will not project every quantity.
 
-Capacity depends on the timeline. The timeline is the noisiest thing losim measures,
+Capacity depends on the timeline. The timeline is the noisiest thing losim measures
 so the capacity line is routinely refused.
 </Warning>
 
 ```text
   capacity    the cluster, for the period            -           CHF   refused
       its exponent moves by 0.793 between independent seed sets of the same
-      workload, which over a factor of 6 is an error bar of x4.1, wider than
+      workload, which over a factor of 6 is an error bar of x4.1 — wider than
       anything it would be asked to distinguish
 ```
 

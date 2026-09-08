@@ -14,7 +14,7 @@ Three attempts, waiting 50 refMs before the second and 100 before the third.
 ## The policy lives in the scenario
 
 Retrying is an **operational** decision, so it belongs where it can be diffed and
-swept ;  a line in a file, not a `for` loop buried in a handler. Two designs that
+swept — a line in a file, not a `for` loop buried in a handler. Two designs that
 differ only in their retry policy differ by two lines of YAML, and the bill will
 tell you which one was worth it.
 
@@ -24,7 +24,7 @@ Whether retrying is *safe* is a property of the **method**, not of the deploymen
 So it lives in the `.proto`, and losim refuses at load when the two disagree:
 
 ```
-thumbs.yaml:22: retrying lab.Volley.Hit is refused ;  its .proto declares no
+thumbs.yaml:22: retrying lab.Volley.Hit is refused — its .proto declares no
 idempotency_level, so running it twice is not known to be safe. Declare
 'option idempotency_level = IDEMPOTENT;' on the rpc if it is, or write
 'unsafe: true' here if you mean to retry it anyway.
@@ -66,7 +66,7 @@ emergent property of a configuration nobody read.
 - { method: "*" }                            # everything the cluster serves
 ```
 
-A policy naming a method **no machine in the cluster serves** is refused too ;  a typo
+A policy naming a method **no machine in the cluster serves** is refused too — a typo
 in a policy would otherwise be a policy that silently does nothing.
 
 ## Every attempt is a real call
@@ -106,7 +106,7 @@ The trace says what happened:
     Nothing answered, the callee was overloaded, or time ran out.
   </Card>
   <Card title="Not retried" icon="ban">
-    Everything else ;  an `INVALID_ARGUMENT` will be invalid the second time too.
+    Everything else — an `INVALID_ARGUMENT` will be invalid the second time too.
 
     Also: any call where a message already arrived, any cancelled call, and any
     **streaming** call. Replaying a stream means buffering it, and a buffer whose
@@ -131,7 +131,7 @@ backoffs.
 ## Rolling your own instead
 
 The scenario's policy is fixed per method. Use `Losim.current().sleep(refMs)` in
-your own loop when the decision depends on something only the program knows ;  which
+your own loop when the decision depends on something only the program knows — which
 peer to try next, how many are left, whether this piece has already been redone:
 
 ```java
@@ -176,7 +176,7 @@ retries:
 ```
 
 Save a second scenario beside the first with the `retries:` block deleted, then run
-both ;  two worlds for one system is exactly what variants are for:
+both — two worlds for one system is exactly what variants are for:
 
 ```java RunExperiments.java
 Experiments.here()
@@ -187,7 +187,7 @@ Experiments.here()
 
 
 **What to look for.** Open `retrying` and put `no-retries` beside it with
-`compare with...`. The retrying one finishes and the other may not ;  and the verdict
+`compare with…`. The retrying one finishes and the other may not — and the verdict
 line underneath prices exactly what that was worth. Every attempt is a real call, so
 the wire and capacity lines are higher: retrying bought reliability and it is on the
 bill.

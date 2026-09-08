@@ -1,6 +1,6 @@
 ---
 title: "Make a run worth looking at"
-description: "Six things your job can do that visibly change the picture ;  each one connected to something on the screen."
+description: "Six things your job can do that visibly change the picture — each one connected to something on the screen."
 icon: "wand-magic-sparkles"
 ---
 
@@ -8,38 +8,38 @@ The viewer can only draw what the trace contains. All six are things you were go
 want anyway, and each one has a specific consequence you can point at.
 
 <Steps>
-  <Step title="Name your phases ;  they become the chapters on the scrubber">
+  <Step title="Name your phases — they become the chapters on the scrubber">
     ```java
     try (var p = cluster.phase("thumbnails")) {
-        ...
+        …
         p.note("batches", 40);
     }
     ```
 
-    Literally. Every `cluster.phase("...")` is a labelled chapter on the bar, and
+    Literally. Every `cluster.phase("…")` is a labelled chapter on the bar, and
     *"which stage was this?"* is the question a viewer asks before any other.
 
     A run with no phases is one undifferentiated bar and you count pixels. A run with
-    three is a story you can seek around ;  and in the
+    three is a story you can seek around — and in the
     [Spans view](/viewer/views#spans) they are the top of the tree that everything
     else hangs beneath.
   </Step>
 
-  <Step title="Reveal real numbers ;  they fill the machine panel">
+  <Step title="Reveal real numbers — they fill the machine panel">
     ```java
     Losim.current().reveal("frames", request.getFramesCount());
     Losim.current().reveal("jpegKb", bytes / 1024.0);
     ```
 
     This is what puts **real numbers on a machine** instead of "it was busy". Pin the
-    machine and watch them move ;  pinning docks the panel beside the film, so the
+    machine and watch them move — pinning docks the panel beside the film, so the
     picture stays visible while you read.
 
-    Use the primitive overloads ;  the `Object` one boxes at the call site, and at a
+    Use the primitive overloads — the `Object` one boxes at the call site, and at a
     thousand calls per handler that bends the fitted memory exponent.
   </Step>
 
-  <Step title="Declare what your handlers cost ;  or the film has no duration">
+  <Step title="Declare what your handlers cost — or the film has no duration">
     ```yaml
     takes:
       Shrinker:
@@ -48,7 +48,7 @@ want anyway, and each one has a specific consequence you can point at.
 
     Without it every handler is instant, every message crosses in a single frame, and
     there is no queueing, no contention and no critical path to watch. An unpriced
-    rpc takes no time, deliberately ;  so an unpriced cluster is a blur.
+    rpc takes no time, deliberately — so an unpriced cluster is a blur.
 
     It goes in the **scenario**, under the class `runs:` names. If you have seen a
     `@Takes` annotation in older notes, that is not what compiles any more.
@@ -60,11 +60,11 @@ want anyway, and each one has a specific consequence you can point at.
     ```
 
     It lands on the span, so a handler's duration reads against the work it actually
-    did rather than against nothing ;  and it is on the span in the
+    did rather than against nothing — and it is on the span in the
     [Spans view](/viewer/views#spans), beside the duration it explains.
   </Step>
 
-  <Step title="Account for disk ;  it is the only way the Ledger gets a storage line">
+  <Step title="Account for disk — it is the only way the Ledger gets a storage line">
     ```java
     Losim.current().wroteDisk(bytes);
     ```
@@ -90,10 +90,10 @@ want anyway, and each one has a specific consequence you can point at.
 <Columns cols={2}>
   <Card title="Wrap local work in compute" icon="microchip">
     ```java
-    cluster.compute("read the album", () -> ...);
+    cluster.compute("read the album", () -> …);
     ```
     Without it, the coordinator sits **idle on screen** during the most expensive
-    thing it does all run. No span covers it and nothing shows it busy ;  so the
+    thing it does all run. No span covers it and nothing shows it busy — so the
     picture says the cluster was waiting when it was working.
   </Card>
   <Card title="Dispatch asynchronously" icon="arrows-split-up-and-left">
@@ -114,7 +114,7 @@ want anyway, and each one has a specific consequence you can point at.
 ```
 
 `FULL` records every call's **real argument and real result**. That is by a distance
-the most expensive part of recording ;  and it is what the film draws on a message in
+the most expensive part of recording — and it is what the film draws on a message in
 flight, and what the pinned panel shows in full rather than as a digest.
 
 Use `NO_PAYLOAD` for a run you are going to *measure*, and `FULL` for a run you are

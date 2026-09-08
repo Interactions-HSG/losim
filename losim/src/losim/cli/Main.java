@@ -17,7 +17,38 @@ import losim.verify.Trust;
 /** Runs a scenario and writes the trace everything downstream reads. */
 public final class Main {
 
+    /**
+     * Say what losim writes in, rather than in whatever the host guessed.
+     *
+     * <p>Every message here is UTF-8 in the jar — em-dashes, ellipses, the box
+     * drawing in a plan — and a JVM picks its console encoding from the
+     * environment. A machine with {@code LANG} unset, which is most CI runners and
+     * a fair number of containers, gets ANSI_X3.4-1968, and every one of those
+     * characters arrives as a question mark. A refusal that reads {@code its size
+     * is a constant ? that is the whole problem} is a refusal somebody has to
+     * decode before they can act on it.
+     *
+     * <p>Set before anything is printed, and only the streams — the JVM's own
+     * {@code file.encoding} has been UTF-8 since 18 and is not the one at fault.
+     */
+    private static void speakUtf8() {
+        System.setOut(utf8(java.io.FileDescriptor.out));
+        System.setErr(utf8(java.io.FileDescriptor.err));
+    }
+
+    /**
+     * Buffered, and flushed on every line. The stream it replaces is buffered too,
+     * and a suite that prints ten thousand lines through an unbuffered one pays a
+     * syscall for each of them.
+     */
+    private static java.io.PrintStream utf8(java.io.FileDescriptor fd) {
+        return new java.io.PrintStream(
+                new java.io.BufferedOutputStream(new java.io.FileOutputStream(fd), 8192),
+                true, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
     public static void main(String[] args) {
+        speakUtf8();
         try { System.exit(run(args)); }
         catch (IllegalArgumentException e) {
             // A scenario error is the user's, and should read like a compiler

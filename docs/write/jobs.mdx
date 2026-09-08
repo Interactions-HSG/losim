@@ -6,12 +6,12 @@ icon: "diagram-project"
 
 ```java
 public final class MyJob implements Job {
-    @Override public void run(Cluster cluster) throws Exception { ... }
+    @Override public void run(Cluster cluster) throws Exception { … }
 }
 ```
 
 Returning normally ends the run. Throwing ends it too, and the trace says which and
-why ;  a run that failed is a result, not an absence of one.
+why — a run that failed is a result, not an absence of one.
 
 The job runs on the **first machine in the scenario file**, on that machine's own
 threads, so everything it does is attributed to that machine like any other work.
@@ -37,8 +37,8 @@ threads, so everything it does is attributed to that machine like any other work
   <Accordion title="clockMs()" icon="clock">
     Simulated milliseconds since the run began.
 
-    A job whose shape is *keep going until the run is over* ;  a load generator, a
-    poller ;  rather than *do this much work* names its own stretch against it. The
+    A job whose shape is *keep going until the run is over* — a load generator, a
+    poller — rather than *do this much work* names its own stretch against it. The
     scenario cannot name one for you: how long a run takes is what the run is for.
 
     ```java
@@ -50,7 +50,7 @@ threads, so everything it does is attributed to that machine like any other work
   </Accordion>
   <Accordion title="phase(label) and compute(label, body)" icon="bars-staggered">
     Two ways to put something bigger than a call in the trace, and the difference
-    between them matters ;  see below.
+    between them matters — see below.
   </Accordion>
   <Accordion title="log(message) and done(answer)" icon="flag-checkered">
     A line of narration, and the job's answer recorded structurally rather than as
@@ -67,10 +67,10 @@ threads, so everything it does is attributed to that machine like any other work
 ## `phase` versus `compute`, and why it is not a style question
 
 <Columns cols={2}>
-  <Card title="phase ;  a stretch of the job" icon="bars-staggered">
+  <Card title="phase — a stretch of the job" icon="bars-staggered">
     ```java
     try (var p = cluster.phase("thumbnails")) {
-        ...
+        …
         p.note("batches", 40);
     }
     ```
@@ -79,7 +79,7 @@ threads, so everything it does is attributed to that machine like any other work
     A coordinator waiting on four workers is not using a core. Reporting that it is
     would make every occupancy figure in the run a lie.
   </Card>
-  <Card title="compute ;  work with no RPC to carry it" icon="microchip">
+  <Card title="compute — work with no RPC to carry it" icon="microchip">
     ```java
     var album = cluster.compute("read the album",
             () -> Album.of(at.count("frames"), cluster.seed()));
@@ -102,7 +102,7 @@ try (var p = cluster.phase("merge")) {
 }
 ```
 
-Anything opened inside a phase is attributed beneath it, including every RPC ;  so
+Anything opened inside a phase is attributed beneath it, including every RPC — so
 the phase is what the viewer builds its columns and chapters from.
 
 ## `done`, and why it is not a `log`
@@ -129,7 +129,7 @@ If the job has not returned after **two minutes of real time**, losim stops it:
 ```
 thumbs.yaml  seed 7  did not complete in 61042 refMs
   the job was still running after 120 seconds of real time, which is not a slow
-  run ;  it is a stuck one
+  run — it is a stuck one
 ```
 
 That is a backstop, not a deadline, and it is in real time on purpose: it is the one

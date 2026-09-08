@@ -15,7 +15,7 @@ Exit code **2**, with the file and line. These read like compiler errors on purp
     afternoon, and the two differ by `k_time`, which whoever writes the scenario
     never sees. [Durations ->](/ref/durations)
   </Accordion>
-  <Accordion title="unknown key 'zones'; expected one of instance, zone, runs, ...">
+  <Accordion title="unknown key 'zones'; expected one of instance, zone, runs, …">
     A typo in a key. Every block declares exactly what it accepts, so this is caught
     at load rather than discovered as a setting that silently did nothing.
   </Accordion>
@@ -25,7 +25,7 @@ Exit code **2**, with the file and line. These read like compiler errors on purp
   <Accordion title="there is no machine called 'w7' in this scenario">
     A fault aimed at a machine that does not exist. The message lists the ones that
     do. Remember a pool named `workers` with `prefix: w` and `count: 4` produces
-    `w0 w1 w2 w3` ;  not `workers0`.
+    `w0 w1 w2 w3` — not `workers0`.
   </Accordion>
   <Accordion title="no class called 'lab.Shrinkr' is on the classpath">
     `runs:` names a **class**, fully qualified. Check `--cp` points at the
@@ -59,12 +59,12 @@ Exit code **2**, with the file and line. These read like compiler errors on purp
     ```
     A jar is not walked; point --cp at the directory the lab compiles to.
     ```
-    The verifier reads class files off disk. Everything still ran ;  but nothing was
+    The verifier reads class files off disk. Everything still ran — but nothing was
     checked, and the trace records that nothing was claimed either way.
   </Accordion>
   <Accordion title="could not start machine w0: IllegalStateException">
     A name still held by another server. Closing a cluster now waits for its machines
-    to give their names back, so clusters run back to back in one JVM are fine ;  as
+    to give their names back, so clusters run back to back in one JVM are fine — as
     long as each one is actually closed. If you see this together with
     `losim: w0 did not release its name in time`, the previous cluster's shutdown
     timed out rather than the name being genuinely taken.
@@ -95,11 +95,11 @@ Exit code **2**, with the file and line. These read like compiler errors on purp
 
 | symptom | first thing to check |
 |---|---|
-| every machine has `"calls": 0` except one | the service name passed to `peersServing` ;  it is the `.proto` name, not the Java class |
+| every machine has `"calls": 0` except one | the service name passed to `peersServing` — it is the `.proto` name, not the Java class |
 | handlers never overlap | a blocking stub inside the dispatch loop |
 | timings are implausibly fast | an rpc with no `takes:` entry takes no time, deliberately |
 | the per-unit cost seems to do nothing | the handler never called `units(n)` |
-| a deadline fires immediately | it is reference time; at 40x a 200 refMs deadline is 5 real ms ;  that part is fine, but check the declared cost it is racing |
+| a deadline fires immediately | it is reference time; at 40x a 200 refMs deadline is 5 real ms — that part is fine, but check the declared cost it is racing |
 | memory is far lower than expected | `memoryMb` is *retained*, not allocated. A streaming design genuinely holds nothing |
 | bytes are zero | the message is not a protobuf `Message`, or the channel was built by hand |
 
@@ -110,11 +110,11 @@ Exit code **2**, with the file and line. These read like compiler errors on purp
     Only macOS/arm64 and Linux/x86-64 binaries are committed. Use the devcontainer.
   </Accordion>
   <Accordion title="OutOfMemoryError running the reference suite or a scaled run">
-    Give the JVM more: `java -Xmx3g ...`, which is what the bundled scripts do.
+    Give the JVM more: `java -Xmx3g …`, which is what the bundled scripts do.
   </Accordion>
   <Accordion title="the scaled run refits its plan every time">
     The cache is keyed on the scenario, the code and the telemetry level. Changing
-    any class the scenario names invalidates it ;  which is correct.
+    any class the scenario names invalidates it — which is correct.
   </Accordion>
   <Accordion title="exit code 3">
     Something inside losim. `LOSIM_DEBUG=1` prints the stack behind the message.

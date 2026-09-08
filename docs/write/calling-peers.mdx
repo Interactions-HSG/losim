@@ -10,7 +10,7 @@ Channel to = here.channelTo(here.peersServing("Thumbnailer").get(0));
 Thumbs thumbs = ThumbnailerGrpc.newBlockingStub(to).thumbnail(batch);
 ```
 
-What comes back is an `io.grpc.Channel`. The call site is plain gRPC ;  the stub is
+What comes back is an `io.grpc.Channel`. The call site is plain gRPC — the stub is
 the one protoc generated, the argument is your message, the result is your message.
 
 ## Riding on that channel
@@ -21,9 +21,9 @@ where everything the simulator does happens:
 | | |
 |---|---|
 | **the network** | latency by zone, jitter either side, loss, and whether the two ends can currently reach each other |
-| **byte counts** | the message is marshalled explicitly, because gRPC's in-process transport passes the object by reference and never serializes ;  so a byte count can never be inferred from the transport. Serialized size plus gRPC's five bytes of framing. |
+| **byte counts** | the message is marshalled explicitly, because gRPC's in-process transport passes the object by reference and never serializes — so a byte count can never be inferred from the transport. Serialized size plus gRPC's five bytes of framing. |
 | **cross-zone bytes** | counted apart, in **both directions**. Counting only the request would make a fetch look free: a call that asks for a region in forty bytes and is sent a megabyte back travels almost entirely in the direction that was not counted. |
-| **spans** | one on the caller and one on the callee, and the callee's is opened **under the caller's** ;  the parent crosses the wire in a metadata header, so the span tree is a real distributed call stack |
+| **spans** | one on the caller and one on the callee, and the callee's is opened **under the caller's** — the parent crosses the wire in a metadata header, so the span tree is a real distributed call stack |
 | **retries** | if the scenario declared a policy for this method, outside the recording interceptor, so every attempt is genuinely separate |
 | **deadlines** | rewritten from reference time into real time, so `withDeadlineAfter` means what everything else means |
 
@@ -35,7 +35,7 @@ Channel b = here.channelTo("w1");     // the same channel
 ```
 
 Made once and kept, so a handler never sees a lifetime. It is also the same channel
-the job's `Cluster` hands out for that peer ;  one per pair, with one place that
+the job's `Cluster` hands out for that peer — one per pair, with one place that
 closes them.
 
 <Warning>
@@ -50,7 +50,7 @@ waits out no latency, **survives a partition**, keeps working after the machine 
 the other end has been killed, and leaves nothing in the trace to say it happened.
 
 Nothing throws. You get a run full of plausible figures, every one of them wrong in
-a direction nobody can see ;  which is exactly why the verifier flags
+a direction nobody can see — which is exactly why the verifier flags
 `ManagedChannelBuilder` and this is what it flags it in favour of.
 </Warning>
 
@@ -63,11 +63,11 @@ var stub = ThumbnailerGrpc.newBlockingStub(to)
 Thumbs thumbs = stub.thumbnail(batch);
 ```
 
-```java futures ;  this is how you fan out
+```java futures — this is how you fan out
 var stub = ThumbnailerGrpc.newFutureStub(to)
         .withDeadlineAfter(2_000, TimeUnit.MILLISECONDS);
 ListenableFuture<Thumbs> f = stub.thumbnail(batch);
-// ... dispatch the rest, then collect
+// … dispatch the rest, then collect
 Thumbs thumbs = f.get();
 ```
 
@@ -103,13 +103,13 @@ Exactly the same, and there is nothing special about it:
         var bigger = here.peersServing("Thumbnailer").get(0);
         return ThumbnailerGrpc.newBlockingStub(here.channelTo(bigger)).thumbnail(request);
     }
-    ...
+    …
 }
 ```
 
 The forwarded call gets its own span, opened under this handler's span, so the
 trace shows the hop. And the handler occupies one of this machine's cores while it
-waits ;  which is real, and is exactly the cost of forwarding.
+waits — which is real, and is exactly the cost of forwarding.
 
 ## Silence, and what the trace knows
 
@@ -118,7 +118,7 @@ try {
     thumbs = stub.thumbnail(batch);
 } catch (StatusRuntimeException e) {
     if (e.getStatus().getCode() == Status.Code.DEADLINE_EXCEEDED) {
-        // dead, partitioned, or dropped ;  and you cannot tell which
+        // dead, partitioned, or dropped — and you cannot tell which
     }
 }
 ```

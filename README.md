@@ -115,7 +115,7 @@ written on: an unknown instance type, a fault aimed at a machine that is not in 
 cluster, or a key that is a typo for a real one.
 
 ```text
-wordcount.yaml:14: retrying losim.t.Volley.Hit is refused - its .proto declares no
+wordcount.yaml:14: retrying losim.t.Volley.Hit is refused — its .proto declares no
 idempotency_level, so running it twice is not known to be safe. Declare 'option
 idempotency_level = IDEMPOTENT;' on the rpc if it is, or write 'unsafe: true' here
 if you mean to retry it anyway.
@@ -136,7 +136,7 @@ wordcount-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 records (x5,000), k_ti
 
   memoryMb   = 0.0597 + 0.00187 * revealed.distinctKeys^1.013  (R2 1.0000, wobble 0.000)
   wireMb     = 0.0    + 0.000151 * records^0.952               (R2 1.0000, wobble 0.004)
-  diskMb       REFUSED: the ladder bends - over the lower half it grows as records^0.59
+  diskMb       REFUSED: the ladder bends — over the lower half it grows as records^0.59
                and over the upper half as records^0.87 ...
   makespan     REFUSED: its exponent moves by 0.66 between independent seed sets of the
                same workload, which over a factor of 5000 is an error bar of x268 ...
@@ -169,7 +169,7 @@ A handler that reads `System.nanoTime` gets the host's time rather than the
 compressed clock; one that writes a real file bypasses the disk model; one that
 hands its work to the common pool is charged to nobody.
 
-So the verifier reads the lab's compiled classes before anything runs, and flags
+So the verifier reads the lab's compiled classes before anything runs, and **flags
 rather than refuses. The run still happens, and what carries a caveat says so beside
 itself:
 
@@ -213,7 +213,7 @@ what it is a model of
   build       services carried                 1.000 services       CHF    0.2500
   capacity    the cluster, for the period            -                CHF   refused
       its exponent moves by 0.793 between independent seed sets of the same workload,
-      which over a factor of 6 is an error bar of x4.1 - wider than anything it would
+      which over a factor of 6 is an error bar of x4.1 — wider than anything it would
       be asked to distinguish
   consumption intermediate data on disk    0.0004000 GB-month       CHF    0.0000
 ```
@@ -269,7 +269,7 @@ thirteen gRPC systems in CI that check whether it still works.
 | a bad afternoon | kill, freeze, degrade, spot reclaim with notice, partition, restart, at an instant or as a standing rate whose draws come from the seed |
 | retries you have to mean | refused unless the `.proto` declares the method idempotent, or the scenario says `unsafe: true` in as many words |
 | two scales, per measurement | what happened, and what it is a model of, with an error bar or with a reason it is absent |
-| losim's own cost, excluded | everything losim does on a machine's threads is metered and subtracted, so what is reported is the program's |
+| **losim's own cost, excluded** | everything losim does on a machine's threads is metered and subtracted, so what is reported is the program's |
 | trust markers | real clocks, real files, real sockets, shared statics and unattributed threads, found in the compiled classes at the line they were written on, flagged, never refused |
 | a bill, at both scales | five buckets over the quantities the run produced, and at full scale a capacity line absent with a reason, because it depends on the one thing the engine would not project |
 
@@ -281,12 +281,12 @@ depend on how much they instrumented it.
 ## Layout
 
 ```text
-losim/src/losim/api/       what a handler may say to losim and all it can reach
+losim/src/losim/api/       what a handler may say to losim — and all it can reach
 losim/src/losim/runtime/   the cluster, the machines, the two interceptors
 losim/src/losim/trace/     the three-channel recorder and the trace it writes
 losim/src/losim/time/      the compressed clock, and fault placement
 losim/src/losim/res/       instance types, the heap walk, losim's own meter
-losim/src/losim/scale/     the probe grid, the laws, the solve, and the refusals
+losim/src/losim/scale/     the probe grid, the laws, the solve — and the refusals
 losim/src/losim/scenario/  a cluster and its weather, as data
 losim/src/losim/verify/    what makes a number stop meaning what it says
 losim/src/losim/price/     five buckets, and what cannot be put in them
@@ -294,7 +294,7 @@ losim/src/losim/cli/       losim run | bill | diff
 losim/test/                every phase's acceptance criteria, run by `losim dev test`
 tests/                     the reference suite: gRPC systems, run by `losim dev suite`
 bin/losim                  the CLI: build the simulator, then run it
-prices/                    course data: what egress costs, what being late costs
+prices/                    course data — what egress costs, what being late costs
 vendor/                    grpc 1.83.1, protobuf 4.36.0, protoc for two platforms
 ```
 

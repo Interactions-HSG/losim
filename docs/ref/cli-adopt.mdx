@@ -18,7 +18,7 @@ The is the surface.
 |---|---|
 | `<dir>` | the project to adopt. Default `.` |
 | `--force` | overwrite files it wrote before. Without it, a file that is already there is left alone and said so |
-| `--dirty` | adopt a tree with uncommitted changes. Without it, that is a refusal ;  the moves are `git mv`, and a move you cannot read as a diff is a move you cannot undo |
+| `--dirty` | adopt a tree with uncommitted changes. Without it, that is a refusal — the moves are `git mv`, and a move you cannot read as a diff is a move you cannot undo |
 
 **It never edits a `.java`.** It moves `src/main/proto` to `proto/` and
 `src/main/java` to `src/`, writes `build.gradle.kts`, `./losim`, `AGENTS.md`,
@@ -27,7 +27,7 @@ aside to `build.gradle.bak`, and prints what is left.
 
 <Note>
 The scenario it writes names the classes it expects **after** you split the
-handler out ;  so it fails at load with a message naming the class, which is a
+handler out — so it fails at load with a message naming the class, which is a
 better first failure than one that silently runs against
 `HelloWorldServer$GreeterImpl` and marks every number untrustworthy.
 </Note>
@@ -50,8 +50,8 @@ The same detector, run again, on a project that has already been adopted.
    1  GreeterImpl is nested inside another class
       src/io/grpc/examples/helloworld/HelloWorldServer.java:53
       the trust verifier walks a nested class together with the class
-      enclosing it, so everything the enclosing bootstrap does ;  its own
-      server, its channel, its statics ;  is read as this service's.
+      enclosing it, so everything the enclosing bootstrap does — its own
+      server, its channel, its statics — is read as this service's.
 
   dead rather than wrong, and no run will ever say so
       src/io/grpc/examples/helloworld/HelloWorldServer.java
@@ -68,7 +68,7 @@ check that fails for it becomes a check people pass `--no-verify` to.
 
 ## What it reads
 
-Text, never bytecode ;  `adopt` runs from `java -jar losim.jar` with nothing else
+Text, never bytecode — `adopt` runs from `java -jar losim.jar` with nothing else
 on the classpath, which is the bootstrap. So: the `.proto` (services, rpcs,
 `stream`, `idempotency_level`), each `.java` (what extends a protoc `ImplBase` and
 at what nesting level, who builds a server or a channel, what is dead), and the

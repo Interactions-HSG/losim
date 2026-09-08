@@ -1,17 +1,17 @@
 ---
 title: "Telemetry"
-description: "reveal, log and units ;  what turns a run that happened into a run you can read."
+description: "reveal, log and units — what turns a run that happened into a run you can read."
 icon: "signal"
 ---
 
 losim replaces the debugger for anything involving more than one machine, so the
 telemetry has to hold up: **if it cannot answer a question a debugger would have
-answered, that is a bug in the telemetry ;  and if watching changes what it reports,
+answered, that is a bug in the telemetry — and if watching changes what it reports,
 that is a worse one.**
 
 Your part is small. Four calls, and each one earns its place.
 
-## `reveal(key, value)` ;  what the computation was doing
+## `reveal(key, value)` — what the computation was doing
 
 ```java
 Losim.current().reveal("frames", request.getFramesCount());
@@ -20,7 +20,7 @@ Losim.current().reveal("cacheHit", hit);
 Losim.current().reveal("strategy", "forwarded");
 ```
 
-Without it, a trace says a handler *happened*. With it, a trace says what it did ;
+Without it, a trace says a handler *happened*. With it, a trace says what it did —
 and the viewer puts real numbers on a machine instead of "it was busy".
 
 Lands as a `state` event on the machine, inside the handler's span:
@@ -31,8 +31,8 @@ Lands as a `state` event on the machine, inside the handler's span:
 ```
 
 <Warning>
-**Use the primitive overloads.** There are five ;  `int`, `long`, `double`,
-`boolean`, `String` ;  plus an `Object` fallback.
+**Use the primitive overloads.** There are five — `int`, `long`, `double`,
+`boolean`, `String` — plus an `Object` fallback.
 
 `reveal(String, Object)` boxes an `int` at the **call site**, before losim's
 accounting can open, so the box is charged to your program though it exists only
@@ -42,7 +42,7 @@ number that must not bend. Taking the primitive moves the boxing inside the
 bracket, where it belongs to losim.
 </Warning>
 
-## `units(n)` ;  the independent variable
+## `units(n)` — the independent variable
 
 ```java
 Losim.current().units(request.getFramesCount());
@@ -56,7 +56,7 @@ Two things need it:
    Fitting a resource against the wrong variable gives an exponent that will not
    survive a change of input.
 
-## `log(message)` ;  narration
+## `log(message)` — narration
 
 ```java
 Losim.current().log("forwarding to a machine with more memory");
@@ -66,7 +66,7 @@ cluster.log(workers.size() + " machines can make thumbnails");
 For the sentence a reader needs and no key-value pair captures. Use it sparingly;
 `reveal` is what a later run can be compared against, and `log` is not.
 
-## `phase` and `compute` ;  structure
+## `phase` and `compute` — structure
 
 Covered in [writing a job](/write/jobs), but the summary belongs here too: `phase`
 names a stretch and does **not** mark the machine busy; `compute` names local work
@@ -81,7 +81,7 @@ You do not have to ask for any of this:
   <Card title="Every call, both ends" icon="right-left">
     An `rpc` span on the caller and a `handler` span on the callee, the second
     opened **under** the first. Byte counts in both directions, the status, the
-    round-trip time, and ;  at `FULL` ;  the real argument and the real result.
+    round-trip time, and — at `FULL` — the real argument and the real result.
   </Card>
   <Card title="Every machine, every tick" icon="chart-area">
     Memory held, memory cap, disk, disk percent, calls in flight, calls queued,
@@ -108,12 +108,12 @@ are going to *read*, `NO_PAYLOAD` for a run you are going to *measure*.
 Recording runs on the machines' own threads, so what it costs lands on the counters
 being read. losim therefore meters **its own work** in every one of these calls and
 subtracts it, and publishes the size of the subtraction as `losimMb` and
-`losimStops` in the `machines` channel ;  because "this is the program's own
+`losimStops` in the `machines` channel — because "this is the program's own
 allocation" is a claim, and a reader is entitled to see how big the correction was
 before believing it.
 
-Measured at the extreme ;  a thousand `reveal` calls per handler, where losim
-charges itself 54 MB and meters 162,000 regions ;  the *unsubtracted* memory
+Measured at the extreme — a thousand `reveal` calls per handler, where losim
+charges itself 54 MB and meters 162,000 regions — the *unsubtracted* memory
 exponent moves by 0.026 and the reported one by 0.0004. The law your code is
 projected by does not depend on how much you instrumented it.
 [How that works ->](/engine/self-accounting)
@@ -126,10 +126,10 @@ A trace that embeds a gigabyte of payload is its own kind of useless, so:
 | | |
 |---|---|
 | collections | first **12** entries, then a `"+1106 more"` marker |
-| strings | first **120** characters, then `"... (4021 chars)"` |
-| nesting | four levels, then `"..."` |
+| strings | first **120** characters, then `"… (4021 chars)"` |
+| nesting | four levels, then `"…"` |
 | map fields | sorted by key, so two runs are comparable |
-| default values | omitted ;  a zero, an empty string and a `false` are not recorded |
+| default values | omitted — a zero, an empty string and a `false` are not recorded |
 
 <Warning>
 The real count is **kept plus marker**, never the surviving length. A batch of 25
@@ -138,7 +138,7 @@ frames renders as 12 frames and a marker. Do not read that as 12.
 
 ## Reading it back
 
-The trace is JSON and nothing stops you asserting on it ;  that is exactly what the
+The trace is JSON and nothing stops you asserting on it — that is exactly what the
 reference suite does:
 
 ```python

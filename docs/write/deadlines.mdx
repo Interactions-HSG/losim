@@ -15,7 +15,7 @@ time by `k_time` before handing it to gRPC's own deadline machinery.
 
 <Note>
 Left alone, an 800 refMs deadline at 40x would fire forty times too early
-against a cost that had itself been compressed ;  so every timing lesson in the
+against a cost that had itself been compressed — so every timing lesson in the
 course would depend on which laptop it ran on. The rewrite happens in the client
 interceptor, at the one place where your intent is still visible.
 </Note>
@@ -30,7 +30,7 @@ DEADLINE_EXCEEDED: the network outlasted the deadline
 ```
 
 Paying the network after the fact without this check would let a call succeed that
-the wire had already outrun ;  so `crossZone: 30 refMs` and
+the wire had already outrun — so `crossZone: 30 refMs` and
 `withDeadlineAfter(50, MILLISECONDS)` mean exactly what they look like they mean.
 
 ## The caller gets an exception, and the trace records why
@@ -48,7 +48,7 @@ gets an `rpc_timeout` event carrying `why`:
 **The callee is not told.** A machine that is frozen holds the call on its own
 threads; a machine that is dead never received it. Your handler may well still be
 running, still holding memory, still occupying a core, after the caller has given
-up ;  which is real, and is one of the more expensive things about a cluster under
+up — which is real, and is one of the more expensive things about a cluster under
 load.
 </Warning>
 
@@ -57,7 +57,7 @@ load.
 losim waits **five seconds** and then gives up on your behalf, so a scenario that
 forgot to set one still terminates.
 
-Five seconds of reference time is enormous ;  often longer than the whole run's
+Five seconds of reference time is enormous — often longer than the whole run's
 horizon. If a run mysteriously takes ten times as long as it should and ends with a
 wall of timeouts, the first thing to check is whether the stub had a deadline.
 
@@ -72,7 +72,7 @@ Thumbnail: { refMs: 3, refNsPerUnit: 240000 }   # 25 frames -> 3 + 6 = 9 refMs
 
 Nine reference milliseconds of work on a two-vCPU machine. On the `c5.large`s in the
 cluster, still 9. But if four calls arrive at once and the machine has two cores,
-the fourth waits for two others to finish ;  so the *observed* duration is nearer 27,
+the fourth waits for two others to finish — so the *observed* duration is nearer 27,
 plus the round trip.
 
 <Tip>
@@ -86,7 +86,7 @@ above what you saw under load.
 ## Deadlines and retries interact
 
 The scenario's retry policy sits **outside** the recording interceptor, so each
-attempt is a fresh call ;  and each gets the *same* `CallOptions`, which means the
+attempt is a fresh call — and each gets the *same* `CallOptions`, which means the
 same absolute deadline. A policy of three attempts with a growing backoff can
 therefore exhaust the deadline before it exhausts its attempts, and the trace shows
 exactly that:
@@ -128,7 +128,7 @@ Experiments.here()
         .show();
 ```
 
-**What to look for.** The frozen machine does not go red ;  it stays there, answering
+**What to look for.** The frozen machine does not go red — it stays there, answering
 nothing, which is exactly why a freeze is harder to diagnose than a crash. Then watch
 the caller: with a generous deadline it waits the whole 900 refMs; tighten it and the
 `rpc_timeout` markers appear on the bar the moment patience runs out.

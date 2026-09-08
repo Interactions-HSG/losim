@@ -10,8 +10,8 @@ mode: scaled
 ```
 
 One number, because one number is all anybody can honestly supply. Everything
-else the engine needs ;  the probe ladder, the cluster sizes, how fast the clock is
-run ;  it works out for itself. None of those is knowable before the run, and a
+else the engine needs — the probe ladder, the cluster sizes, how fast the clock is
+run — it works out for itself. None of those is knowable before the run, and a
 simulator you have to predict before using is not one.
 
 <ParamField path="scale" type="number" default="1">
@@ -23,7 +23,7 @@ simulator you have to predict before using is not one.
 
   Above 1 the scenario is a model, and the engine measures a fraction of the input
   and projects from what it saw. The fraction is `units / (scale x 8000)`, eight
-  thousand being the top of the engine's own ladder ;  so `scale: 5000` says a design
+  thousand being the top of the engine's own ladder — so `scale: 5000` says a design
   five thousand times larger than the biggest run that can be measured.
 
   <Warning>
@@ -42,7 +42,7 @@ simulator you have to predict before using is not one.
   `scaled` measures a small run and projects to `scale`; `direct` actually runs all
   of it.
 
-  Scaled mode at `scale: 1` is refused ;  there is nothing above the run to project
+  Scaled mode at `scale: 1` is refused — there is nothing above the run to project
   to. Direct mode at a large scale is legal and slow: it is how a projection gets
   checked against the truth.
 </ParamField>
@@ -64,7 +64,7 @@ simulator you have to predict before using is not one.
 
 <ParamField path="the clock" type="20x at scale 1, up to 40x">
   See [the compressed clock](/engine/compressed-clock). More work per instant is
-  more for a coarse clock to absorb, so it follows the scale ;  and stops at 40x,
+  more for a coarse clock to absorb, so it follows the scale — and stops at 40x,
   past which the sleep debt stops settling and the run's own timings drift.
 </ParamField>
 
@@ -72,7 +72,7 @@ simulator you have to predict before using is not one.
 
 <Warning>
 A resource that grows with the **data** and a resource that grows with the **cluster**
-look identical if the two only ever move together ;  and an engine that folds one
+look identical if the two only ever move together — and an engine that folds one
 into the other produces projections that are plausible and wrong, which is the
 failure mode hardest to notice because nothing looks broken.
 
@@ -90,7 +90,7 @@ that will actually run, and the cluster ladder holds the data still.
 
 About thirty runs. Six seeds on the data ladder because the law is fitted on the
 median of all of them and its reproducibility is measured by refitting **independent
-sets of two** the same way ;  three sets is the fewest from which a spread means
+sets of two** the same way — three sets is the fewest from which a spread means
 anything.
 
 The cluster ladder and the fault column are cross-checks rather than sources of an
@@ -99,7 +99,7 @@ error bar, so they run at fewer seeds.
 <Note>
 **When the ladder crosses a threshold in your code.** If it spills, switches
 algorithm, or stops fitting in a cache somewhere between one and eight thousand
-units, the engine will see the law bend and refuse it ;  correctly. The remedy is
+units, the engine will see the law bend and refuse it — correctly. The remedy is
 in the design, not in the ladder: move the threshold, or accept that the resource
 is not projectable across it.
 </Note>
@@ -108,14 +108,14 @@ is not projectable across it.
 
 If the scenario declares any `faults:` or `chaos:`, the grid runs a weathered column
 and folds the result in as an **amplification** term. A killed machine's work is
-redone elsewhere, so a survivor absorbs its share ;  measured, that roughly doubles
+redone elsewhere, so a survivor absorbs its share — measured, that roughly doubles
 peak memory on a machine that accumulates.
 
 With no weather declared, you get a note instead:
 
 ```
 note: this scenario declares no faults, so the model carries no amplification term
-      ;  a projection from it describes a cluster where nothing goes wrong
+      — a projection from it describes a cluster where nothing goes wrong
 ```
 
 A model fitted only on clean runs under-predicts by that much, and it under-predicts

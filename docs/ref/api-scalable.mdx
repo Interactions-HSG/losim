@@ -35,7 +35,7 @@ the loader would have to guess which one the scenario meant.
 ## The interface
 
 <ResponseField name="shape()" type="Input.Shape">
-  What this job's input is made of ;  its parts, named, with no sizes in them. The
+  What this job's input is made of — its parts, named, with no sizes in them. The
   sizes are the scenario's, under [`input:`](/ref/input).
 
   Called once, before the run, to check the scenario against it. Whatever it returns
@@ -57,7 +57,7 @@ the loader would have to guess which one the scenario meant.
 ## Input
 
 <ResponseField name="count(String part)" type="long">
-  How many of that part **this run** is to process ;  the full size the scenario
+  How many of that part **this run** is to process — the full size the scenario
   declared, times the fraction of it this run is doing.
 
   Refuses a part that is a constant, or one the shape does not declare. Both are a
@@ -73,7 +73,7 @@ the loader would have to guess which one the scenario meant.
   Every count added up: the one number the [scale engine](/engine/why-scaling) works
   in.
 
-  The parts move together, so their total is enough to say how big a run was ;  and
+  The parts move together, so their total is enough to say how big a run was — and
   one axis is what makes a projection from four rungs honest rather than a surface
   fitted through too few points.
 </ResponseField>

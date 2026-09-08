@@ -8,11 +8,11 @@ icon: "receipt"
 java -cp build/losim.jar losim.cli.Main bill build/thumbs.json
 ```
 
-This is the run you broke on the last page ;  one machine killed, one slowed down.
+This is the run you broke on the last page — one machine killed, one slowed down.
 
 <Note>
 **Your figures will not match these exactly.** losim runs your real code on real
-threads, so a run is not reproducible down to the event ([why](/engine/two-layers)) ;
+threads, so a run is not reproducible down to the event ([why](/engine/two-layers)) —
 the timeout count especially moves between hosts. What holds is the *shape*: which
 buckets are large, and which rows appear at all.
 </Note>
@@ -53,7 +53,7 @@ money.
 
 **Every machine shows the same `0.01670` machine-hours**, and that is the **billing
 minimum**, not the run. The minimum is 60 seconds, so every machine is billed 60
-seconds ;  `60 / 3600 = 0.01667` hours.
+seconds — `60 ÷ 3600 = 0.01667` hours.
 
 <Warning>
 Until your run is longer than a minute of reference time, capacity is a flat charge
@@ -77,7 +77,7 @@ to beat to be worth building.
 <Columns cols={2}>
   <Card title="capacity" icon="server">
     The cluster, for the period. **An idle machine costs exactly as much as a busy
-    one** ;  priced in reference time, because the run took a few seconds of your
+    one** — priced in reference time, because the run took a few seconds of your
     afternoon but the job it is a model of takes what the simulated clock says,
     and that is the number anyone would be invoiced for.
   </Card>
@@ -98,7 +98,7 @@ to beat to be worth building.
 
 <Note>
 There is no storage line above because nothing in this system writes to disk. A
-line appears only when there is a quantity to put in it ;  a bucket nobody could
+line appears only when there is a quantity to put in it — a bucket nobody could
 fill in is not a bucket that cost nothing, and the difference is worth keeping
 visible. Once you add `Losim.current().wroteDisk(bytes)`, the consumption bucket
 grows a `GB-month` row.
@@ -112,7 +112,7 @@ priced*.
 ## Prices are course data
 
 They live in [`prices/`](/ref/prices), outside the simulator, so they can be
-changed ;  or deliberately distorted for an exercise. Make egress ruinous and watch
+changed — or deliberately distorted for an exercise. Make egress ruinous and watch
 which designs stop being sensible:
 
 ```yaml prices/expensive-egress.yaml
@@ -142,7 +142,7 @@ times prices, and the engine will not project every quantity:
 ```
   capacity    the cluster, for the period            -             CHF   refused
       its exponent moves by 0.793 between independent seed sets of the same
-      workload, which over a factor of 6 is an error bar of x4.1 ;  wider than
+      workload, which over a factor of 6 is an error bar of x4.1 — wider than
       anything it would be asked to distinguish
 ```
 

@@ -16,7 +16,7 @@ That assumes every resource is **linear in units**, and almost none of them are.
 - Memory on a machine that accumulates follows how many *distinct* things it had to
   hold, which grows sublinearly.
 - Time follows the critical path through a call graph, and four calls into eight
-  cores take one wave while thirty-two take four ;  so multiplying the first run by
+  cores take one wave while thirty-two take four — so multiplying the first run by
   eight says eight waves.
 
 Measured: multiplication lands **34% out** on memory for a workload where those
@@ -29,10 +29,10 @@ diverge, and **199% out** on a makespan where replay lands within 2%.
   <Step title="Shrink the workload and the machines by the same factor">
     The scale model preserves **ratio**, not size: demand over capacity,
     per machine, per resource. A design that would exhaust a 16 GiB machine at full
-    scale exhausts a 16 MiB one here ;  in your own code, for the same reason.
+    scale exhausts a 16 MiB one here — in your own code, for the same reason.
   </Step>
   <Step title="Climb a ladder rather than running one small case">
-    Four data sizes, six seeds each, plus a cluster ladder and a fault column ;  about
+    Four data sizes, six seeds each, plus a cluster ladder and a fault column — about
     thirty runs. One point cannot show you a shape.
   </Step>
   <Step title="Fit each resource against the variable it is really a function of">
@@ -59,7 +59,7 @@ diverge, and **199% out** on a makespan where replay lands within 2%.
     **Time.** The host's CPU is *not* shrunk. It runs at full speed on a
     five-thousandth of the data, so every handler is genuinely instant.
 
-    That is the whole reason a duration is declared rather than measured ;  without it
+    That is the whole reason a duration is declared rather than measured — without it
     there is no queueing, no contention, no deadline pressure and no critical path.
   </Card>
 </Columns>
@@ -74,7 +74,7 @@ machine's real concurrency. Measured against ground truth: replay lands within 2
 where multiplication is 199% out.
 
 <Note>
-And even then, the makespan is routinely **refused** ;  on handlers shorter than the
+And even then, the makespan is routinely **refused** — on handlers shorter than the
 host's own jitter its exponent moves more between seed sets than the effect being
 measured. That is a correct output, and it is why the projected bill often cannot
 price capacity.
@@ -94,7 +94,7 @@ it holds; that count is itself a sublinear function of units. Fitting memory
 against the count and the count against units composes **two well-behaved laws**.
 
 Fitting memory against units directly gives **one fragile exponent** that will not
-survive a change of input ;  and a projection 34% out.
+survive a change of input — and a projection 34% out.
 
 ## The plan travels in the trace
 

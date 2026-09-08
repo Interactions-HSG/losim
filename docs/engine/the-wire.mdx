@@ -9,14 +9,14 @@ separate transport and no message bus.
 
 ```text
 caller                                                   callee
-  |
-  +-- Retrying          (only if the scenario declared a policy)
-  |    +-- ClientSide   the network, byte counts, spans, deadlines
-  |         |
-  |         +---- in-process transport ----------------+
-  |                                                     |
-  |                                        ServerSide ---+  cost, context, units
-  |                                                     +-- your handler
+  │
+  ├─ Retrying          (only if the scenario declared a policy)
+  │    └─ ClientSide   the network, byte counts, spans, deadlines
+  │         │
+  │         ├──── in-process transport ────────────────┐
+  │                                                    │
+  │                                        ServerSide ─┤  cost, context, units
+  │                                                    └─ your handler
 ```
 
 ## Before the call is made
@@ -45,7 +45,7 @@ still terminates.
 
 <Steps>
   <Step title="The deadline is rewritten into real time">
-    `withDeadlineAfter(200, MILLISECONDS)` means 200 reference milliseconds. The
+    `withDeadlineAfter(200, MILLISECONDS)` means 200 **reference** milliseconds. The
     remaining time is divided by `k_time` while the caller's intent is still
     visible.
   </Step>
@@ -101,7 +101,7 @@ still terminates.
 
 ## Retries sit outside it
 
-The retry interceptor is installed outside `ClientSide`, so every attempt is a
+The retry interceptor is installed **outside** `ClientSide`, so every attempt is a
 separate call with its own span, byte count, draw against loss, and look at whether
 the callee is still alive.
 
@@ -111,7 +111,7 @@ look cheaper than one that does not.
 ## Byte counting
 
 <Warning>
-gRPC's in-process transport does not serialize. It hands the receiver the same
+gRPC's in-process transport **does not serialize**. It hands the receiver the same
 object reference. Protobuf messages are immutable, so that is otherwise harmless,
 but it means a byte count cannot be inferred from the transport.
 

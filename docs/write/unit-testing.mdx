@@ -60,9 +60,9 @@ get the other one.
     Losim.current().machine();        // throws
     Losim.current().here();           // throws
     Losim.current().peers();          // throws
-    Losim.current().peersServing(...);  // throws
+    Losim.current().peersServing(…);  // throws
     Losim.current().clockMs();        // throws
-    Losim.current().channelTo(...);     // throws
+    Losim.current().channelTo(…);     // throws
     ```
   </Card>
 </Columns>
@@ -76,7 +76,7 @@ not, because a fabricated cluster would make a passing test meaningless.
 <Note>
 **The asymmetry is deliberate.** A silent `reveal` lets a handler be called
 directly from a test. A *fabricated* empty cluster would let the same test pass while
-asserting nothing ;  which is worse than failing.
+asserting nothing — which is worse than failing.
 
 `sleep` returning immediately matters for the same reason from the other side:
 there is no compressed clock to spend against, and a suite that really slept would
@@ -118,7 +118,7 @@ logic has no branch for whether a simulation is running.
 
 ## Running the tests
 
-JUnit is not vendored for lab use ;  it belongs to a test and must not be reachable
+JUnit is not vendored for lab use — it belongs to a test and must not be reachable
 from a system. The repository keeps its own copy under `vendor/test-jars/` and
 runs it on a separate classpath:
 

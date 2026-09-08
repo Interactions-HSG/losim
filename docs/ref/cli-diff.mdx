@@ -1,6 +1,6 @@
 ---
 title: "losim diff"
-description: "Whether two traces are the same simulator ;  not which design is better."
+description: "Whether two traces are the same simulator — not which design is better."
 icon: "code-compare"
 ---
 
@@ -11,7 +11,7 @@ java -cp build/losim.jar losim.cli.Main diff <a.json> <b.json>
 <Warning>
 The answers **"are these two the same simulator?"** It is the tool for checking
 that a laptop, the devcontainer and a Codespace produce the same thing, and it is
-what CI uses. It is *not* for comparing two designs ;  for that,
+what CI uses. It is *not* for comparing two designs — for that,
 see [comparing designs](/run/comparing-designs).
 </Warning>
 
@@ -24,7 +24,7 @@ a check that can never pass is not a check.
 
 So everything compared is split in two.
 
-## Structural ;  must agree
+## Structural — must agree
 
 A difference here is a **defect**: the two environments are not running the same
 simulator.
@@ -37,16 +37,16 @@ simulator.
 | what each **span kind is labelled** | |
 | sampled channels | which `<vm>.<metric>` channels exist |
 | machines | which machines existed |
-| **what each resource is a function of** | the attribution ;  a fact about your program, which must not depend on where it ran |
+| **what each resource is a function of** | the attribution — a fact about your program, which must not depend on where it ran |
 | what the engine refused | |
 
 <Note>
 Event kinds are compared on **what each carries**, not on which kinds occurred. A
 `queue_wait` appears when a call had to queue, and on a busier host more calls
-queue ;  that is the simulator working, not two simulators disagreeing.
+queue — that is the simulator working, not two simulators disagreeing.
 </Note>
 
-## Measured ;  printed, not judged
+## Measured — printed, not judged
 
 | | |
 |---|---|

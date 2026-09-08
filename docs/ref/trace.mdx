@@ -10,11 +10,11 @@ own assertions.
 ```json
 {
   "schema": 2,
-  "meta":     { ... },
-  "events":   [ ... ],
-  "spans":    [ ... ],
-  "series":   { "dtMs": 6.0, "t": [ ... ], "channels": { ... } },
-  "machines": [ ... ]
+  "meta":     { … },
+  "events":   [ … ],
+  "spans":    [ … ],
+  "series":   { "dtMs": 6.0, "t": [ … ], "channels": { … } },
+  "machines": [ … ]
 }
 ```
 
@@ -26,7 +26,7 @@ own assertions.
 Event kinds and their keys are extended **only additively**. `spans` and `series`
 are new top-level channels rather than changes to `events`, for exactly that reason.
 The acceptance test is diffing a trace's event kinds and keys before and after a
-change and finding it empty ;  which is also what
+change and finding it empty — which is also what
 [`losim diff`](/ref/cli-diff) checks across environments.
 
 `schema` is bumped only when a shape changes incompatibly, which is meant never to
@@ -82,7 +82,7 @@ happen. It is currently **2**.
 `events` and `spans` are sorted by start time, so a reader can scrub. Every time and
 every span detail is rounded to **three decimal places**; a `NaN` is written as `0`.
 
-Machine figures in the `machines` channel are megabytes to about a byte ;  six
+Machine figures in the `machines` channel are megabytes to about a byte — six
 decimal places, because three would be a kilobyte and a run small enough to be
 measured in kilobytes would report every byte it moved as zero.
 
@@ -113,6 +113,6 @@ for m in t["machines"]:
 ```
 
 losim reads it back with its own reader for `bill` and `diff`, and that path is
-exercised by the reference suite ;  every assertion there reads the trace off disk,
+exercised by the reference suite — every assertion there reads the trace off disk,
 because a build whose trace was unreadable would pass every check losim makes of
 itself.

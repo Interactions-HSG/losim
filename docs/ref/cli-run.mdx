@@ -45,14 +45,14 @@ java -Xmx3g -cp "${CP}build/losim.jar:build/losim/classes" \
 
 <ParamField path="--seed <n>" type="long">
   Overrides the scenario's `seed`. Everything drawn from the seed changes with it:
-  chaos placement, network jitter, packet loss, and ;  through `cluster.seed()` ;
+  chaos placement, network jitter, packet loss, and — through `cluster.seed()` —
   your own workload.
 </ParamField>
 
 <ParamField path="--telemetry <level>" type="FULL | NO_PAYLOAD | OFF" default="FULL">
   `FULL` records everything including every call's real argument and real result.
   `NO_PAYLOAD` keeps events, spans and series but renders nothing. `OFF` keeps
-  nothing at all ;  the baseline the other two are measured against.
+  nothing at all — the baseline the other two are measured against.
 </ParamField>
 
 ## Environment
@@ -83,7 +83,7 @@ every measurement. [Scaled mode ->](/run/scaled-mode)
 | | |
 |---|---|
 | `0` | the job completed |
-| `1` | the job did not complete ;  it threw, or was still running after two minutes of real time; or scaled mode found no feasible size |
+| `1` | the job did not complete — it threw, or was still running after two minutes of real time; or scaled mode found no feasible size |
 | `2` | the scenario is wrong. Nothing ran. |
 | `3` | something went wrong inside losim |
 

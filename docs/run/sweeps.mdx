@@ -16,7 +16,7 @@ not a defect to be worked around.
 ## The shape of a sweep
 
 **losim is a library, so a sweep is a Java program.** `Run.of` hands you the result
-as an object, so a sweep is a loop over it ;  not a shell loop writing twenty files
+as an object, so a sweep is a loop over it — not a shell loop writing twenty files
 for a second script to read back.
 
 ```java src/lab/Sweep.java
@@ -51,7 +51,7 @@ public final class Sweep {
 
 <Note>
 **A run that did not complete is a data point, not an error.** `Run.of` returns
-normally either way ;  `completed()` says which, and `failure()` says why in words. So
+normally either way — `completed()` says which, and `failure()` says why in words. So
 there is no `|| true` to write and nothing that can swallow a real breakage: a run
 that could not start at all still throws, and only that stops the sweep.
 </Note>
@@ -113,12 +113,12 @@ Everything that draws from the seed:
 
 | | |
 |---|---|
-| chaos | which machine is picked, and the gaps between events ;  drawn exponentially |
+| chaos | which machine is picked, and the gaps between events — drawn exponentially |
 | network jitter | how each round trip falls |
 | packet loss | which messages vanish |
 | **your workload** | if you took `cluster.seed()`, which is why you should |
 
-Scripted `faults:` do **not** vary ;  a fault at 900 refMs is at 900 refMs in every
+Scripted `faults:` do **not** vary — a fault at 900 refMs is at 900 refMs in every
 seed. The is what makes them useful for a specific lesson, and what makes `chaos:`
 the right tool for "does it survive afternoons".
 
@@ -147,7 +147,7 @@ for (int workers : new int[] {2, 4, 8}) {
 
 <Note>
 `withWorkers` resizes **every pool that had more than one machine**, keeping its
-instance type, zones and services. Singletons ;  the coordinator ;  are left alone,
+instance type, zones and services. Singletons — the coordinator — are left alone,
 because varying the cluster is meant to vary the workers.
 
 The other axes are the same shape: `withUnits`, `withSeed`, `withKTime`,
@@ -156,8 +156,8 @@ loaded is never mutated and every run in the loop differs by exactly one thing.
 </Note>
 
 
-Then read `durationRefMs` and the bill out of each. The curve ;  does doubling the
-cluster halve the time? ;  is one of the more instructive things you can produce, and
+Then read `durationRefMs` and the bill out of each. The curve — does doubling the
+cluster halve the time? — is one of the more instructive things you can produce, and
 it usually does not.
 
 <Tip>

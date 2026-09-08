@@ -1,6 +1,6 @@
 ---
 title: "When the engine refuses"
-description: "Every refusal, what it actually means, and what to change ;  or whether to change anything."
+description: "Every refusal, what it actually means, and what to change — or whether to change anything."
 icon: "ban"
 ---
 
@@ -22,8 +22,8 @@ The run still happens and everything else is still projected.
     ```
     diskMb  REFUSED: the ladder bends: over the lower half it grows as units^0.59
     and over the upper half as units^0.87, a difference of 0.28. Something behaves
-    differently small than large ;  a threshold, a different code path, or a
-    granularity that only shows up when the pieces are few ;  and no extrapolation
+    differently small than large — a threshold, a different code path, or a
+    granularity that only shows up when the pieces are few — and no extrapolation
     across that means anything. R2 over the whole ladder is still 0.883, which is
     why no threshold on R2 could have separated this from a merely noisy straight
     line.
@@ -34,8 +34,8 @@ The run still happens and everything else is still projected.
     cache that stops fitting, a batch that stops being one batch, or a fixed
     overhead that stops dominating.
 
-    **What to change.** The ladder is the engine's ;  one to eight thousand units,
-    every time ;  so there is no rung to move. Move the *threshold* instead: whatever
+    **What to change.** The ladder is the engine's — one to eight thousand units,
+    every time — so there is no rung to move. Move the *threshold* instead: whatever
     switches behaviour partway up it, put it on one side. If both regions genuinely
     matter to your design, that is a finding rather than a setting: this resource
     has two regimes and one law cannot describe both.
@@ -44,7 +44,7 @@ The run still happens and everything else is still projected.
   <Accordion title="its exponent moves between seed sets" icon="wave-square">
     ```
     makespan  REFUSED: its exponent moves by 0.66 between independent seed sets of
-    the same workload, which over a factor of 5000 is an error bar of x268 ;  wider
+    the same workload, which over a factor of 5000 is an error bar of x268 — wider
     than anything it would be asked to distinguish
     ```
 
@@ -58,8 +58,8 @@ The run still happens and everything else is still projected.
     noisier than a laptop, and the engine measures that per host rather than
     assuming it.
 
-    **What to change.** Either accept it ;  a refused makespan is the honest answer,
-    and it tells you the uncertainty in what a design costs lives in the timeline ;
+    **What to change.** Either accept it — a refused makespan is the honest answer,
+    and it tells you the uncertainty in what a design costs lives in the timeline —
     or give the handlers more to do, so the signal rises above the host's jitter:
 
     ```java
@@ -82,7 +82,7 @@ The run still happens and everything else is still projected.
     ```
 
     No candidate variable moved. The usual cause is a job that does not read the
-    `Input` it was handed and does a fixed amount of work regardless ;  so the whole
+    `Input` it was handed and does a fixed amount of work regardless — so the whole
     probe ladder measured the same thing four times.
     [Writing to scale ->](/write/writing-to-scale)
   </Accordion>
@@ -100,10 +100,10 @@ Nothing runs and nothing is projected.
     ```
 
     **What it means.** At every size on the ladder, most of the resource is
-    something the workload does not move ;  a baseline heap, a fixed index, a
+    something the workload does not move — a baseline heap, a fixed index, a
     constant table.
 
-    **What to change.** Give the variable part more to do ;  a unit that costs
+    **What to change.** Give the variable part more to do — a unit that costs
     something, rather than a fixed table that costs everything. Or, if the fixed cost
     genuinely is most of the design, accept that this resource is not a function of
     the workload, which is a true statement about your system and worth knowing.
@@ -112,24 +112,24 @@ Nothing runs and nothing is projected.
   <Accordion title="the cluster would not fit this host" icon="server">
     ```
     at 8000 units the cluster would hold 4200 MB, and this host offers 1843 MB to
-    work in ;  the run does not fit the laptop it is meant to fit on
+    work in — the run does not fit the laptop it is meant to fit on
     ```
 
     The engine will use at most **60%** of the JVM's max heap. Either raise it:
 
     ```bash
-    java -Xmx6g -cp "$CP" losim.cli.Main run ...
+    java -Xmx6g -cp "$CP" losim.cli.Main run …
     ```
 
     The ladder is not yours to shorten, so the other way out is a design that holds
-    less per unit ;  which is the same thing this refusal is telling you about the
+    less per unit — which is the same thing this refusal is telling you about the
     machine you would have had to buy.
   </Accordion>
 
   <Accordion title="a cost site too fine for the clock to express" icon="stopwatch">
     ```
     this run is clocked at 40x real time, and lab.Thumbnailer.Capacity costs
-    0.0004 refMs ;  6x below what the sleep debt can still settle at that
+    0.0004 refMs — 6x below what the sleep debt can still settle at that
     compression, so its timings would drift rather than be owed. Give that cost
     site more to do, or lower the scale: at scale 1 the clock runs at 20x.
     ```
@@ -138,7 +138,7 @@ Nothing runs and nothing is projected.
     of real time; below that a cost is *owed* rather than slept, and the ledger is
     good for about fifty times below the floor. Past that, timings drift.
 
-    **What to change.** Not the compression ;  that is the engine's, derived from the
+    **What to change.** Not the compression — that is the engine's, derived from the
     scale, and there is no number to turn down. Either that cost site is too small
     to be worth timing, or the scale it is being asked to carry is too large.
     [The sleep debt ->](/engine/the-sleep-debt)
@@ -161,10 +161,10 @@ Printed under the projections, and worth reading:
 
 ```
   note: this scenario declares no faults, so the model carries no amplification
-        term ;  a projection from it describes a cluster where nothing goes wrong
+        term — a projection from it describes a cluster where nothing goes wrong
 ```
 
-A killed machine's work is redone elsewhere, so a survivor absorbs its share ;
+A killed machine's work is redone elsewhere, so a survivor absorbs its share —
 measured, that roughly doubles peak memory on a machine that accumulates. A model
 fitted only on clean runs under-predicts by that much, and it under-predicts
 **optimistically**. Declare some weather.
@@ -177,7 +177,7 @@ engine refused to do, and on a workload where memory follows something sublinear
 lands 34% out.
 
 **Do not lower a threshold until something is accepted.** There is no threshold to
-lower ;  the tests are structural (does the ladder bend, is the exponent
+lower — the tests are structural (does the ladder bend, is the exponent
 reproducible), not a tunable confidence level. A projection that only appears
 because a check was loosened is worth less than no projection.
 </Warning>

@@ -114,8 +114,8 @@ Three things are worth understanding straight away:
 
 | | |
 |---|---|
-| `refMs` | reference milliseconds, time in the simulated world, not your afternoon. The two differ by `k_time`. |
-| events / spans / series | the three telemetry channels. Events are moments, spans are intervals that carry a parent, series are dense numbers on a fixed cadence. |
+| **`refMs`** | *reference milliseconds* — time in the simulated world, not your afternoon. The two differ by `k_time`. |
+| **events / spans / series** | the three telemetry channels. Events are moments, spans are intervals that carry a parent, series are dense numbers on a fixed cadence. |
 | the trace path | the file that matters. Everything downstream reads it. |
 
 The exit code matters only if you are scripting `losim run`; the button reads it
@@ -124,7 +124,7 @@ for you and says which step failed:
 | code | meaning |
 |---|---|
 | `0` | the job completed |
-| `1` | the job did not complete - it threw, or outstayed its welcome |
+| `1` | the job did not complete — it threw, or outstayed its welcome |
 | `2` | the scenario is wrong: an unknown key, an unknown instance type, a duration with no unit. Nothing ran. |
 | `3` | something went wrong inside losim |
 

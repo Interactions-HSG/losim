@@ -5,7 +5,7 @@ icon: "terminal"
 ---
 
 ```bash
-./losim <verb> [...]          # anything below, in this project
+./losim <verb> […]          # anything below, in this project
 ./losim version [--check]
 ```
 
@@ -22,7 +22,7 @@ exec java -cp "$CP" losim.cli.Main "$@"
 
 **It builds before it runs**, so there is no separate step to have forgotten and
 no stale classpath to explain. There is also no path to a `losim.jar` anywhere in
-it ;  the jar is wherever Gradle put it, which is a package cache under a name the
+it — the jar is wherever Gradle put it, which is a package cache under a name the
 build chose.
 
 ## The toolchain file
@@ -31,10 +31,10 @@ build chose.
 `build/losim-toolchain.properties`:
 
 ```
-losim=2.0.0
-classpath=/.../losim-2.0.0.jar:/.../grpc-api-1.83.1.jar:...
-protoc=/.../build/losim/bin/protoc
-protoc-gen-grpc-java=/.../build/losim/bin/protoc-gen-grpc-java
+losim=2.0.1
+classpath=/…/losim-2.0.1.jar:/…/grpc-api-1.83.1.jar:…
+protoc=/…/build/losim/bin/protoc
+protoc-gen-grpc-java=/…/build/losim/bin/protoc-gen-grpc-java
 ```
 
 That file **is** what losim knows about this project. There is no `lib/` to look
@@ -42,7 +42,7 @@ in and nothing to configure: a directory is a lab if a build here declared a
 classpath, and it is that classpath that gets compiled and run against.
 
 <Warning>
-It names absolute paths on one machine, so it is generated and never committed ;
+It names absolute paths on one machine, so it is generated and never committed —
 `build/` is gitignored. Copy a working directory to another machine (which is what
 marking a submission is) and the file arrives naming a laptop that is not there.
 losim disregards it and says so, rather than reporting the code as broken; the fix
@@ -58,7 +58,7 @@ line.
 ## Pinning what it resolved
 
 A lab's classpath used to be jars committed to its repository. It is a resolved
-graph now, and locking is what puts back what that cost ;  that the same build
+graph now, and locking is what puts back what that cost — that the same build
 tomorrow resolves the same bytes, and that a number a run produces does not depend
 on what a package manager felt like today.
 
@@ -71,7 +71,7 @@ but that line on its own does nothing until the file exists.
 
 <Warning>
 The task has to be named. Gradle locks the configurations an invocation actually
-resolves, and a bare `gradle --write-locks` resolves none ;  so it succeeds, prints
+resolves, and a bare `gradle --write-locks` resolves none — so it succeeds, prints
 nothing, and writes no lockfile. `losimToolchain` resolves the three that decide
 what a run sees: the classpath, `protoc`, and the gRPC plugin.
 </Warning>
@@ -87,9 +87,9 @@ the tag in a header. No token, no rate limit, and nothing downloaded.
 
 ```
 1.4.0
-2.0.0 is released.
+2.0.1 is released.
 
-  Change losimVersion in build.gradle.kts to 2.0.0 and run ./losim.
+  Change losimVersion in build.gradle.kts to 2.0.1 and run ./losim.
   Nothing else moves: the viewer and the manual are inside the jar,
   and your scenarios, schema and Java are untouched by a version.
 ```

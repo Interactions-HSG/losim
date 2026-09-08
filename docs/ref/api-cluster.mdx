@@ -6,7 +6,7 @@ icon: "sitemap"
 
 ```java
 public final class MyJob implements Job {
-    @Override public void run(Cluster cluster) throws Exception { ... }
+    @Override public void run(Cluster cluster) throws Exception { … }
 }
 ```
 
@@ -20,7 +20,7 @@ public final class MyJob implements Job {
   The machines serving a given service, by name. The service's name from the
   `.proto`, bare or qualified.
 
-  **Dead ones are not listed** ;  which is discovery working, not a liveness check: no
+  **Dead ones are not listed** — which is discovery working, not a liveness check: no
   real network offers one, and a design that depends on knowing is a design that
   will not survive contact with one. A machine that has gone is a machine that has
   stopped answering, and finding that out still costs a call and a deadline.
@@ -62,12 +62,12 @@ the cluster was a size the scenario could not name a part of.
 ## Time
 
 <ResponseField name="clockMs()" type="double">
-  Simulated milliseconds since the run began ;  the clock the scenario is written in.
+  Simulated milliseconds since the run began — the clock the scenario is written in.
 </ResponseField>
 
 <Warning>
 **There is no `expectedRunMs()`.** There was, and it was a scenario declaring how
-long its own run would take ;  which nobody can say in advance, and which is the
+long its own run would take — which nobody can say in advance, and which is the
 whole reason to run a simulator at all. A job whose shape is *keep going until the
 run is over* has to name its own stretch, in its own code, where the decision
 belongs:
@@ -79,7 +79,7 @@ while (cluster.clockMs() < 20_000) {
 }
 ```
 
-A run still has a backstop ;  two minutes of real time ;  but that is a line between
+A run still has a backstop — two minutes of real time — but that is a line between
 *slow* and *stuck*, not a prediction, and no job can read it.
 </Warning>
 
@@ -98,7 +98,7 @@ A run still has a backstop ;  two minutes of real time ;  but that is a line bet
 
   ```java
   try (var p = cluster.phase("thumbnails")) {
-      ...
+      …
       p.note("batches", 40).note("thumbnails", 1000);
   }
   ```
@@ -121,7 +121,7 @@ A run still has a backstop ;  two minutes of real time ;  but that is a line bet
 </ResponseField>
 
 <ResponseField name="done(Object answer)" type="void">
-  The job's answer, recorded **structurally** rather than as a line of text ;  so a
+  The job's answer, recorded **structurally** rather than as a line of text — so a
   later run can be compared to this one without parsing English.
 
   ```java
@@ -133,6 +133,6 @@ A run still has a backstop ;  two minutes of real time ;  but that is a line bet
 
 <Warning>
 No way to reach into another machine's memory. No way to start a thread nothing
-accounts for. No way to ask whether a peer is alive ;  that last one because no real
+accounts for. No way to ask whether a peer is alive — that last one because no real
 network offers it.
 </Warning>

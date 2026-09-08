@@ -13,12 +13,12 @@ what gets slept  =  refMs x (2 / vcpu) x degradeFactor / k_time
 
 <Note>
 `k_time` is **derived, and there is nowhere to write it**. Nobody authoring a system
-knows what compression it can express ;  that is a property of the smallest cost in
+knows what compression it can express — that is a property of the smallest cost in
 it, which is a thing the run finds out. So it follows the one number you do know:
 [the scale](/ref/scale). 20x at scale 1, rising to a ceiling of 40x.
 
-It has to be global ;  there is one wall clock, and two machines sleeping under
-different factors would disagree about when *now* is ;  and the same for the probe
+It has to be global — there is one wall clock, and two machines sleeping under
+different factors would disagree about when *now* is — and the same for the probe
 grid as for the run it fits, or the fit describes a differently-compressed system.
 That is why it is fixed before anything runs and checked afterwards, rather than
 chosen once the grid has been climbed.
@@ -35,7 +35,7 @@ chosen once the grid has been climbed.
     Calibrated, mean error across the usable range falls from about **27% to about
     3%**.
 
-    The calibration is fitted over the durations it will actually be applied to ;
+    The calibration is fitted over the durations it will actually be applied to —
     0.05, 0.1, 0.25, 0.5, 1 and 2 ms. Below the floor the measurement's own overhead
     dominates, and including those points would let the noisiest one set the
     calibration for every other.
@@ -58,7 +58,7 @@ Building six in-process servers costs real milliseconds, and at 20x that is
 hundreds of reference milliseconds of a run that has not begun.
 
 Left alone it would put every fault written for an early instant **in the past**, so
-they would all fire at once during setup ;  and it would mean an instant in the
+they would all fire at once during setup — and it would mean an instant in the
 scenario is not the same instant in the trace, which is the one correspondence a
 reader needs.
 
@@ -72,10 +72,10 @@ scenario.
 | `takes:`, both terms | yes |
 | `Losim.current().sleep(refMs)` | yes |
 | network latency and jitter | yes |
-| `withDeadlineAfter(...)` | yes |
+| `withDeadlineAfter(…)` | yes |
 | fault and chaos placement | yes |
 | the sampler's cadence | yes |
-| **`Thread.sleep(...)`** | **no** ;  the one duration in a run that does not move when the compression does |
+| **`Thread.sleep(…)`** | **no** — the one duration in a run that does not move when the compression does |
 
 That last row is the whole reason `Thread.sleep` is flagged.
 
@@ -88,12 +88,12 @@ That last row is the whole reason `Thread.sleep` is flagged.
 
 The ceiling exists because of the floor below: past about fifty times under the timer
 floor the sleep debt stops settling and the run's own timings drift. If your smallest
-declared cost is finer than the clock can express, the engine says so ;  after the
+declared cost is finer than the clock can express, the engine says so — after the
 grid, where it can name the cost site and the number:
 
 ```
 this run is clocked at 40x real time, and lab.Thumbnailer.Capacity costs 0.0004
-refMs ;  6x below what the sleep debt can still settle at that compression, so its
+refMs — 6x below what the sleep debt can still settle at that compression, so its
 timings would drift rather than be owed. Give that cost site more to do, or lower
 the scale: at scale 1 the clock runs at 20x.
 ```
@@ -112,6 +112,6 @@ machine differ in every duration and most byte counts.
 <Note>
 The answer to that is a **sweep**, not determinism. One seed shows a design survived
 an afternoon; twenty show it survives afternoons. And it is why nothing is flagged
-for determinism's sake ;  unseeded `Random` and identity-hash iteration order are
+for determinism's sake — unseeded `Random` and identity-hash iteration order are
 fine, because runs are not reproducible anyway.
 </Note>

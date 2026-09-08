@@ -80,12 +80,12 @@ Reporting that as clean would be the one failure mode this check cannot afford.
     static final String[] WORDS = {"a", "the"};           // not flagged: a table
     ```
 
-    The difference is that nothing is called to build the second. The class
+    The difference is that nothing is **called** to build the second. The class
     initialiser is read, rather than the declaration guessed at.
   </Accordion>
 
   <Accordion title="Said by the declarations, not the call sites" icon="file-code">
-    `System::nanoTime` appears in no instruction anywhere, only in a bootstrap
+    `System::nanoTime` appears in **no instruction anywhere** — only in a bootstrap
     argument. A class that `extends Thread` starts itself through a method on
     itself.
 
@@ -110,7 +110,7 @@ meaningless:
 | `memory` | its memory figure is a lower bound | `memoryMb`, `allocMb` |
 | `disk` | its disk figure is a lower bound | `diskMb` |
 | `wire` | its wire bytes are a lower bound | `wireMb` |
-| `isolation` | its figures are not only its own | all of them |
+| `isolation` | its figures are not only its own | **all of them** |
 
 `isolation` poisons everything rather than one column. If machines reach into each
 other, attributing anything to either of them is arithmetic on a fiction.
@@ -130,7 +130,7 @@ exactly that case, so the caveat goes next to the number.
 
 ## Left unchecked
 
-Nothing is flagged for determinism's sake. Unseeded `Random`, `Math.random`, and
+Nothing is flagged for determinism's sake. Unseeded `Random`, `Math.random` and
 identity-hash iteration order are all fine, because runs are not reproducible
 anyway.
 

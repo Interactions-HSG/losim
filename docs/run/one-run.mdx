@@ -48,7 +48,7 @@ Knowing what happens when explains most of the error messages:
   </Step>
   <Step title="The classes are read, before anything runs">
     The verifier disassembles the job and the services named in the scenario,
-    walking outward from them. It never stops a run ;  it produces caveats with an
+    walking outward from them. It never stops a run — it produces caveats with an
     address.
   </Step>
   <Step title="Machines are built and start serving">
@@ -57,12 +57,12 @@ Knowing what happens when explains most of the error messages:
   </Step>
   <Step title="Retry policies are checked against what the cluster serves">
     A policy naming an unserved method, or retrying one the schema does not declare
-    safe, is refused **here** ;  before a single call is made.
+    safe, is refused **here** — before a single call is made.
   </Step>
   <Step title="The clock is zeroed and the cluster is announced">
     Everything before this is setup and belongs to no scenario. Building six
     in-process servers costs real milliseconds, and at 20x that would be
-    hundreds of reference milliseconds of a run that has not begun ;  putting every
+    hundreds of reference milliseconds of a run that has not begun — putting every
     early fault in the past, so they would all fire at once during setup.
   </Step>
   <Step title="The sampler starts, then the weather is scheduled, then the job runs">
@@ -80,7 +80,7 @@ Knowing what happens when explains most of the error messages:
 | | |
 |---|---|
 | `0` | the job completed |
-| `1` | the job did not complete ;  it threw, or it was still running after **two minutes of real time** |
+| `1` | the job did not complete — it threw, or it was still running after **two minutes of real time** |
 | `2` | the scenario is wrong. Nothing ran. |
 | `3` | something went wrong inside losim. Re-run with `LOSIM_DEBUG=1` for the stack. |
 

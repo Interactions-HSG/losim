@@ -1,6 +1,6 @@
 ---
 title: "5. The scenario"
-description: "The cluster, its weather and its bad afternoon ;  as data."
+description: "The cluster, its weather and its bad afternoon — as data."
 icon: "file-lines"
 ---
 
@@ -38,14 +38,14 @@ page does exactly that, and the page after adds the weather.
 
 <ParamField path="seed" type="long" default="1">
   Everything random in the run is drawn from this: which machine chaos picks, how
-  jitter falls, and ;  through `cluster.seed()` ;  your own workload. **One seed
+  jitter falls, and — through `cluster.seed()` — your own workload. **One seed
   shows a design survived an afternoon; twenty show it survives afternoons.**
 </ParamField>
 
 <ParamField path="job" type="class name" required>
   Fully qualified. It must implement `losim.api.Job` and have a no-argument
-  constructor. It runs on the **first machine in the file** ;  here, the
-  coordinator ;  so its calls and its memory are attributed to that machine.
+  constructor. It runs on the **first machine in the file** — here, the
+  coordinator — so its calls and its memory are attributed to that machine.
 </ParamField>
 
 <ParamField path="scale" type="number" default="1">
@@ -59,7 +59,7 @@ page does exactly that, and the page after adds the weather.
 
 <ParamField path="machines" type="map of pools" required>
   Each key is either **one machine** (no `count:`) or a **pool** (`count: n`,
-  named `prefix0 ... prefix{n-1}`). Every pool member gets the same instance type,
+  named `prefix0 … prefix{n-1}`). Every pool member gets the same instance type,
   services and caps unless `overrides:` says otherwise, and zones are dealt round
   robin from the list.
 </ParamField>
@@ -69,7 +69,7 @@ page does exactly that, and the page after adds the weather.
   reflection, so each class needs a public no-argument constructor and must extend
   the `ImplBase` protoc generated.
 
-  A machine with no `runs` still exists and still listens ;  it just offers
+  A machine with no `runs` still exists and still listens — it just offers
   nothing. That is what the coordinator is.
 </ParamField>
 
@@ -84,7 +84,7 @@ page does exactly that, and the page after adds the weather.
 | where | what it names | example |
 |---|---|---|
 | `runs:` in the scenario | your **Java class** | `lab.Shrinker` |
-| `peersServing(...)` / `cluster.serving(...)` | the **service in your `.proto`** | `Thumbnailer` |
+| `peersServing(…)` / `cluster.serving(…)` | the **service in your `.proto`** | `Thumbnailer` |
 
 They are different strings and both are correct. The scenario has to name a class
 because losim constructs it; your job has to name a service because that is what
@@ -120,7 +120,7 @@ count, prefix, memoryMb, diskMb, overrides
 
 ```text an unknown instance
 thumbs.yaml:9: unknown instance type 'c5.medium'; known types: a1.nano,
-a1.medium, m5.large, m5.xlarge, m5.2xlarge, c5.large, c5.xlarge, ...
+a1.medium, m5.large, m5.xlarge, m5.2xlarge, c5.large, c5.xlarge, …
 ```
 
 ```text a fault aimed at nothing

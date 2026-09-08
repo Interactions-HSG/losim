@@ -8,7 +8,7 @@ A scenario declares machines and weather. The job is the one thing in it that is
 code, and it is *named* rather than embedded so the file stays pure data.
 
 It is an ordinary class with a no-argument constructor. Nothing is injected and
-nothing is inherited ;  whatever it needs, it asks `Cluster` for.
+nothing is inherited — whatever it needs, it asks `Cluster` for.
 
 ## The whole thing
 
@@ -125,20 +125,20 @@ final class Album {
 ## Each `Cluster` call's payoff
 
 <AccordionGroup>
-  <Accordion title="serving(...) ;  peers by what they offer" icon="magnifying-glass" defaultOpen>
+  <Accordion title="serving(…) — peers by what they offer" icon="magnifying-glass" defaultOpen>
     Dead machines are not listed. That is discovery working, **not** a liveness
     check: no real network offers you one, and a design that depends on knowing
     whether a peer is alive is a design that will not survive contact with a real
     network. A machine that has gone is a machine that has stopped answering, and
-    finding that out still costs a call and a deadline ;  which is exactly what
+    finding that out still costs a call and a deadline — which is exactly what
     happens in step 4 when a batch does not come back.
 
-    The argument is the **service name from your `.proto`** ;  `Thumbnailer` ;
+    The argument is the **service name from your `.proto`** — `Thumbnailer` —
     not the Java class that implements it. Those are two different namespaces and
     mixing them up is the most common first mistake. [More ->](/write/finding-peers)
   </Accordion>
 
-  <Accordion title="channelTo(...) ;  a channel with losim on it" icon="plug">
+  <Accordion title="channelTo(…) — a channel with losim on it" icon="plug">
     What comes back is an ordinary `io.grpc.Channel`, and the call site is plain
     gRPC. The machine owns the channel, makes it once and keeps it, so your code
     never sees a lifetime.
@@ -149,10 +149,10 @@ final class Album {
     it happened. That is why the verifier flags it.
   </Accordion>
 
-  <Accordion title="phase(...) ;  a stretch larger than a call" icon="bars-staggered">
+  <Accordion title="phase(…) — a stretch larger than a call" icon="bars-staggered">
     ```java
     try (var work = cluster.phase("thumbnails")) {
-        ...
+        …
         work.note("batches", inflight.size());
     }
     ```
@@ -165,7 +165,7 @@ final class Album {
     make every occupancy figure in the run a lie.
   </Accordion>
 
-  <Accordion title="compute(...) ;  work with no RPC to carry it" icon="microchip">
+  <Accordion title="compute(…) — work with no RPC to carry it" icon="microchip">
     Reading the album happens on the coordinator, and no call covers it. Without
     `compute`, no span covers it either: the coordinator looks idle during the
     most expensive thing it does all run.
@@ -174,11 +174,11 @@ final class Album {
     using a core.
   </Accordion>
 
-  <Accordion title="Input and seed() ;  where the workload comes from" icon="dice">
+  <Accordion title="Input and seed() — where the workload comes from" icon="dice">
     `at.count("frames")` is how many frames this run is to do. In a direct run it is
     exactly what the scenario's [`input:`](/ref/input) block says; in a scaled one it
     is a fraction of it, picked so the machines and the workload shrink by the same
-    factor. **The number is never in the Java** ;  that is what
+    factor. **The number is never in the Java** — that is what
     [`Scalable`](/ref/api-scalable) is for, and a plain `Job` above `scale: 1` is
     refused.
 
@@ -188,8 +188,8 @@ final class Album {
     its own is a workload whose every run is the same afternoon.
   </Accordion>
 
-  <Accordion title="done(...) ;  the answer, structurally" icon="flag-checkered">
-    `cluster.done(Map.of(...))` records the result as data rather than as a line of
+  <Accordion title="done(…) — the answer, structurally" icon="flag-checkered">
+    `cluster.done(Map.of(…))` records the result as data rather than as a line of
     text, so a later run can be compared to this one without parsing English.
   </Accordion>
 </AccordionGroup>
@@ -197,7 +197,7 @@ final class Album {
 ## Two things this job does that are worth copying
 
 **Every outbound call has a deadline.** `withDeadlineAfter(2_000, MILLISECONDS)`
-means 2000 *reference* milliseconds, like every other duration ;  losim rewrites it
+means 2000 *reference* milliseconds, like every other duration — losim rewrites it
 into real time so it survives `k_time`. A call with no deadline waits five seconds
 and then gives up on your behalf, and the trace says that is what happened.
 
@@ -205,7 +205,7 @@ and then gives up on your behalf, and the trace says that is what happened.
 collects. With `newBlockingStub` in the loop, four machines would be used strictly
 one at a time, the answer would be correct, and the whole exercise would teach
 nothing. This is the single most common way a first cluster turns out to be
-sequential ;  and the [Spans view](/viewer/views) makes it obvious in one glance.
+sequential — and the [Spans view](/viewer/views) makes it obvious in one glance.
 
 <Card title="Next: the scenario" icon="arrow-right" href="/first/the-scenario">
   Five machines, two zones, and a bad afternoon.

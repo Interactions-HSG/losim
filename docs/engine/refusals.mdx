@@ -12,7 +12,7 @@ So the engine tries to break every law before printing it, and where it succeeds
 projected column says why instead of what.
 </Note>
 
-## Test 1 ;  does the ladder bend?
+## Test 1 — does the ladder bend?
 
 Split the ladder in half. Fit the lower half and the upper half separately. Compare
 the exponents.
@@ -20,15 +20,15 @@ the exponents.
 ```
 diskMb  REFUSED: the ladder bends: over the lower half it grows as units^0.59 and
 over the upper half as units^0.87, a difference of 0.28. Something behaves
-differently small than large ;  a threshold, a different code path, or a granularity
-that only shows up when the pieces are few ;  and no extrapolation across that means
+differently small than large — a threshold, a different code path, or a granularity
+that only shows up when the pieces are few — and no extrapolation across that means
 anything. R2 over the whole ladder is still 0.883, which is why no threshold on R2
 could have separated this from a merely noisy straight line.
 ```
 
 <Warning>
 **R² cannot make this call.** On a workload that spills above a key count, R² over
-the whole ladder falls only to about **0.74** ;  a value a merely noisy *linear*
+the whole ladder falls only to about **0.74** — a value a merely noisy *linear*
 workload scores just as easily.
 
 That is why the refusal quotes the R² in its own text. A reader who reaches for R²
@@ -38,17 +38,17 @@ refusal itself why it would not have served.
 
 The test is applied on the axis the ladder was climbed on, **units**. A resource
 that bends against units has changed behaviour between the small end and the large
-end, and no choice of variable makes that legitimate ;  re-parameterising a bend only
+end, and no choice of variable makes that legitimate — re-parameterising a bend only
 hides it, and the hidden version extrapolates confidently and wrongly.
 
-## Test 2 ;  would the exponent land in the same place again?
+## Test 2 — would the exponent land in the same place again?
 
 Refit on independent seed sets: same workload, same sizes, different random draws.
 The spread is the error bar.
 
 ```
 makespan  REFUSED: its exponent moves by 0.66 between independent seed sets of the
-same workload, which over a factor of 5000 is an error bar of x268 ;  wider than
+same workload, which over a factor of 5000 is an error bar of x268 — wider than
 anything it would be asked to distinguish
 ```
 
@@ -79,7 +79,7 @@ These stop the run before it happens.
     below 10x the fit is describing the overhead rather than the workload
     ```
 
-    Checked only for the resources the solve actually caps ;  memory and disk. A large
+    Checked only for the resources the solve actually caps — memory and disk. A large
     fixed term elsewhere (allocation carries the JVM's own warm-up, which is real at
     every scale) says the law for *that* resource is weak, not that the run size is
     wrong, and refusing a whole run over it would leave nothing runnable at all.
@@ -87,7 +87,7 @@ These stop the run before it happens.
   <Accordion title="the cluster would not fit this host">
     ```
     at 8000 units the cluster would hold 4200 MB, and this host offers 1843 MB to
-    work in ;  the run does not fit the laptop it is meant to fit on
+    work in — the run does not fit the laptop it is meant to fit on
     ```
 
     The engine will use at most **60%** of the JVM's max heap.
@@ -111,7 +111,7 @@ thumbs-scaled.yaml  scaled mode: no feasible size
 ## Refusals reach the bill
 
 Capacity depends on the timeline. When the timeline is refused, so is the capacity
-line ;  and it quotes the engine's own reason rather than paraphrasing it:
+line — and it quotes the engine's own reason rather than paraphrasing it:
 
 ```
   capacity    the cluster, for the period            -           CHF   refused
@@ -119,7 +119,7 @@ line ;  and it quotes the engine's own reason rather than paraphrasing it:
       workload, which over a factor of 6 is an error bar of x4.1
 ```
 
-Cross-zone egress is grown by the **wire** law rather than one of its own ;  which
+Cross-zone egress is grown by the **wire** law rather than one of its own — which
 calls cross a zone is a property of the topology, not of the size. If the wire law was
 refused, that line is refused too, rather than printing an observed quantity under a
 full-scale heading.

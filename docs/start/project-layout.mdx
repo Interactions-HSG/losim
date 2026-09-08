@@ -10,7 +10,7 @@ icon: "folder-tree"
 proto/                   your schema
 src/                     your Java
 gen/                     generated from the schema. Gitignored, never edited.
-scenarios/*.yaml         the worlds it runs in ;  as many as you like
+scenarios/*.yaml         the worlds it runs in — as many as you like
 
 build.gradle.kts         losim, protoc, and the toolchain task
 losim                    the launcher: `./losim run`, `./losim serve`
@@ -20,14 +20,14 @@ build/runs/              your traces, and a bill beside each
 
 <Note>
 **No `lib/`, no `docs/`, no `viewer/`.** losim is one dependency, and the manual
-and the console travel inside its jar ;  `./losim serve` and `./losim serve docs`
+and the console travel inside its jar — `./losim serve` and `./losim serve docs`
 find them there. A project that carries committed copies of them still works; they
 simply win over the jar's.
 </Note>
 
 <Note>
 **Nothing is declared.** There is no manifest listing what to build. Your code is
-whatever `.java` and `.proto` the project holds, and it compiles as one thing ;  so any
+whatever `.java` and `.proto` the project holds, and it compiles as one thing — so any
 class can be placed on any machine. Add a file and it is in the next run.
 
 **One code folder, many scenarios.** What changes between two runs of the same system
@@ -39,7 +39,7 @@ lands in `scenarios/` beside the others.
 still compiles: what a call costs, what a machine is and what goes wrong are all in
 the scenario. [How a project gets this shape ->](/start/adopt)
 
-`build/` and `gen/` are gitignored. Your traces are yours and are not handed in ;  the
+`build/` and `gen/` are gitignored. Your traces are yours and are not handed in — the
 examiner re-runs your code rather than reading a picture you exported.
 </Note>
 
@@ -53,18 +53,18 @@ bin/losim                the CLI: build, then run it. Every command here is one 
 losim/test/              losim's own acceptance criteria     (`losim dev test`)
 tests/                   the reference suite, run end to end (`losim dev suite`)
 docs/                    this manual
-viewer/                  the viewer's source ;  npm lives here and nowhere else
+viewer/                  the viewer's source — npm lives here and nowhere else
 prices/                  course data: what egress costs, what being late costs
 vendor/                  grpc 1.83.1, protobuf 4.36.0, protoc for two platforms
 build/                   generated, all of it. The viewer's committed export is viewer/out.
 
 
-losim/src/losim/api/     what a handler may say to losim ;  and all it can reach
+losim/src/losim/api/     what a handler may say to losim — and all it can reach
 losim/src/losim/runtime/ the cluster, the machines, the two interceptors
 losim/src/losim/trace/   the three-channel recorder and the trace it writes
 losim/src/losim/time/    the compressed clock, and fault placement
 losim/src/losim/res/     instance types, the heap walk, losim's own meter
-losim/src/losim/scale/   the probe grid, the laws, the solve ;  and the refusals
+losim/src/losim/scale/   the probe grid, the laws, the solve — and the refusals
 losim/src/losim/scenario/ a cluster and its weather, as data
 losim/src/losim/verify/  what makes a number stop meaning what it says
 losim/src/losim/price/   four buckets, and what cannot be put in them
@@ -74,7 +74,7 @@ losim/src/losim/cli/     losim run | bill | diff
 ## The rule about `losim/src`
 
 <Warning>
-**Your code compiles against `build/losim.jar` and the vendored jars ;  never
+**Your code compiles against `build/losim.jar` and the vendored jars — never
 against `losim/src`.**
 
 The is not bureaucracy. The jar exposes exactly one package a program may
@@ -97,9 +97,9 @@ javac --release 21 -cp "$(cat build/losim/classpath)" -d build/losim/classes \
 | | |
 |---|---|
 | `build/losim.jar` | the simulator |
-| `build/losim/classes/` | your compiled system ;  this is what `--cp` points at |
+| `build/losim/classes/` | your compiled system — this is what `--cp` points at |
 | `build/<scenario>.json` | the trace, unless `--out` said otherwise |
-| `build/runs/` | **where to point `--out`** ;  the viewer picks up whatever is here |
+| `build/runs/` | **where to point `--out`** — the viewer picks up whatever is here |
 | `build/.losim-plans/` | cached scale plans, keyed on the scenario, the code and the telemetry level |
 
 The plan cache is worth knowing about: fitting a scale plan costs a grid of about
@@ -121,6 +121,6 @@ bin/losim dev docs check
 
 The repository ships worked solutions to the coursework. The manual must not
 contain them, and "must not" is a thing you check rather than a thing you
-remember ;  so every page is scanned against a rule set in `docs-check/`, and the
+remember — so every page is scanned against a rule set in `docs-check/`, and the
 check tests itself against known-bad and known-good samples before it scans
 anything. It runs in CI on every push.

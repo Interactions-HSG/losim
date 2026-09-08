@@ -13,7 +13,7 @@ faults:
   # notice a machine that is simply not there any more.
   - { at: 900 refMs, kill: w1 }
 
-  # A noisy neighbour. Four times slower, and it does not die ;  which is the
+  # A noisy neighbour. Four times slower, and it does not die — which is the
   # failure most designs handle worst.
   - { at: 1200 refMs, degrade: w2, factor: 4 }
 ```
@@ -67,7 +67,7 @@ network:
 </CodeGroup>
 
 All three produce the same thing at the call site: a `rpc_timeout` event and a
-`DEADLINE_EXCEEDED` status, with `why` recording which it was ;  so the
+`DEADLINE_EXCEEDED` status, with `why` recording which it was — so the
 trace can tell them apart even though your program could not.
 
 ## The whole catalogue of weather
@@ -94,7 +94,7 @@ chaos:
   - freeze: { every: 400 refMs, among: workers, for: 150 refMs }
 ```
 
-`among:` is a pool name ;  `workers` ;  or one machine's name. The gaps are drawn
+`among:` is a pool name — `workers` — or one machine's name. The gaps are drawn
 exponentially from the seed, so they vary the way real bad afternoons do.
 
 <Note>
@@ -103,7 +103,7 @@ as the run does. Nothing you write here can leave the cluster a quiet second hal
 accident.
 </Note>
 
-**One seed is an anecdote.** A sweep is not a shell loop ;  losim is a library, so
+**One seed is an anecdote.** A sweep is not a shell loop — losim is a library, so
 write it in the language you are already in:
 
 ```java src/lab/Sweep.java
@@ -136,12 +136,12 @@ Nothing is written to disk, nothing is parsed back, and a seed that failed print
 **why** rather than becoming an indistinguishable `false`.
 
 <Tip>
-`withSeed` has siblings ;  `withUnits`, `withWorkers`, `withoutWeather`, `withKTime`,
+`withSeed` has siblings — `withUnits`, `withWorkers`, `withoutWeather`, `withKTime`,
 `withExpectedRun`. Any of them is an axis you can sweep the same way, which is how you
 ask *"is this a bad seed or a bad design?"*
 
 For a long sweep, hand in `Telemetry.Level.OFF`
-(`Run.of(scenario, loader, Telemetry.Level.OFF)`) ;  a sweep asks whether the run
+(`Run.of(scenario, loader, Telemetry.Level.OFF)`) — a sweep asks whether the run
 finished, not what happened inside it, and building a full trace twenty times is the
 slow part.
 </Tip>
@@ -169,7 +169,7 @@ and the bill will say so.
 
 The less obvious fix is the better one: **notice sooner**. Your coordinator asked
 every worker for its capacity at the start and never asked again. `cluster.serving
-("Thumbnailer")` does not list dead machines ;  so a coordinator that re-checks
+("Thumbnailer")` does not list dead machines — so a coordinator that re-checks
 before dispatching each batch stops sending work to `w1` after the first failure,
 instead of three times.
 

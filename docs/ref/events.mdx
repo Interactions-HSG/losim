@@ -22,7 +22,7 @@ icon: "bolt"
 |---|---|---|
 | `scenario` | `-` | `file`, `seed`, `scale`, `machines`, `job`, `tightMargin` |
 | `boot` | machine | `instance`, `zone`, `vcpu`, `memoryMb`, `diskMb` |
-| `done` | job's machine | `value` ;  the job's answer, rendered |
+| `done` | job's machine | `value` — the job's answer, rendered |
 | `job_failed` | job's machine | `error` |
 | `trust` / `trust_unchecked` | machine or `-` | what the verifier found before anything ran |
 
@@ -40,13 +40,13 @@ icon: "bolt"
 | `retry_done` | caller | `method`, `attempts`, `status` |
 
 <Note>
-`call` is the **same number on both sides** ;  the caller's span id, sent across in a
+`call` is the **same number on both sides** — the caller's span id, sent across in a
 metadata header. The is what lets a reader join the two halves of one call.
 
 `why` on a failure is `unreachable`, `partitioned` or `lost`. The caller could not
 tell them apart; the trace can.
 
-`ms` on `handler_end` is what the **program** took ;  losim's own bookkeeping inside
+`ms` on `handler_end` is what the **program** took — losim's own bookkeeping inside
 that window is metered and subtracted. `grossMs` is open-to-close including it.
 </Note>
 
@@ -64,7 +64,7 @@ that window is metered and subtracted. `grossMs` is open-to-close including it.
 |---|---|---|
 | `kill` | victim | `reason` |
 | `freeze` | victim | `forRefMs` |
-| `thaw` | victim | ;  |
+| `thaw` | victim | — |
 | `degrade` | victim | `factor` |
 | `restart` | victim | `state` (`kept` or `lost`), `note` |
 | `spot_notice` | victim | `inRefMs` |
@@ -82,7 +82,7 @@ that machine, so a scripted fault and a drawn one are otherwise identical.
 | `oom` | `resource`, `capMb`, `demandMb`, `objects`, `cause` |
 | `disk_full` | `resource`, `capMb`, `demandMb`, `cause` |
 
-Both are recorded **once per machine** ;  the first time it happens.
+Both are recorded **once per machine** — the first time it happens.
 
 ## Counting them
 

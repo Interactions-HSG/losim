@@ -8,8 +8,8 @@ icon: "memory"
 
 | | |
 |---|---|
-| **`allocMb`** | what your program allocated, from `getThreadAllocatedBytes` on this machine's own pool threads ;  losim's own allocation on those threads is metered and taken back off, so this is what your code cost, not what watching it cost. |
-| **`memoryMb`** | the **most it was ever seen holding** ;  a retained-heap walk from the machine's own service instances. |
+| **`allocMb`** | what your program allocated, from `getThreadAllocatedBytes` on this machine's own pool threads — losim's own allocation on those threads is metered and taken back off, so this is what your code cost, not what watching it cost. |
+| **`memoryMb`** | the **most it was ever seen holding** — a retained-heap walk from the machine's own service instances. |
 
 A design that accumulates and a design that streams allocate about the same amount.
 Only one of them dies. Allocation cannot tell them apart; retention can, and
@@ -30,8 +30,8 @@ When a walk finds a machine holding more than its cap:
     "objects": 148_221, "cause": "retained heap exceeded the machine" } }
 ```
 
-and the machine is killed. It is a real failure with a real cause ;  your data
-structure, in your code ;  and the caller finds out the way it finds out about any
+and the machine is killed. It is a real failure with a real cause — your data
+structure, in your code — and the caller finds out the way it finds out about any
 dead machine: by running out of time.
 
 <Note>
@@ -39,14 +39,14 @@ The check runs on the sampler's cadence **and** once more at the end of the run,
 because a machine that fills up between the last walk and the end of the run has
 still filled up. A service handed its share in the closing moments is exactly that
 case, and without the final walk it would be reported as comfortably inside a cap
-it had already exceeded ;  the one direction an out-of-memory must never be wrong
+it had already exceeded — the one direction an out-of-memory must never be wrong
 in.
 </Note>
 
 ## The boundary of a machine
 
-The walk starts from the machine's own service instances ;  whatever your
-`BindableService` objects hold in their fields ;  and stops at anything that is not
+The walk starts from the machine's own service instances — whatever your
+`BindableService` objects hold in their fields — and stops at anything that is not
 this machine's data:
 
 <Columns cols={2}>
@@ -63,7 +63,7 @@ this machine's data:
 So if a machine needs to hold something that does not hang off a service:
 
 ```java
-Losim.current();                      // ...no. There is no API for this from a handler.
+Losim.current();                      // …no. There is no API for this from a handler.
 ```
 
 it has to be reachable from a service instance. Put it in a field. A cache in a
@@ -86,7 +86,7 @@ machines:
 ```
 
 That is the cheapest way to find out whether your design degrades or collapses when
-one machine is smaller than the others ;  and whether the rest of the cluster notices.
+one machine is smaller than the others — and whether the rest of the cluster notices.
 
 <Tip>
 In **scaled mode** you do not write caps at all. The engine solves for them, per
@@ -107,7 +107,7 @@ Per machine, per tick:
 | `allocMb` | what your program has allocated so far, cumulative |
 
 The heap walk costs about 0.06 µs per object, so a busy machine is walked every
-eighth tick rather than every tick. `retainMb` therefore steps rather than glides ;
+eighth tick rather than every tick. `retainMb` therefore steps rather than glides —
 that is the cadence, not your program.
 
 <Note>
@@ -185,7 +185,7 @@ Experiments.here()
 ```
 
 **What to look for.** `w2` is drawn the same size as its peers but fills up visibly
-faster, and the number under it ;  **how much is left** ;  runs down to nothing. Press
+faster, and the number under it — **how much is left** — runs down to nothing. Press
 `]` to jump straight to the `oom` marker. Pin `w2` first and you watch it happen
 rather than discover that it did.
 

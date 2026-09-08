@@ -11,7 +11,7 @@ takes:
 ```
 
 **In the scenario, not in the handler.** A duration is a claim about the machine a
-design would run on, which is the scenario's subject ;  and it leaves your Java with
+design would run on, which is the scenario's subject — and it leaves your Java with
 no losim symbol in it at all.
 
 ## Time is declared, not measured
@@ -23,7 +23,7 @@ exhausts 16 MiB here, in your own code, for the same reason.
 Time does not survive it, because **the host's CPU is not shrunk**. It runs at full
 speed on a five-thousandth of the data, so every handler is genuinely instant.
 Without a declared duration there is no queueing, no contention, no deadline
-pressure and no critical path ;  which is most of what a cluster is interesting for.
+pressure and no critical path — which is most of what a cluster is interesting for.
 
 Measuring instead does not work at this scale either. Handler durations at probe
 size sit inside the host's own jitter, where the fitted time exponent moves by 0.25
@@ -31,7 +31,7 @@ between seed sets of an *identical* workload. A number that moves that much when
 nothing changed is not a measurement.
 
 <Note>
-So it is declared, and it is **optional**. An rpc nobody prices takes no time ;
+So it is declared, and it is **optional**. An rpc nobody prices takes no time —
 deliberately, rather than a made-up amount. A handler nobody has timed should run
 at whatever speed it runs, not at a speed somebody guessed.
 </Note>
@@ -58,7 +58,7 @@ it lands on and however compressed the run is.
 ## The two terms
 
 <ParamField path="refMs" type="double" default="0">
-  What one call takes **regardless of what is in it** ;  the fixed part. Known
+  What one call takes **regardless of what is in it** — the fixed part. Known
   before the handler runs, and slept **before** it, on the machine's own pool
   thread. Marshalling, setup, a lookup: the cost of being called at all.
 </ParamField>
@@ -70,7 +70,7 @@ it lands on and however compressed the run is.
   before the response leaves.
 
   Slept before the response leaves rather than after, because a caller waits for
-  work that has not finished ;  and by that point the handler has said how much
+  work that has not finished — and by that point the handler has said how much
   there was.
 </ParamField>
 
@@ -82,15 +82,15 @@ almost always why.
 
 ## Choosing numbers
 
-There is no right answer, and that is the point ;  the declaration is a claim about
+There is no right answer, and that is the point — the declaration is a claim about
 your design that you are making explicitly rather than discovering by accident.
 Some anchors:
 
 | | roughly |
 |---|---|
-| a hash lookup, a field copy | far below 0.01 refMs ;  do not annotate it |
-| parsing or validating a message | 0.1 - 1 refMs |
-| an image operation, a compression, a sort of a few thousand items | 1 - 20 refMs |
+| a hash lookup, a field copy | far below 0.01 refMs — do not annotate it |
+| parsing or validating a message | 0.1 – 1 refMs |
+| an image operation, a compression, a sort of a few thousand items | 1 – 20 refMs |
 | something you would put on a dashboard | 50 refMs and up |
 
 <Tip>
@@ -102,14 +102,14 @@ designs.
 
 ## There is a floor, and no knob above it
 
-The clock cannot express a duration finer than about **0.05 ms** of real time ;  the
+The clock cannot express a duration finer than about **0.05 ms** of real time — the
 measurement's own overhead dominates below that. losim handles it by *owing* the
 cost rather than losing it, and the ledger is good for about fifty times below the
 floor. Past that, the engine says so:
 
 ```
 this run is clocked at 40x real time, and lab.Thumbnailer.Capacity costs 0.0004
-refMs ;  6x below what the sleep debt can still settle at that compression, so its
+refMs — 6x below what the sleep debt can still settle at that compression, so its
 timings would drift rather than be owed. Give that cost site more to do, or lower
 the scale: at scale 1 the clock runs at 20x.
 ```
@@ -122,7 +122,7 @@ site too small to be timed, and that was true of the design before losim said it
 
 ## Where the numbers go
 
-Under the class `runs:` names, and then the rpc ;  not under the rpc alone:
+Under the class `runs:` names, and then the rpc — not under the rpc alone:
 
 ```yaml
 machines:
@@ -134,7 +134,7 @@ takes:
 ```
 
 A duration belongs to the **code**, not to the operation. Two implementations of
-one rpc, on two machines, is how one design is compared with another ;  and a table
+one rpc, on two machines, is how one design is compared with another — and a table
 keyed on the rpc would say they take the same time.
 
 Written under a class nothing places, or an rpc that class does not serve, it is

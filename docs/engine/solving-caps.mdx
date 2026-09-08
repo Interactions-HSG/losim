@@ -15,7 +15,7 @@ cap = fixed + declared x (variable at run scale / variable at full scale)
 
 <Warning>
 Memory follows what a machine holds. Disk follows data volume. Those grow at
-**different rates** ;  so a uniform shrink factor would give both the same treatment
+**different rates** — so a uniform shrink factor would give both the same treatment
 and be wrong about at least one.
 
 The engine therefore solves each resource with its **own** ratio, taken from that
@@ -26,7 +26,7 @@ resource's own law.
 
 A JVM's baseline heap does not shrink because the workload did. Scaling the fixed
 overhead down along with everything else would give a machine less baseline than a
-JVM needs to exist ;  and then the machine would fail for a reason that has nothing to
+JVM needs to exist — and then the machine would fail for a reason that has nothing to
 do with the design under test.
 
 So `fixed` is added at full size, and only the **variable** part is scaled.
@@ -47,7 +47,7 @@ and the run size is 8,000 units against a full scale of 40,000,000.
     40,000,000, then take the variable part of memory at each.
   </Step>
   <Step title="Take the ratio">
-    `variablePart(8000) / variablePart(40000000)`, clamped to at most 1.
+    `variablePart(8000) ÷ variablePart(40000000)`, clamped to at most 1.
   </Step>
   <Step title="Apply it to what the scenario declared">
     An `r5.large` declares 16,384 MB. Multiply by the ratio, add the fixed term back,
@@ -91,5 +91,5 @@ scaled run tells you anything about the real one.
 
 ## And it all travels in the trace
 
-Every solved cap, every law, every refusal, and the size chosen ;  written into the
+Every solved cap, every law, every refusal, and the size chosen — written into the
 trace's `meta`, so `projected = f(observed)` is recomputable by whoever reads it.
