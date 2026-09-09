@@ -6,6 +6,58 @@ A version is what an assignment resolves from Gradle, so it is a fact about a ja
 rather than about a branch. Every release is cut from a tag whose name and
 `./VERSION` are checked against each other before anything is built.
 
+## 3.1.0
+
+**The manual and the lecture now use one vocabulary.** Nothing in the engine
+changed and no simulation produces a different trace. A lab on 3.0.x keeps
+working untouched; what changes is what things are called, and one line of what
+`losim adopt` writes into a new project.
+
+### The node that hands out work is a master
+
+`GLOSSARY.md` names it **Master**, and losim had two words for it. Every
+simulation in this repository already used the glossary's — `tests/simulations`,
+the gallery, the reference suite, the viewer's fixtures and the README all say
+`master:`. Only the manual said `coordinator`, in its prose *and* in the YAML it
+prints, so a student read one word on the page and typed another into the file.
+
+127 lines over 67 files, and `losim adopt` writes `master:` now. A simulation you
+already have is unaffected: the name is yours to choose and always was, and
+nothing in the loader knows either word.
+
+### Marshaling, with one l
+
+The glossary writes "Marshaling / unmarshaling" and losim wrote the British
+doubling throughout. gRPC's own `Marshaller` type is untouched — it is not ours
+to respell.
+
+### The docs check stops banning words and starts catching examples
+
+`docs-check/leaks.txt` used to ban eleven terms outright: mapper, reducer,
+combiner, partitioning, shuffle, emit, intermediate pairs, the two-stage phase
+names, grouping by key. Every one of those is a row in the glossary the students
+are given, and a glossary has to name a thing in order to define it. The bans
+also caught correct uses that had nothing to do with the assignment — `emit` for
+what the wire does with an event, a reducer as an illustrative workload in a cost
+model.
+
+The words are allowed now. The worked example is not, and `shapes.txt` catches
+that instead: mapper *and* reducer on one page, shuffle *and* intermediate,
+combiner *and* shuffle. Innocent one at a time; together, a page working the
+assignment through. Two rules stay in `leaks.txt` because nothing says them by
+accident — the name of the assignment, and the name of its canonical example.
+
+The check also reads `losim/src` now, not just `docs/`. Javadoc is documentation
+that happens to live in `.java`, and this repository is public because release
+assets have to download without a token, so an answer left in a comment is as
+readable as one on a page.
+
+### The shipped viewer was a version behind
+
+`viewer/out` is committed so that a student never runs npm, and it had drifted: the
+bundle still labelled the first column "coordinator" after the source had stopped
+doing so. Rebuilt.
+
 ## 3.0.2
 
 **The manual, and nothing else.** No type changed, no simulation produces a
