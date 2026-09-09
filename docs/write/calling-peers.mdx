@@ -7,7 +7,7 @@ icon: "plug"
 ```java
 var here = Losim.current();
 Channel to = here.channelTo(here.peersServing("Thumbnailer").get(0));
-Thumbs thumbs = ThumbnailerGrpc.newBlockingStub(to).thumbnail(batch);
+Thumbs thumbs = ThumbnailerGrpc.newBlockingStub(to).thumbnail(split);
 ```
 
 The result is an `io.grpc.Channel`. The call site remains ordinary gRPC: use the
@@ -56,13 +56,13 @@ flags `ManagedChannelBuilder`.
 ```java blocking
 var stub = ThumbnailerGrpc.newBlockingStub(to)
         .withDeadlineAfter(2_000, TimeUnit.MILLISECONDS);
-Thumbs thumbs = stub.thumbnail(batch);
+Thumbs thumbs = stub.thumbnail(split);
 ```
 
 ```java futures — this is how you fan out
 var stub = ThumbnailerGrpc.newFutureStub(to)
         .withDeadlineAfter(2_000, TimeUnit.MILLISECONDS);
-ListenableFuture<Thumbs> f = stub.thumbnail(batch);
+ListenableFuture<Thumbs> f = stub.thumbnail(split);
 // … dispatch the rest, then collect
 Thumbs thumbs = f.get();
 ```
@@ -90,7 +90,7 @@ thread and measured handler duration are not affected.
 Use the same API from a handler:
 
 ```java
-@Override protected Thumbs thumbnail(Batch request) {
+@Override protected Thumbs thumbnail(Split request) {
     if (tooBigForMe(request)) {
         var here = Losim.current();
         var bigger = here.peersServing("Thumbnailer").get(0);
@@ -107,7 +107,7 @@ occupies one core while it waits, which is part of forwarding's cost.
 
 ```java
 try {
-    thumbs = stub.thumbnail(batch);
+    thumbs = stub.thumbnail(split);
 } catch (StatusRuntimeException e) {
     if (e.getStatus().getCode() == Status.Code.DEADLINE_EXCEEDED) {
         // dead, partitioned, or dropped — and you cannot tell which

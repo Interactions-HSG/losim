@@ -28,7 +28,7 @@ message Thumb {
   bytes  jpeg   = 4;
 }
 
-message Batch  { repeated Frame frames = 1; }
+message Split  { repeated Frame frames = 1; }
 message Thumbs { repeated Thumb thumbs = 1; int32 bytes = 2; }
 message Empty  {}
 
@@ -43,7 +43,7 @@ message Health {
 
 service Thumbnailer {
   // The method has no side effects and is safe to retry.
-  rpc Thumbnail (Batch) returns (Thumbs) {
+  rpc Thumbnail (Split) returns (Thumbs) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 
@@ -56,14 +56,14 @@ service Thumbnailer {
 ## Schema choices
 
 <AccordionGroup>
-  <Accordion title="A batch, not a frame" icon="layer-group" defaultOpen>
-    `Thumbnail` takes a `Batch`, so the client chooses a batching policy.
+  <Accordion title="A split, not a frame" icon="layer-group" defaultOpen>
+    `Thumbnail` takes a `Split`, so the client chooses how many frames go in one.
 
     Every call adds a round trip, a declared fixed duration, and a trace entry. One
-    frame per call can make call overhead dominate. A batch lets the client vary that
+    frame per call can make call overhead dominate. A split lets the client vary that
     trade-off.
 
-    The handler can also charge `perUnit` against the number of frames in the batch.
+    The handler can also charge `perUnit` against the number of frames in the split.
   </Accordion>
 
   <Accordion title="`idempotency_level`" icon="rotate">

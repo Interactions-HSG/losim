@@ -17,10 +17,10 @@ enum Format {
   WEBP = 1;
 }
 
-// A batch of frames, named by the asset each was cut from.
-message Batch {
+// A split of frames, named by the asset each was cut from.
+message Split {
   string assets = 1;   // asset ids, space separated
-  int32  frames = 2;   // how many frames this batch is
+  int32  frames = 2;   // how many frames this split is
 }
 
 // Thumbnail sizes in bytes, by asset id.
@@ -33,8 +33,8 @@ message Blob    { string key = 1; int32 bytes = 2; }
 message Receipt { string key = 1; bool stored = 2; }
 
 service Thumbnailer {
-  // Shrink a batch. Safe to run twice: the answer is a function of the batch.
-  rpc Thumbnail (Batch)   returns (Sizes) { option idempotency_level = NO_SIDE_EFFECTS; }
+  // Shrink a split. Safe to run twice: the answer is a function of the split.
+  rpc Thumbnail (Split)   returns (Sizes) { option idempotency_level = NO_SIDE_EFFECTS; }
 
   // Everything this node has shrunk so far, so a caller can merge the tiers.
   rpc Totals    (Nothing) returns (Sizes) { option idempotency_level = NO_SIDE_EFFECTS; }

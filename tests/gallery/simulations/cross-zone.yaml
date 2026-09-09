@@ -1,9 +1,9 @@
 # Three tiers in two zones, so that where a node sits costs money and time.
 #
 # The renderers alternate between the zones and the blob store sits only in the
-# second, so every batch crosses exactly once — but at a different hop depending
+# second, so every split crosses exactly once — but at a different hop depending
 # on which renderer took it. r1 and r3 pay on the way in, from a master in
-# the other zone, and then write locally. r0 and r2 are handed their batches for
+# the other zone, and then write locally. r0 and r2 are handed their splits for
 # nothing and pay on the way out to the store. The trace says which calls paid,
 # and the nodes channel says which nodes were charged for the crossing.
 #

@@ -11,7 +11,7 @@ import losim.pb.Input;
 import losim.pb.JobGrpc;
 import losim.pb.Result;
 import losim.pb.Workload;
-import thumbs.pb.Batch;
+import thumbs.pb.Split;
 import thumbs.pb.Nothing;
 import thumbs.pb.Sizes;
 import thumbs.pb.ThumbnailerGrpc;
@@ -25,13 +25,13 @@ import thumbs.pb.ThumbnailerGrpc;
  * engine can turn it down and measure a smaller version of the same design; a job
  * that held its own size would have nothing to turn.
  *
- * <p>Two stretches, deliberately of different shapes. Handing out batches fans out
+ * <p>Two stretches, deliberately of different shapes. Handing out splits fans out
  * over every renderer at once, so it is the part that gets shorter when the
  * cluster grows. Collecting the totals is one call per renderer and a merge here,
  * so it is the part that does not. A projection that cannot tell those apart will
  * say a design scales when it does not.
  *
- * <p>The frames are made a batch at a time and never held whole. At full size they
+ * <p>The frames are made a split at a time and never held whole. At full size they
  * would arrive from storage and no master would hold them, so holding them
  * here would put a linear term in the one node whose memory is meant to be flat —
  * and the fitted law would follow it faithfully into the wrong answer.
@@ -39,17 +39,17 @@ import thumbs.pb.ThumbnailerGrpc;
 public final class RenderMaster extends JobGrpc.JobImplBase {
 
     /**
-     * Frames per batch.
+     * Frames per split.
      *
      * <p>Small enough that the smallest step of a probe ladder is still many
-     * batches. Batches are whole, and the worst node's disk is the peak of an
-     * integer count of them, so at a few batches per renderer that rounding is a
+     * splits. Splits are whole, and the worst node's disk is the peak of an
+     * integer count of them, so at a few splits per renderer that rounding is a
      * real bend in the measurement — and the engine refuses a disk law over it,
      * correctly and uselessly.
      */
     static final int FRAMES_PER_BATCH = 50;
 
-    /** Batches in flight at once, so fanning out does not mean holding the workload. */
+    /** Splits in flight at once, so fanning out does not mean holding the workload. */
     static final int IN_FLIGHT = 8;
 
     /** The shape of the data, which is this job's business and nowhere in a simulation. */
@@ -76,28 +76,28 @@ public final class RenderMaster extends JobGrpc.JobImplBase {
 
         long frames = work.getCount();
         var catalogue = new Assets(CATALOGUE, SKEW, here.seed());
-        int batches = (int) ((frames + FRAMES_PER_BATCH - 1) / FRAMES_PER_BATCH);
+        int splits = (int) ((frames + FRAMES_PER_BATCH - 1) / FRAMES_PER_BATCH);
 
         // Fanned out across every renderer at once, which is what makes this the
         // stretch a bigger cluster finishes sooner.
-        var lost = new ConcurrentLinkedQueue<Batch>();
+        var lost = new ConcurrentLinkedQueue<Split>();
         var room = new Semaphore(IN_FLIGHT);
-        var done = new CountDownLatch(batches);
+        var done = new CountDownLatch(splits);
         try {
-            for (int i = 0; i < batches; i++) {
+            for (int i = 0; i < splits; i++) {
                 int size = (int) Math.min(FRAMES_PER_BATCH, frames - (long) i * FRAMES_PER_BATCH);
                 var assets = new StringBuilder();
                 for (String asset : catalogue.frames(size)) {
                     if (assets.length() > 0) assets.append(' ');
                     assets.append(asset);
                 }
-                final Batch batch = Batch.newBuilder()
+                final Split split = Split.newBuilder()
                         .setAssets(assets.toString()).setFrames(size).build();
                 room.acquire();
                 async.get(i % async.size()).withDeadlineAfter(8000, TimeUnit.MILLISECONDS)
-                     .thumbnail(batch, new StreamObserver<Sizes>() {
+                     .thumbnail(split, new StreamObserver<Sizes>() {
                              @Override public void onNext(Sizes s) { }
-                             @Override public void onError(Throwable t) { lost.add(batch); free(); }
+                             @Override public void onError(Throwable t) { lost.add(split); free(); }
                              @Override public void onCompleted() { free(); }
                              private void free() { room.release(); done.countDown(); }
                          });
@@ -106,19 +106,19 @@ public final class RenderMaster extends JobGrpc.JobImplBase {
         } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
 
         // Whatever did not come back has to be done again somewhere else. Nobody
-        // said which node died, or why: this master knows only that a batch it
+        // said which node died, or why: this master knows only that a split it
         // handed out has no answer, and that is the whole of what it gets to work
         // with. It is also not bookkeeping — a survivor absorbing a dead node's
         // catalogue is why a cluster that loses a node needs more memory than one
         // that does not, and a model fitted on clean results alone under-predicts
         // by exactly that much, optimistically.
         int redone = 0;
-        for (Batch batch = lost.poll(); batch != null; batch = lost.poll()) {
+        for (Split split = lost.poll(); split != null; split = lost.poll()) {
             redone++;
             for (String renderer : here.peersServing("Thumbnailer")) {
                 try {
                     ThumbnailerGrpc.newBlockingStub(here.channelTo(renderer))
-                            .withDeadlineAfter(8000, TimeUnit.MILLISECONDS).thumbnail(batch);
+                            .withDeadlineAfter(8000, TimeUnit.MILLISECONDS).thumbnail(split);
                     break;
                 } catch (StatusRuntimeException e) {
                     // That one is gone too. Try the next; there is no third outcome.
@@ -143,7 +143,7 @@ public final class RenderMaster extends JobGrpc.JobImplBase {
 
         out.onNext(Result.newBuilder()
                 .putAnswer("frames", String.valueOf(frames))
-                .putAnswer("batches", String.valueOf(batches))
+                .putAnswer("splits", String.valueOf(splits))
                 .putAnswer("redone", String.valueOf(redone))
                 .putAnswer("assets", String.valueOf(merged.size()))
                 .build());

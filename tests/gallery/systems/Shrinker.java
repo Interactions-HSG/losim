@@ -5,7 +5,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import losim.api.Losim;
-import thumbs.pb.Batch;
+import thumbs.pb.Split;
 import thumbs.pb.Blob;
 import thumbs.pb.Format;
 import thumbs.pb.Nothing;
@@ -23,9 +23,9 @@ import thumbs.pb.ThumbnailerGrpc;
  *   <li><b>memory</b> follows the <i>catalogue</i> — one retained thumbnail per
  *       distinct asset — and the catalogue saturates, because popular assets come
  *       back and rare ones do not;</li>
- *   <li><b>disk</b> follows the <i>volume</i>, linearly, because every batch is
+ *   <li><b>disk</b> follows the <i>volume</i>, linearly, because every split is
  *       written out whether or not its assets were new;</li>
- *   <li><b>wire bytes</b> follow the batch count, with a per-call constant that is
+ *   <li><b>wire bytes</b> follow the split count, with a per-call constant that is
  *       proportionally huge while the workload is small.</li>
  * </ul>
  *
@@ -54,25 +54,25 @@ public final class Shrinker extends ThumbnailerGrpc.ThumbnailerImplBase {
     private final Map<String, Integer> seen = new ConcurrentHashMap<>();
     private final Map<String, byte[]> kept = new ConcurrentHashMap<>();
 
-    @Override public void thumbnail(Batch batch, StreamObserver<Sizes> out) {
+    @Override public void thumbnail(Split split, StreamObserver<Sizes> out) {
         try {
             var here = Losim.current();
             var mine = new HashMap<String, Integer>();
-            for (String asset : batch.getAssets().split(" ")) {
+            for (String asset : split.getAssets().split(" ")) {
                 if (asset.isEmpty()) continue;
                 mine.merge(asset, 1, Integer::sum);
                 seen.merge(asset, 1, Integer::sum);
                 kept.computeIfAbsent(asset, k -> new byte[RETAINED_PER_ASSET]);
             }
 
-            here.units(batch.getFrames());
-            // Every batch is written out, new assets or not, so disk follows the
+            here.units(split.getFrames());
+            // Every split is written out, new assets or not, so disk follows the
             // volume while memory follows the catalogue.
-            here.wroteDisk((long) batch.getFrames() * WRITTEN_PER_FRAME);
+            here.wroteDisk((long) split.getFrames() * WRITTEN_PER_FRAME);
             // How the engine learns what this node's memory is really a function of.
             here.reveal("distinctAssets", kept.size());
 
-            keepInStore(batch);
+            keepInStore(split);
 
             var answer = Sizes.newBuilder().setFormat(Format.WEBP);
             mine.forEach((asset, n) -> answer.putBytes(asset, n * RETAINED_PER_ASSET));
@@ -99,20 +99,20 @@ public final class Shrinker extends ThumbnailerGrpc.ThumbnailerImplBase {
      * store has no second hop, and the same class is a one-tier design there — the
      * topology decides, not the code.
      */
-    private void keepInStore(Batch batch) {
+    private void keepInStore(Split split) {
         var here = Losim.current();
         var stores = here.peersServing("Store");
         if (stores.isEmpty()) return;
-        String key = here.node() + "/" + batch.hashCode();
+        String key = here.node() + "/" + split.hashCode();
         try {
-            StoreGrpc.newBlockingStub(here.channelTo(stores.get(batch.getFrames() % stores.size())))
+            StoreGrpc.newBlockingStub(here.channelTo(stores.get(split.getFrames() % stores.size())))
                     .withDeadlineAfter(4000, TimeUnit.MILLISECONDS)
                     .put(Blob.newBuilder().setKey(key)
-                            .setBytes(batch.getFrames() * WRITTEN_PER_FRAME).build());
+                            .setBytes(split.getFrames() * WRITTEN_PER_FRAME).build());
         } catch (RuntimeException e) {
             // The store did not answer. The thumbnails are still correct; what is
             // lost is the copy, and the caller is told nothing, because a renderer
-            // that failed a batch over a cold store would be a worse design.
+            // that failed a split over a cold store would be a worse design.
             here.reveal("storeMissed", true);
         }
     }

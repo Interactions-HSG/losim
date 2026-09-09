@@ -69,21 +69,21 @@ The distinction has a practical consequence. Compare:
 <CodeGroup>
 ```java asks once
 var workers = here.peersServing("Thumbnailer");     // before the loop
-for (var batch : batches)
-    dispatch(workers.get(i++ % workers.size()), batch);
+for (var split : splits)
+    dispatch(workers.get(i++ % workers.size()), split);
 ```
 
 ```java asks again
-for (var batch : batches) {
+for (var split : splits) {
     var workers = here.peersServing("Thumbnailer"); // each time round
     if (workers.isEmpty()) throw new IllegalStateException("nobody left");
-    dispatch(workers.get(i++ % workers.size()), batch);
+    dispatch(workers.get(i++ % workers.size()), split);
 }
 ```
 </CodeGroup>
 
 The first keeps sending work to a node after it dies and pays a deadline for each
-batch. The second refreshes discovery for each batch and can stop sooner.
+split. The second refreshes discovery for each split and can stop sooner.
 
 ## Registration
 

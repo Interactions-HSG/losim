@@ -4,7 +4,7 @@ description: "The tutorial system and its source files."
 icon: "list-check"
 ---
 
-Build a small thumbnail system. A master reads an album, sends batches of
+Build a small thumbnail system. A master reads an album, sends splits of
 frames to nodes that serve the thumbnail service, and collects the results. The
 later steps add failures so we can inspect the system's response.
 
@@ -22,7 +22,7 @@ can measure them. The thumbnail algorithm stays simple.
     [Write it ->](/first/schema)
   </Step>
   <Step title="Shrinker.java: the service">
-    A handler that accepts a batch of frames and returns thumbnails, plus the
+    A handler that accepts a split of frames and returns thumbnails, plus the
     adapter used to call it from a test.
 
     [Write it ->](/first/service)

@@ -9,7 +9,7 @@ icon: "gear"
 protoc generates this signature:
 
 ```java
-public void thumbnail(Batch request, StreamObserver<Thumbs> responseObserver)
+public void thumbnail(Split request, StreamObserver<Thumbs> responseObserver)
 ```
 
 A callback-based method is inconvenient to call directly from a test. The adapter
@@ -23,7 +23,7 @@ package lab;
 
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
-import lab.pb.Batch;
+import lab.pb.Split;
 import lab.pb.Empty;
 import lab.pb.Health;
 import lab.pb.Thumbs;
@@ -32,10 +32,10 @@ import lab.pb.ThumbnailerGrpc;
 /** Adapts grpc-java callbacks to ordinary methods. */
 public abstract class ThumbnailerBase extends ThumbnailerGrpc.ThumbnailerImplBase {
 
-    protected abstract Thumbs thumbnail(Batch request);
+    protected abstract Thumbs thumbnail(Split request);
     protected abstract Health capacity(Empty request);
 
-    @Override public final void thumbnail(Batch request, StreamObserver<Thumbs> out) {
+    @Override public final void thumbnail(Split request, StreamObserver<Thumbs> out) {
         respond(out, () -> thumbnail(request));
     }
 
@@ -78,7 +78,7 @@ public final class Shrinker extends ThumbnailerBase {
     /** Longest edge of a thumbnail, in pixels. */
     private static final int EDGE = 128;
 
-    @Override protected Thumbs thumbnail(Batch request) {
+    @Override protected Thumbs thumbnail(Split request) {
         var here = Losim.current();
 
         // Declare the number of input units processed by this call.
@@ -135,7 +135,7 @@ public final class Shrinker extends ThumbnailerBase {
 
 <Columns cols={2}>
   <Card title="Plain service signature" icon="check">
-    `Thumbs thumbnail(Batch)` contains no losim type. You can construct a
+    `Thumbs thumbnail(Split)` contains no losim type. You can construct a
     `Shrinker`, call `thumbnail(…)`, and assert on the result without a simulation.
     The adapter provides this method.
   </Card>
@@ -205,7 +205,7 @@ Before running a simulation:
 @Test void makesOneThumbnailPerFrame() {
     var shrinker = new Shrinker();
 
-    Thumbs thumbs = shrinker.thumbnail(Batch.newBuilder()
+    Thumbs thumbs = shrinker.thumbnail(Split.newBuilder()
             .addFrames(frame("a", 640, 480))
             .addFrames(frame("b", 800, 600))
             .build());

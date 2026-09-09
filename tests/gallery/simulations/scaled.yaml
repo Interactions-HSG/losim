@@ -6,7 +6,7 @@
 # projects — with an error bar, and with a refusal wherever the ladder bends.
 #
 # Watch which variable each law is fitted against. Disk is fitted against the
-# workload and comes out linear, because every batch is written out whether or not
+# workload and comes out linear, because every split is written out whether or not
 # its assets were new. Memory is fitted against `distinctAssets`, which is a number
 # Shrinker.java reveals about itself, and comes out linear in *that* — while the
 # catalogue itself grows sublinearly in frames, because popular assets come back.

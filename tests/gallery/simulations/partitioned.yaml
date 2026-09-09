@@ -2,7 +2,7 @@
 #
 # r0 is not dead. It boots, it answers, it holds everything it has ever rendered
 # — and for six hundred reference milliseconds the master cannot reach it.
-# From master's side that is indistinguishable from a dead node: batches go out
+# From master's side that is indistinguishable from a dead node: splits go out
 # and nothing comes back, and there is no way to tell the two apart from here.
 # That is the whole difficulty, and it is why the master does the only thing
 # it can, which is to hand the work to somebody else.

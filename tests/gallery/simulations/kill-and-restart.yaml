@@ -1,7 +1,7 @@
 # One renderer dies partway through and comes back a second later.
 #
 # Nothing tells the master that r1 is gone. It learns the only way anything
-# learns: batches it handed out stop coming back. Those batches have to be redone
+# learns: splits it handed out stop coming back. Those splits have to be redone
 # on a survivor, so some other renderer ends up holding r1's catalogue as well as
 # its own — which is why a cluster that loses a node needs more memory than one
 # that does not, and why a model fitted only on clean results under-predicts.

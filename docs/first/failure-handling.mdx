@@ -36,12 +36,12 @@ thumbs.yaml  seed 7  completed in 3980 refMs
 Look at what the master logged:
 
 ```
-a batch did not come back: w1 did not answer (unreachable)
-a batch did not come back: w1 did not answer (unreachable)
-a batch did not come back: w1 did not answer (unreachable)
+a split did not come back: w1 did not answer (unreachable)
+a split did not come back: w1 did not answer (unreachable)
+a split did not come back: w1 did not answer (unreachable)
 ```
 
-Three batches were lost. Each used the master's **full 2000 refMs deadline**
+Three splits were lost. Each used the master's **full 2000 refMs deadline**
 before detection, increasing the run from 2416 refMs to 3980.
 
 <Note>
@@ -190,9 +190,9 @@ span, byte count, loss draw, and check of callee availability. The bill includes
 the cost of those attempts.
 
 The master can also **notice sooner**. It asks every worker for capacity at
-the start and repeats the check before dispatching each batch.
+the start and repeats the check before dispatching each split.
 `peersServing("Thumbnailer")` omits dead nodes. A master that rechecks before
-each batch therefore stops sending work to `w1` after the first failure.
+each split therefore stops sending work to `w1` after the first failure.
 
 <Card title="Next: costs" icon="arrow-right" href="/first/costs">
   Five buckets, printed separately.

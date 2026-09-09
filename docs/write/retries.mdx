@@ -34,7 +34,7 @@ Declare it if it is true:
 ```proto
 service Thumbnailer {
   // Reads data and does not change it.
-  rpc Thumbnail (Batch) returns (Thumbs) { option idempotency_level = NO_SIDE_EFFECTS; }
+  rpc Thumbnail (Split) returns (Thumbs) { option idempotency_level = NO_SIDE_EFFECTS; }
 }
 
 service Registry {
@@ -133,7 +133,7 @@ for (int attempt = 1; ; attempt++) {
     var workers = Losim.current().peersServing("Thumbnailer");
     if (workers.isEmpty()) throw new IllegalStateException("nobody left");
     try {
-        return call(workers.get(attempt % workers.size()), batch);   // a different peer
+        return call(workers.get(attempt % workers.size()), split);   // a different peer
     } catch (StatusRuntimeException e) {
         if (attempt >= 3) throw e;
         Losim.current().sleep(50 * Math.pow(2, attempt));

@@ -18,7 +18,7 @@ class ShrinkerTest {
     @Test void makesOneThumbnailPerFrame() {
         var shrinker = new Shrinker();
 
-        Thumbs thumbs = shrinker.thumbnail(Batch.newBuilder()
+        Thumbs thumbs = shrinker.thumbnail(Split.newBuilder()
                 .addFrames(frame("a", 640, 480))
                 .addFrames(frame("b", 800, 600))
                 .build());
@@ -99,7 +99,7 @@ not incur simulated waiting.
 If a handler needs the node's identity, guard the state call:
 
 ```java
-@Override protected Thumbs thumbnail(Batch request) {
+@Override protected Thumbs thumbnail(Split request) {
     var here = Losim.current();
     if (here.isRunning()) here.reveal("on", here.node());
     return work(request);

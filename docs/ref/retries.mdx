@@ -56,7 +56,7 @@ idempotency_level, so running it twice is not known to be safe. Declare
 Either level satisfies it:
 
 ```proto
-rpc Thumbnail (Batch) returns (Thumbs) { option idempotency_level = NO_SIDE_EFFECTS; }
+rpc Thumbnail (Split) returns (Thumbs) { option idempotency_level = NO_SIDE_EFFECTS; }
 rpc Announce  (Health) returns (Empty) { option idempotency_level = IDEMPOTENT; }
 ```
 

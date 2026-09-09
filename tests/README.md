@@ -107,7 +107,7 @@ It contains these directories:
 | **kill-and-restart** | one renderer dies and comes back, and a survivor absorbs its catalogue |
 | **rate-of-failures** | `per:` at two levels: a pool that degrades on its own draw, and one node whose rpc returns UNAVAILABLE at a call rate, with a retry policy that the schema — not the file — allows |
 | **partitioned** | the network splits and heals. From the master's side, unreachable and dead are the same thing |
-| **cross-zone** | three tiers in two zones, so every batch crosses once and the trace says at which hop |
+| **cross-zone** | three tiers in two zones, so every split crosses once and the trace says at which hop |
 | **out-of-memory** | one renderer too small for the catalogue it ends up with. Nothing declares that it will fail |
 
 Between them they carry twenty-one event kinds, including the two the reference

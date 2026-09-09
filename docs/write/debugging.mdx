@@ -111,7 +111,7 @@ class WireTest {
 
     @Test void aFailureCarriesItsReason() {
         var e = assertThrows(StatusRuntimeException.class,
-                () -> stub.thumbnail(Batch.getDefaultInstance()));
+                () -> stub.thumbnail(Split.getDefaultInstance()));
         assertEquals(Status.Code.INTERNAL, e.getStatus().getCode());
         assertTrue(e.getStatus().getDescription().contains("empty"));  // your adapter's message
     }

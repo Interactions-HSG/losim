@@ -39,7 +39,7 @@ import losim.pb.Workload;
 
 public final class RenderJob extends JobGrpc.JobImplBase {
 
-    private static final int FRAMES_PER_BATCH = 25;   // batch size
+    private static final int FRAMES_PER_BATCH = 25;   // split size
 
     /** Builds the workload outside the measured run. */
     @Override public void load(Input in, StreamObserver<Workload> out) {
@@ -83,20 +83,20 @@ public final class RenderJob extends JobGrpc.JobImplBase {
             for (int i = 0; i < Math.max(1, health.getVcpu()); i++) share.add(name);
         });
 
-        // 3. Dispatch batches asynchronously.
+        // 3. Dispatch splits asynchronously.
         int thumbs = 0, failed = 0;
         var inflight = new ArrayList<ListenableFuture<Thumbs>>();
         var frames = album.getFrameList();
 
         for (int i = 0; i * FRAMES_PER_BATCH < frames.size(); i++) {
-            var batch = Batch.newBuilder().addAllFrames(frames.subList(
+            var split = Split.newBuilder().addAllFrames(frames.subList(
                     i * FRAMES_PER_BATCH,
                     Math.min(frames.size(), (i + 1) * FRAMES_PER_BATCH))).build();
 
             String worker = share.get(i % share.size());
             var stub = ThumbnailerGrpc.newFutureStub(here.channelTo(worker))
                                       .withDeadlineAfter(2_000, TimeUnit.MILLISECONDS);
-            inflight.add(stub.thumbnail(batch));
+            inflight.add(stub.thumbnail(split));
         }
 
         for (ListenableFuture<Thumbs> f : inflight) {
@@ -105,7 +105,7 @@ public final class RenderJob extends JobGrpc.JobImplBase {
             } catch (ExecutionException e) {
                 // A failed node is reported through the failed call.
                 failed++;
-                here.log("a batch did not come back: " + e.getCause().getMessage());
+                here.log("a split did not come back: " + e.getCause().getMessage());
             }
         }
 
@@ -175,7 +175,7 @@ behavior to project.
     Dead nodes are omitted. This is service discovery, not a liveness check. A
     real network does not provide a current list of live peers. A failed node is
     discovered when a call stops answering, which is what happens in step 3 when
-    a batch does not return.
+    a split does not return.
 
     The argument is the **service name from your `.proto`**, `Thumbnailer`. The
     same name is used as the key in `runs:`. The Java class and file path are
@@ -232,7 +232,7 @@ means 2000 *reference* milliseconds. losim rewrites it into real time using
 `k_time`. A call without a deadline waits five seconds before giving up, and the
 trace records that timeout.
 
-**The fan-out is asynchronous.** `newFutureStub` dispatches each batch before the
+**The fan-out is asynchronous.** `newFutureStub` dispatches each split before the
 job collects the results. Using `newBlockingStub` in the loop would use the nodes
 one at a time. The answer would remain correct while the work became sequential.
 The [Spans view](/viewer/views) shows this difference.
