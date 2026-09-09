@@ -4,7 +4,7 @@ import java.util.*;
  * t7-abuse — a machine killed mid-run, a standing rate of failure, and two retry
  * policies of which one must be refused.
  *
- * <p><b>Catches:</b> fault scheduling, the idempotency gate, and a coordinator that
+ * <p><b>Catches:</b> fault scheduling, the idempotency gate, and a master that
  * only works when nothing goes wrong. The answer has to come out exact anyway —
  * "no word lost" is observed, not projected, and a bad afternoon is no excuse.
  */

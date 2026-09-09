@@ -137,7 +137,7 @@ public record Simulation(
      *
      * <p>It was invisible until 3.0 because the thing that started the work was a
      * driver object that ran on a node without being placed there, so a
-     * coordinator's {@code runs:} was genuinely empty. Two places asked this
+     * master's {@code runs:} was genuinely empty. Two places asked this
      * question and both got it wrong the same way; this is the only place that
      * asks it now.
      */
@@ -213,7 +213,7 @@ public record Simulation(
      *
      * <p>Every pool that had more than one machine is regenerated at {@code n},
      * keeping its instance type, its zones and its services. Singletons — the
-     * coordinator, usually — are left alone: varying the data and the cluster
+     * master, usually — are left alone: varying the data and the cluster
      * independently is what lets a resource be attributed to the right one, and
      * that only works if resizing means resizing the workers.
      */

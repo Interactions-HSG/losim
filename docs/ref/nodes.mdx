@@ -6,7 +6,7 @@ icon: "server"
 
 ```yaml
 nodes:
-  coordinator:                       # one node, named by its key
+  master:                       # one node, named by its key
     instance: m5.large
     zone: eu-central-1a
     runs: { losim.Job: src/RenderJob.java }
@@ -123,7 +123,7 @@ overrides:
   w1: { failures: [ { kill: true, at: 900 refMs } ] }     # the one that dies
 ```
 
-A mixed pool lets the coordinator respond to capacity and failure differences.
+A mixed pool lets the master respond to capacity and failure differences.
 
 An `overrides:` entry **replaces** the pool's `failures:` rather than adding to
 them. A node with an override receives only the listed failure rules.

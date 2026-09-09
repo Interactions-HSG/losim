@@ -1,6 +1,6 @@
 ---
 title: "8. Failure handling"
-description: "Kill a node during a run and inspect coordinator detection."
+description: "Kill a node during a run and inspect master detection."
 icon: "bomb"
 ---
 
@@ -33,7 +33,7 @@ thumbs.yaml  seed 7  completed in 3980 refMs
   1102 events, 340 spans, 68 series -> build/thumbs.json
 ```
 
-Look at what the coordinator logged:
+Look at what the master logged:
 
 ```
 a batch did not come back: w1 did not answer (unreachable)
@@ -41,7 +41,7 @@ a batch did not come back: w1 did not answer (unreachable)
 a batch did not come back: w1 did not answer (unreachable)
 ```
 
-Three batches were lost. Each used the coordinator's **full 2000 refMs deadline**
+Three batches were lost. Each used the master's **full 2000 refMs deadline**
 before detection, increasing the run from 2416 refMs to 3980.
 
 <Note>
@@ -62,8 +62,8 @@ w1:
 ```yaml the link is cut
 w1:
   failures:
-    - { partition: coordinator, at: 900 refMs }
-    - { heal: coordinator, at: 2500 refMs }
+    - { partition: master, at: 900 refMs }
+    - { heal: master, at: 2500 refMs }
 ```
 
 ```yaml the packet is dropped
@@ -96,7 +96,7 @@ Node failures are written in that node's `failures:`:
 | `freeze: true` + `for: 300 refMs` | a stop-the-world pause. Calls **do not fail**; they wait on the node's own threads. |
 | `degrade: 4` | multiplies every declared cost on that node. |
 | `spotReclaim: true` + `notice: 200 refMs` | the node sends notice and then stops. |
-| `partition: coordinator` / `heal: coordinator` | cuts and restores the link between this node and the coordinator. |
+| `partition: master` / `heal: master` | cuts and restores the link between this node and the master. |
 | `restart: true` | starts fresh service instances with an empty `local()`. |
 
 RPC-level failures apply to **one RPC on one node** and are written inside its
@@ -189,9 +189,9 @@ Retrying adds cost. The retry interceptor sits
 span, byte count, loss draw, and check of callee availability. The bill includes
 the cost of those attempts.
 
-The coordinator can also **notice sooner**. It asks every worker for capacity at
+The master can also **notice sooner**. It asks every worker for capacity at
 the start and repeats the check before dispatching each batch.
-`peersServing("Thumbnailer")` omits dead nodes. A coordinator that rechecks before
+`peersServing("Thumbnailer")` omits dead nodes. A master that rechecks before
 each batch therefore stops sending work to `w1` after the first failure.
 
 <Card title="Next: costs" icon="arrow-right" href="/first/costs">

@@ -99,8 +99,8 @@ metadata header**. The result is a distributed call stack rather than separate
 per-node timelines.
 
 ```
-phase    thumbnails                 coordinator   1991 → 3581
-  rpc    Thumbnailer.Thumbnail      coordinator   2040 → 3575     to w2
+phase    thumbnails                 master   1991 → 3581
+  rpc    Thumbnailer.Thumbnail      master   2040 → 3575     to w2
     handler Thumbnailer.Thumbnail   w2            2042 → 3554
       rpc  Registry.Announce        w2            2069 → 2140     to desk
         handler Registry.Announce   desk          2072 → 2116
@@ -164,7 +164,7 @@ while Topology preserves the system's structural shape.
   </Card>
   <Card title="Edges weighted by bytes" icon="weight-hanging">
 Edge weight comes from the destination of the system's **data**, not call count. A
-    coordinator asking forty nodes a one-word question has forty thin edges; the
+    master asking forty nodes a one-word question has forty thin edges; the
     one call that moved a megabyte is the fat one. Cross-zone edges are tinted because
     the ledger charges for them.
   </Card>

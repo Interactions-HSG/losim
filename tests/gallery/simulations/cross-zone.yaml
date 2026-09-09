@@ -2,7 +2,7 @@
 #
 # The renderers alternate between the zones and the blob store sits only in the
 # second, so every batch crosses exactly once — but at a different hop depending
-# on which renderer took it. r1 and r3 pay on the way in, from a coordinator in
+# on which renderer took it. r1 and r3 pay on the way in, from a master in
 # the other zone, and then write locally. r0 and r2 are handed their batches for
 # nothing and pay on the way out to the store. The trace says which calls paid,
 # and the nodes channel says which nodes were charged for the crossing.
@@ -25,7 +25,7 @@ nodes:
     count:    4
     prefix:   r
     instance: c5.large
-    # Two zones, taken in turn: r0 and r2 are beside the coordinator, r1 and r3
+    # Two zones, taken in turn: r0 and r2 are beside the master, r1 and r3
     # are not, and the trace says which calls paid for it.
     zone:     [eu-central-1a, eu-central-1b]
     runs:     { Thumbnailer: tests/gallery/systems/Shrinker.java }

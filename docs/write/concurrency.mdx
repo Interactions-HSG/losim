@@ -120,7 +120,7 @@ Save this as `queueing.yaml`. One two-vCPU node, eight concurrent calls at 100 r
 ```yaml queueing.yaml
 seed: 1
 nodes:
-  coordinator:
+  master:
     instance: m5.large
     zone: eu-central-1a
     runs: { losim.Job: src/lab/FanOutJob.java }   # 8 calls with newFutureStub, then collects

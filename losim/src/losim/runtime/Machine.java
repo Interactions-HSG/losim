@@ -647,7 +647,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
     /**
      * Work this machine does that no RPC carried.
      *
-     * <p>Without it a coordinator merging locally is indistinguishable from one
+     * <p>Without it a master merging locally is indistinguishable from one
      * doing nothing: no span covers it, no series shows the machine busy, and the
      * most expensive stretch of a run reads as idle (D8 rule 5).
      */
@@ -688,7 +688,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
     /**
      * Runs work on this machine's own threads, with the machine ambient.
      *
-     * <p>This is how a coordinator drives its own calls. It matters for more than
+     * <p>This is how a master drives its own calls. It matters for more than
      * tidiness: work started on a thread the machine did not create carries no
      * machine identity, so its memory and CPU are attributed to nobody, and losim
      * can only flag it rather than count it (D11).

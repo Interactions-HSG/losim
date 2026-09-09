@@ -83,11 +83,11 @@ costs.
 The trace says what happened:
 
 ```json
-{ "kind": "retry", "vm": "coordinator", "detail": {
+{ "kind": "retry", "vm": "master", "detail": {
     "method": "lab.Thumbnailer.Thumbnail", "attempt": 1, "of": 3,
     "after": "DEADLINE_EXCEEDED", "backoffRefMs": 50.0 } }
 
-{ "kind": "retry_done", "vm": "coordinator", "detail": {
+{ "kind": "retry_done", "vm": "master", "detail": {
     "method": "lab.Thumbnailer.Thumbnail", "attempts": 3, "status": "OK" } }
 ```
 
@@ -151,7 +151,7 @@ This example makes the retry trade-off visible:
 ```yaml retrying.yaml
 seed: 4
 nodes:
-  coordinator:
+  master:
     instance: m5.large
     zone: eu-central-1a
     runs: { losim.Job: src/lab/RenderJob.java }

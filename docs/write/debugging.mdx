@@ -166,7 +166,7 @@ channels in this order:
   <Step title="Shrink the system and stop compressing time">
     ```yaml
     nodes:
-      coordinator:
+      master:
         instance: m5.large
         zone: eu-central-1a
         runs: { losim.Job: src/lab/RenderJob.java }
@@ -176,7 +176,7 @@ channels in this order:
         runs: { Thumbnailer: src/lab/Shrinker.java }
                              # no failures are configured
     ```
-    Start with one coordinator, one worker, and no failures. If it fails here, the
+    Start with one master, one worker, and no failures. If it fails here, the
     additional system features are not the cause.
   </Step>
 

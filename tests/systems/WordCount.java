@@ -17,7 +17,7 @@ import losim.pb.Workload;
  * <p>The map phase fans out on an async stub and waits on a latch, which is how you
  * fan out over gRPC without a thread per call. The reduce phase blocks, because the
  * interesting thing about it is what happens when a call never comes back: the
- * coordinator waits out its own deadline, learns nothing about why, and does the
+ * master waits out its own deadline, learns nothing about why, and does the
  * work itself.
  */
 public final class WordCount extends JobGrpc.JobImplBase {
@@ -68,7 +68,7 @@ public final class WordCount extends JobGrpc.JobImplBase {
         await(done, 60);
 
         // Whatever did not come back has to be redone somewhere else. Nobody said
-        // which node died or why — the coordinator knows only that a chunk it sent
+        // which node died or why — the master knows only that a chunk it sent
         // out has no answer, and that is the whole of what it gets to work with.
         for (int i = 0; i < CORPUS.length; i++) {
             if (mapped.containsKey(i)) continue;

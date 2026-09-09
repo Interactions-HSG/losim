@@ -4,7 +4,7 @@ description: "The tutorial system and its source files."
 icon: "list-check"
 ---
 
-Build a small thumbnail system. A coordinator reads an album, sends batches of
+Build a small thumbnail system. A master reads an album, sends batches of
 frames to nodes that serve the thumbnail service, and collects the results. The
 later steps add failures so we can inspect the system's response.
 
@@ -45,7 +45,7 @@ can measure them. The thumbnail algorithm stays simple.
 ## System shape
 
 ```
-  coordinator (m5.large, eu-central-1a)   runs losim.Job
+  master (m5.large, eu-central-1a)   runs losim.Job
       │
       ├── w0  c5.large  eu-central-1a  ┐
       ├── w1  c5.large  eu-central-1b  │  all four serve Thumbnailer
@@ -59,7 +59,7 @@ same interval and costs less, which makes the effect of placement visible.
 ## Result
 
 The run produces a trace with events, node activity, and a four-bucket bill. A
-later step kills a node and shows the coordinator detecting the failure through
+later step kills a node and shows the master detecting the failure through
 the call deadline.
 
 <Note>

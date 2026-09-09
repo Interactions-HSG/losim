@@ -1,10 +1,10 @@
 # The network splits, and then it comes back.
 #
 # r0 is not dead. It boots, it answers, it holds everything it has ever rendered
-# — and for six hundred reference milliseconds the coordinator cannot reach it.
+# — and for six hundred reference milliseconds the master cannot reach it.
 # From master's side that is indistinguishable from a dead node: batches go out
 # and nothing comes back, and there is no way to tell the two apart from here.
-# That is the whole difficulty, and it is why the coordinator does the only thing
+# That is the whole difficulty, and it is why the master does the only thing
 # it can, which is to hand the work to somebody else.
 #
 # Then it heals, and r0 is back with a catalogue nobody needed. The work it was

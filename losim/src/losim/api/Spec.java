@@ -9,7 +9,7 @@ package losim.api;
  * availability zone in its instance metadata. None of that requires a network.
  *
  * <p>A real process cannot read another node's limits. An orchestrator that needs
- * that information asks the node over gRPC, as a scheduler would. A coordinator
+ * that information asks the node over gRPC, as a scheduler would. A master
  * therefore receives current capacity through a registration call rather than a
  * shared table.
  *

@@ -59,7 +59,7 @@ input:
 
 # Thumbnail is declared NO_SIDE_EFFECTS in the .proto, so asking again needs no
 # argument from anybody — the gate reads the schema, not this file. Take the
-# retry policy out and the answer is still right, because the coordinator redoes
+# retry policy out and the answer is still right, because the master redoes
 # whatever did not come back; what changes is how much later, and where.
 retries:
   - { method: thumbs.Thumbnailer.Thumbnail, attempts: 3, backoff: 60 refMs, multiplier: 2 }

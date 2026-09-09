@@ -278,7 +278,7 @@ public final class Machines implements AutoCloseable {
      * in the caller — both are the server being rebuilt, which is what a restart is.
      *
      * <p>Unguarded it is a quiet disaster rather than a loud one. Nothing fails: a
-     * peer simply appears twice in {@code serving()}, so a coordinator that fans out
+     * peer simply appears twice in {@code serving()}, so a master that fans out
      * one task per peer does the same work twice on the same machine, and every
      * count derived from the cluster's shape is wrong by a factor nobody chose. The
      * cluster is a set, so this is where it becomes one.

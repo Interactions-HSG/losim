@@ -28,7 +28,7 @@ final class Fixture {
             seed: 1
 
             nodes:
-              coordinator:
+              master:
                 instance: m5.large
                 zone: eu-central-1a
                 runs: { losim.Job: src/WordCountJob.java }

@@ -20,7 +20,7 @@ nodes:
       w2: { memoryMb: 4 }      # cannot hold its bucket, and will say so
       w5:
         # After every mapper has answered and before the last reducer is asked, so
-        # the coordinator has to notice a node that is simply not there any more.
+        # the master has to notice a node that is simply not there any more.
         failures:
           - { kill: true, at: 400 refMs }
 

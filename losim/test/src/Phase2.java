@@ -73,7 +73,7 @@ public class Phase2 {
         """;
 
     /**
-     * A handler that calls another machine, which is what a coordinator is.
+     * A handler that calls another machine, which is what a master is.
      *
      * <p>Machines are found by what they serve and called over a channel losim made,
      * so the call is a real one: latency, bytes, a span beneath the handler that
@@ -586,15 +586,15 @@ public class Phase2 {
                 && "killed by the simulation".equals(e.detail().get("reason"))),
               "the simulation's failure fired");
         check(tel.events().stream().anyMatch(e -> e.kind().equals("rpc_timeout")),
-              "the coordinator found out by waiting, not by asking whether the machine was alive");
+              "the master found out by waiting, not by asking whether the machine was alive");
         // Which of the two this run produces is a race with the host, not a
         // property of the design: the dispatcher fires the kill at a wall-clock
         // instant, while how long the map phase takes moves with load. On a
         // two-core runner the map is still open at 400 refMs and w5 dies before
         // it has answered, so there is no reduce to it to fail. Both are the
-        // coordinator coping with a machine that is not there, and asserting only
+        // master coping with a machine that is not there, and asserting only
         // the one a fast laptop produces is asserting the speed of the laptop.
-        // Read off the coordinator's own narration rather than off a span kind.
+        // Read off the master's own narration rather than off a span kind.
         // It used to be a `compute` span, which existed because a driver object
         // running outside every call had no span of its own; the merge now happens
         // inside the losim.Job/Run handler, where the node is already busy for it.

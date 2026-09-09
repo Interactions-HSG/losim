@@ -25,7 +25,7 @@ one does not imply handling the others.
     dispatched still uses its full deadline.
 
     **Design response:** re-check discovery before each dispatch and keep enough
-    state to redo lost work elsewhere. A coordinator must track each dispatched item
+    state to redo lost work elsewhere. A master must track each dispatched item
     to recover after a node failure.
   </Accordion>
 
@@ -84,14 +84,14 @@ one does not imply handling the others.
     ```yaml
     w1:
       failures:
-        - { partition: coordinator, at: 900 refMs }
-        - { heal: coordinator, at: 2500 refMs }
+        - { partition: master, at: 900 refMs }
+        - { heal: master, at: 2500 refMs }
     ```
 
     **Breaks:** the assumption that unreachable means dead.
 
     `w1` is alive, remains listed by discovery, and continues serving reachable
-    callers. The coordinator sees the same result as a kill. This is a **network
+    callers. The master sees the same result as a kill. This is a **network
     partition**; the two endpoints have different views of the connection.
 
     **Design response:** route through another reachable node when the design allows
@@ -217,7 +217,7 @@ These practices apply across the failure types:
 
 <Steps>
   <Step title="Hand out work in pieces, and remember what you handed out">
-    A coordinator that cannot say which piece is outstanding cannot redo it.
+    A master that cannot say which piece is outstanding cannot redo it.
   </Step>
   <Step title="Put a deadline on everything">
     It is the only thing that distinguishes a frozen node from a slow one in
@@ -240,7 +240,7 @@ Run the same system twice: once with failures and once without them.
 seed: 7
 
 nodes:
-  coordinator:
+  master:
     instance: m5.large
     zone: eu-central-1a
     runs: { losim.Job: src/lab/RenderJob.java }
@@ -253,8 +253,8 @@ nodes:
     overrides:
       w0:
         failures:
-          - { partition: coordinator, at: 1600 refMs }
-          - { heal: coordinator, at: 2400 refMs }
+          - { partition: master, at: 1600 refMs }
+          - { heal: master, at: 2400 refMs }
       w1:
         failures:
           - { kill: true, at: 900 refMs }
@@ -281,7 +281,7 @@ Experiments.here()
 
 Open `weather`, then pick `calm` from `compare with...` so both run on [one clock](/viewer/views#two-runs-on-one-clock).
 `w1` goes red and stays red. `w2` keeps working but falls behind. The partition leaves
-`w0` alive and serving while the coordinator cannot reach it. Each event appears as a
+`w0` alive and serving while the master cannot reach it. Each event appears as a
 marker on the bar.
 
 The side-by-side view makes the slow node visible by comparing it with the same node

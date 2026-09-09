@@ -5,7 +5,7 @@ import losim.t.Counts;
 import losim.t.WorkerGrpc;
 
 /**
- * A handler that calls another machine — the shape half a coordinator is made of.
+ * A handler that calls another machine — the shape half a master is made of.
  *
  * <p>It finds its peer by what that peer offers, never by hostname, and it gets a
  * channel from losim rather than building one. What comes back is an ordinary

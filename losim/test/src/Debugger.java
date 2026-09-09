@@ -198,7 +198,7 @@ public class Debugger {
         // Work no call carried used to need a span kind of its own, because the
         // thing driving the run was a driver object that ran outside every call and
         // so had no span and no occupancy. It is a handler now — losim.Job/Run —
-        // and everything the coordinator does locally happens inside it, on a
+        // and everything the master does locally happens inside it, on a
         // thread of the node it is on. So the question is the same and the answer
         // is one of the two span kinds left.
         var driving = tel.spans().stream()

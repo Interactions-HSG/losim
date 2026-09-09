@@ -107,8 +107,8 @@ nodes:
     instance: c5.large
     runs: { Thumbnailer: src/lab/Shrinker.java }
     failures:
-      - { partition: coordinator, at: 900 refMs }
-      - { heal: coordinator, at: 2500 refMs }
+      - { partition: master, at: 900 refMs }
+      - { heal: master, at: 2500 refMs }
 ```
 
 The node containing the block is one end; `partition:` names the other. It is the

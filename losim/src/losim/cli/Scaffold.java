@@ -253,7 +253,7 @@ final class Scaffold {
             nodes:
               # losim calls Job.Load here off the clock, and then Job.Run. That second
               # call is the simulation: when it returns, the simulation is over.
-              coordinator:
+              master:
                 instance: m5.large
                 zone: eu-central-1a
                 runs: { losim.Job: %s }

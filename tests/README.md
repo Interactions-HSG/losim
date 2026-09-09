@@ -31,7 +31,7 @@ classes; the suite tests the student-facing workflow:
 | **t4** pingpong | two machines volleying an `Empty`-returning async call | both directions in the trace; the caller dispatched ten 200 refMs calls in ~1 ms | that fire-and-forget really is gRPC, with no second messaging path to exempt it from costs, faults and byte counts |
 | **t5** contention | 8 calls at 100 refMs into a **2-vCPU** machine | ~4 waves, not 1 and not 8; `queue_wait` in the trace | `directExecutor()` creeping in, or an executor not sized to vCPUs — the whole machine model |
 | **t6** pipeline | split -> 4 mappers -> shuffle -> 2 reducers | no word lost, **exactly**; every mapper worked; handlers overlap; bytes out = bytes in | fan-out collapsing to sequential, which answers correctly and teaches nothing; byte-accounting drift |
-| **t7** abuse | the same pipeline, with a kill mid-run, a restart, standing chaos, and two retry policies | the exact answer anyway; the fault landed where it was written; the non-idempotent retry refused at **`file:line`** before anything ran | fault scheduling, the idempotency gate, and a coordinator that only works when nothing goes wrong |
+| **t7** abuse | the same pipeline, with a kill mid-run, a restart, standing chaos, and two retry policies | the exact answer anyway; the fault landed where it was written; the non-idempotent retry refused at **`file:line`** before anything ran | fault scheduling, the idempotency gate, and a master that only works when nothing goes wrong |
 | **t8** oom | an accumulating reducer, run twice: once on a machine too small for its bucket, once on one with room | an `oom` naming machine, resource, cap and **measured** demand; the roomy run completes | the retained-heap walk regressing. Allocation cannot tell an accumulating reducer from a streaming one; only retention can |
 | **t9** causality | the pipeline again, across two zones | every server span opened under the call that reached it, on another machine; nothing served before it was called; concurrency reported concurrent | trace ordering, and the metadata-header propagation — take the parent from the ambient context instead and every span hangs off the root, silently |
 
@@ -106,7 +106,7 @@ It contains these directories:
 | **scaled** | the same design declared six times bigger than anything executed. Four laws fitted, memory attributed to a revealed count rather than to the workload, and the makespan refused rather than extrapolated across a bend |
 | **kill-and-restart** | one renderer dies and comes back, and a survivor absorbs its catalogue |
 | **rate-of-failures** | `per:` at two levels: a pool that degrades on its own draw, and one node whose rpc returns UNAVAILABLE at a call rate, with a retry policy that the schema — not the file — allows |
-| **partitioned** | the network splits and heals. From the coordinator's side, unreachable and dead are the same thing |
+| **partitioned** | the network splits and heals. From the master's side, unreachable and dead are the same thing |
 | **cross-zone** | three tiers in two zones, so every batch crosses once and the trace says at which hop |
 | **out-of-memory** | one renderer too small for the catalogue it ends up with. Nothing declares that it will fail |
 

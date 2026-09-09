@@ -143,7 +143,7 @@ for (int workers : new int[] {2, 4, 8}) {
 
 <Note>
 `withWorkers` resizes **every pool that had more than one node**, keeping its
-instance type, zones, and services. Singletons such as the coordinator are unchanged.
+instance type, zones, and services. Singletons such as the master are unchanged.
 
 Other axes include `withUnits`, `withSeed`, `withKTime`, `withExpectedRun`, and
 `withoutWeather`. Each returns a copy, so the loaded base is unchanged and each run

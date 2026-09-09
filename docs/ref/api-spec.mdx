@@ -40,7 +40,7 @@ There is no way to read a **peer's** `Spec`.
 An orchestrator can read its own limits and instance metadata without a network. It
 must ask other nodes for theirs, for example through a gRPC registration call.
 
-The coordinator must account for the fact that reported capacity can become stale.
+The master must account for the fact that reported capacity can become stale.
 </Warning>
 
 A service can report its own capacity through an RPC:

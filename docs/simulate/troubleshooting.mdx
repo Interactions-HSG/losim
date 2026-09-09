@@ -67,7 +67,7 @@ error before the simulation starts.
   </Accordion>
   <Accordion title="losim.Job/Run was still running after 120 seconds of real time">
     This is a backstop, not an RPC deadline. Check for a call without a deadline, a
-    coordinator waiting on a killed node, or a loop that ignores `Input`.
+    master waiting on a killed node, or a loop that ignores `Input`.
   </Accordion>
   <Accordion title="'this thread has no node'">
     Work started on a thread the node did not create. See [Concurrency

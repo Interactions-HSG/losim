@@ -16,7 +16,7 @@ import losim.t.*;
  * <p>The map phase uses an async stub and a latch, which is how you would fan out
  * over gRPC without a thread per call. The reduce phase is blocking, because the
  * interesting thing about it is what happens when one of the calls never comes
- * back: the coordinator waits out its own deadline, learns nothing about why, and
+ * back: the master waits out its own deadline, learns nothing about why, and
  * redoes the work itself.
  */
 public final class WordCountJob extends JobGrpc.JobImplBase {
@@ -68,7 +68,7 @@ public final class WordCountJob extends JobGrpc.JobImplBase {
                         .forEach((k, v) -> merged.merge(k, v, Integer::sum));
             } catch (StatusRuntimeException e) {
                 // Not "is it alive?": there is no such question. It did not answer
-                // in the time this coordinator was willing to wait, so the work is
+                // in the time this master was willing to wait, so the work is
                 // its own again. Done here, on the thread serving losim.Job/Run,
                 // which is what makes the node busy for as long as it takes.
                 here.log("reducer " + worker + " did not answer ("

@@ -21,7 +21,7 @@ recorded in the trace.
 
 ```yaml
 nodes:
-  coordinator:
+  master:
     instance: m5.large
     runs: { losim.Job: src/lab/MyJob.java }
 ```
@@ -118,7 +118,7 @@ every rung.
 There is no `phase` or `compute` field. `Run` already has a handler span.
 
 `Run` is a handler with the root span and a core while it works. Local work is
-therefore already represented. A coordinator folding replies appears active inside
+therefore already represented. A master folding replies appears active inside
 its root span.
 
 To give a stretch of work its own name, make it an RPC on the node that should do it:
@@ -174,7 +174,7 @@ backstop uses real time so a stopped simulated clock cannot prevent termination.
 ## Failure of the job node
 
 ```yaml
-coordinator:
+master:
   runs: { losim.Job: src/lab/MyJob.java }
   failures:
     - { kill: true, at: 400 refMs }

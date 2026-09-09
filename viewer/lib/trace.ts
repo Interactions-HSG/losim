@@ -469,7 +469,7 @@ export class Trace {
    * message — and "the first one" is exactly the case a reader wants coloured
    * like the others rather than like nothing.
    *
-   * So the fallback is where the call sits among its siblings. A coordinator
+   * So the fallback is where the call sits among its siblings. A master
    * fanning out eight map tasks makes eight calls under one parent, and their
    * order is the order it dealt them out; that is the same number the payload
    * would have carried, arrived at from the shape of the call graph instead of

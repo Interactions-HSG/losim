@@ -45,7 +45,7 @@ class DraftTest {
     void poolOverZones() {
         var d = Draft.of("spread.yaml", """
                 nodes:
-                  coordinator: { instance: m5.large, zone: eu-central-1a }
+                  master: { instance: m5.large, zone: eu-central-1a }
                   workers: { instance: c5.large, zone: [eu-central-1a, eu-central-1b, eu-central-1c], count: 6, prefix: workers, runs: { Worker: losim/test/src/Counter.java } }
                 """);
         assertEquals(2, d.pools().size());

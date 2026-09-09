@@ -32,7 +32,7 @@ import thumbs.pb.ThumbnailerGrpc;
  * say a design scales when it does not.
  *
  * <p>The frames are made a batch at a time and never held whole. At full size they
- * would arrive from storage and no coordinator would hold them, so holding them
+ * would arrive from storage and no master would hold them, so holding them
  * here would put a linear term in the one node whose memory is meant to be flat —
  * and the fitted law would follow it faithfully into the wrong answer.
  */
@@ -106,7 +106,7 @@ public final class RenderMaster extends JobGrpc.JobImplBase {
         } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
 
         // Whatever did not come back has to be done again somewhere else. Nobody
-        // said which node died, or why: this coordinator knows only that a batch it
+        // said which node died, or why: this master knows only that a batch it
         // handed out has no answer, and that is the whole of what it gets to work
         // with. It is also not bookkeeping — a survivor absorbing a dead node's
         // catalogue is why a cluster that loses a node needs more memory than one

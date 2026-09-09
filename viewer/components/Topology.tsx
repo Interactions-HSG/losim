@@ -14,7 +14,7 @@
  * be a second opinion about where `m0` lives.
  *
  * Edges are weighted by **bytes**, not by call count, because a system's shape is
- * where its data goes: a coordinator that asks forty nodes a one-word question
+ * where its data goes: a master that asks forty nodes a one-word question
  * has forty thin edges, and the one shuffle that moved a megabyte is the fat one.
  * Cross-zone edges are tinted, because those are the ones that are billed and
  * slow — the same fact the ledger charges for.

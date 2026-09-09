@@ -37,7 +37,7 @@ The caller gets `StatusRuntimeException` with `DEADLINE_EXCEEDED`, and the trace
 gets an `rpc_timeout` event carrying `why`:
 
 ```json
-{ "kind": "rpc_timeout", "vm": "coordinator",
+{ "kind": "rpc_timeout", "vm": "master",
   "detail": { "to": "w1", "method": "lab.Thumbnailer.Thumbnail",
               "call": 41, "status": "DEADLINE_EXCEEDED", "why": "unreachable" } }
 ```
@@ -93,7 +93,7 @@ The same call, run twice, against a deadline that is and is not enough:
 ```yaml patience.yaml
 seed: 3
 nodes:
-  coordinator:
+  master:
     instance: m5.large
     zone: eu-central-1a
     runs: { losim.Job: src/lab/RenderJob.java }

@@ -31,8 +31,8 @@ import losim.pb.Workload;
  *
  * <p>The corpus is generated a chunk at a time in {@code Run} and never held whole
  * — not built in {@code Load}, which is the tempting mistake now that there is a
- * place to build it. At full scale the input lives on disk and no coordinator holds
- * it, so a coordinator that held it here would put a linear term in the one node
+ * place to build it. At full scale the input lives on disk and no master holds
+ * it, so a master that held it here would put a linear term in the one node
  * whose memory is meant to be flat, and the fitted memory law would faithfully
  * follow it. What {@code Load} hands over is how many lines to make.
  */

@@ -103,7 +103,7 @@ seed: 7
 scale: 500
 
 nodes:
-  coordinator:
+  master:
     instance: m5.large
     zone: eu-central-1a
     runs: { losim.Job: src/RenderJob.java }
@@ -122,8 +122,8 @@ nodes:
         memoryMb: 512
         failures:
           - { kill: true, at: 900 refMs, restartAfter: 400 refMs }
-          - { partition: coordinator, at: 1600 refMs }
-          - { heal: coordinator, at: 2400 refMs }
+          - { partition: master, at: 1600 refMs }
+          - { heal: master, at: 2400 refMs }
 
 input:
   source: data/frames/

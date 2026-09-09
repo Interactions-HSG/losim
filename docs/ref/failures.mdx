@@ -20,7 +20,7 @@ nodes:
     failures:                                            # node level
       - { kill: true, at: 400 refMs, restartAfter: 300 refMs }
       - { degrade: 3, per: 2 refSeconds }
-      - { partition: coordinator, at: 900 refMs }
+      - { partition: master, at: 900 refMs }
 ```
 
 Each entry describes **one** action. An entry with multiple actions is refused:

@@ -118,7 +118,7 @@ try {
 The trace records the cause even though the caller sees the same status:
 
 ```json
-{ "kind": "rpc_timeout", "vm": "coordinator",
+{ "kind": "rpc_timeout", "vm": "master",
   "detail": { "to": "w1", "method": "lab.Thumbnailer.Thumbnail",
               "status": "DEADLINE_EXCEEDED", "why": "unreachable" } }
 ```

@@ -88,7 +88,7 @@ A job with `for (int i = 0; i < 4; i++)` hard-coded cannot run at two or eight w
 The system-size measurements then provide no useful variation.
 
 <Tip>
-Singleton nodes such as the coordinator stay unchanged when the system is resized.
+Singleton nodes such as the master stay unchanged when the system is resized.
 Only pools with `count:` are regenerated.
 </Tip>
 
@@ -99,7 +99,7 @@ seed: 5
 scale: 5000
 
 nodes:
-  coordinator:
+  master:
     instance: m5.2xlarge
     zone: eu-central-1a
     runs: { losim.Job: src/lab/RenderJob.java }

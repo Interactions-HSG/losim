@@ -10,7 +10,7 @@ Create `simulations/thumbs.yaml`:
 seed: 7
 
 nodes:
-  coordinator:
+  master:
     instance: m5.large
     zone: eu-central-1a
     runs: { losim.Job: src/lab/RenderJob.java }
@@ -142,7 +142,7 @@ to the project root, which contains proto/, src/ and simulations/.
 
 ```text a partition aimed at nothing
 thumbs.yaml:24: there is no node called 'w7'; this simulation has
-coordinator, w0, w1, w2, w3
+master, w0, w1, w2, w3
 ```
 </CodeGroup>
 

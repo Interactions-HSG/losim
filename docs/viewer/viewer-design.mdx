@@ -84,7 +84,7 @@ observable to the run.
     @Override public void load(Input in, StreamObserver<Workload> out) { … }
     ```
     `Load` runs off the clock, so building the workload is not measured. Doing it in
-    `Run` adds that work to the coordinator's root span.
+    `Run` adds that work to the master's root span.
   </Card>
   <Card title="Dispatch asynchronously" icon="arrows-split-up-and-left">
     ```java

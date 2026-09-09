@@ -52,7 +52,7 @@ class LabWalkTest {
     void packagesAreNotFurniture(@TempDir Path root) throws Exception {
         Lab lab = labAt(root);
         java(root, "src/input/Corpus.java");
-        java(root, "src/Coordinator.java");
+        java(root, "src/Master.java");
         // Every other word on the list, as a package. None of them is losim's to
         // refuse once it is inside the source tree.
         for (String name : List.of("build", "docs", "out", "corpus", "simulations", "gen")) {
@@ -67,7 +67,7 @@ class LabWalkTest {
     @DisplayName("and the furniture at the root is still skipped")
     void rootFurnitureSkipped(@TempDir Path root) throws Exception {
         Lab lab = labAt(root);
-        java(root, "src/Coordinator.java");
+        java(root, "src/Master.java");
         // The two the comment on NOT_CODE is actually about: output handed to javac
         // twice is how a build starts reporting duplicate classes.
         java(root, "gen/Generated.java");
@@ -75,7 +75,7 @@ class LabWalkTest {
         java(root, "input/NotCode.java");
         java(root, "simulations/NotCode.java");
         java(root, ".hidden/Nested.java");
-        assertEquals(List.of("src/Coordinator.java"), names(lab, root));
+        assertEquals(List.of("src/Master.java"), names(lab, root));
     }
 
     @Test
@@ -84,7 +84,7 @@ class LabWalkTest {
         // The narrower trap the root-only rule leaves: a lab keeping its sources at
         // the root rather than under src/ still has `input` reserved there.
         Lab lab = labAt(root);
-        java(root, "Coordinator.java");
+        java(root, "Master.java");
         java(root, "input/Corpus.java");
         String note = lab.reservedNote();
         assertTrue(note.contains("input"), () -> "expected input/ to be named, got: " + note);
@@ -97,7 +97,7 @@ class LabWalkTest {
         // gen/ is full of Java that losim generated. Reporting it every run would
         // teach people to ignore the line that matters.
         Lab lab = labAt(root);
-        java(root, "src/Coordinator.java");
+        java(root, "src/Master.java");
         java(root, "gen/tour/ping/Ping.java");
         java(root, "build/classes/Stale.java");
         assertEquals("", lab.reservedNote());
@@ -107,8 +107,8 @@ class LabWalkTest {
     @DisplayName("a dot-directory is refused at any depth, root or not")
     void dotsAtEveryDepth(@TempDir Path root) throws Exception {
         Lab lab = labAt(root);
-        java(root, "src/Coordinator.java");
+        java(root, "src/Master.java");
         java(root, "src/.git/objects/Thing.java");
-        assertEquals(List.of("src/Coordinator.java"), names(lab, root));
+        assertEquals(List.of("src/Master.java"), names(lab, root));
     }
 }

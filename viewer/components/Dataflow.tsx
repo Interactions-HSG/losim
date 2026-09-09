@@ -439,7 +439,7 @@ function Lanes({ m, theme }: { m: FrameNode; theme: Theme }) {
  * counts teaches nothing a bar chart would not.
  *
  * **How much of it there is.** The envelope is drawn the size of its payload, so a
- * coordinator handing out a task number and a shuffler dragging a whole region
+ * master handing out a task number and a shuffler dragging a whole region
  * across a zone boundary are visibly not the same event. Compressed hard, like the
  * node sizes, because the spread between those two is enormous and drawn
  * linearly the small one disappears.

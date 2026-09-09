@@ -1,5 +1,5 @@
 # A page that would give the batch assignment away by name.
-Losim was built to run a MapReduce job. The coordinator splits the corpus and
+Losim was built to run a MapReduce job. The master splits the corpus and
 hands each chunk to a mapper; the map tasks run in parallel and write their
 intermediate data to disk. A combiner folds the counts locally first, which cuts
 the bytes on the wire. The partitioning is by hash, so every occurrence of a

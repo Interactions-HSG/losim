@@ -23,7 +23,7 @@ icon: "magnifying-glass-chart"
   ],
   "events": [
     { "t": 0.0,    "kind": "boot",          "vm": "w0", "detail": { "instance": "c5.large", "vcpu": 2 } },
-    { "t": 61.4,   "kind": "rpc_call",      "vm": "coordinator",
+    { "t": 61.4,   "kind": "rpc_call",      "vm": "master",
       "detail": { "to": "w0", "method": "lab.Thumbnailer.Thumbnail", "call": 14 } },
     { "t": 64.9,   "kind": "handler_start", "vm": "w0",
       "detail": { "method": "lab.Thumbnailer.Thumbnail", "call": 14 } },
@@ -31,7 +31,7 @@ icon: "magnifying-glass-chart"
     { "t": 74.0,   "kind": "queue_wait",    "vm": "w3", "detail": { "ms": 18.4 } }
   ],
   "spans": [
-    { "id": 14, "parent": 2, "vm": "coordinator", "kind": "rpc",
+    { "id": 14, "parent": 2, "vm": "master", "kind": "rpc",
       "label": "lab.Thumbnailer.Thumbnail", "t0": 61.4, "t1": 79.9, "status": "OK",
       "detail": { "to": "w0", "bytes": 611_432, "ms": 18.5, "netRefMs": 0.8 } },
     { "id": 15, "parent": 14, "vm": "w0", "kind": "handler",
@@ -105,7 +105,7 @@ state.
     ```
 
     A node with zero calls usually points to a discovery problem: the service
-    name may be wrong, or the coordinator may have discovered and cached peers
+    name may be wrong, or the master may have discovered and cached peers
     only once.
   </Step>
 
@@ -166,5 +166,5 @@ to each node, and queued or rejected operations. Its scrubber marks the moments
 when something went wrong. [Open the viewer](/viewer/index)
 
 <Card title="Next: failure handling" icon="arrow-right" href="/first/failure-handling">
-  Kill a node mid-run and watch how the coordinator finds out.
+  Kill a node mid-run and watch how the master finds out.
 </Card>

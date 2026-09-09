@@ -19,7 +19,7 @@ import losim.t.*;
  *
  * <p>The corpus is generated a chunk at a time in {@code Run} and never held
  * whole — not built in {@code Load}, which is the tempting mistake. At full scale
- * the input lives on disk and no coordinator holds it, so a coordinator that held
+ * the input lives on disk and no master holds it, so a master that held
  * it here would put a linear term in the one node whose memory is supposed to be
  * flat, and the fitted memory law would follow it. What {@code Load} hands over is
  * how many lines to make, which is a number.

@@ -14,7 +14,7 @@ run it on a node.
 
 ```yaml
 nodes:
-  coordinator:
+  master:
     instance: m5.large
     runs: { losim.Job: src/lab/RenderJob.java }
 ```
@@ -219,8 +219,8 @@ trace's **root** span. Calls made by the job and the handlers they reach nest
 beneath it.
 
 Work the job performs locally, such as parsing the payload, is inside the root
-span and occupies a coordinator core. `Run` queues and uses a thread like any
-other call, so the coordinator needs headroom.
+span and occupies a master core. `Run` queues and uses a thread like any
+other call, so the master needs headroom.
 
 To name a stretch of work in the trace, make it a call to a service that performs
 the work. The trace, bill, and critical path can then account for it directly.

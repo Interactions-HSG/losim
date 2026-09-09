@@ -117,8 +117,8 @@ while these RPC shapes prevent losim from producing a valid price.
 | `DEADLINE_EXCEEDED: w1 did not answer (unreachable)` | dead, partitioned or lost — `why` says which |
 | `DEADLINE_EXCEEDED: the network outlasted the deadline` | the callee answered, but the round trip took too long |
 | `losim.Job/Run was still running after 120 seconds of real time` | a backstop, not a deadline — the line between slow and stuck |
-| `losim.Job/Load failed on coordinator: …` | `Load` runs before anything is measured, so a simulation whose input cannot be built has not started |
-| `… — coordinator runs losim.Job and was restarted` | shutting a node down cancels its calls in flight, and `Run` was one |
+| `losim.Job/Load failed on master: …` | `Load` runs before anything is measured, so a simulation whose input cannot be built has not started |
+| `… — master runs losim.Job and was restarted` | shutting a node down cancels its calls in flight, and `Run` was one |
 
 ## Completion messages
 

@@ -49,7 +49,7 @@ public final class T11 {
          * <p>Summed from the spans rather than read off the wall clock, because a
          * declared duration is slept and a sleeping thread needs no core. This
          * number is therefore the same on a laptop and on a CI runner, where the
-         * phase's wall clock is not: that one carries the coordinator's own serial
+         * phase's wall clock is not: that one carries the master's own serial
          * work, which does scale with how fast the host is.
          */
         /**
@@ -150,7 +150,7 @@ public final class T11 {
         e.note(String.format("the busiest machine spends %.0f refMs mapping at 2 workers and "
                 + "%.0f at 8; the collect phase runs %.0f refMs and then %.0f", map2, map8, col2, col8));
         e.note(String.format("(the map phase's own wall clock: %.0f then %.0f — shorter, but by "
-                + "less, because the coordinator's serial share of it is not the cluster's to divide)",
+                + "less, because the master's serial share of it is not the cluster's to divide)",
                 cells.get("cluster2").phase("map"), cells.get("cluster8").phase("map")));
         // Asserted in counts, because the wall clock cannot carry this claim on a
         // host that has not got the cores to show it.
