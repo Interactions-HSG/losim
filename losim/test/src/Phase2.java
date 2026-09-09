@@ -126,7 +126,7 @@ public class Phase2 {
                 .mapToLong(sp -> ((Number) sp.detail.getOrDefault("outBytes", 0)).longValue()).sum();
         check(bytes > 0 && tel.events().stream().anyMatch(e -> e.kind().equals("state")
               && "forwardedTo".equals(e.detail().get("key"))),
-              "it is a real call — marshalled, counted (" + bytes + " bytes out) and in the "
+              "it is a real call — marshaled, counted (" + bytes + " bytes out) and in the "
               + "trace — not a method invocation dressed as one");
 
         check(tel.events().stream().filter(e -> e.kind().equals("rpc_call")).count() == 2,

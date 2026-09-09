@@ -165,7 +165,7 @@ public class Phase1 {
             var rpc = spans.stream().filter(s -> s.kind.equals("rpc")).findFirst().orElseThrow();
             var handler = spans.stream().filter(s -> s.kind.equals("handler")).findFirst().orElseThrow();
 
-            // ---- ACCEPTANCE: byte counts come from marshalling, not the transport
+            // ---- ACCEPTANCE: byte counts come from marshaling, not the transport
             long expectedIn  = req.getSerializedSize() + Wire.FRAMING_BYTES;
             long expectedOut = got.getSerializedSize() + Wire.FRAMING_BYTES;
             long countedIn   = ((Number) handler.detail.get("inBytes")).longValue();

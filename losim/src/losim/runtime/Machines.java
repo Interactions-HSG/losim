@@ -18,7 +18,7 @@ import losim.trace.Telemetry;
  * each side of every call.
  *
  * <p>The student's system underneath is genuinely running: real stubs, real
- * marshalling, real allocation, real contention. losim is the layer on top that
+ * marshaling, real allocation, real contention. losim is the layer on top that
  * slows it, breaks it and measures it.
  */
 public final class Machines implements AutoCloseable {
@@ -32,7 +32,7 @@ public final class Machines implements AutoCloseable {
      * {@code losim.Job}.
      *
      * <p>What it buys is the byte count. Every other call has a caller who
-     * marshalled the request and was charged for it, and the invariant that makes
+     * marshaled the request and was charged for it, and the invariant that makes
      * the accounting checkable is that what the callers sent is exactly what the
      * servers received. This call has no caller — and its argument is a
      * {@code Workload} the entry node built itself, moments earlier, in

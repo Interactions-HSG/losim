@@ -4,7 +4,7 @@ import java.util.Map;
 /**
  * t2-one-call — one client, one server, one unary call, over real gRPC.
  *
- * <p><b>Catches:</b> codegen and marshalling wiring; the {@code Mapper/Map} trap;
+ * <p><b>Catches:</b> codegen and marshaling wiring; the {@code Mapper/Map} trap;
  * and a payload renderer that drifts, which would make two traces of the same run
  * fail to diff.
  *

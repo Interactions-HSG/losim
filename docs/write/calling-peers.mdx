@@ -20,7 +20,7 @@ Every call through a losim channel passes through interceptors that provide:
 | | |
 |---|---|
 | **the network** | latency by zone, jitter either side, loss, and whether the two ends can currently reach each other |
-| **byte counts** | explicit message marshalling, plus gRPC's five bytes of framing |
+| **byte counts** | explicit message marshaling, plus gRPC's five bytes of framing |
 | **cross-zone bytes** | counted separately in **both directions** |
 | **spans** | one on the caller and one on the callee, with the parent sent in metadata |
 | **retries** | if the simulation declared a policy for this method, outside the recording interceptor, so every attempt is genuinely separate |

@@ -43,7 +43,7 @@ import org.junit.jupiter.api.Test;
  * the only transport {@code vendor/jars} carries — there is no grpc-netty or
  * grpc-okhttp in it, and {@code Grpc.newServerBuilderForPort} therefore fails
  * with "No functional server found". Everything above the transport is the real
- * thing: the generated stub, the marshalling, the method dispatch, the status
+ * thing: the generated stub, the marshaling, the method dispatch, the status
  * codes. What a lab cannot do today is open a socket, so a student cannot point
  * grpcurl at their service or reach it from another process. If that becomes
  * something the course wants, it is one jar.

@@ -8,7 +8,7 @@ import com.google.protobuf.Message;
  * <p>gRPC's in-process transport does <b>not</b> serialize: it hands the receiver
  * the same object reference. Protobuf messages are immutable, so passing by
  * reference is otherwise harmless — but it means a byte count can never be
- * inferred from the transport. It has to come from marshalling the message
+ * inferred from the transport. It has to come from marshaling the message
  * explicitly, here, plus the framing gRPC would have put around it.
  */
 public final class Wire {

@@ -65,9 +65,9 @@ public final class T6 {
         }
         e.note("client counted " + sent + " bytes out, servers counted " + received + " in");
         e.check(sent > 0 && sent == received,
-                "what the callers marshalled is exactly what the servers were handed — the "
+                "what the callers marshaled is exactly what the servers were handed — the "
                 + "in-process transport passes a reference and serialises nothing, so both "
-                + "numbers come from marshalling explicitly and either could drift alone");
+                + "numbers come from marshaling explicitly and either could drift alone");
 
         e.check(e.of("oom").isEmpty() && Boolean.TRUE.equals(e.meta().get("completed")),
                 "and it finished without anybody running out of anything, which is what "
