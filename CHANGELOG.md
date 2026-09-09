@@ -6,6 +6,31 @@ A version is what an assignment resolves from Gradle, so it is a fact about a ja
 rather than about a branch. Every release is cut from a tag whose name and
 `./VERSION` are checked against each other before anything is built.
 
+## 3.0.2
+
+**The manual, and nothing else.** No type changed, no simulation produces a
+different trace, and a lab already on 3.0.1 gains nothing at runtime by taking
+this. The manual ships inside the jar, which is the only reason it is a release
+at all.
+
+### The manual and the Javadoc were rewritten
+
+Pages across `docs/`, the READMEs, and the Javadoc on the `losim.api` types
+were rewritten to be shorter and to use the vocabulary 3.0 settled on — the prose
+still said *machine* in places where every file a student writes now says `node`.
+
+One string a program can see moved with them. `Losim.current()` outside a run
+throws as it always did; the sentence it throws with is worded differently. A test
+asserting on that text word for word will need the new wording.
+
+### Twenty pages have new names, and the old links still work
+
+`start/mental-model` is now `start/model`, `first/the-schema` is `first/schema`,
+`engine/two-layers` is `engine/system-boundary`, and seventeen more like them.
+Links inside the manual were all updated. A link from outside it — a syllabus, a
+bookmark, an older release page — now redirects to the renamed page instead of
+reaching a 404.
+
 ## 3.0.1
 
 **The first 3.x release that can be installed.** 3.0.0's build failed before it
@@ -229,7 +254,7 @@ the file from this release.
 ### The manual read as `;` where it meant an em-dash
 
 Across `docs/`, `—` had become ` ;  `, `…` became `...`, `→` became `->`, and the
-box drawing in the two-layers diagram, the interceptor diagram and the waterfall
+box drawing in the system-boundary diagram, the interceptor diagram and the waterfall
 example had been flattened to ASCII. The keyboard table told a reader to press
 `->` and `<-` for the arrow keys.
 
