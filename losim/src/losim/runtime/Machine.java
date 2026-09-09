@@ -807,7 +807,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
             // Also on the span when there is one, so the handler's own allocation
             // can have ours subtracted from it the way its duration already is.
             // `charge` reads the span from the ambient context, and the client
-            // side meters work that happens before any call exists — so null here
+            // side meters work that precedes any call existing — so null here
             // is ordinary, not a mistake.
             if (span != null) span.losimBytes.addAndGet(bytes);
         }

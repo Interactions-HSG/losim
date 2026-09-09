@@ -73,7 +73,7 @@ public final class Meter {
      * What one bracket costs that the bracket itself cannot see.
      *
      * <p>A bracket reads the clock and the allocation counter twice, and the
-     * first read of each pair happens before there is anything to charge it to.
+     * first read of each pair precedes there being anything to charge it to.
      * Measured once per JVM — around 70 ns on the reference laptop — and charged
      * back per metered stop, so losim pays for its own instrumentation rather
      * than the machine. Without it losim bills a machine <i>more</i> the more

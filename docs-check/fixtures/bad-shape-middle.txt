@@ -1,0 +1,7 @@
+# The middle stage, and what it carries. Either word can be innocent — a deck can
+# shuffle, a value can be intermediate — but together they are the hard part of
+# the assignment described in full.
+The shuffle is where the wire bill is decided. Everything a node produced sits on
+its own disk as intermediate output, and the next stage has to fetch its share
+from every one of them before it can start. Overlapping the fetch with what is
+still being produced is the whole trick.

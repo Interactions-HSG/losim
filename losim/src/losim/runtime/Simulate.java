@@ -24,7 +24,7 @@ import losim.verify.Trust;
  * <p>Everything the file declared is assembled here in one order that matters:
  * the nodes and their services first, because the retry gate has to be checked
  * against what the system really serves; then {@code losim.Job/Load}, off the
- * clock, which is the last thing that happens before anything is measured; then
+ * clock, which is the last thing to run before anything is measured; then
  * the failures, which need every node to exist before one can be aimed at; then
  * the sampler; and only then {@code losim.Job/Run}.
  *

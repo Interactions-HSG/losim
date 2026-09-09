@@ -1,0 +1,6 @@
+# Both stages' workers named on one page. Either word alone is a word; the pair
+# is the architecture. Nothing here trips a name rule — "mapper" is not "map".
+Give the first job to a mapper and the second to a reducer, and the cluster
+divides itself along the same line every time. Sizing them is the interesting
+part: there are usually far more of the former than the latter, because one
+reads the corpus and the other only reads what survived it.

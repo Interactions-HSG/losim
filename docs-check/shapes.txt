@@ -3,9 +3,18 @@
 #     <regex> + <regex> + ...:::<what the combination gives away>
 #
 # All terms must appear somewhere in the same file — a rule here is about a page
-# as a whole, not a line. Rules above catch a name; these catch a diagram.
+# as a whole, not a line. Rules in leaks.txt catch a name; these catch a diagram.
+#
+# This file carries most of the weight for the batch assignment now. leaks.txt
+# used to ban its vocabulary word by word, which also banned every correct use of
+# those words — and GLOSSARY.md defines them for the students, so correct uses
+# exist. The words are innocent one at a time. Two of them on one page is not a
+# page that happened to say "mapper"; it is a page working the assignment through.
 
 \bmap\b + \breduce\b:::a two-stage pipeline, whatever the page calls it
+\bmapper\b + \breducer\b:::both stages' workers, named together
+\bshuffl(e|ing)\b + \bintermediate\b:::the middle stage and what it carries
+\bcombiner\b + \bshuffl(e|ing)\b:::the optimisation, and the step it exists to shrink
 \bkeys?\b + \bbuckets?\b + \bhash\b + \bmodulo|%[[:space:]]*n\b:::splitting keys across workers by hash
 \bclock\b + \bmerge\b + \bincrement\b:::the update rule of a logical clock
 \bpairwise\b + \bmaximum|max\b + \bper[[:space:]-]replica\b:::comparing two logical clocks entry by entry

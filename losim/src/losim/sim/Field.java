@@ -10,7 +10,7 @@ import java.util.Map;
  *
  * <p>Carrying the line everywhere is the whole reason this exists rather than a
  * plain {@code Map<String, Object>}. A simulation is the instructor's surface,
- * and an error in it should read like a compiler error — {@code wordcount.yaml:14:
+ * and an error in it should read like a compiler error — {@code thumbs.yaml:14:
  * unknown instance type 'm5.mega'} — not like a stack trace from inside a parser.
  *
  * <p>Called a field rather than a node, which is what it was: a node is a

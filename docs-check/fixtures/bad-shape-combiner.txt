@@ -1,0 +1,6 @@
+# The optimisation, and the step it exists to shrink. Naming both is telling a
+# student what to discover and why it pays.
+Fold what you can locally before anything goes on the wire. A combiner running on
+the node that produced the values collapses a thousand of them into one, so the
+shuffle that follows moves a fraction of the bytes it otherwise would. It is the
+single cheapest change available, and it is worth finding on your own.

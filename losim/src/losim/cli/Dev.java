@@ -557,9 +557,16 @@ public final class Dev {
             System.err.println("losim dev docs: check");
             return 2;
         }
-        List<Rule> rules = new ArrayList<>();
-        rules.addAll(Rule.load(root.resolve("docs-check/leaks.txt"), false));
-        rules.addAll(Rule.load(root.resolve("docs-check/shapes.txt"), true));
+        // Two sets, because two things are being checked. `everywhere` is what no
+        // text may say at all; `docsOnly` is what the manual may not point a
+        // student at. losim's own source refers to build/gallery/traces because
+        // that is where it writes them, so scanning it with the path rules would
+        // fail on the file running the check.
+        List<Rule> everywhere = new ArrayList<>();
+        everywhere.addAll(Rule.load(root.resolve("docs-check/leaks.txt"), false));
+        everywhere.addAll(Rule.load(root.resolve("docs-check/shapes.txt"), true));
+        List<Rule> rules = new ArrayList<>(everywhere);
+        rules.addAll(Rule.load(root.resolve("docs-check/paths.txt"), false));
         if (Main.flag(args, "--rules")) {
             for (Rule r : rules) System.out.printf("  %-58s %s%n", r.source, r.why);
             return 0;
@@ -613,8 +620,15 @@ public final class Dev {
         // ── the scan ──────────────────────────────────────────────────────────
         System.out.println();
         System.out.println("== the site ==");
-        boolean leaked = scanned(text(root.resolve("docs")), rules);
-        int n = text(root.resolve("docs")).size();
+        // The simulator's own source is scanned too. Its javadoc is documentation
+        // that happens to live in .java, and the repository is public because
+        // release assets have to be downloadable without a token — so a worked
+        // answer in a comment is as readable as one on a page. `|` and not `||`,
+        // so both roots report rather than the first one hiding the second.
+        List<Path> site = text(root.resolve("docs"));
+        List<Path> src = text(root.resolve("losim/src"));
+        boolean leaked = scanned(site, rules) | scanned(src, everywhere);
+        int n = site.size() + src.size();
         System.out.println();
         if (leaked) {
             System.out.printf("%d files, and the manual gives an assignment away. "
