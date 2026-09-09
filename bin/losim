@@ -13,10 +13,18 @@
 set -e
 cd "$(dirname "$0")/.."
 
+# The wrapper first, and it is committed, so this is the path every machine takes:
+# it pins 9.2.0 and checks the download's sha256, which is the same reason the
+# toolchain is vendored — a build must not depend on what somebody's package
+# manager happened to resolve. It is also the only thing that works in a
+# Codespace: the devcontainer image carried a Gradle until it was rebuilt without
+# one, and a repository that cannot be built in the container it ships is a
+# repository nobody can start.
 G=./gradlew
 [ -x "$G" ] || G="$(command -v gradle || true)"
 [ -n "$G" ] || {
-  echo "no gradle on this machine — the devcontainer has one, or: brew install gradle" >&2
+  echo "no gradle, and no ./gradlew — this repository ships one, so a clone is" >&2
+  echo "incomplete. Restore it, or: brew install gradle" >&2
   exit 1
 }
 

@@ -12,7 +12,13 @@
 
 
   // Build losim so a fresh Codespace is ready to run, and say what to type.
-  "postCreateCommand": "gradle -q jar && cat .devcontainer/welcome.txt",
+  //
+  // `./gradlew`, not `gradle`. The image above shipped a Gradle on sdkman's path
+  // until it was rebuilt with an empty candidates directory, which left the PATH
+  // entry pointing at nothing and this line failing before a student saw the
+  // welcome text. The wrapper is committed, so what builds here no longer depends
+  // on what the image happens to carry this month.
+  "postCreateCommand": "./gradlew -q jar && cat .devcontainer/welcome.txt",
 
   // ...and start it, every time somebody attaches. The ports below are
   // forwarded and one of them opens a preview, so something has to be listening

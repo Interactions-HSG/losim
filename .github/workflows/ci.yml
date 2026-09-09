@@ -86,9 +86,17 @@ jobs:
     name: reference suite (the Codespace image)
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    # The image a Codespace boots, used unchanged. Nothing is installed: if the
-    # vendored toolchain is incomplete, or the image has no Gradle to build with,
-    # this is where it shows — and it is the only job that would.
+    # The image a Codespace boots, used unchanged. Nothing is installed, so what
+    # this proves is that a clone builds and runs on the JDK the image ships and
+    # nothing else — an incomplete vendored toolchain shows up here and nowhere
+    # else.
+    #
+    # It caught its first one on 2026-09-07. The image was rebuilt with sdkman's
+    # candidates directory empty while the PATH entries for java, gradle, maven and
+    # ant stayed, so `gradle` was on the path and was not on the disk, and every
+    # Codespace created from that image failed `postCreateCommand` before the
+    # student saw a prompt. The fix was to stop asking the image for a Gradle:
+    # `./gradlew` is committed and pins 9.2.0, which is what the other jobs pin.
     container: mcr.microsoft.com/devcontainers/java:25-bookworm
     steps:
       - uses: actions/checkout@v4

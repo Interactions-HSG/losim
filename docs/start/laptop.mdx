@@ -9,11 +9,12 @@ icon: "laptop"
 | | |
 |---|---|
 | **A JDK, 21 or newer** | losim compiles at `--release 21`. The container ships 25. |
-| **Gradle** | the build, and what `bin/losim` runs before it starts a JVM. The container ships one. |
 | **git** | for the vendored jars, which are committed. |
 
-No other setup is required. The project does not use a package-manager install or a
-runtime download.
+Gradle is not in that list. `./gradlew` is committed, and `bin/losim` runs it, so the
+build is the same 9.2.0 on a laptop as it is in CI rather than whatever a package
+manager last installed. It fetches that one Gradle on first use and checks its
+sha256; nothing else is fetched to build or to run.
 
 ## Build and check
 
@@ -22,12 +23,12 @@ bin/losim dev test    # losim's own acceptance criteria, plus one plain JUnit te
 bin/losim dev suite   # the reference suite
 ```
 
-Both commands build `build/losim.jar` first. `bin/losim` runs `gradle jar` and then
+Both commands build `build/losim.jar` first. `bin/losim` runs `./gradlew jar` and then
 starts the JVM.
 
 ## Supported platforms for `protoc`
 
-`gradle jar` does not need `protoc`; it only compiles the simulator. Commands that
+`./gradlew jar` does not need `protoc`; it only compiles the simulator. Commands that
 compile a `.proto` (`dev test`, `dev suite`, or your own build) select a vendored
 binary from `vendor/bin/`:
 

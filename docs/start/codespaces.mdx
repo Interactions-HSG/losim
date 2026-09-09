@@ -10,7 +10,7 @@ icon: "cloud"
   <Tab title="GitHub Codespaces">
     From the repository page: **Code -> Codespaces -> Create codespace**.
 
-    The container builds and runs `gradle jar`; when the terminal appears,
+    The container builds and runs `./gradlew jar`; when the terminal appears,
     `build/losim.jar` already exists.
   </Tab>
   <Tab title="VS Code, locally">
@@ -26,7 +26,8 @@ icon: "cloud"
 | | |
 |---|---|
 | **Java 25** | from the base image `mcr.microsoft.com/devcontainers/java:25-bookworm`. losim compiles at `--release 21`, so anything from 21 up works. |
-| **The vendored toolchain** | gRPC 1.83.1, protobuf 4.36.0 and `protoc` for two platforms, committed under `vendor/`. Nothing is fetched to build or to run. |
+| **The vendored toolchain** | gRPC 1.83.1, protobuf 4.36.0 and `protoc` for two platforms, committed under `vendor/`. Nothing is fetched to compile or to run. |
+| **Gradle 9.2.0** | from the committed `./gradlew`, not from the image. The image carried one until it was rebuilt without it, and a build that depends on what the image ships this month is a build that stops working without anybody touching it. The wrapper fetches that one version on create and checks its sha256. |
 | **Node 22** | only for developing the viewer. Neither losim nor this manual needs it. |
 | **Port 8000** | **the lab**, including the viewer, runs, and system controls. |
 | **Port 3000** | **the manual**, running as a separate process. |
@@ -45,7 +46,7 @@ Read the manual through this port, the published site, or the `.mdx` files under
 ## Container commands
 
 ```bash
-gradle jar                                          # on create:  the simulator
+./gradlew jar                                       # on create:  the simulator
 bin/losim serve --detach && bin/losim serve docs --detach   # on attach: both ports
 ```
 
@@ -67,7 +68,7 @@ bin/losim dev suite       # the reference suite: gRPC systems, end to end
 bin/losim dev docs check  # that this manual gives no assignment away
 ```
 
-Each command builds the simulator first. `bin/losim` runs `gradle jar` and then the
+Each command builds the simulator first. `bin/losim` runs `./gradlew jar` and then the
 JVM command.
 
 ```bash your work
