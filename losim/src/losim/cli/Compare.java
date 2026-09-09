@@ -50,11 +50,20 @@ public final class Compare {
             return 1;
         }
         aspects.add(new Aspect("schema", true, left.get("schema"), right.get("schema")));
-        for (String key : List.of("simulation", "entry", "seed", "scale", "unit", "count",
+        for (String key : List.of("simulation", "entry", "seed", "unit", "count",
                                   "telemetry", "mode",
                                   "schemaVersion", "trusted", "completed"))
             if (meta(left).containsKey(key) || meta(right).containsKey(key))
                 aspects.add(new Aspect("meta." + key, true, meta(left).get(key), meta(right).get(key)));
+
+        // `scale` is not in that list, because it is two different things under one
+        // key: a direct run writes the number it ran at, and a scaled run writes the
+        // whole plan. Held structurally the plan would have to match verbatim, and it
+        // carries the fitted laws — measurements, which differ between two hosts by
+        // design and are compared as measurements further down. What must agree is
+        // the factor, which comes from the file rather than from the afternoon.
+        if (meta(left).containsKey("scale") || meta(right).containsKey("scale"))
+            aspects.add(new Aspect("meta.scale", true, scaleFactor(left), scaleFactor(right)));
 
         // The D9 acceptance test, applied across environments rather than across
         // versions. Split in two, and the split is the point: what a kind of event
@@ -150,9 +159,25 @@ public final class Compare {
         return (Map<String, Object>) t.getOrDefault("meta", Map.of());
     }
 
+    /**
+     * The scale block, or nothing when the run has no scale model.
+     *
+     * A direct run writes {@code scale: 1} — the number it was run at, not a block,
+     * because one run projects nothing. Only a scaled run has laws to attribute and
+     * exponents to compare. Reading anything that is not a block as absent is what
+     * lets two ordinary simulations be compared at all; casting it outright threw
+     * {@code Double cannot be cast to Map} on the commonest trace there is.
+     */
     @SuppressWarnings("unchecked")
     private static Map<String, Object> scale(Map<String, Object> t) {
-        return (Map<String, Object>) meta(t).getOrDefault("scale", Map.of());
+        return meta(t).get("scale") instanceof Map<?, ?> block
+                ? (Map<String, Object>) block
+                : Map.of();
+    }
+
+    /** What the run was scaled by, whether that was written as a number or as a plan. */
+    private static Object scaleFactor(Map<String, Object> t) {
+        return meta(t).get("scale") instanceof Map<?, ?> plan ? plan.get("factor") : meta(t).get("scale");
     }
 
     @SuppressWarnings("unchecked")
