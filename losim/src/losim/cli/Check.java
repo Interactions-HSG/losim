@@ -8,13 +8,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * {@code losim check} — what is still between this project and a run.
+ * {@code losim check} reports findings that prevent or qualify a run.
  *
- * <p>The same {@link Scan} {@code losim adopt} printed from, so the account it
- * gave is not something to have kept: a terminal scrolls away and a command does
- * not. Nothing is compiled and nothing is run, which is the point — this answers
- * before the first build, when a project has not yet reached the state where a
- * compiler would have anything useful to say.
+ * <p>The command uses the same {@link Scan} as {@code losim adopt}. It reads source
+ * files without compiling or running the project, so findings are available before
+ * the first build.
  */
 public final class Check {
     private Check() {}
@@ -32,26 +30,15 @@ public final class Check {
                 count(scan.rpcs().size(), "rpc"),
                 count(scan.sources().size(), "source file"));
         report(root, scan);
-        // Not a failure exit. A project part-way through a migration is the ordinary
-        // state of a project part-way through a migration, and a check that returns 1
-        // for it cannot be put in front of anything without becoming a thing people
-        // pass --no-verify to.
+        // Findings are information for the migration and do not make the check fail.
         return 0;
     }
 
     /**
-     * Everything {@link Scan} found, in the order somebody would act on it.
+     * Prints the findings from {@link Scan} in action order.
      *
-     * <p>Shared with {@link Adopt} rather than written twice, because the whole
-     * claim about {@code check} is that it says what {@code adopt} said.
-     *
-     * <h2>Two lists, and only one of them is numbered</h2>
-     *
-     * <p>The numbered ones are edits. The dead ones are not: they are lines to
-     * delete, they are usually many, and printing fourteen numbered items for one
-     * file's bootstrap buries the two that matter. So they go under the file they
-     * are in, one line each, compact — which is also how they read when somebody
-     * opens that file to do the work.
+     * <p>The output is shared with {@link Adopt}. Edits receive numbers; dead code is
+     * grouped by file because it usually produces several related findings.
      */
     static void report(Path root, Scan scan) {
         int n = 0;
@@ -107,7 +94,7 @@ public final class Check {
         return n;
     }
 
-    /** Grouped by the file they are in, in the order the files were read. */
+    /** Groups findings by source file in scan order. */
     private static Map<String, List<Scan.Finding>> byFile(Path root, List<Scan.Finding> found) {
         var out = new LinkedHashMap<String, List<Scan.Finding>>();
         for (Scan.Finding f : found) {
@@ -126,7 +113,7 @@ public final class Check {
         return p.startsWith(root) ? root.relativize(p).toString() : p.toString();
     }
 
-    /** The first clause of a reason, for a line that has to fit beside fifteen others. */
+    /** Returns a short reason suitable for a report row. */
     private static String brief(String why) {
         int stop = why.length();
         for (String end : List.of(". ", ", so ", ", and ", " — ")) {

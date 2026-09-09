@@ -1,6 +1,6 @@
 ---
 title: "retries"
-description: "The policy, the schema's veto, and what an attempt costs."
+description: "Retry policies, idempotency checks, and attempt costs."
 icon: "rotate"
 ---
 
@@ -10,10 +10,10 @@ retries:
   - { method: Append,    attempts: 2, unsafe: true }
 ```
 
-## Fields
+## Retry fields
 
 <ParamField path="method" type="string" required>
-  Matched against every method the system serves:
+  Matched against the methods served by the system:
 
   | form | example |
   |---|---|
@@ -22,17 +22,16 @@ retries:
   | any dotted suffix | `Thumbnailer.Thumbnail` |
   | everything | `*` |
 
-  A policy naming a method **no node serves** is refused — a typo would
-  otherwise be a policy that silently does nothing.
+  A policy naming a method **no node serves** is refused.
 </ParamField>
 
 <ParamField path="attempts" type="int" required>
-  Total attempts including the first. Must be at least 1: *"a call is attempted at
-  least once."* A policy of 1 does nothing.
+  Total attempts including the first. The value must be at least 1. A policy of 1
+  makes no retry.
 </ParamField>
 
 <ParamField path="backoff" type="duration" default="0 refMs">
-  Waited before the **second** attempt.
+  The delay before the **second** attempt.
 </ParamField>
 
 <ParamField path="multiplier" type="double" default="1">
@@ -41,12 +40,11 @@ retries:
 </ParamField>
 
 <ParamField path="unsafe" type="boolean" default="false">
-  Retry a method the schema does not declare safe. That is the point of the gate,
-  not a way round it: it makes *"we retry a call that is not safe to run twice"* one
-  visible line in a diff.
+  Retry a method the schema does not declare safe. Set this only when the method is
+  safe to run more than once despite its schema declaration.
 </ParamField>
 
-## The gate
+## Safety check
 
 ```
 thumbs.yaml:22: retrying lab.Volley.Hit is refused — its .proto declares no
@@ -63,13 +61,12 @@ rpc Announce  (Health) returns (Empty) { option idempotency_level = IDEMPOTENT; 
 ```
 
 <Note>
-Retrying is an **operational** decision, so the policy lives in the simulation where
-it can be diffed and swept. Whether retrying is **safe** is a property of the
-method, so it lives in the `.proto`. The two have to agree, and losim checks it
-against what the system really serves before a single call is made.
+Retry policy belongs in the simulation file because it describes runtime behavior.
+Retry safety belongs in the `.proto` because it describes the method. losim checks
+both before making a call.
 </Note>
 
-## Retried, and not
+## Retried and excluded
 
 | retried | not retried |
 |---|---|
@@ -80,16 +77,15 @@ against what the system really serves before a single call is made.
 | `UNKNOWN` | |
 
 <Note>
-Only unary calls. Replaying a stream means buffering it, and a buffer whose size
-nobody declared is its own failure mode.
+Only unary calls can be retried. Replaying a stream would require buffering it, with
+an undeclared buffer size.
 </Note>
 
-## Every attempt is a real call
+## Attempt accounting
 
-The retry interceptor sits **outside** the recording one, so each attempt gets its
-own span, its own byte count, its own draw against loss, and its own look at whether
-the callee is still alive. A retry that reused the first attempt's accounting would
-make a design that retries look cheaper than one that does not.
+The retry interceptor sits **outside** the recording interceptor. Each attempt gets
+its own span, byte count, loss draw, and liveness check. Retry accounting therefore
+matches the work performed.
 
 ```json
 { "kind": "retry", "vm": "coordinator", "detail": {
@@ -100,12 +96,10 @@ make a design that retries look cheaper than one that does not.
     "method": "lab.Thumbnailer.Thumbnail", "attempts": 3, "status": "OK" } }
 ```
 
-`retry_done` appears only when there was more than one attempt. `unsafe: true`
-appears on the `retry` event when the policy claimed it.
+`retry_done` appears only when there was more than one attempt. `unsafe: true` appears
+on the `retry` event when the policy set it.
 
 <Warning>
-Every attempt shares the **same absolute deadline**, because it is the same
-`CallOptions`. Three attempts with a growing backoff can exhaust the deadline before
-they exhaust the attempts — and the trace will say `"attempts": 2` where you asked
-for 3.
+Every attempt shares the **same absolute deadline** from `CallOptions`. A growing
+backoff can exhaust that deadline before all configured attempts run.
 </Warning>

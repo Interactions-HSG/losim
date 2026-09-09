@@ -1,0 +1,111 @@
+---
+title: "Scaling limits"
+description: "Preserved quantities and the limits of size-ratio multiplication."
+icon: "up-right-and-down-left-from-center"
+---
+
+The design targets forty million units, while the measurement runs on a laptop.
+
+## Limits of multiplication
+
+Run a thousandth of the data, multiply everything by a thousand.
+
+<Warning>
+That assumes every resource is **linear in units**. Most resources are not.
+
+- Memory on a node that accumulates follows how many *distinct* things it had to
+  hold, which grows sublinearly.
+- Time follows the critical path through a call graph. Four calls into eight cores
+  take one wave, while thirty-two take four, so multiplying the first run by eight
+  predicts eight waves.
+
+Measured: multiplication lands **34% out** on memory for a workload where those
+diverge, and **199% out** on a makespan where replay lands within 2%.
+</Warning>
+
+## losim's method
+
+<Steps>
+  <Step title="Shrink the workload and the nodes by the same factor">
+    The scale model preserves **ratio**: demand over capacity, per node and per
+    resource. A design that would exhaust a 16 GiB node at full scale exhausts a
+    16 MiB node here for the same reason in your own code.
+  </Step>
+  <Step title="Measure a range rather than one small case">
+    Four data sizes, six seeds each, plus a system ladder and a fault column produce
+    about thirty runs. A single point cannot show the relationship.
+  </Step>
+  <Step title="Fit each resource against the variable it is really a function of">
+    Units are one candidate. Every numeric `reveal` is also a candidate.
+  </Step>
+  <Step title="Test each law before using it">
+    The engine checks whether the ladder bends and whether repeated measurements
+    produce the same exponent. A law that fails either check is **refused**.
+  </Step>
+</Steps>
+
+## Preserved quantities
+
+<Columns cols={2}>
+  <Card title="Preserved" icon="check">
+    **Memory.** Node capacity is scaled proportionally, so an out-of-memory result
+    reflects the modeled capacity limit.
+
+    **Bytes.** Messages are marshalled at their actual size.
+
+    **Disk.** Declared per write, capped proportionally.
+  </Card>
+  <Card title="Not preserved" icon="xmark">
+    **Time.** The host's CPU stays at full speed. It runs on a five-thousandth of
+    the data, so handler execution is much shorter than at full scale.
+
+    Durations are declared rather than measured so the simulation can model queueing,
+    contention, deadlines, and critical paths.
+  </Card>
+</Columns>
+
+## Replay the timeline
+
+Declared costs do not make makespan projection linear because concurrency changes
+the critical path.
+
+The engine replays the **observed call graph** with projected durations and each
+node's real concurrency. Measured against ground truth: replay lands within 2%
+where multiplication is 199% out.
+
+<Note>
+The makespan is routinely **refused**. For handlers shorter than the host's own
+jitter, the exponent varies between seed sets more than the effect being measured.
+The projected bill then omits capacity.
+</Note>
+
+## Two-step attribution
+
+This composes the fitted relationships used by the projection.
+
+```
+memoryMb      = f(distinctItems)      fitted on the ladder
+distinctItems = g(units)            also fitted on the ladder
+```
+
+Peak memory on a node that accumulates is a function of how many distinct things
+it holds; that count is itself a sublinear function of units. Fitting memory
+against the count and the count against units composes **two well-behaved laws**.
+
+Fitting memory directly against units gives **one exponent** that may change with
+the input, producing a projection 34% out.
+
+## Trace and cache
+
+`projected = f(observed)` is written into the trace so readers can recompute it. The
+plan is cached by simulation, profiled code, and telemetry level, so the thirty-run
+probe grid is performed once.
+
+<CardGroup cols={2}>
+  <Card title="The probe grid" icon="table-cells" href="/engine/probe-grid">
+    Three axes, varied independently.
+  </Card>
+  <Card title="Fitting the laws" icon="function" href="/engine/laws">
+    Candidate variables, wobble, and R² as a diagnostic.
+  </Card>
+</CardGroup>

@@ -1,6 +1,6 @@
 ---
 title: "Waiting"
-description: "A backoff, a poll interval, a lease — and why waiting is not work."
+description: "Model backoff, polling, and leases without charging waits as work."
 icon: "hourglass-half"
 ---
 
@@ -8,45 +8,39 @@ icon: "hourglass-half"
 Losim.current().sleep(200);      // 200 reference milliseconds
 ```
 
-Same unit as everything else, same division by `k_time`. At 40x that waits
-five real milliseconds and two hundred simulated ones.
+The value uses reference milliseconds and is divided by `k_time`. At 40x, this
+waits five real milliseconds while advancing the simulated clock by 200 ms.
 
-## A declared cost is fixed per rpc
+## Declared RPC cost
 
-`simulatedDuration:` is a table in the simulation, so it is fixed per rpc. That is for a duration
-**only the running program knows**: a backoff that grows with the attempt, a poll
-interval, a lease held until something else happens. No table can carry any of
-those, which is why both exist.
+`simulatedDuration:` is fixed per RPC. Use `sleep` for a duration **known only at
+runtime**, such as an attempt-dependent backoff, poll interval, or lease.
 
 ## `Thread.sleep` ignores `k_time`
 
-Because `k_time` never touches it. `Thread.sleep(200)` waits two hundred
-milliseconds of *your afternoon*, which at a compression of forty is eight thousand
-milliseconds of the simulated world — the one duration in a run that does not move
-when the compression does. That is why the verifier flags it, and this is what it
-flags it in favour of.
+`k_time` does not affect `Thread.sleep(200)`. It waits 200 wall-clock milliseconds
+rather than 200 reference milliseconds, so the verifier flags it. Use
+`Losim.current().sleep` instead.
 
-## Waiting is not work, and two things follow
+## Waiting and work
 
 <Columns cols={2}>
-  <Card title="It does not stretch on a slow node" icon="gauge-simple">
-    A node at half speed **computes** slower. It does not **wait** longer. So a
-    declared wait is not multiplied by `machineFactor` or by a degrade factor,
-    where declared **work** is.
+  <Card title="Waiting is independent of node speed" icon="gauge-simple">
+    A node at half speed **computes** slower but does not **wait** longer. A
+    declared wait is not multiplied by `machineFactor` or a degrade factor.
 
     Measured, at 40x on a node at half speed: a declared 500 takes 1019
     refMs and `sleep(500)` takes 596.
   </Card>
-  <Card title="It does not mark the node busy" icon="bed">
-    A backoff occupies no vCPU. Counting it as occupancy would overstate how loaded
-    the system was, and `busyPct` is one of the numbers a reader trusts most.
+  <Card title="Waiting does not mark the node busy" icon="bed">
+    A backoff occupies no vCPU. Counting it as occupancy would overstate system load.
 
-    The `sleep` event is what puts it on the timeline — which is enough to tell a
-    stretch of waiting from a stretch of doing nothing.
+    The `sleep` event places the wait on the timeline, distinguishing it from idle
+    time.
   </Card>
 </Columns>
 
-## The shapes it is for
+## Usage patterns
 
 <CodeGroup>
 ```java a growing backoff
@@ -76,18 +70,15 @@ while (here.clockMs() < 20_000) {
 </CodeGroup>
 
 <Tip>
-Prefer the simulation's own retry policy to a hand-rolled backoff where you can. It
-is declared data, so it can be diffed and swept, and losim gives every attempt its
-own span and its own byte count. Roll your own when the policy depends on something
-only the program knows. [Retries ->](/write/retries)
+Prefer the simulation's retry policy when it expresses the behavior. It is declared
+data and each attempt receives its own span and byte count. Use a custom backoff when
+the policy depends on program state. [Retries ->](/write/retries)
 </Tip>
 
-## Blocking on something real is not this
+## Waiting on external progress
 
-Waiting for something that is *happening* — a latch, a future, `Object.wait`, a
-queue take — is what a distributed program is mostly made of, and it is neither
-flagged nor charged. Its length is set by that something's own progress rather than
-written down anywhere.
+Waiting for a latch, future, `Object.wait`, or queue take is not flagged or charged.
+Its duration is determined by the other operation's progress.
 
 ```java
 Thumbs thumbs = future.get();        // fine: waiting for a call that is in flight
@@ -97,18 +88,15 @@ Thread.sleep(200);                    // flagged: your afternoon, not the run's
 ```
 
 <Note>
-Timeouts on those waits — `future.get(2, SECONDS)`, `latch.await(1, SECONDS)` — are
-real durations that `k_time` does not touch, but they are only *spent* when the
-wait fails, and a static check cannot see which run that is. So they are left
-alone. If a timeout matters to your design, prefer a gRPC deadline, which
-losim does rewrite into reference time.
+Timeouts such as `future.get(2, SECONDS)` and `latch.await(1, SECONDS)` use real
+duration and are not changed by `k_time`. If a timeout is part of the design, prefer
+a gRPC deadline, which losim rewrites into reference time.
 </Note>
 
 ## Outside a run
 
-`sleep` returns immediately when nothing is simulating anything. There is no
-compressed clock to spend against in a unit test, and a suite that really slept
-would be slower for no reason.
+`sleep` returns immediately outside a simulation. A unit test has no compressed clock
+and should not wait.
 
 <Card title="Next: deadlines" icon="arrow-right" href="/write/deadlines">
   The other half of waiting: giving up.

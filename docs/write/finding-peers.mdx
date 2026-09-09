@@ -1,10 +1,10 @@
 ---
 title: "Finding peers"
-description: "By what they serve, never by hostname — and why there is no liveness check."
+description: "Discover peers by service name rather than hostname."
 icon: "magnifying-glass"
 ---
 
-## From a handler, and from the job
+## From a handler or job
 
 <CodeGroup>
 ```java inside a handler
@@ -21,16 +21,14 @@ List<String> everyone = here.peers();
 </CodeGroup>
 
 <Warning>
-`peersServing` excludes **this** node, on purpose: a blocking call to itself would
-occupy one of its own pool threads waiting for another of its own pool threads, and
-on a two-vCPU node that is one deadlock away from being a habit.
+`peersServing` excludes **this** node. A blocking self-call would occupy one pool
+thread while waiting for another thread on the same node.
 
-`Job.Run` is a handler like any other, so the same rule applies to it — which is
-rarely a constraint, because the node running `losim.Job` is usually the coordinator
-and usually serves nothing else.
+`Job.Run` is a handler like any other, so the same rule applies. The node running
+`losim.Job` is usually the coordinator and serves no other service.
 </Warning>
 
-## The argument is the service name from the `.proto`
+## Use the `.proto` service name
 
 ```proto
 package lab;
@@ -43,31 +41,27 @@ here.peersServing("lab.Thumbnailer");    // works — the fully qualified name
 here.peersServing("Shrinker");           // finds nothing: that is your Java class
 ```
 
-Both forms are registered, and this is the same string a `runs:` **key** carries:
+Both forms are registered. Use the same service string as the `runs:` **key**:
 
 ```yaml
 runs: { lab.Thumbnailer: src/lab/Shrinker.java }
 ```
 
-The key is the service, the value is the file. A key that disagrees with what the
-class actually serves is refused at run start, because `peersServing` would then
-find nobody and a design that copes with a missing peer would look like one that
-worked.
+The key is the service and the value is the file. losim refuses a mismatch between
+the key and the class's implemented service.
 
-## Dead nodes are not listed, and that is not a liveness check
+## Peer discovery and liveness
 
 ```java
 here.peersServing("Thumbnailer")   // ["w0", "w2", "w3"] — w1 was killed
 ```
 
 <Note>
-That is **discovery working**, not a health API. losim deliberately offers no way
-to ask "is `w1` alive?", because no real network offers one, and a design that
-depends on knowing is a design that will not survive contact with one.
+That is **discovery**, not a health API. losim does not provide an authoritative
+`isAlive` query because a network cannot guarantee one.
 
-A node that has gone is a node that has stopped answering. Finding that out
-still costs a call and a deadline — and it will, because between your last call to
-`serving()` and your next dispatch, a node can leave.
+A stopped node is detected when a call fails or reaches its deadline. It can leave
+between discovery and dispatch.
 </Note>
 
 The distinction has a practical consequence. Compare:
@@ -88,18 +82,15 @@ for (var batch : batches) {
 ```
 </CodeGroup>
 
-The first keeps sending work to a node that died at 900 refMs, and pays a full
-deadline for each batch. The second stops after the first failure. Neither is
-*wrong* — the second costs a lookup per batch — but only one of them is a design
-that noticed.
+The first keeps sending work to a node after it dies and pays a deadline for each
+batch. The second refreshes discovery for each batch and can stop sooner.
 
-## Registration, when discovery is not enough
+## Registration
 
-Discovery tells you a node serves something. It does not tell you how big it is,
-what zone it is in, or how loaded it is — and there is no API for asking about
-someone else's node.
+Discovery tells you which service a node serves, not its capacity, zone, or current
+load.
 
-So a real resource manager has a registration call, and yours will too:
+A resource manager can collect that information through a registration call:
 
 ```proto
 service Registry {
@@ -119,8 +110,7 @@ if (announced.compareAndSet(false, true)) {
 }
 ```
 
-The table is stale the moment it is built, and finding out how stale is most of
-what makes placement interesting.
+The table can become stale, so placement must account for its age.
 
 ## Zones
 
@@ -128,12 +118,10 @@ what makes placement interesting.
 Losim.current().here().zone()      // "eu-central-1b"
 ```
 
-Only your own — but a peer will tell you its zone if you ask it, and that is worth
-asking. Traffic **between** availability zones is billed and traffic inside one is
-free, and cross-zone latency in a simulation is typically five to ten times
-same-zone. A coordinator that ignores zones is a coordinator whose bill has a line
-on it that need not have been there.
+Only your own zone is available locally; a peer can report its zone. Traffic
+**between** availability zones is billed, traffic within one is free, and cross-zone
+latency is typically five to ten times same-zone latency.
 
 <Card title="Next: calling a peer" icon="arrow-right" href="/write/calling-peers">
-  What `channelTo` gives you, and what building your own costs.
+  What `channelTo` provides and why a custom channel bypasses the model.
 </Card>

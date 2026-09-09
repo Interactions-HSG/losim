@@ -1,23 +1,21 @@
 ---
 title: "Sweeps"
-description: "One run tells you a design survived an afternoon. Twenty tell you it survives afternoons."
+description: "Use repeated runs to evaluate a design across seeds and inputs."
 icon: "dice"
 ---
 
 <Warning>
-**Runs are not reproducible, on purpose.** Real threads, a real wall clock, and a
-deliberate refusal to simulate a scheduler. Two runs of one simulation on one node
-differ in every duration and most byte counts.
+**Runs are not reproducible.** losim uses real threads and the wall clock rather than
+simulating a scheduler, so repeated runs can have different durations and byte
+counts.
 
-That is the property that makes a sweep the unit of evidence rather than a run,
-not a defect to be worked around.
+A sweep is therefore the unit of evidence, not an individual run.
 </Warning>
 
-## The shape of a sweep
+## Sweep Structure
 
-**losim is a library, so a sweep is a Java program.** `Simulate.of` hands you the result
-as an object, so a sweep is a loop over it — not a shell loop writing twenty files
-for a second script to read back.
+**losim is a library, so a sweep is a Java program.** `Simulate.of` returns a result
+object, which a sweep can process directly.
 
 ```java src/lab/Sweep.java
 package lab;
@@ -37,7 +35,7 @@ public final class Sweep {
         double slowest = 0;
 
         for (long seed = 1; seed <= 20; seed++) {
-            // OFF: a sweep asks whether it finished, not what happened inside.
+            // OFF records completion and failure without trace details.
             var r = Simulate.of(base.withSeed(seed), loader, Telemetry.Level.OFF);
             if (r.completed()) completed++;
             else System.out.printf("seed %2d  %s%n", seed, r.failure());
@@ -50,14 +48,13 @@ public final class Sweep {
 ```
 
 <Note>
-**A run that did not complete is a data point, not an error.** `Simulate.of` returns
-normally either way — `completed()` says which, and `failure()` says why in words. So
-there is no `|| true` to write and nothing that can swallow a real breakage: a run
-that could not start at all still throws, and only that stops the sweep.
+**An incomplete run remains a data point.** `Simulate.of` returns normally for both
+outcomes; `completed()` reports the result and `failure()` gives the reason. A run
+that cannot start still throws and stops the sweep.
 </Note>
 
 
-## Reading twenty traces
+## Reading a sweep
 
 ```python summarise.py
 import glob, json, statistics, sys
@@ -101,15 +98,14 @@ print(f"  OOMs       total {sum(r['oom'] for r in rows)}")
 ```
 
 <Note>
-**Report the spread, not the best run.** A design whose median is 2503 and whose
-worst is 6104 is a different design from one that is 2900 every time, even though
-the second looks worse on a single run. The second is the one you can put a service
-level on.
+**Report the spread across runs.** A design with median 2503 and worst 6104 has
+different operational behavior from one that takes 2900 every time. The spread is
+what matters for a service level.
 </Note>
 
-## The axes a sweep varies
+## Sweep axes
 
-Everything that draws from the seed:
+These values draw from the seed:
 
 | | |
 |---|---|
@@ -119,14 +115,13 @@ Everything that draws from the seed:
 | packet loss | which messages vanish |
 | **your workload** | if your `Load` took `Losim.current().seed()`, which is why it should |
 
-A failure written with `at:` does **not** vary — a kill at 900 refMs is at 900 refMs
-in every seed. That is what makes `at:` useful for a specific lesson, and what makes
-`per:` the right tool for "does it survive afternoons".
+A failure written with `at:` does **not** vary. A kill at 900 refMs occurs at that
+time for every seed. Use `at:` for fixed scenarios and `per:` for repeated failure
+trials.
 
-## Sweeping something other than the seed
+## Sweeping another axis
 
-The simulation is an object, so change the thing you mean and leave the rest alone.
-No `sed`, no temporary YAML, no chance of the substitution matching something else:
+The simulation is an object, so change one property while leaving the others intact:
 
 ```java
 var base = Loader.load(Path.of("thumbs.yaml")).withoutWeather();
@@ -148,24 +143,21 @@ for (int workers : new int[] {2, 4, 8}) {
 
 <Note>
 `withWorkers` resizes **every pool that had more than one node**, keeping its
-instance type, zones and services. Singletons — the coordinator — are left alone,
-because varying the system is meant to vary the workers.
+instance type, zones, and services. Singletons such as the coordinator are unchanged.
 
-The other axes are the same shape: `withUnits`, `withSeed`, `withKTime`,
-`withExpectedRun`, `withoutWeather`. Each returns a copy, so the base simulation you
-loaded is never mutated and every run in the loop differs by exactly one thing.
+Other axes include `withUnits`, `withSeed`, `withKTime`, `withExpectedRun`, and
+`withoutWeather`. Each returns a copy, so the loaded base is unchanged and each run
+differs by one setting.
 </Note>
 
 
-Then read `durationRefMs` and the bill out of each. The curve — does doubling the
-system halve the time? — is one of the more instructive things you can produce, and
-it usually does not.
+Read `durationRefMs` and the bill from each result. The curve shows how runtime
+changes as the system changes.
 
 <Tip>
-Vary **one axis at a time**. If the system and the workload move together, a
-resource that grows with one is indistinguishable from a resource that grows with
-the other. That is exactly why the scale engine's probe grid varies them on
-separate axes, and the same discipline applies to a hand-run sweep.
+Vary **one axis at a time**. If system size and workload change together, a resource
+that grows with one is indistinguishable from a resource that grows with the other.
+The scale engine separates these axes for the same reason.
 </Tip>
 
 <Card title="Next: comparing two designs" icon="arrow-right" href="/simulate/comparing-designs">

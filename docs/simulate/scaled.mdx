@@ -1,6 +1,6 @@
 ---
 title: "A scale above 1"
-description: "Declare a size no laptop can hold, run what fits, and project the rest — with error bars."
+description: "Run a feasible size and project the declared full scale."
 icon: "up-right-and-down-left-from-center"
 ---
 
@@ -8,14 +8,13 @@ icon: "up-right-and-down-left-from-center"
 scale: 5000
 ```
 
-One key, and there is no second one saying this is a model. At `scale: 1` the run
-is the thing and every number on screen is what happened; above it the engine
-always does the work — a simulation cannot hand-declare a shrink factor and bypass
-it, because that would be a number nobody could account for.
+`scale` is the only setting needed. At `scale: 1`, the run is measured directly.
+Above 1, the engine selects and runs the probe workload before projecting the full
+size.
 
-## Running it
+## Running a scaled simulation
 
-The same command. losim reads the scale:
+Use the same command; losim reads `scale` from the simulation:
 
 ```bash
 java -Xmx3g -cp "${CP}build/losim.jar:build/losim/classes" \
@@ -23,7 +22,7 @@ java -Xmx3g -cp "${CP}build/losim.jar:build/losim/classes" \
      --cp build/losim/classes --out build/scaled.json
 ```
 
-The first run is slow, and here is where the time goes:
+The first scaled run includes the fitting work:
 
 ```
 thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 frames (x5,000)
@@ -32,21 +31,20 @@ thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 frames (x5,000)
   laws below are fitted in
 ```
 
-Thirty small runs — four data sizes at six seeds each, two system shapes, and a
-weather column — climbed before the real run happens at all. Then:
+losim runs thirty probes before the scaled run: four data sizes at six seeds, two
+system shapes, and a weather column. Later runs can use the cached plan:
 
 ```
                                               [plan cached]
 ```
 
 <Note>
-**The plan cache** lives in `build/.losim-plans/` and is keyed on the simulation, the
-code it profiles, **and the telemetry level**. Change any of those and it refits;
-change nothing and a grid of thirty runs is paid for once.
+**The plan cache** lives in `build/.losim-plans/` and is keyed by the simulation, the
+profiled code, **and the telemetry level**. Changing any of these triggers a refit;
+an unchanged configuration reuses the plan.
 
-Keyed on the telemetry level because the whole claim of the accounting is that the
-fitted law does not depend on how much you instrumented — and a cache that ignored
-the level would make that claim untestable.
+The telemetry level is part of the key because fitted laws must be checked against
+the instrumentation level that produced them.
 
 ```bash
 rm -rf build/.losim-plans      # force a refit
@@ -71,42 +69,35 @@ rm -rf build/.losim-plans      # force a refit
   <Accordion title="The law line" icon="function" defaultOpen>
     `resource = fixed + coefficient x variable ^ beta`
 
-    The **fixed** term is overhead that is real at every scale — a JVM's baseline
-    heap does not shrink because the workload did. The **variable** term is what
-    grows.
+    The **fixed** term is overhead present at every scale. The **variable** term
+    grows with the selected input.
 
-    `R2` is how well the line went through the points it was given. `wobble` is how
-    far the exponent moves when the whole thing is fitted again on independent
-    seeds — and the second is the number that decides whether the law is kept.
+    `R2` measures how well the line fits its points. `wobble` measures how far the
+    exponent moves when fitted again on independent seeds; losim uses it to decide
+    whether to keep the law.
   </Accordion>
   <Accordion title="The variable" icon="magnifying-glass">
-    `revealed.distinctItems` means your own `reveal("distinctItems", …)` was chosen
-    as the independent variable, over `units`. That is the engine finding what the
-    resource is *actually* a function of. Peak memory is a function of how much you
-    hold, not of how much went past.
+    `revealed.distinctItems` means `reveal("distinctItems", …)` was selected as the
+    independent variable instead of `units`. Peak memory can depend on retained
+    items rather than processed items.
 
-    A variable that is not `units` is itself fitted against units, so the
-    projection composes two well-behaved laws instead of one fragile one.
+    A variable other than `units` is fitted against units first. The projection then
+    composes the two fitted laws.
   </Accordion>
   <Accordion title="The error bar" icon="plus-minus">
-    `+-x1.10` means the projection could plausibly be 10% either way. It is
-    `scaleFactor ^ wobble`: an uncertainty in the exponent becomes a factor in the
-    answer, and the further the projection reaches the more it matters.
+    `+-x1.10` means the projection can vary by about 10% in either direction. It is
+    `scaleFactor ^ wobble`: exponent uncertainty becomes a multiplicative factor.
 
-    Past **x2.0** the projection no longer distinguishes anything a reader would
-    have wanted distinguished, and the engine refuses it rather than printing it.
+    Past **x2.0**, the engine refuses the projection because its uncertainty is too
+    large to support a useful distinction.
   </Accordion>
   <Accordion title="The refusals" icon="ban">
-    Two different tests, answering two different questions.
+    **The ladder bends** means the resource behaves differently at small and large
+    sizes, so extrapolation across the bend is invalid. A high R2 does not rule this
+    out.
 
-    **The ladder bends** — the resource behaves differently small than large, so no
-    extrapolation across means anything. Note that the refusal quotes the R², which
-    is still 0.88, precisely because R² is the number a reader would reach for and
-    it would not have caught this.
-
-    **The exponent is not reproducible** — refit on independent seed sets, it lands
-    somewhere else. A law whose exponent cannot be reproduced to better than its own
-    effect size is a number with a line through it.
+    **The exponent is not reproducible** means independent seed sets produce
+    materially different exponents.
 
     [In full ->](/engine/refusals)
   </Accordion>
@@ -118,9 +109,9 @@ rm -rf build/.losim-plans      # force a refit
 java -cp "$CP" losim.cli.Main bill build/scaled.json
 ```
 
-A scaled run is billed twice — for what happened, and for the job it is a model of.
-The second bill is quantities times prices, and the engine will not project every
-quantity:
+A scaled run has two billing views: what happened and the full-size model. The
+projected view multiplies fitted quantities by prices, but some quantities remain
+unprojectable:
 
 ```
   capacity    the system, for the period            -           CHF   refused
@@ -128,10 +119,8 @@ quantity:
       workload, which over a factor of 6 is an error bar of x4.1
 ```
 
-Capacity depends on the timeline, the timeline is the noisiest thing losim
-measures, and capacity is usually the largest line. So the honest account routinely
-says: the bytes cost this much, the storage costs this much, and nobody can tell you
-what the nodes cost.
+Capacity depends on the timeline, which is often the noisiest measurement. A bill
+can therefore price bytes and storage while refusing to price projected capacity.
 
 ## No feasible size
 
@@ -139,14 +128,14 @@ what the nodes cost.
 thumbs-scaled.yaml  a scale above 1: no feasible size
   memoryMb at 8000 units is only 2.4x its own fixed overhead (0.31 against 0.13);
   below 10x the fit is describing the overhead rather than the workload
-  Nothing was run and nothing is projected, which is the point:
-  a projection that could not be made must be absent, not guessed.
+  Nothing was run and nothing is projected. A projection that could not be made is
+  absent rather than guessed.
 ```
 
-Feasibility is checked in both directions — large enough that the variable part
-dominates the fixed overhead, small enough that the whole scaled system fits in the
-host's heap. [What to do about it ->](/simulate/when-it-refuses)
+Feasibility is checked in both directions: the workload must be large enough for the
+variable term to dominate fixed overhead, and the scaled system must fit in the
+host's heap. [Refusal handling ->](/simulate/refusals)
 
-<Card title="Next: when it refuses" icon="arrow-right" href="/simulate/when-it-refuses">
+<Card title="Next: refusal handling" icon="arrow-right" href="/simulate/refusals">
   Every refusal, what it means, and what to change.
 </Card>

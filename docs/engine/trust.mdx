@@ -1,22 +1,21 @@
 ---
 title: "Trust markers"
-description: "The verifier marks measurements affected by code outside the simulated world."
+description: "The verifier marks measurements affected by code outside the model."
 icon: "shield-halved"
 ---
 
-losim's numbers mean something only if the code stays inside the simulated world.
-A handler that reads `System.nanoTime` gets the host's time rather than the
-compressed clock. One that writes a real file bypasses the disk model. One that
-hands its work to the common pool is charged to nobody.
+The measurements depend on code using the model. `System.nanoTime` reads host time,
+a real file bypasses the disk model, and work sent to the common pool has no node
+to charge.
 
 <Warning>
-None of those throw. Each produces a run full of plausible figures, and each figure
-is wrong in a way the viewer cannot see on its own.
+None of these actions necessarily throws. They can produce plausible figures with
+unmodeled work, so the verifier records a caveat.
 </Warning>
 
-So the verifier reads the lab's compiled classes before anything runs, and flags
-rather than refuses. The run still happens, and what carries a caveat says so beside
-itself:
+The verifier reads the lab's compiled classes before execution. It flags affected
+measurements and lets the run continue. The trace records the caveat beside the
+affected result:
 
 ```text
   trust: 4 nodes report figures that do not mean what they say
@@ -31,21 +30,21 @@ itself:
     Nothing was stopped: each of these is a wrong number, not a broken run.
 ```
 
-## Flagging, not a gate
+## Flags instead of a gate
 
 <Columns cols={2}>
   <Card title="A gate would have to be right about generated code" icon="robot">
-    protoc's output trips these rules freely. A `*Grpc` class holds mutable
+    protoc's output can trigger these rules. A `*Grpc` class holds mutable
     statics, and a hard gate would have to argue with every one.
   </Card>
   <Card title="A gate teaches the wrong thing" icon="lock">
     losim measures rather than restricts what your code does. The useful output is a
-    lower bound attached to the node and the figure it undermines, not a verdict
-    about the code.
+    lower bound attached to the affected node and resource, not a verdict about the
+    code.
   </Card>
 </Columns>
 
-## The walk's scope
+## Walk scope
 
 The verifier walks outward from the services each node serves and the job that
 drives them, then follows everything they reference that is also on the lab's
@@ -59,7 +58,7 @@ classpath.
   `@GrpcGenerated`, not by a guess about the name.
 
 <Note>
-Nothing walked is not the same as nothing wrong. If the classpath yields nothing,
+An empty walk is not evidence that the code is clean. If the classpath yields nothing,
 the run says so rather than reporting clean:
 
 ```text
@@ -68,10 +67,10 @@ nothing was read. A jar is not walked; point --cp at the directory the lab
 compiles to.
 ```
 
-Reporting that as clean would be the one failure mode this check cannot afford.
+The verifier reports the empty walk instead of treating it as clean.
 </Note>
 
-## Three things it has to get right
+## Verification cases
 
 <AccordionGroup>
   <Accordion title="A constant is not shared state" icon="lock" defaultOpen>
@@ -81,7 +80,7 @@ Reporting that as clean would be the one failure mode this check cannot afford.
     ```
 
     The difference is that nothing is **called** to build the second. The class
-    initialiser is read, rather than the declaration guessed at.
+    initializer is read rather than inferred from the declaration.
   </Accordion>
 
   <Accordion title="Said by the declarations, not the call sites" icon="file-code">
@@ -89,7 +88,7 @@ Reporting that as clean would be the one failure mode this check cannot afford.
     argument. A class that `extends Thread` starts itself through a method on
     itself.
 
-    A verifier reading only the instructions would call both spotless.
+    A verifier that reads only instructions would miss both cases.
   </Accordion>
 
   <Accordion title="Two nodes running the same class are both flagged" icon="clone">
@@ -99,7 +98,7 @@ Reporting that as clean would be the one failure mode this check cannot afford.
   </Accordion>
 </AccordionGroup>
 
-## Each flag, and what it undermines
+## Flag consequences
 
 Each rule carries a flag, and each flag names the measured resources it makes
 meaningless:
@@ -112,8 +111,8 @@ meaningless:
 | `wire` | its wire bytes are a lower bound | `wireMb` |
 | `isolation` | its figures are not only its own | **all of them** |
 
-`isolation` poisons everything rather than one column. If nodes reach into each
-other, attributing anything to either of them is arithmetic on a fiction.
+`isolation` affects every column. If nodes reach into each other, attribution to
+either node is not reliable.
 
 ## Above `scale: 1`
 
@@ -123,18 +122,17 @@ other, attributing anything to either of them is arithmetic on a fiction.
 ```
 
 <Note>
-An error bar says how well a law was fitted. It says nothing about whether what it
-was fitted to meant anything. A node that stepped outside the simulated world is
-exactly that case, so the caveat goes next to the number.
+An error bar describes fit quality, not whether the measured work stayed inside the
+model. The caveat therefore appears next to the projected number.
 </Note>
 
-## Left unchecked
+## Deliberately unchecked
 
-Nothing is flagged for determinism's sake. Unseeded `Random`, `Math.random` and
+The verifier does not flag code solely for determinism. Unseeded `Random`, `Math.random` and
 identity-hash iteration order are all fine, because runs are not reproducible
 anyway.
 
-Raw threads are not banned either. Real concurrency inside a node is a feature.
+Raw threads are not banned either. Real concurrency inside a node is supported.
 Work outside the node's own pool is attributed to nobody, and that is what gets
 said.
 

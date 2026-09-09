@@ -1,6 +1,6 @@
 ---
 title: "Disk"
-description: "A write that can be refused, and why that matters more than a counter would."
+description: "Disk writes, capacity limits, and refusal behavior."
 icon: "hard-drive"
 ---
 
@@ -8,13 +8,12 @@ icon: "hard-drive"
 Losim.current().wroteDisk(bytes);
 ```
 
-That is the whole API. There is no file, no path and no stream. The point is to
-make a design that does not fit on its disks fail here for the reason it would
-fail there, not to persist anything.
+This API records the number of bytes a design would write. It does not create a
+file, path, or stream; it enforces the simulated disk limit.
 
-## It throws
+## Write behavior
 
-Unlike every other recording call, this one is not silent when things go wrong:
+Unlike recording calls, this operation fails when the simulated disk is full:
 
 ```java
 try {
@@ -24,10 +23,8 @@ try {
 }
 ```
 
-A node whose disk is full cannot take the write, so the handler fails the way it
-would have failed for real. Recording the write and carrying on would let a design
-that cannot fit on its disks appear to work — the same mistake as an out-of-memory
-that only prints a warning.
+A full disk cannot accept the write, so the handler fails. Continuing after recording
+the write would hide a capacity failure.
 
 The trace records it once per node:
 
@@ -38,15 +35,14 @@ The trace records it once per node:
 ```
 
 <Warning>
-**Do not write a real file.** `Files.write`, `FileOutputStream`, `RandomAccessFile`
-— none of them throw, none of them are seen by the disk model, none of them are
-capped, and all of them write to the host, outside the one-node boundary. The
-node's disk figure becomes a lower bound and the verifier says so beside it.
+**Do not write a real file.** `Files.write`, `FileOutputStream`, and
+`RandomAccessFile` bypass the disk model and write to the host. The node's disk
+figure then becomes a lower bound, which the verifier reports.
 </Warning>
 
 ## Declaring the write
 
-Whatever your design would have written, in bytes:
+Report the number of bytes the design would write:
 
 ```java
 byte[] payload = spill.toByteArray();
@@ -60,21 +56,20 @@ Losim.current().wroteDisk(spill.getSerializedSize());
 ```
 
 <Note>
-Nothing checks that you declared the truth, and nothing can. That is a claim about
-your design, like a declared duration — and like one, what matters is that it is
-consistent between the designs you are comparing.
+losim cannot independently verify the declared number. Keep it consistent when
+comparing designs, as with a declared duration.
 </Note>
 
 ## Reading back
 
-There is no read side, on purpose. A design that spills and re-reads pays for the
-spill; re-reading costs whatever the simulation says it costs. Adding a read API
-would mean modelling a filesystem, and the interesting question — *does this fit,
-and what does the storage cost* — is answered without one.
+There is no read API. A design that spills and re-reads pays for the spill; represent
+read cost in the simulation. The disk model checks capacity and storage without
+modeling a filesystem.
 
 ## Caps
 
-From the instance type's `storageGb`, or overridden per node:
+The default comes from the instance type's `storageGb` and can be overridden per
+node:
 
 ```yaml
 nodes:
@@ -87,10 +82,10 @@ nodes:
       w3: { diskMb: 32 }         # deliberately too small
 ```
 
-The catalogue's storage-shaped instance is `i3.large`; everything else has 8–32 GB.
-Choosing an instance family is itself a design decision, and the bill will price it.
+`i3.large` is the catalogue's storage-oriented instance; other types provide 8–32
+GB. The selected instance family affects billing.
 
-## Everywhere it appears
+## Disk outputs
 
 | where | as |
 |---|---|
@@ -100,15 +95,12 @@ Choosing an instance family is itself a design decision, and the bill will price
 | a scale above 1 | a `diskMb` law, fitted against whichever variable it turns out to follow |
 
 <Tip>
-Disk is often the resource whose law the engine **refuses**, and for an instructive
-reason: code that spills only above a threshold behaves differently small than
-large, so the ladder bends between the low end and the high end. R² over the whole
-ladder still scores about 0.74 — which a merely noisy straight line reaches as
-easily — so no threshold on R² could separate them. The engine splits the ladder
-instead. [Refusals ->](/engine/refusals)
+Disk is often the resource whose law the engine **refuses**. A spill threshold can
+make behavior differ at small and large sizes, bending the fitted range.
+[Refusals ->](/engine/refusals)
 </Tip>
 
-## See it
+## Observe a full disk
 
 A volume too small for what the design writes to it:
 
@@ -141,10 +133,9 @@ Experiments.here()
         .show();
 ```
 
-**What to look for.** `w1` throws where `w0` does not, and the `disk_full` marker is
-on the bar at the instant it happened. In the [ledger](/viewer/views#the-ledger) the
-consumption bucket now has a storage line that climbs as the run goes on — which is
-the line a better algorithm moves.
+`w1` throws while `w0` continues, and the `disk_full` marker appears at the failure
+time. In the [ledger](/viewer/views#the-ledger), the consumption bucket includes the
+storage line.
 
 <Card title="Next: concurrency" icon="arrow-right" href="/write/concurrency">
   The thread pool is the node, and that has consequences.

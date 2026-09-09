@@ -1,53 +1,48 @@
 ---
 title: "Comparing two designs"
-description: "Two simulations, two sweeps, two bills — and the one thing losim compare is for."
+description: "Compare two simulations, their sweeps, and their bills."
 icon: "code-compare"
 ---
 
-The simulation is data precisely so that two designs can be compared by comparing two
-files. Nothing in it is computed; anything that needs code points at a class by
-name.
+Compare the simulation files. Code is referenced by class name rather than embedded
+in the simulation file.
 
-## The discipline
+## Comparison rules
 
 <Steps>
   <Step title="Change one thing">
-    Two simulations that differ in the system **and** the job are two experiments, not
-    a comparison. If you are comparing jobs, hold the system identical; if you are
-    comparing systems, hold the job identical.
+    Two simulations that differ in the system **and** the job are separate
+    experiments. When comparing jobs, keep the system identical; when comparing
+    systems, keep the job identical.
   </Step>
   <Step title="Use the same declared costs">
-    A handler declared at 3 refMs in one design and 30 in the other is not a
-    comparison of designs, it is a comparison of two claims. A declared cost is a claim
-    about your code — keep it honest across both.
+    A handler declared at 3 refMs in one design and 30 in the other compares two cost
+    claims, not two designs. Keep declared costs the same.
   </Step>
   <Step title="Sweep both, not run both">
-    Twenty seeds each. A single run of each can differ by more than the designs do.
+    Use twenty seeds for each design. One run can differ more than the designs do.
   </Step>
   <Step title="Read the bill, not the clock">
-    A design decision that costs nothing is not a design decision. Two designs that
-    finish in the same time can differ by an order of magnitude in egress.
+    Use the bill as well as runtime. Two designs with the same runtime can differ by
+    an order of magnitude in egress.
   </Step>
 </Steps>
 
-## Two films, side by side
+## Runtime comparison
 
 ```bash
 java -cp "$CP" losim.cli.Main simulate design-a.yaml --cp build/losim/classes --out build/results/a.json
 java -cp "$CP" losim.cli.Main simulate design-b.yaml --cp build/losim/classes --out build/results/b.json
 ```
 
-Open `a`, then pick `b` from **`compare with…`**. Both run on
-[one clock](/viewer/views#two-runs-on-one-clock), in absolute refMs, so the moment one
-finishes and the other has not is the moment you can see. Underneath, each run's cost
-and which is cheaper by how much.
+Open `a`, then pick `b` from **`compare with…`**. Both runs use
+[one clock](/viewer/views#two-runs-on-one-clock) in absolute refMs, so their finish
+times can be compared directly. The viewer also shows each run's cost.
 
-The answers *when* and *where* they diverge. The bill answers *what it cost*, which
-is the next section — and the two are worth doing in that order, because the bill
-tells you a design is more expensive and the film tells you which twenty seconds of it
-were.
+The runtime view shows *when* and *where* the designs diverge. The bill shows *what*
+caused the cost.
 
-## Two bills, side by side
+## Bill comparison
 
 
 ```bash
@@ -56,9 +51,8 @@ java -cp "$CP" losim.cli.Main bill build/design-b.json > build/b.bill
 diff -y --width=160 build/a.bill build/b.bill
 ```
 
-The four buckets are printed apart rather than summed, and this is where that pays
-off. A design that replicates triples **capacity** and adds to **build** in order to
-empty **incidents** — and a single total would hide exactly that trade.
+The billing buckets are printed separately. A design can increase **capacity** and
+**build** cost while reducing **incidents**; one total would hide that trade.
 
 <Tip>
 Distort a price to find out what a design is really sensitive to. Copy
@@ -72,21 +66,20 @@ egress_per_gb: 4.00
 java -cp "$CP" losim.cli.Main bill build/design-a.json --prices prices/expensive-egress.yaml
 ```
 
-Billing is a pure function of the trace, so this costs nothing to try and needs no
-re-run. A design whose ranking flips is a design whose advantage was a price
-assumption.
+Billing is a pure function of the trace, so this needs no re-run. If the ranking
+changes, the original advantage depended on the price assumption.
 </Tip>
 
-## The purpose of `losim compare` — and its limit
+## Checks performed by `losim compare`
 
 ```bash
 java -cp "$CP" losim.cli.Main compare build/a.json build/b.json
 ```
 
 <Warning>
-`compare` answers **"are these two the same simulator?"** It does not answer "which of
-these designs is better". It is the tool for checking that a laptop, the devcontainer
-and a Codespace produce the same thing — which is exactly what CI uses it for.
+`compare` answers **"are these two the same simulator?"** It does not decide which
+design is better. Use it to check whether different environments produce the same
+structural trace, including in CI.
 </Warning>
 
 It splits everything it compares into two kinds:
@@ -98,14 +91,13 @@ It splits everything it compares into two kinds:
     **carries**. What each span kind is labelled. **What each resource was found to
     be a function of**, and what the engine refused.
 
-    A difference here is a defect: the two environments are not running the same
-    simulator.
+    A difference here means the environments are not running the same simulator.
   </Card>
   <Card title="Measured — printed, not judged" icon="ruler">
     The duration. The run size the engine chose. Every fitted exponent.
 
-    Runs are not reproducible and hosts are not identical, so a textual diff could
-    never pass — and a check that can never pass is not a check.
+    Runs and hosts vary, so these values are reported but not used for structural
+    equality.
   </Card>
 </Columns>
 
@@ -123,15 +115,14 @@ build/results-codespace/t10.json
 ```
 
 <Note>
-Note which line is in which column. The **`what each resource is a function of`**
-agrees is the strong claim: attribution is a fact about your program and must not
-depend on where the program ran. The the exponent moves slightly is a measurement,
-and the size of the movement is worth seeing rather than judging.
+The **`what each resource is a function of`** line is structural: attribution is a
+fact about the program and should not depend on the host. Exponent differences are
+measurements and are reported rather than judged.
 </Note>
 
-## Comparing designs properly
+## Design results
 
-Since `compare` is not the tool, here is one:
+Use a separate summary for design results:
 
 ```python compare.py
 import glob, json, statistics, sys
@@ -165,8 +156,8 @@ for k in a:
   timeouts                   41                4
 ```
 
-Design B is slower at the median and **much** better everywhere else. That is a
-normal shape for this trade-off, and it is not visible from one run of each.
+Design B is slower at the median and **better** on the other reported measures. A
+multi-run summary is needed to see this trade-off.
 
 <Card title="Next: a scale above 1" icon="arrow-right" href="/simulate/scaled">
   Comparing designs at a size no laptop can hold.

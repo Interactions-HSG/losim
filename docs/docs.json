@@ -20,24 +20,24 @@
               "index",
               "start/quickstart",
               "start/adopt",
-              "start/mental-model",
+              "start/model",
               "start/codespaces",
               "start/laptop",
-              "start/project-layout"
+              "start/layout"
             ]
           },
           {
             "group": "Your first system",
             "pages": [
-              "first/the-plan",
-              "first/the-schema",
-              "first/the-service",
-              "first/the-job",
-              "first/the-simulation",
+              "first/plan",
+              "first/schema",
+              "first/service",
+              "first/job",
+              "first/simulation",
               "first/simulate-it",
               "first/read-the-trace",
-              "first/break-it",
-              "first/what-it-cost"
+              "first/failure-handling",
+              "first/costs"
             ]
           },
           {
@@ -47,18 +47,18 @@
               "write/finding-peers",
               "write/calling-peers",
               "write/jobs",
-              "write/declaring-time",
+              "write/duration-declarations",
               "write/waiting",
               "write/deadlines",
               "write/memory",
               "write/disk",
               "write/concurrency",
               "write/telemetry",
-              "write/surviving-weather",
+              "write/failure-responses",
               "write/retries",
-              "write/unit-testing",
+              "write/handler-testing",
               "write/debugging",
-              "write/writing-to-scale"
+              "write/scale-writing"
             ]
           },
           {
@@ -68,7 +68,7 @@
               "simulate/sweeps",
               "simulate/comparing-designs",
               "simulate/scaled",
-              "simulate/when-it-refuses",
+              "simulate/refusals",
               "simulate/troubleshooting"
             ]
           }
@@ -136,8 +136,8 @@
           {
             "group": "The design",
             "pages": [
-              "engine/two-layers",
-              "engine/a-node",
+              "engine/system-boundary",
+              "engine/node-model",
               "engine/the-wire"
             ]
           },
@@ -145,13 +145,13 @@
             "group": "Time",
             "pages": [
               "engine/compressed-clock",
-              "engine/the-sleep-debt"
+              "engine/sleep-debt"
             ]
           },
           {
             "group": "The scale model",
             "pages": [
-              "engine/why-scaling",
+              "engine/scaling-limits",
               "engine/probe-grid",
               "engine/laws",
               "engine/refusals",
@@ -163,7 +163,7 @@
             "pages": [
               "engine/trust",
               "engine/self-accounting",
-              "engine/the-bill"
+              "engine/bill"
             ]
           }
         ]
@@ -177,7 +177,7 @@
               "viewer/index",
               "viewer/opening-a-trace",
               "viewer/views",
-              "viewer/make-it-worth-looking-at",
+              "viewer/viewer-design",
               "viewer/developing"
             ]
           }
@@ -185,6 +185,28 @@
       }
     ]
   },
+  "redirects": [
+    { "source": "/start/mental-model", "destination": "/start/model" },
+    { "source": "/start/project-layout", "destination": "/start/layout" },
+    { "source": "/first/the-plan", "destination": "/first/plan" },
+    { "source": "/first/the-schema", "destination": "/first/schema" },
+    { "source": "/first/the-service", "destination": "/first/service" },
+    { "source": "/first/the-job", "destination": "/first/job" },
+    { "source": "/first/the-simulation", "destination": "/first/simulation" },
+    { "source": "/first/break-it", "destination": "/first/failure-handling" },
+    { "source": "/first/what-it-cost", "destination": "/first/costs" },
+    { "source": "/write/declaring-time", "destination": "/write/duration-declarations" },
+    { "source": "/write/surviving-weather", "destination": "/write/failure-responses" },
+    { "source": "/write/unit-testing", "destination": "/write/handler-testing" },
+    { "source": "/write/writing-to-scale", "destination": "/write/scale-writing" },
+    { "source": "/simulate/when-it-refuses", "destination": "/simulate/refusals" },
+    { "source": "/engine/two-layers", "destination": "/engine/system-boundary" },
+    { "source": "/engine/a-node", "destination": "/engine/node-model" },
+    { "source": "/engine/the-sleep-debt", "destination": "/engine/sleep-debt" },
+    { "source": "/engine/why-scaling", "destination": "/engine/scaling-limits" },
+    { "source": "/engine/the-bill", "destination": "/engine/bill" },
+    { "source": "/viewer/make-it-worth-looking-at", "destination": "/viewer/viewer-design" }
+  ],
   "navbar": {
     "primary": {
       "type": "button",

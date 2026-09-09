@@ -1,0 +1,171 @@
+---
+title: "9. Costs"
+description: "Four cost buckets, reported separately because they represent different decisions."
+icon: "receipt"
+---
+
+```bash
+java -cp build/losim.jar losim.cli.Main bill build/thumbs.json
+```
+
+This example includes one killed node and one slowed node.
+
+<Note>
+**Your figures will not match these exactly.** losim runs your code on real
+threads, so event-level results vary between runs ([system boundary](/engine/system-boundary)).
+Timeout counts are especially sensitive to the host. Compare the large buckets
+and the rows that appear rather than expecting identical event counts.
+</Note>
+
+
+```
+build/thumbs.json
+
+what happened
+  build       services carried                      1.000 services       CHF    0.2500
+  capacity    coordinator (m5.large)              0.01670 node-hours  CHF    0.0019
+  capacity    w0 (c5.large)                       0.01670 node-hours  CHF    0.0017
+  capacity    w1 (c5.large)                       0.01670 node-hours  CHF    0.0017
+  capacity    w2 (c5.large)                       0.01670 node-hours  CHF    0.0017
+  capacity    w3 (a1.medium)                      0.01670 node-hours  CHF    0.0004
+  consumption cross-zone egress                   0.02300 GB             CHF    0.0002
+  incidents   calls that did not answer in time     40.00 reruns         CHF    0.8000
+  incidents   nodes lost                         1.000 failures       CHF    0.2000
+  ------------------------------------------------------------------------------------
+  build        CHF       0.2500
+  capacity     CHF       0.0074
+  consumption  CHF       0.0002
+  incidents    CHF       1.0000
+  TOTAL COST   CHF       1.2576
+```
+
+Read these three details before looking at the bucket definitions.
+
+**Incidents are 135 times capacity.** The bill shows `CHF 1.0000` for incidents
+and `CHF 0.0074` for capacity. The failure scenario costs more than the running
+system. Check which bucket dominates before tuning the design.
+
+**Capacity is one line per node, with the instance type shown.** `w3` is the
+`a1.medium` configured in the simulation. It costs a quarter of its neighbours
+for the same reserved period. This row connects the instance choice to the bill.
+
+**Every node shows the same `0.01670` node-hours.** That is the **billing
+minimum**, not the run duration. The minimum is 60 seconds, so every node is
+billed 60 seconds: `60 ÷ 3600 = 0.01667` hours.
+
+<Warning>
+Until the run exceeds one minute of reference time, capacity remains a flat
+charge. Making the job faster will not change it because the cloud price has a
+one-minute floor. Increase `units`, or use the `consumption` line, which responds
+immediately.
+</Warning>
+
+<Tip>
+**Comment out the `failures:` blocks and bill the run again.** The system and work
+stay the same, while the total changes from `1.2576` to `0.2579`. The difference
+is the cost of the kill and the slowdown. A fault-tolerance mechanism must save
+more than that difference to justify its cost.
+</Tip>
+
+
+
+
+## Four separate buckets
+
+<Columns cols={2}>
+  <Card title="capacity" icon="server">
+    The system for the reserved period. **An idle node costs exactly as much as a
+    busy one.** Capacity is priced in reference time, not in the wall-clock
+    seconds used to run the simulation.
+  </Card>
+  <Card title="consumption" icon="gauge">
+    Resources consumed by the work: cross-zone egress and storage. Traffic
+    **between** availability zones is billed; traffic within one zone is free.
+  </Card>
+  <Card title="incidents" icon="triangle-exclamation">
+    Costs caused by failures: timeouts, lost nodes, full nodes, and penalties for
+    exceeding the service level.
+  </Card>
+  <Card title="build" icon="hammer">
+    Engineering time to build and maintain the design, spread over its life and
+    counted once per distinct service. This cost exists whether or not a failure
+    occurs.
+  </Card>
+</Columns>
+
+<Note>
+There is no storage line because this system does not write to disk. A line
+appears when the run records a quantity for that resource. After adding
+`Losim.current().wroteDisk(bytes)`, the consumption bucket gains a `GB-month`
+row.
+</Note>
+
+Adding the buckets hides design trade-offs. Replication can increase capacity and
+build costs while reducing incidents. The printed total includes only quantities
+that the run could price.
+
+## Price data
+
+Price files live in [`prices/`](/ref/prices), outside the simulator. You can
+change them or use deliberately distorted values for an exercise. For example,
+make egress expensive and compare the designs:
+
+```yaml prices/expensive-egress.yaml
+egress_per_gb: 4.00        # instead of 0.01
+```
+
+
+```bash
+java -cp build/losim.jar losim.cli.Main bill build/thumbs.json \
+     --prices prices/expensive-egress.yaml
+```
+
+<Note>
+**The price list does not contain node rental costs.** Those costs belong in the
+instance catalogue with the vCPU and memory values because they describe the
+node. Keeping one value in two places would allow the definitions to diverge.
+</Note>
+
+## When capacity is refused
+
+Run a scaled simulation and losim can produce **two** bills: one for the observed
+run and one for the workload it represents. The projected bill is conditional:
+the engine refuses to extrapolate quantities it cannot estimate reliably.
+
+```
+  capacity    the system, for the period            -             CHF   refused
+      its exponent moves by 0.793 between independent seed sets of the same
+      workload, which over a factor of 6 is an error bar of x4.1 — wider than
+      anything it would be asked to distinguish
+```
+
+Capacity depends on the timeline, which is the noisiest quantity losim measures.
+It is also often the largest bill line. The result may therefore price bytes and
+storage while refusing to price nodes because the job duration is not reliable.
+
+The refusal identifies which part of the cost remains uncertain.
+
+<Note>
+**Incidents are never projected.** A node either failed or did not. Extrapolating
+an incident bucket from one run would create a forecast rather than an
+observation.
+</Note>
+
+## Continue
+
+<CardGroup cols={2}>
+  <Card title="Writing systems" icon="wrench" href="/write/services">
+    Every part of the above, in depth: memory, disk, deadlines, concurrency,
+    telemetry, surviving weather.
+  </Card>
+  <Card title="Scale writing" icon="chart-line" href="/write/scale-writing">
+    What a job has to do to be projectable, and how the engine decides whether to
+    believe itself.
+  </Card>
+  <Card title="Compare two designs" icon="code-compare" href="/simulate/comparing-designs">
+    Sweeps, `losim compare`, and reading two bills against each other.
+  </Card>
+  <Card title="See it" icon="eye" href="/viewer/index">
+    The viewer: Dataflow, Spans, Topology and Ledger.
+  </Card>
+</CardGroup>

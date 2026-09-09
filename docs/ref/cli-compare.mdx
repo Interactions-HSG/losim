@@ -1,6 +1,6 @@
 ---
 title: "losim compare"
-description: "Whether two results came out of the same simulator — not which design is better."
+description: "Check whether two results came from the same simulator."
 icon: "code-compare"
 ---
 
@@ -9,31 +9,28 @@ java -cp build/losim.jar losim.cli.Main compare <a.json> <b.json>
 ```
 
 <Warning>
-This answers **"are these two the same simulator?"** It is the tool for checking
-that a laptop, the devcontainer and a Codespace produce the same thing, and it is
-what CI uses. It is *not* for comparing two designs — for that, see [comparing
-designs](/simulate/comparing-designs).
+This answers **"are these two the same simulator?"** Use it to check that a laptop,
+the devcontainer, and a Codespace produce the same result. CI uses the same check.
+Use [comparing designs](/simulate/comparing-designs) for design comparisons.
 </Warning>
 
 <Note>
-`losim diff` is refused rather than aliased, with `compare` named. It takes two
-**results**, which is the only way two designs are ever compared: there is no
-comparison inside one simulation.
+`losim diff` is refused and the message names `compare`. The command takes two
+**results**. A simulation produces one result; compare two designs by simulating
+each one.
 </Note>
 
-## A textual diff would be useless
+## Field comparison
 
-Results are not reproducible, on purpose: real threads, a real wall clock, and a
-deliberate refusal to simulate a scheduler. Two simulations of one file on one
-host differ in every duration and most byte counts. A textual diff could never
-pass, and a check that can never pass is not a check.
+Results vary because they use real threads, a real wall clock, and no simulated
+scheduler. Two simulations of one file on one host differ in durations and many
+byte counts. Text comparison would report expected variation as a failure.
 
-So everything compared is split in two.
+The command therefore compares structural fields separately from measurements.
 
-## Structural — must agree
+## Structural fields
 
-A difference here is a **defect**: the two environments are not running the same
-simulator.
+A difference here means that the two environments are not running the same simulator.
 
 | | |
 |---|---|
@@ -43,16 +40,15 @@ simulator.
 | what each **span kind is labelled** | |
 | sampled channels | which `<node>.<metric>` channels exist |
 | nodes | which nodes existed |
-| **what each resource is a function of** | the attribution — a fact about your program, which must not depend on where it ran |
+| **what each resource is a function of** | the attribution for the program |
 | what the engine refused | |
 
 <Note>
-Event kinds are compared on **what each carries**, not on which kinds occurred. A
-`queue_wait` appears when a call had to queue, and on a busier host more calls
-queue — that is the simulator working, not two simulators disagreeing.
+Event kinds are compared by **what each carries**, not by which kinds occurred. A
+`queue_wait` depends on host contention, so its count may differ between hosts.
 </Note>
 
-## Measured — printed, not judged
+## Measurements
 
 | | |
 |---|---|
@@ -61,12 +57,9 @@ queue — that is the simulator working, not two simulators disagreeing.
 | the run size the engine chose | |
 | every fitted exponent | |
 
-`meta.loaded` is here rather than above, and it is the one that is easy to get
-wrong. It is what `Load` produced **at the rung this run measured**, and the rung is
-chosen against the host's own heap — so a smaller host legitimately measures a
-smaller size and legitimately loads fewer units. Held as structural it would report
-*"these are not the same simulator"* every time two hosts differed in memory, which
-is the one thing this comparison exists to tolerate.
+`meta.loaded` records what `Load` produced **at the rung this run measured**. The
+rung depends on the host heap, so a smaller host may measure and load fewer units.
+It is a measurement rather than a structural field.
 
 A Codespace is slower than a laptop, and that is what host calibration is for.
 
@@ -94,7 +87,7 @@ build/parity/traces-codespace/t10.json
 
 Exit code is non-zero when a **structural** aspect differs.
 
-## Across a schema change
+## Schema changes
 
 `schema` is compared first and, when it differs, alone:
 
@@ -103,12 +96,9 @@ Exit code is non-zero when a **structural** aspect differs.
             2
             4
 
-  These two traces are different formats, so there is nothing below this worth
-  comparing: every other aspect would differ, and all of it for this one reason.
+  These traces use different formats. The remaining fields cannot be compared.
 ```
 
 Everything below it is read against a shape both files are assumed to share. A
-trace written by losim 2 and one written by losim 3 disagree about what a channel is
-called and what a span kind is, so carrying on would print a wall of differences
-whose one cause is that line — and a reader who scrolled past it would go looking
-for a defect in the simulator.
+Traces written by losim 2 and losim 3 use different channel and span names, so the
+command stops after reporting the schema difference.

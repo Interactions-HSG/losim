@@ -1,6 +1,6 @@
 ---
 title: "Losim.current()"
-description: "The one losim type a handler mentions, and every method on it."
+description: "The handler-facing API and its available operations."
 icon: "code"
 ---
 
@@ -10,9 +10,8 @@ import losim.api.Losim;
 var here = Losim.current();
 ```
 
-Returns one of **two singletons**, so reaching for it allocates nothing. That
-matters: a handler calling it a thousand times must not thereby allocate a thousand
-objects against the node whose allocation is being fitted.
+Returns one of **two singletons**, so the lookup allocates nothing. Repeated calls
+therefore do not add objects to the node's measured allocation.
 
 | | inside a run | outside one |
 |---|---|---|
@@ -20,10 +19,8 @@ objects against the node whose allocation is being fitted.
 | state calls | reach the node serving this call | **throw** |
 
 <Note>
-The asymmetry is deliberate. A silent `reveal` lets a handler be called directly
-from a unit test without the test having to know losim exists. A fabricated
-system would let the same test pass while asserting nothing, which is worse than
-failing.
+The asymmetry supports direct unit tests. Recording calls can be silent without a
+simulation; state calls need a real node and throw when none exists.
 </Note>
 
 ## isRunning
@@ -32,48 +29,42 @@ failing.
 boolean isRunning()
 ```
 
-False in a bare unit test. Use it to guard the state calls if a handler genuinely
-needs the node's identity.
+Returns false in a bare unit test. Use it to guard state calls that require a node.
 
-## Recording — silent outside a run
+## Recording calls
 
 <ResponseField name="reveal(String key, int value)" type="void">
   Also `long`, `double`, `boolean`, `String`, and an `Object` fallback.
 
-  Records a named value from inside a handler, so a reader of the trace can see what
-  the computation was doing and not merely that it happened. Lands as a `state`
-  event, inside the handler's span.
+  Records a named value from a handler. The value appears as a `state` event inside
+  the handler's span.
 
   <Warning>
   **Prefer the primitive overloads.** `reveal(String, Object)` boxes an `int` at the
-  call site — before losim's accounting can open — so the box is charged to your
-  program though it exists only because the parameter is an `Object`. At one call
-  per handler that is invisible; at a thousand it bends the fitted memory exponent
-  by 0.04, and the exponent is the one number that must not bend.
+  call site, before losim's accounting starts. That allocation is charged to the
+  program. Repeated calls can affect the fitted memory exponent.
   </Warning>
 </ResponseField>
 
 <ResponseField name="log(String message)" type="void">
-  A line of narration. Lands as a `log` event.
+  Records a message as a `log` event.
 </ResponseField>
 
 <ResponseField name="units(long n)" type="void">
   How many units **this call** processed.
 
-  Two things need it: the simulation's `perUnit:` is charged against it, and the
-  scale engine needs to know which independent variable a cost site is a function
-  of. A handler that never declares a count is charged the fixed part only, and its
-  span says so.
+  The simulation's `perUnit:` cost uses this value, and the scale engine uses it as
+  the independent variable for the cost site. A handler without a count is charged
+  only the fixed part.
 </ResponseField>
 
 <ResponseField name="wroteDisk(long bytes)" type="void — but throws">
   Records that this call wrote bytes to the node's disk.
 
-  **Not a recording call, and it does not behave like one.** A node whose disk is
-  full cannot take the write, so this throws `IllegalStateException` when the cap is
-  exceeded and the handler fails the way it would have failed for real. Recording
-  the write and carrying on would let a design that cannot fit on its disks appear
-  to work.
+  **This call enforces the disk cap.** A node whose disk is full cannot take the
+  write, so the call throws `IllegalStateException` when the cap is exceeded and the
+  handler fails. Recording the write and continuing would hide a disk-capacity
+  failure.
 
   Silent outside a run — a unit test has no disk to fill.
 </ResponseField>
@@ -81,26 +72,25 @@ needs the node's identity.
 ## Time
 
 <ResponseField name="sleep(double refMs)" type="void">
-  Waits, for a duration written in reference-node time. `sleep(200)` waits two
-  hundred milliseconds of the simulated world, whatever the compression is.
+  Waits for a duration written in reference-node time. `sleep(200)` advances the
+  simulated clock by 200 milliseconds, regardless of compression.
 
-  **Waiting is not work**, and two things follow: it does not stretch on a degraded
-  node, where declared work does; and it does not mark the node busy, because a
-  backoff occupies no vCPU.
+  **Waiting is not work.** It does not stretch on a degraded node, and it does not
+  mark the node busy because a backoff occupies no vCPU.
 
-  For a duration only the running program knows — a backoff that grows with the
-  attempt, a poll interval, a lease. Returns immediately outside a run.
+  Use it for durations known only at runtime, such as an attempt backoff, poll
+  interval, or lease. It returns immediately outside a run.
 </ResponseField>
 
-## State — throws outside a run
+## State calls
 
 <ResponseField name="node()" type="String">
   The name of the node serving this call.
 </ResponseField>
 
 <ResponseField name="here()" type="Spec">
-  What this node is made of: instance type, zone, vCPUs and caps. Local knowledge
-  only — this node's, never a peer's. Free to call.
+  The instance type, zone, vCPUs, and caps for this node. It does not describe peers.
+  The call is free.
   [Spec ->](/ref/api-spec)
 </ResponseField>
 
@@ -109,52 +99,45 @@ needs the node's identity.
 </ResponseField>
 
 <ResponseField name="peersServing(String service)" type="List<String>">
-  The nodes serving a given gRPC service, by name — the service's name as written
-  in the `.proto`, bare (`Thumbnailer`) or qualified (`lab.Thumbnailer`).
+  The nodes serving a gRPC service, by name. Use the service name from the `.proto`,
+  either bare (`Thumbnailer`) or qualified (`lab.Thumbnailer`).
 
-  Never includes this node: a blocking call to itself would occupy one of its own
-  pool threads waiting for another. Dead nodes are not listed.
+  This node is never included: a blocking call to itself would occupy one of its
+  pool threads. Dead nodes are not listed.
 </ResponseField>
 
 <ResponseField name="channelTo(String node)" type="io.grpc.Channel">
-  A channel to another node, with losim on it. Made once and owned by the
-  node, so a handler never sees a lifetime.
+  A channel to another node with losim's transport attached. The node creates and
+  owns it, so handlers do not manage its lifetime.
 
-  What comes back is an ordinary `io.grpc.Channel` — hand it to a generated stub and
-  the call site is plain gRPC. What it is **not** is a channel of your own: losim
-  rides on gRPC's own interceptors, and a channel built by hand has none of them
-  attached.
+  The result is an ordinary `io.grpc.Channel`; pass it to a generated stub. Do not
+  replace it with a hand-built channel, because that channel lacks losim's gRPC
+  interceptors.
 </ResponseField>
 
 <ResponseField name="clockMs()" type="double">
-  Simulated milliseconds since the run began — the clock the simulation was written
-  against, not wall clock.
+  Simulated milliseconds since the run began. This is the simulation clock, not the
+  wall clock.
 </ResponseField>
 
 <ResponseField name="seed()" type="long">
-  The simulation's seed, so a `Job.Load` that generates its own workload draws from
-  the same number everything else does.
+  The simulation's seed. A `Job.Load` that generates its own workload should use the
+  same seed as the rest of the simulation.
 
-  It has to come from here. A workload that draws from a constant of its own is a
-  workload whose every run is the same afternoon, and a sweep of seeds that varies
-  the weather but not the data is measuring half of what it says it is.
+  Use this value rather than a private constant. Otherwise a seed sweep changes the
+  simulation conditions without changing generated data.
 </ResponseField>
 
 <ResponseField name="local()" type="ConcurrentMap<String, Object>">
-  A map owned by **this node**: shared by every service on it, reachable from no
-  other node, and **emptied when the node restarts** — so "a restart loses what it
-  was holding" stays true of a cache as well as of a service instance.
+  A map owned by **this node**. All services on the node share it; other nodes cannot
+  access it. It is **emptied when the node restarts**.
 
-  For the thing a real process does all the time: an index two of your services both
-  read, a pool, a cache. Two services on one node otherwise share nothing but a
-  thread pool, because `runs:` builds one instance per file and no reference connects
-  them.
+  Use it for node-local state such as an index shared by two services, a pool, or a
+  cache. Services on one node otherwise share only a thread pool; `runs:` creates
+  one instance per file.
 
-  **Free in time, charged in memory.** Every operation brackets itself and hands the
-  time back, so a million lookups move `programMs` by nothing. What it holds is
-  walked by the retained-heap measurement and counts against `memoryMb` — a store
-  outside that walk would be a hole in the memory cap, which is worse than not having
-  one.
+  **Free in time, charged in memory.** Operations do not add to `programMs`. Retained
+  values are included in the heap measurement and count against `memoryMb`.
 
   ```java
   @SuppressWarnings("unchecked")
@@ -171,12 +154,10 @@ Recording calls (reveal, log, units) are silent outside a run; state calls are
 not, because a fabricated system would make a passing test meaningless.
 ```
 
-## Every method meters its own body
+## Accounting for API calls
 
-These run inside your handler, on the node's own thread, between the two marks
-that measure that node. So what losim spends here is charged to losim and taken
-back off what the node reports.
+These methods run inside the handler on the node's thread, between the measurement
+marks. Their cost is charged to losim rather than to program time.
 
-The boundary is exact and worth knowing: in `reveal("keys", map.size())` the
-`size()` is **your** cost and stays with your program; everything after the argument
-is evaluated is losim's. [Self-accounting ->](/engine/self-accounting)
+The boundary is exact: in `reveal("keys", map.size())`, `size()` is **your** cost.
+Work after argument evaluation belongs to losim. [Self-accounting ->](/engine/self-accounting)

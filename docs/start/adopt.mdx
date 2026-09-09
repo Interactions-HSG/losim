@@ -1,12 +1,12 @@
 ---
 title: "Adopting a gRPC system you already have"
-description: "One command moves the files and writes the build. Two edits are yours, and this page is both of them."
+description: "Adopt losim into a project and make the required edits."
 icon: "arrow-right-to-bracket"
 ---
 
-You have a gRPC Java system that works — a `.proto`, handlers, a server that binds
-a port, a client that dials one. losim runs **those handlers**, unchanged, on many
-simulated nodes over a simulated network, and tells you what the design cost.
+You have a working gRPC Java system: a `.proto`, handlers, a server, and a client.
+losim runs **those handlers** unchanged on simulated nodes and network links, then
+reports the design's cost.
 
 ```bash
 curl -sSLo losim.jar https://github.com/Interactions-HSG/losim/releases/latest/download/losim.jar
@@ -14,37 +14,33 @@ java -jar losim.jar adopt .
 ```
 
 <Note>
-Commit first. It moves files with `git mv` so your history follows them, and it
-refuses a dirty tree unless you pass `--dirty`.
+Commit first. The command moves files with `git mv` and refuses a dirty tree unless
+you pass `--dirty`.
 </Note>
 
-## What it does, and what it will not
+## Adopt command
 
-| it does | it does not |
+| action | excluded |
 |---|---|
 | `git mv src/main/proto -> proto/`, `src/main/java -> src/` | rename a package or rewrite an import |
 | write `build.gradle.kts`, `./losim`, `AGENTS.md`, a first simulation, `.gitignore` | overwrite a file it did not author |
 | move `build.gradle` aside to `build.gradle.bak` | delete a `.java` |
 | print every Java edit still needed, with a line number | make one |
 
-**It never writes Java**, and that is not squeamishness. Both edits the obvious
-version of this command would make are unsafe in the shape a real project has: the
-handler is usually a nested class inside the server bootstrap, so extracting it is
-a refactoring engine and a bad extraction silently drops a field initialiser — and
-turning a client into a `losim.Job` is a judgement about which of its lines are the
-design and which are the transport, which is the thing this course is about.
+**The command does not write Java.** Extracting a nested handler can change
+initialization, and turning a client into `losim.Job` requires deciding which lines
+are design logic and which are transport setup.
 
-So it hands that half to you, in `AGENTS.md`, with the findings it just made. If
-you work with a coding agent, that file is written for it.
+It records the required work and its findings in `AGENTS.md`.
 
-## The two edits
+## Required edits
 
-### 1. The handler comes out of the bootstrap
+### The handler moves out of the bootstrap
 
 ```java
-public class HelloWorldServer {                     // ← all of this goes
+public class HelloWorldServer {                     // all of this goes
   public static void main(String[] args) { … }
-  static class GreeterImpl extends GreeterGrpc.GreeterImplBase {   // ← this stays
+  static class GreeterImpl extends GreeterGrpc.GreeterImplBase {   // this stays
     @Override public void sayHello(HelloRequest req, StreamObserver<HelloReply> out) { … }
   }
 }
@@ -59,19 +55,19 @@ public final class GreeterImpl extends GreeterGrpc.GreeterImplBase {
 ```
 
 <Warning>
-**Leaving it nested is not enough.** The trust verifier walks a nested class
-together with the class enclosing it, so the bootstrap's own server, its channel
-and its statics are read as the service's — and every figure that node reports
-comes back marked. [Trust rules ->](/ref/trust-rules)
+**The handler must be top-level.** The trust verifier walks a nested class
+together with the class enclosing it. The bootstrap's own server, channel, and
+statics are therefore read as part of the service, and every figure that node
+reports is marked. [Trust rules ->](/ref/trust-rules)
 </Warning>
 
-Top-level, with a no-argument constructor, and in a file named after it: `runs:`
-names the `.java` file, losim reads the class out of it, and builds a fresh one each
-time a node restarts.
+Make the handler top-level, give it a no-argument constructor, and put it in a file
+named after the class. `runs:` names the file, and losim creates a fresh instance on
+node restart.
 
-### 2. The client is `losim.Job` in disguise
+### The client becomes `losim.Job`
 
-The client is the thing that drives calls, which is what `losim.Job` is for.
+The client drives calls, which is the role of `losim.Job`.
 
 <CodeGroup>
 ```java before
@@ -106,20 +102,18 @@ public final class Greeting extends JobGrpc.JobImplBase {
 ```
 </CodeGroup>
 
-Three things go: the channel builder, the host and port, and `shutdownNow`. **A peer
-is found by what it serves, never by an address.**
+Remove the channel builder, host and port, and `shutdownNow`. **Find peers by the
+service they serve, not by an address.**
 [Calling peers ->](/write/calling-peers)
 
-`Load` has nothing to build here, so it hands back the count it was given. A system
-with a real workload does its reading there instead, off the clock.
+`Load` has no data to build here, so it returns the count it received. A real
+workload should read its input there, outside the simulated clock.
 [losim.Job ->](/ref/losim-proto)
 
-## Then fill in what a call costs
+## Declare call costs
 
-`adopt` writes a simulation with every rpc at `fixed: 0 refMs`. Leaving it there is
-the step most often skipped, and skipping it makes every number meaningless: every
-call is instant, so there is no queueing, no contention and no critical path, and
-the run finishes in almost no time for almost no money.
+`adopt` writes a simulation with every RPC at `fixed: 0 refMs`. Replace those values
+before measuring. A zero duration produces no queueing, contention, or critical path.
 
 ```yaml
 simulatedDuration:
@@ -127,20 +121,20 @@ simulatedDuration:
     SayHello: { fixed: 3 refMs }
 ```
 
-Nothing measures this for you and nothing can — at the size a laptop can hold your
-handler *is* instant, because the workload is shrunk and the host's CPU is not.
-[Why it is declared ->](/write/declaring-time)
+losim cannot measure this reliably at probe size: the workload is reduced while the
+host CPU still runs at full speed.
+[Duration declarations ->](/write/duration-declarations)
 
-## What you end up with
+## Resulting project layout
 
 ```
 proto/            your schema, moved
-src/              your Java, moved — and otherwise untouched
+src/              your Java, moved and otherwise untouched
 gen/              what protoc writes, beside the schema. Generated; gitignored
 simulations/        1-one-call.yaml, and every one you write after it
 build.gradle.kts  losim, protoc, and the toolchain task
 losim             the launcher: `./losim build`, `./losim simulate`, `./losim serve`
-AGENTS.md         what was left, in the three classes below
+AGENTS.md         findings from the classes below
 build.gradle.bak  what your build used to be
 ```
 
@@ -151,39 +145,36 @@ build.gradle.bak  what your build used to be
 ./losim serve     the lab, on :8000
 ```
 
-## The three classes of finding
+## Finding categories
 
-`adopt` and `check` print the same list, and it is in three parts because the
-three are not the same kind of problem.
+`adopt` and `check` print the same finding categories because they describe
+different classes of result.
 
 <AccordionGroup>
-  <Accordion title="Refused — it will not run" icon="ban">
-    The loader says so, with a line number, before anything starts. A streaming
-    rpc, a service that is not a protoc `ImplBase`, a `simulatedDuration:` key naming a method
-    nothing serves.
+  <Accordion title="Refused: the run stops" icon="ban">
+    The loader reports these with a line number before anything starts: for example,
+    a streaming RPC, a non-`ImplBase` service, or a duration for an unserved method.
   </Accordion>
-  <Accordion title="Untrustworthy — it runs, and a number is wrong" icon="triangle-exclamation" defaultOpen>
-    The verifier says so, per node, in the trace. Your own channel, your own
-    thread, a real sleep, the real clock, a real file. These are the dangerous
-    ones: the run completes and the number beside the marker is not what it says
-    it is. [The rules ->](/ref/trust-rules)
+  <Accordion title="Untrustworthy: the run contains an invalid number" icon="triangle-exclamation" defaultOpen>
+    The verifier reports these per node in the trace. Examples include a custom
+    channel, custom thread, real sleep, wall clock, or real file access. The run can
+    complete while the marked number is invalid. [The rules ->](/ref/trust-rules)
   </Accordion>
-  <Accordion title="Dead — it runs, does nothing, and nothing else will say so" icon="ghost">
-    A `main` and its argv, a shutdown hook, `awaitTermination`, credentials, a
-    fixed thread pool, a logger, `grpc-netty-shaded`, the `application` plugin.
+  <Accordion title="Dead code: it has no measured effect" icon="ghost">
+    A `main` method, shutdown hook, `awaitTermination`, credentials, a fixed thread
+    pool, a logger, `grpc-netty-shaded`, or the `application` plugin.
 
-    None of it is a wrong number, so the verifier is right to be silent — which is
-    exactly why this list exists. `main` is the one worth reading twice: with no
-    simulation named, losim runs the first class it finds with one, so a leftover
-    `main` can be launched by pressing the arrow and will try to bind a port.
+    These do not affect a measured value, so the verifier stays silent. Check `main`
+    carefully: without an explicit simulation, losim can select the first class with
+    one and attempt to bind a port.
   </Accordion>
 </AccordionGroup>
 
-## What it refuses to adopt
+## Rejected project inputs
 
-A `pom.xml`, a multi-module `settings.gradle`, a directory with no schema and no
-service in it, and a dirty tree without `--dirty`.
+It refuses a `pom.xml`, a multi-module `settings.gradle`, a directory without a
+schema and service, or a dirty tree without `--dirty`.
 
-<Card title="Next: the manual, from the top" icon="arrow-right" href="/first/the-schema">
-  The same material as a course, starting at the schema.
+<Card title="Next: the manual" icon="arrow-right" href="/first/schema">
+  The same material as a course, starting with the schema.
 </Card>

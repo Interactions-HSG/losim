@@ -1,10 +1,10 @@
 ---
 title: "Instance types"
-description: "The node catalogue, including capacity and hourly price."
+description: "Node instance types, capacities, and prices."
 icon: "microchip"
 ---
 
-Anything not in this table is refused at load, with the list.
+Only the instance types in this table are accepted by the loader.
 
 | instance | family | vCPU | memory | network | storage | $/hour |
 |---|---|---|---|---|---|---|
@@ -20,64 +20,62 @@ Anything not in this table is refused at load, with the list.
 | `r5.xlarge` | r5 | 4 | 32 GB | 1.25 Gbps | 32 GB | 0.3040 |
 | `i3.large` | i3 | 2 | 15.25 GB | 0.75 Gbps | **475 GB** | 0.1720 |
 
-## The families
+## Families
 
 <Columns cols={2}>
   <Card title="a1 — narrow" icon="compress">
-    The **straggler generator**, and the only nodes here with **one** core. Every
-    other type has at least two, so these are the only way to say *half the node
-    the others are*: one call at a time, and declared work takes twice as long. Put
-    an `a1.medium` in a pool of `c5.large`s — a quarter of the price and half the
-    node — and find out whether your placement notices.
+    The only family here with **one** core. A node handles one call at a time, and
+    declared work takes twice as long as on the reference node. Add an `a1.medium`
+    to a pool of `c5.large`s to test whether placement responds to the difference.
   </Card>
   <Card title="m5 — balanced" icon="scale-balanced">
-    The default. Use it when the point of the simulation is not the nodes.
+    The default balanced family. Use it when the node configuration is not the
+    subject of the simulation.
   </Card>
   <Card title="c5 — compute" icon="gauge-high">
-    More cores per franc, less memory. `c5.4xlarge` is the one to reach for when you
-    want real contention inside one node — sixteen threads on one pool.
+    More cores and less memory than `m5`. `c5.4xlarge` provides sixteen threads in
+    one pool, which makes within-node contention visible.
   </Card>
   <Card title="r5 — memory" icon="memory">
-    Twice the memory of an `m5` at the same core count. The shape for a design that
-    holds things.
+    Twice the memory of an `m5` with the same core count. Use it for designs that
+    retain substantial data.
   </Card>
 </Columns>
 
-`i3.large` is the storage-shaped one — 475 GB against everyone else's 8 to 32.
+`i3.large` provides 475 GB of storage; the other types provide 8 to 32 GB.
 
-## Derived from the row
+## Values derived from the row
 
 <ParamField path="vCPU" type="int">
-  The size of the node's **thread pool**, and its speed relative to the reference
-  node: `machineFactor = 2 ÷ vcpu`. A `c5.4xlarge` runs an 8 refMs
-  handler in 1 refMs; an `m5.large` takes the full 8, and an `a1.nano` takes 16.
+  The size of the node's **thread pool** and its speed relative to the reference
+  node: `machineFactor = 2 ÷ vcpu`. A `c5.4xlarge` runs an 8 refMs handler in 1
+  refMs; an `m5.large` takes 8, and an `a1.nano` takes 16.
 </ParamField>
 
 <ParamField path="memory" type="MB">
-  The default memory cap, enforced against the retained-heap walk. Overridable per
-  node with `memoryMb:` in a scale of 1; **solved by the engine** above `scale: 1`.
+  The default memory cap, enforced against the retained-heap walk. A node can
+  override it with `memoryMb:` at `scale: 1`; above `scale: 1`, the engine solves
+  for the cap.
 </ParamField>
 
 <ParamField path="storage" type="GB">
-  The default disk cap. `wroteDisk` throws past it.
+  The default disk cap. `wroteDisk` throws when the cap is exceeded.
 </ParamField>
 
 <ParamField path="$/hour" type="double">
-  The on-demand rate, used by the bill's **capacity** bucket. A node that received
-  a `spot_notice` is billed at the spot rate — 70% off by default.
+  The on-demand rate used by the bill's **capacity** bucket. A node that received a
+  `spot_notice` is billed at the spot rate, which is 70% off by default.
 </ParamField>
 
 <Note>
-**What a node costs to rent lives here, not in the price list.** It is a property
-of the node, beside its vCPUs and its memory, rather than a choice the course
-makes. Two places declaring what an `r5.large` costs would be two places to drift
-apart, and the drift would be silent.
+**The instance row owns the rental price.** The rate is part of the node definition,
+alongside vCPUs and memory, rather than a separate course setting.
 </Note>
 
-## Choosing them
+## Choose instances
 
 <Tip>
-The most instructive system is not a uniform one:
+A mixed pool exposes differences between node types:
 
 ```yaml
 workers:
@@ -89,7 +87,6 @@ workers:
     w3: { instance: a1.medium }
 ```
 
-Three compute nodes and one that will fall behind. Whether your coordinator
-notices — and what it does about it — is the whole exercise, and a system of four
-identical nodes cannot ask the question.
+This pool has three compute nodes and one slower node. It lets the simulation test
+whether the coordinator notices the difference and responds to it.
 </Tip>

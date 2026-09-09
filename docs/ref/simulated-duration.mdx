@@ -1,6 +1,6 @@
 ---
 title: "simulatedDuration:"
-description: "What each rpc costs on the reference node, under the file that serves it."
+description: "RPC duration declarations on the reference node."
 icon: "stopwatch"
 ---
 
@@ -11,47 +11,42 @@ simulatedDuration:
     Capacity:  { fixed: 1 refMs }
 ```
 
-A key is a path `runs:` names; under it, an rpc that file's class serves. Both
-numbers default to `0`, and an rpc nobody prices takes **no time** — deliberately,
-rather than a made-up amount.
+Each top-level key is a path named by `runs:`. Under that path, list an RPC served
+by the file's class. Both values default to `0`; an RPC with no entry takes **no
+time**.
 
 <ParamField path="fixed" type="duration" default="0">
-  What one call takes **regardless of what is in it**. Known before the handler
-  runs, and slept before it.
+  What one call takes **regardless of its contents**. losim applies it before the
+  handler runs.
 </ParamField>
 
 <ParamField path="perUnit" type="duration" default="0">
-  What each unit processed adds. The handler declares the count with
-  `Losim.current().units(n)`, and this part is slept **after the body returns**,
-  before the response leaves — because a caller waits for work that has not
-  finished, and by then the handler has said how much there was.
+  What each processed unit adds. The handler declares the count with
+  `Losim.current().units(n)`. losim sleeps this part **after the body returns** and
+  before the response leaves, when the handler has reported the processed amount.
 
-  Usually written in `refNs`: a per-unit cost in milliseconds is a very slow unit.
+  Use `refNs` for small per-unit costs; milliseconds per unit can be too large.
 </ParamField>
 
 Both carry their unit in the value, the way [every other duration](/ref/durations)
 in the file does.
 
-## Why the file and not the rpc
+## Declaration location
 
-`retries:` names a method — `Thumbnailer.Thumbnail` — because retrying is a decision
-about a *call*. A duration is a property of the *code*: two implementations of one
-rpc, placed on two nodes, is how one design is compared with another, and a table
-keyed on the rpc would say they cost the same.
+`retries:` names a method, such as `Thumbnailer.Thumbnail`, because retrying is a
+decision about a *call*. A duration is a property of the *code*, so two
+implementations of one RPC can have different entries.
 
-So the key is the same string `runs:` says. One string for one piece of code, and no
-second vocabulary for naming a class. Move the file and the simulation stops loading
-until the table follows.
+The key is the same path used by `runs:`. Moving the file requires updating both
+entries.
 
-## In the simulation, not in the Java
+## Keep declarations in the simulation
 
-This used to be an annotation on the handler. It is not, and **nothing in a system
-you write names losim at all** for this — the handlers are plain gRPC, they compile
-with losim off the classpath, and they unit-test without it.
+The duration is declared in the simulation rather than in the handler. Handlers
+remain plain gRPC classes that compile and unit-test without losim on the classpath.
 
-What that gives up is drift: an annotation follows a renamed method and a table does
-not. So the table is checked against what the nodes actually serve, before anything
-runs:
+The table can drift from the implementation, so losim checks it against the services
+the nodes actually serve before a run:
 
 ```
 thumbs.yaml:31: simulatedDuration names 'src/Shrinker.java Thumbnial', and
@@ -60,52 +55,48 @@ that belongs to nothing is a method that quietly takes no time, so it is a refus
 rather than a warning.
 ```
 
-A system that prices **nothing** is not refused — an unpriced rpc is a legitimate
-thing — but it is said out loud in the trace, because a run where every call is
-instant has no queueing, no contention and no critical path, and from the outside
-looks like a design that is simply very fast.
+A system that prices **nothing** is valid. The trace reports it because zero-cost
+calls produce no queueing, contention, or critical-path time.
 
-## The sleep formula
+## Sleep formula
 
 ```
 fixed x (2 / vcpu) x degradeFactor x slowFactor / k_time
 ```
 
-Reference time is two vCPUs running alone. So a 4-vCPU node takes half as long, a
-node under `degrade: 4` takes four times as long, an rpc under
+Reference time is two vCPUs running alone. A 4-vCPU node takes half as long, a node
+under `degrade: 4` takes four times as long, an RPC under
 [`slow: 6`](/ref/failures) takes six times as long **on that node only**, and the
 whole run is compressed by `k_time`.
 
-## Declared, not measured
+## Purpose of duration declarations
 
 losim shrinks the workload **and** the nodes by the same factor, so memory and bytes
-survive it honestly. Time does not, because the host's CPU is not shrunk — it runs
-at full speed on a fraction of the data, so every handler is genuinely instant.
-Without a declared duration there is no queueing, no contention, no deadline
-pressure and no critical path.
+remain comparable. Host CPU time does not scale with the modeled workload, so
+handlers can appear instant without declared durations. Without a duration there is
+no queueing, contention, deadline pressure, or critical path.
 
-Measuring instead does not work at this scale: handler durations at probe size sit
-inside the host's own jitter, where the fitted time exponent moves by 0.25 between
-seed sets of an identical workload.
+Measuring durations at probe size is unreliable because host jitter can dominate the
+handler time.
 
-## Declared work versus a declared wait
+## Work and waiting
 
 | | `simulatedDuration:` | `Losim.current().sleep(refMs)` |
 |---|---|---|
-| what it is | declared **work** | a declared **wait** |
+| meaning | declared **work** | a declared **wait** |
 | fixed per rpc? | yes, it is a table | no, the program decides |
 | stretches on a slow node? | **yes** | no |
 | occupies a vCPU? | **yes** | no |
 
-Measured at 40x on a node at half speed: a declared 500 takes 1019 refMs and
-`sleep(500)` takes 596. A backoff that grows with the attempt cannot be written in a
-table at all, which is the other half of why both exist.
+At 40x on a node at half speed, a declared 500 takes 1019 refMs and
+`sleep(500)` takes 596. A backoff that grows with the attempt must be computed by
+the program, so the table and `sleep` cover different cases.
 
-## The floor
+## Timer floor
 
 The clock cannot express a duration finer than about **0.05 ms** of real time. Below
-that a cost is *owed* rather than slept, and the ledger settles it later — good for
-about fifty times below the floor. Past that the engine refuses to project from it:
+that, the ledger records the cost as owed and settles it later. The engine refuses to
+project a cost that remains below the floor at its selected compression:
 
 ```
 this run is clocked at 40x real time, and src/Shrinker.java Capacity costs 0.0004

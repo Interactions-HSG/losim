@@ -1,6 +1,6 @@
 ---
 title: "scale"
-description: "How much bigger the design is than the run measuring it."
+description: "The relationship between measured run size and design size."
 icon: "chart-line"
 ---
 
@@ -8,51 +8,43 @@ icon: "chart-line"
 scale: 5000
 ```
 
-One number, because one number is all anybody can honestly supply. Everything
-else the engine needs — the probe ladder, the system sizes, how fast the clock is
-run — it works out for itself. None of those is knowable before the run, and a
-simulator you have to predict before using is not one.
+`scale` is the only scale setting. During a run, losim derives the probe ladder,
+system sizes, and clock rate from it.
 
 <ParamField path="scale" type="number" default="1">
-  How many times bigger the design is than the biggest run the engine can measure.
+  How many times larger the design is than the largest run the engine can measure.
 
-  At **1** there is no model at all: the run is the thing, `Load` is asked for
-  exactly what [`input:`](/ref/input) declares, and every number on screen is what
-  happened. That is what a simulation saying nothing about scale gets.
+  At **1**, losim runs the declared workload directly. `Load` receives exactly what
+  [`input:`](/ref/input) declares, and the reported values are measurements.
 
-  Above 1 the simulation is a model, and the engine measures a fraction of the input
-  and projects from what it saw. The fraction is `units / (scale x 8000)`, eight
-  thousand being the top of the engine's own ladder — so `scale: 5000` says a design
-  five thousand times larger than the biggest run that can be measured.
+  Above 1, losim measures a fraction of the input and projects from it. The fraction
+  is `units / (scale x 8000)`, where 8000 is the top of the probe ladder. Thus
+  `scale: 5000` represents a design 5000 times larger than the largest measured run.
 
   <Warning>
-  The step from 1 to anything above it is a step between kinds, not a slider. A run
-  and a model of a run are different claims, and only the second one has error bars.
+  The step from 1 to a larger value changes the result from a direct measurement to a
+  projection. Only the projection has model error.
   </Warning>
 </ParamField>
 
 <Note>
-**There is no `mode:` key.** There were two modes once, and one of them was always
-implied by this number: a model at `scale: 1` has nothing above the run to project
-to, and a scale above 1 that ran all of it is the thing no laptop can hold. So the
-number says it, and a second key saying it again could only ever disagree.
+**There is no `mode:` key.** `scale: 1` means direct measurement; a larger scale
+means projection. A second setting would duplicate that distinction.
 
-Running the full size for real is still how a projection is checked against the
-truth. That is `scale: 1` with `input.count` set to the full number, which is legal
-and slow.
+To compare a projection with a full run, use `scale: 1` and set `input.count` to the
+full workload. This is valid but can be slow.
 </Note>
 
-## Two things called units, and they are not the same number
+## Units at different scales
 
 <Warning>
-`count:` is the workload in **your** unit — frames, lines, orders. The probe
-ladder's **units** are what your handlers counted with
+`count:` is the workload in **your** unit, such as frames, lines, or orders. The
+probe ladder's **units** are what handlers count with
 `Losim.current().units(n)`. A handler that reports pixels per frame makes those
 two quantities differ by a thousand, and nothing reconciles them.
 
-The engine fits its laws in the second and shrinks `count:` by the ratio between
-the rungs, so both are correct and neither is the other. A run says both, and says
-which is which:
+The engine fits its laws in handler units and scales `count:` by the ratio between
+rungs. The run reports both values and labels them:
 
 ```
 thumbs-scaled.yaml  seed 5  scaled 4,800 -> 24,000,000 lines (x5,000)
@@ -60,44 +52,40 @@ thumbs-scaled.yaml  seed 5  scaled 4,800 -> 24,000,000 lines (x5,000)
   laws below are fitted in
 ```
 
-Before 3.0.1 the first line was written in the ladder's units, so a file saying
-`count: 24000000` reported a run of 40,000,000 of something it never mentioned.
+Before 3.0.1 the first line used ladder units, so `count: 24000000` could report a
+different unit count from the configured input.
 </Warning>
 
-## What the engine picks, and why it is not yours to pick
+## Engine-selected values
 
 <ParamField path="the probe ladder" type="1000, 2000, 4000, 8000">
-  Four rungs, because three cannot show whether a law bends and a law that bends
-  must be refused rather than extrapolated across. Which four is the engine's
-  business: a simulation that could choose its own could choose a ladder its design
-  happens to look linear on.
+  Four rungs. Three cannot show whether a law bends, and a bent law must be refused
+  rather than extrapolated across. The engine selects the rungs independently of the
+  design.
 </ParamField>
 
 <ParamField path="the system sizes" type="max(2, declared/2), max(3, declared)">
-  Derived from the system you drew, because that is the system the question is about.
-  Probing a design at two workers when it is written for eight extrapolates across
-  the very thing being measured.
+  Derived from the configured system. Probing a design at two workers when it is
+  configured for eight would extrapolate across the measured system size.
 </ParamField>
 
 <ParamField path="the clock" type="20x at scale 1, up to 40x">
-  See [the compressed clock](/engine/compressed-clock). More work per instant is
-  more for a coarse clock to absorb, so it follows the scale — and stops at 40x,
-  past which the sleep debt stops settling and the run's own timings drift.
+  See [the compressed clock](/engine/compressed-clock). The clock follows the scale
+  and stops at 40x, where sleep debt and run timing remain stable.
 </ParamField>
 
-## Two ladders, not one
+## Separate data and system ladders
 
 <Warning>
-A resource that grows with the **data** and a resource that grows with the **system**
-look identical if the two only ever move together — and an engine that folds one
-into the other produces projections that are plausible and wrong, which is the
-failure mode hardest to notice because nothing looks broken.
+A resource that grows with the **data** can look like one that grows with the
+**system** when both vary together. Combining them would produce plausible but wrong
+projections.
 
-So the grid varies them on separate axes: the data ladder is climbed on the system
-that will actually run, and the system ladder holds the data still.
+The grid therefore varies them on separate axes: the data ladder uses the system that
+will run, while the system ladder holds the data constant.
 </Warning>
 
-## The grid
+## Probe grid
 
 ```
    data ladder      1k 2k 4k 8k    x  6 seeds   on the simulation's own system, calm
@@ -105,28 +93,23 @@ that will actually run, and the system ladder holds the data still.
    weather column   the top size   x  2 seeds   the simulation's own failures
 ```
 
-About thirty runs. Six seeds on the data ladder because the law is fitted on the
-median of all of them and its reproducibility is measured by refitting **independent
-sets of two** the same way — three sets is the fewest from which a spread means
-anything.
+The grid uses about thirty runs. The data ladder uses six seeds. The law is fitted
+on their median and checked by refitting **independent sets of two**.
 
-The system ladder and the weather column are cross-checks rather than sources of an
-error bar, so they run at fewer seeds.
+The system ladder and weather column are cross-checks, so they use fewer seeds.
 
 <Note>
-**When the ladder crosses a threshold in your code.** If it spills, switches
-algorithm, or stops fitting in a cache somewhere between one and eight thousand
-units, the engine will see the law bend and refuse it — correctly. The remedy is
-in the design, not in the ladder: move the threshold, or accept that the resource
-is not projectable across it.
+**When the ladder crosses a threshold in your code.** If the design spills, switches
+algorithms, or stops fitting in a cache between one and eight thousand units, the
+engine sees a bent law and refuses it. Move the threshold or accept that the resource
+cannot be projected across it.
 </Note>
 
-## The weather column
+## Fault column
 
-If any node declares `failures:`, the grid runs a weathered column and folds the
-result in as an **amplification** term. A killed node's work is
-redone elsewhere, so a survivor absorbs its share — measured, that roughly doubles
-peak memory on a node that accumulates.
+If any node declares `failures:`, the grid runs a weather column and adds an
+**amplification** term. Work from a killed node is redone elsewhere, so a survivor
+may absorb its share and increase peak memory.
 
 With no weather declared, you get a note instead:
 
@@ -135,5 +118,4 @@ note: nothing in this simulation goes wrong, so the model carries no amplificati
       term — a projection from it describes a system where nothing goes wrong
 ```
 
-A model fitted only on clean runs under-predicts by that much, and it under-predicts
-**optimistically**.
+A model fitted only on clean runs under-predicts by that amount.

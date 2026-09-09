@@ -1,15 +1,15 @@
 ---
 title: "Writing a service"
-description: "The rules a gRPC service has to follow to be a node in a system, and the reason behind each one."
+description: "Rules for implementing services in a simulated system."
 icon: "server"
 ---
 
-## The four rules
+## Service rules
 
 <Steps>
   <Step title="Extend the ImplBase protoc generated">
-    losim registers your class with an in-process gRPC server. If it is not a
-    `BindableService`, the simulation is refused at load:
+    losim registers the class with an in-process gRPC server. The class must be a
+    `BindableService`; otherwise loading is refused:
 
     ```
     thumbs.yaml:14: 'lab.Shrinker' is not a gRPC service. It has to extend the
@@ -17,8 +17,8 @@ icon: "server"
     ```
   </Step>
   <Step title="Give it a no-argument constructor">
-    losim builds a fresh instance when a node restarts, so it must be able to
-    construct one. Whatever your service needs, it asks `Losim.current()` for.
+    losim builds a fresh instance when a node restarts, so it must be constructible.
+    Read runtime state through `Losim.current()`.
 
     ```
     thumbs.yaml:14: 'lab.Shrinker' needs a no-argument constructor, because losim
@@ -28,16 +28,15 @@ icon: "server"
     It may be `private`; losim calls `setAccessible`.
   </Step>
   <Step title="Turn the callback shape back into a function">
-    Write the adapter once per service. It is the difference between a handler you
-    can call from a plain unit test and one you cannot.
+    Write one adapter per service so the handler can be called from a unit test.
   </Step>
   <Step title="Keep every losim type out of every signature">
-    `Thumbs thumbnail(Batch)` mentions nothing of losim's. That is what makes the
-    handler an ordinary object.
+    `Thumbs thumbnail(Batch)` does not depend on losim. The handler remains an
+    ordinary object.
   </Step>
 </Steps>
 
-## The adapter, in general
+## Service adapter
 
 ```java
 public abstract class ServiceBase extends FooGrpc.FooImplBase {
@@ -58,19 +57,16 @@ public abstract class ServiceBase extends FooGrpc.FooImplBase {
 ```
 
 <Warning>
-**Catch and describe.** Letting a `RuntimeException` escape gives the caller a bare
-`UNKNOWN` with no description, and the trace a blank row where the one call worth
-looking at should be. A call that failed has no result, so it has to carry *why*
-instead — and that only happens if you put the message on the status.
+**Catch and describe.** If a `RuntimeException` escapes, the caller receives
+`UNKNOWN` and the trace lacks the reason. Put the exception message on the status.
 </Warning>
 
-## Instance lifetime, and what a restart does to it
+## Instance lifetime and restart
 
-One instance per node, built when the node starts serving. Whatever your
-service holds in fields is that node's data, and it is exactly what the
-retained-heap walk measures.
+losim builds one instance per node when the node starts serving. Fields held by the
+service are node data and are included in the retained-heap walk.
 
-That has one consequence worth planning for:
+The declaration determines what a restart does:
 
 | how the simulation declares it | what a restart does |
 |---|---|
@@ -84,9 +80,9 @@ The trace says which happened:
               "note": "fresh services: whatever it was holding is gone" } }
 ```
 
-That is what makes "who redoes the work" a real question rather than a formality.
+After a restart, the application must decide which work to repeat.
 
-## Several services on one node
+## Multiple services on one node
 
 ```yaml
 nodes:
@@ -95,10 +91,10 @@ nodes:
     runs: { Thumbnailer: src/lab/Shrinker.java, Archive: src/lab/Archive.java }
 ```
 
-Both are registered on the same server, share the same thread pool, and are found
-independently by whichever service name each `.proto` declares.
+Both services are registered on the same server and share its thread pool. Discovery
+uses the service name declared by each `.proto`.
 
-## A node's knowledge of itself
+## Node information
 
 ```java
 var spec = Losim.current().here();
@@ -111,26 +107,22 @@ spec.diskCapMb();
 spec.cores();         // vcpu / 2.0 — how much work it can take, crudely
 ```
 
-Free to call: every field is final on the node and the record is built once,
-before it boots. Nothing here is measured.
+These fields are free to call. They are initialized before the node starts and are
+not measured as application work.
 
 <Note>
-**Local knowledge only.** The node's, never a peer's. A real process can read
-its own cgroup ceiling and its own instance metadata without a network, and cannot
-read anyone else's at all.
+**Local knowledge only.** This is the current node's information, never a peer's. A
+process can read its own limits and metadata without a network, but not a peer's.
 
-The caps are the **scaled** caps: what this node is allowed on *this* run, not
-what the instance type says at full scale. So a job that places work by comparing
-them places it the same way at either scale, which is the property the whole scale
-model exists to preserve.
+The caps are the **scaled** caps: what this node is allowed on *this* run, not the
+instance type's full-scale values. Comparing them supports consistent placement
+across scales.
 
-`cores()` is deliberately crude and deliberately not a score losim computes for
-you. Placing work well is the exercise; a ready-made ranking is the exercise
-already done. It is the obvious first thing to try, which is what makes it a useful
-thing to beat.
+`cores()` is a simple relative capacity value, not a ranking computed by losim.
+Use it as an input to placement decisions.
 </Note>
 
-## Fire-and-forget is not a second path
+## Asynchronous calls use the same model
 
 ```proto
 service Volley {
@@ -146,15 +138,14 @@ VolleyGrpc.newStub(channel).notify(ping, new StreamObserver<Empty>() {
 });
 ```
 
-An `Empty`-returning method on an async stub does not block its caller — and costs,
-failures, telemetry and byte counts apply to it exactly as to anything else. There is
-no messaging path that escapes the model, because there is no second messaging path.
+An `Empty`-returning method on an async stub does not block its caller. Costs,
+failures, telemetry, and byte counts still apply.
 
 <CardGroup cols={2}>
   <Card title="Finding peers" icon="magnifying-glass" href="/write/finding-peers">
-    By what they serve, never by hostname.
+    Discover services by name, not hostname.
   </Card>
-  <Card title="Unit-testing a handler" icon="vial" href="/write/unit-testing">
-    With nothing simulating anything.
+  <Card title="Handler testing" icon="vial" href="/write/handler-testing">
+    Test the handler without a simulation.
   </Card>
 </CardGroup>

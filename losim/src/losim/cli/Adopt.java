@@ -9,45 +9,31 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * {@code losim adopt} — puts losim under a gRPC project that already works.
+ * {@code losim adopt} adds losim to an existing gRPC project.
  *
- * <p>The assumption this exists to correct: that a student arrives holding a
- * repository losim built for them. They do not. They arrive with a project shaped
- * like the grpc-java quickstart — Gradle, {@code src/main/proto}, a server that
- * binds a port, a client that dials one — and nothing in losim used to meet them
- * there. The docs said not to write that code; nothing said what happened to the
- * code they already had.
+ * <p>The command targets projects with a Gradle build, {@code src/main/proto}, and
+ * a gRPC server and client. It adapts that layout without changing application
+ * Java code.
  *
- * <h2>It writes files. It never writes Java.</h2>
+ * <h2>Files written by the command</h2>
  *
- * <p>Both edits the obvious design would make are unsafe in the shape the
- * quickstart actually has. The handler is a static nested class inside the server
- * bootstrap, so deleting the file deletes the handler and extracting the class is
- * a refactoring engine — a bad extraction silently drops a field initialiser. And
- * turning the client into a losim.Job implementation is a judgement about which of
- * its lines are the design and which are the transport, which is the thing the
- * course is for.
+ * <p>The command does not refactor application Java. A handler may be nested inside
+ * a server bootstrap, and separating it safely requires a refactoring tool. A client
+ * also contains both application logic and transport setup, so the command does not
+ * infer which code should become a {@code losim.Job}.
  *
- * <p>The boundary already in force is not "losim writes nothing" — the console
- * writes simulations today. It is <b>losim writes its own furniture; the Java is
- * yours</b>. So this moves files, writes a build, and prints a line-numbered
- * account of every Java edit still needed. The account is not advice:
- * {@code losim check} re-runs the same detector, so what is left is a command
- * rather than a memory of a terminal that has scrolled away.
+ * <p>The command writes losim's files, moves project directories, and reports the
+ * Java edits still required. {@code losim check} runs the same detector again.
  *
- * <h2>The other shape: a lab with a committed {@code lib/}</h2>
+ * <h2>Projects with a committed {@code lib/}</h2>
  *
- * <p>Labs from before 1.5.0 carry the simulator as jars in {@code lib/}, and the
- * viewer and the manual as directories beside them. Those are the same 23 MB the
- * jar now holds, and losim no longer reads any of it. Such a repository is already
- * the right shape — {@code proto/}, {@code src/}, {@code simulations/} — so nothing
- * moves and no simulation is rewritten: the build file is written, and {@code lib/},
- * {@code viewer/} and {@code docs/} are untracked and ignored.
+ * <p>Projects from before 1.5.0 may carry simulator jars in {@code lib/}, with the
+ * viewer and manual beside them. losim no longer reads those copies. The command
+ * keeps the existing {@code proto/}, {@code src/}, and {@code simulations/}
+ * directories, writes the build file, and ignores the old artifacts.
  *
- * <p><b>Untracked, not deleted.</b> {@code git rm --cached} takes them out of the
- * index and leaves every byte on disk, so the conversion is one commit to revert
- * and nothing of anybody's is destroyed by a command they ran to find out what it
- * would do.
+ * <p>{@code git rm --cached} removes those artifacts from the index while leaving
+ * their files on disk.
  */
 public final class Adopt {
     private Adopt() {}
@@ -65,9 +51,8 @@ public final class Adopt {
         System.out.println("losim adopt — reading " + short_(root, root) + " as a gRPC project");
         System.out.println();
 
-        // A lab from before 1.5.0: the simulator committed as jars. It is already
-        // the shape losim runs, so this converts what it carries rather than where
-        // its code is.
+    // Projects from before 1.5.0 may carry losim as committed jars. Keep their
+    // source layout and update only the build and ignored artifacts.
         boolean vendored = Files.isRegularFile(root.resolve("lib/losim.jar"));
 
         Scan scan = Scan.of(root);
@@ -75,7 +60,7 @@ public final class Adopt {
             System.err.println("""
                   Nothing here looks like a gRPC project: no .proto, and no class extending a
                   protoc-generated ImplBase. Point this at the project you want to simulate,
-                  or write the schema first — the manual starts at /first/the-schema.""");
+                  or write the schema first — the manual starts at /first/schema.""");
             return 2;
         }
         if (Files.isRegularFile(root.resolve("pom.xml"))) {
@@ -109,9 +94,7 @@ public final class Adopt {
         plan.print(root);
         plan.apply(root);
 
-        // Read again, because the files have moved. A report naming
-        // `src/main/java/…` after `src/main/java/` is gone sends somebody to a path
-        // that no longer exists, and AGENTS.md would keep sending them there.
+        // Re-scan after moving files so findings use the new paths.
         Scan moved = Scan.of(root);
         write(moved, root, force, vendored);
         report(moved, root, vendored);
@@ -130,8 +113,7 @@ public final class Adopt {
         }
         lines.put(count(scan.protos().size(), ".proto"),
                   join(scan.protos().stream().map(p -> short_(root, p)).toList()));
-        // Keyed by the file, because a file is what a `runs:` entry names and
-        // because two services keyed by the word "service" would be one line.
+    // The runs entry names a file; group each service under that source file.
         for (Scan.Service s : scan.services()) {
             String service = scan.serviceOf(s);
             var rpcs = scan.rpcs().stream()
@@ -205,17 +187,16 @@ public final class Adopt {
                 + ", protoc, and the toolchain task");
         writes.put("losim", "the launcher: it builds, then runs");
         writes.put("AGENTS.md", "what is left, for your agent");
-        // A lab from before 1.5.0 has simulations of its own, and a first one
-        // written into it would be a file nobody asked for beside the ones they wrote.
+    // Older projects may already contain simulations. Do not add an extra file
+    // unless the project has no simulation to use.
         if (!vendored) writes.put("simulations/1-one-call.yaml", "two nodes and one call");
         writes.put(".gitignore", "+= gen/ build/" + (vendored ? " lib/ viewer/ docs/" : ""));
 
         var untracked = new ArrayList<String>();
         if (vendored) {
             untracked.add("lib");
-            // Only losim's own copies. A `docs/` somebody wrote is theirs, and a
-            // `viewer/` that is not the export is not losim's to take out of a
-            // repository — so each is identified by the file losim put in it.
+    // Remove only files written by losim. A project-owned `docs/` or unrelated
+    // `viewer/` directory must remain untouched.
             if (Files.isRegularFile(root.resolve("viewer/index.html"))) untracked.add("viewer");
             if (Files.isRegularFile(root.resolve("docs/docs.json"))) untracked.add("docs");
         }
@@ -246,7 +227,7 @@ public final class Adopt {
         put(root, "AGENTS.md", Agents.forProject(scan, root), force);
         if (!vendored) put(root, "simulations/1-one-call.yaml", firstSimulation(scan, root), force);
 
-        // Appended rather than written: a project's own ignore file is its own.
+        // Preserve existing ignore rules and append losim's entries.
         Path ignore = root.resolve(".gitignore");
         String have = Files.isRegularFile(ignore) ? Files.readString(ignore) : "";
         if (!have.contains("gen/")) {
@@ -254,8 +235,7 @@ public final class Adopt {
                     + "\n" + Scaffold.gitignore());
             have = Files.readString(ignore);
         }
-        // The three directories that were just untracked, so that `git status` after
-        // this is the conversion and not 900 deleted files.
+        // Ignore directories removed from the index so git status shows the conversion.
         if (vendored) {
             var add = new StringBuilder();
             for (String d : new String[]{"lib/", "viewer/", "docs/"}) {
@@ -267,8 +247,7 @@ public final class Adopt {
                         + "# dependency now, and all of this is inside it.\n" + add);
             }
         }
-        // Gradle refuses a project with two build files, and the old one is the
-        // record of what this project was. Aside, not away.
+        // Keep the old build file as a backup so Gradle sees only one active build.
         Path old = root.resolve("build.gradle");
         if (Files.isRegularFile(old)) Files.move(old, root.resolve("build.gradle.bak"));
         Path launcher = root.resolve("losim");
@@ -286,29 +265,23 @@ public final class Adopt {
     }
 
     /**
-     * The first simulation, naming the files it expects <b>after</b> the split.
+     * Builds the initial simulation from the files found after the split.
      *
-     * <p>Deliberately: a simulation naming a file that does not exist yet fails at
-     * load, on that line, saying what {@code runs:} takes — which is a better first
-     * failure than one that silently works against
-     * {@code HelloWorldServer$GreeterImpl} and marks every number untrustworthy.
-     * Nothing in an adopted project implements {@code losim.Job} yet, so the entry
-     * is almost always such a line, and it is the one piece of work this command
-     * cannot do for anybody.
+     * <p>The generated simulation may name a file that does not exist yet. Loading
+     * then reports the missing path and the expected {@code runs:} value. The command
+     * cannot choose or create the project's {@code losim.Job} implementation.
      */
     private static String firstSimulation(Scan scan, Path root) {
         String entry = "src/YourJob.java";
         var runs = new ArrayList<String[]>();
         var placed = new ArrayList<String>();
         for (Scan.Service s : scan.services()) {
-            // A nested service has no path that reaches it, so there is no line to
-            // write. `check` says so with its own file and line.
+            // A nested service has no standalone path. Check reports its location.
             if (s.nested()) continue;
             String file = short_(root, s.file()).replace('\\', '/');
             if (s.entry()) { entry = file; continue; }
             String service = scan.serviceOf(s);
-            // One node runs a service once. Two files implementing one service is a
-            // design — two replicas, two nodes — and not something to guess at here.
+            // Leave replica placement to the project author.
             if (placed.contains(service)) continue;
             placed.add(service);
             runs.add(new String[]{service, file});
@@ -327,11 +300,10 @@ public final class Adopt {
     // -------------------------------------------------------------------- report
 
     /**
-     * What is left, by class, with a line number for each.
+     * Prints remaining findings by class and source line.
      *
-     * <p>The output is the product. Everything above this has moved four files;
-     * this is the part somebody reads — and it is {@link Check}'s renderer, so
-     * that "what is left" and "what was left" cannot come to differ.
+     * <p>The renderer is shared with {@link Check}, so both commands report the same
+     * findings.
      */
     private static void report(Scan scan, Path root, boolean vendored) {
         System.out.println(vendored ? """
@@ -356,12 +328,10 @@ public final class Adopt {
     // ------------------------------------------------------------------- helpers
 
     /**
-     * One directory to another, as a merge when the target already exists.
+     * Moves one directory to another, merging when the target already exists.
      *
-     * <p>{@code src/main/java -> src} is exactly that case: {@code src} is there,
-     * holding {@code main}. A plain rename fails, and — worse — fails silently if
-     * it is guarded by "does the target exist", which is how this first shipped a
-     * project whose report said the Java had moved and whose Java had not.
+     * <p>{@code src/main/java -> src} requires a merge when {@code src} already
+     * contains {@code main}. A plain rename cannot perform that merge.
      */
     private static void move(Path root, String from, String to) throws Exception {
         Path source = root.resolve(from.replaceAll("/$", ""));
@@ -389,8 +359,7 @@ public final class Adopt {
                         root.relativize(target).toString())
                 .directory(root.toFile()).redirectErrorStream(true)
                 .redirectOutput(ProcessBuilder.Redirect.DISCARD).start().waitFor();
-        // Not a git repository, or not tracked. The move still has to happen; what
-        // is lost is the history following it, which is worth a line and not a stop.
+        // Move untracked files with the filesystem when git cannot move them.
         if (code != 0) {
             Files.move(source, target);
             System.out.println("    (moved " + root.relativize(source)
@@ -399,12 +368,9 @@ public final class Adopt {
     }
 
     /**
-     * A directory out of the index, with every byte of it left on disk.
+     * Removes a directory from the index while leaving its files on disk.
      *
-     * <p>{@code --cached} on purpose. What is being removed is 23 MB of a
-     * simulator somebody may well want to look at, or to go back to; a command
-     * that deleted it would be a command nobody could safely run to find out what
-     * it does.
+     * <p>{@code --cached} preserves the local copy of the simulator artifacts.
      */
     private static void untrack(Path root, String dir) throws Exception {
         int code = new ProcessBuilder("git", "rm", "-r", "--cached", "-q", dir)
@@ -415,7 +381,7 @@ public final class Adopt {
         }
     }
 
-    /** Roughly how much is in a directory, for a line that says what is being moved out. */
+    /** Returns the approximate size of a directory. */
     private static String size(Path dir) {
         long bytes = 0;
         try (var walk = Files.walk(dir)) {
@@ -426,7 +392,7 @@ public final class Adopt {
         return bytes >= 1 << 20 ? (bytes >> 20) + " MB" : Math.max(1, bytes >> 10) + " KB";
     }
 
-    /** Deletes what is left of a moved-out-of directory, while it is empty. */
+    /** Removes empty directories left after a move. */
     private static void prune(Path dir, Path root) throws IOException {
         for (Path p = dir; p.startsWith(root) && !p.equals(root); p = p.getParent()) {
             try (var rest = Files.list(p)) {
@@ -443,7 +409,7 @@ public final class Adopt {
             String out = new String(p.getInputStream().readAllBytes());
             return p.waitFor() == 0 && !out.isBlank();
         } catch (Exception e) {
-            return false;              // not a git repository; nothing to be dirty
+            return false;              // Treat non-repositories as clean.
         }
     }
 
@@ -461,7 +427,7 @@ public final class Adopt {
                 : xs.get(0) + " and " + (xs.size() - 1) + " more";
     }
 
-    /** Wrapped to something a terminal shows without folding, under its own number. */
+    /** Wraps text to a terminal-friendly width. */
     static String wrap(String text, String indent) {
         var sb = new StringBuilder(indent);
         int column = 0;

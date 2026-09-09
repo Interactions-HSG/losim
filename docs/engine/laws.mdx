@@ -1,6 +1,6 @@
 ---
 title: "Fitting the laws"
-description: "Candidate variables, wobble, and why R² is not the test."
+description: "Candidate variables, exponent variation, and projection limits."
 icon: "function"
 ---
 
@@ -14,28 +14,29 @@ memoryMb = 0.0597 + 0.00187 * revealed.distinctItems^1.013  (R2 1.0000, wobble 0
 
 | term | |
 |---|---|
-| `fixed` | overhead that is real at every scale. A JVM's baseline heap does not shrink because the workload did. |
+| `fixed` | overhead present at every scale, such as a JVM baseline heap |
 | `coefficient`, `beta` | the variable part |
 | `variable` | what the resource turned out to be a function of |
 | `R2` | how well the line went through the points it was given |
-| `wobble` | how far the exponent moves when the whole thing is fitted again on independent seeds |
+| `wobble` | how far the exponent moves when fitted on independent seeds |
 
 ## Candidate variables
 
-Every quantity that **varied** across the ladder and could plausibly drive something:
+The engine considers each quantity that **varied** across the ladder and could
+explain a resource:
 
 - `units` — what the simulation declared
 - every numeric `Losim.current().reveal(key, value)` your code made
 
-Each resource is fitted against **every** candidate, and the best is kept.
+Each resource is fitted against every candidate, then the selection rules choose
+one.
 
 <Note>
-This is why `reveal` is worth using well. `reveal("distinctItems", index.size())`
-gives the engine the chance to discover that memory follows what you hold rather than
-what went past — and those grow at different rates.
+`reveal("distinctItems", index.size())` lets the engine test whether memory follows
+the retained vocabulary rather than the record count.
 </Note>
 
-## The two-step composition
+## Composing laws
 
 A variable that is not `units` is **itself fitted against units**:
 
@@ -44,13 +45,13 @@ memoryMb      = f(distinctItems)
 distinctItems = g(units)
 ```
 
-So the projection composes two well-behaved laws instead of one fragile one. The
-variable's own uncertainty rides along, **raised to the resource's exponent**, so the
-composed law's certainty is limited by the certainty of the quantity it is built on.
+The projection composes the two laws. The resource exponent also magnifies
+uncertainty in the variable, so the composed result cannot be more certain than
+its input.
 
-## Choosing the best candidate
+## Candidate selection
 
-Not by R². In order:
+The engine chooses candidates in this order:
 
 <Steps>
   <Step title="Would it be reproduced?">
@@ -58,39 +59,35 @@ Not by R². In order:
     bend. Unusable candidates lose to usable ones outright.
   </Step>
   <Step title="Which has the narrower error bar?">
-    Compared to within 0.01.
+    Prefer the candidate with the narrower error bar, within a tolerance of 0.01.
   </Step>
   <Step title="A tie goes to `units`">
-    Because `units` is known **exactly** at full scale rather than itself being
-    projected.
+    `units` is known **exactly** at full scale rather than being projected.
 
-    Anything else has to earn its place by **halving** the variance the simpler
-    answer leaves unexplained. Otherwise a variable that is merely units-plus-a-
-    constant wins on a hair of R² and then extrapolates its own offset as though it
-    were growth.
+    Another variable must reduce unexplained variance by at least half. This avoids
+    selecting a variable that adds a constant offset and extrapolates it as growth.
   </Step>
   <Step title="Only then, R²">
   </Step>
 </Steps>
 
 <Warning>
-That order is deliberate. **R² measures how well a line fits the points already
-taken; the question here is whether it would hold for the next ones.**
+R² measures the existing points. The selection also checks whether the law holds for
+future input sizes.
 </Warning>
 
-## Wobble, and the error bar
+## Wobble and error bars
 
 ```java
 wobble  = the spread of beta across independent seed sets
 errorBar = scaleFactor ^ (wobble + carried)
 ```
 
-An uncertainty of `wobble` in the exponent becomes a factor of `F^wobble` in the
-answer, where `F` is how far the projection reaches. Over a factor of 5000, a wobble
-of 0.66 is an error bar of **x268**.
+An exponent uncertainty of `wobble` becomes a factor of `F^wobble`, where `F` is the
+projection factor. Over a factor of 5000, a wobble of 0.66 gives an error bar of
+**x268**.
 
-Past **x2.0** the projection no longer distinguishes anything a reader would have
-wanted distinguished, and it is refused.
+The engine refuses a projection whose error bar exceeds **x2.0**.
 
 <Note>
 Wobble is measured **per host and per workload** rather than assumed, because a
@@ -98,31 +95,28 @@ two-core Codespace is noisier than a laptop and the same constant would not serv
 both.
 </Note>
 
-## A law per cost site, not one for the whole run
+## One law per cost site
 
 A hash lookup is flat in `n`; a per-unit scan is linear; a sort is `n log n`; a
-fan-out is quadratic in the system. One exponent for all of them would be wrong for
-most.
+fan-out is quadratic in the system. Each cost site therefore gets its own law.
 
-Cost-site laws are kept only where they would **survive being measured again**. On
-handlers shorter than the host's own jitter, that is usually nowhere — which is
-exactly what the `k_time` feasibility check reads.
+The engine keeps a cost-site law only when it would **survive another measurement**.
+Handlers shorter than host jitter usually fail the `k_time` feasibility check.
 
 ## Fault amplification
 
-Each resource carries a multiplier derived from the fault column: how much more of it
-the weathered runs demanded than the clean ones. Applied at projection time, and
-printed beside the law when it is meaningfully above 1:
+Each resource carries a multiplier derived from the fault column. It compares demand
+under faults with demand in clean runs, applies that ratio at projection time, and
+appears beside the law when it is meaningfully above 1:
 
 ```
   memoryMb   = 0.0597 + 0.00187 * revealed.distinctItems^1.013  +-x1.10  x1.97 under fault
 ```
 
-## The plan travels
+## Trace plan
 
-Every law, every variable-of-units law, every refusal and every solved cap is
-written into the trace — so `projected = f(observed)` is recomputable by whoever
-reads it, rather than a number they have to take on trust.
+Every law, variable-of-units law, refusal, and solved cap is written into the trace.
+Readers can recompute `projected = f(observed)` using the recorded plan.
 
 <Card title="A law, refused" icon="ban" href="/engine/refusals">
   The two tests, and why R² could not have made either call.

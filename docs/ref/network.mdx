@@ -1,6 +1,6 @@
 ---
 title: "network"
-description: "Latency, jitter and loss — all in reference time."
+description: "Latency, jitter, and loss in reference time."
 icon: "network-wired"
 ---
 
@@ -12,55 +12,52 @@ network:
   loss:      0.01
 ```
 
-All four are optional; the default is a network with no latency, no jitter and no
-loss.
+All four fields are optional. The default network has no latency, jitter, or loss.
 
 <ParamField path="sameZone" type="duration" default="0 refMs">
-  One-way latency between two nodes in the same zone. losim charges the **round
-  trip**, so this is doubled.
+  One-way latency between nodes in the same zone. losim charges the **round trip**,
+  so the configured value is doubled.
 </ParamField>
 
 <ParamField path="crossZone" type="duration" default="0 refMs">
-  One-way latency between nodes in different zones. Typically five to ten times
-  `sameZone`, which is what makes zone placement a decision.
+  One-way latency between nodes in different zones. It is typically five to ten
+  times `sameZone`, so zone placement affects call duration.
 </ParamField>
 
 <ParamField path="jitter" type="duration" default="0 refMs">
-  Uniform spread either side of the mean, drawn from the seed. A round trip of
-  `crossZone: 3 refMs, jitter: 0.5 refMs` falls somewhere in `[5, 7]` refMs.
+  A uniform spread on either side of the mean, drawn from the seed. A round trip
+  with `crossZone: 3 refMs` and `jitter: 0.5 refMs` falls in `[5, 7]` refMs.
 </ParamField>
 
 <ParamField path="loss" type="double, 0 to 1" default="0">
-  The probability that a message is **simply never delivered**. Anything outside
-  `[0, 1]` is refused: *"loss is a probability, from 0 to 1."*
+  The probability that a message is **never delivered**. Values outside `[0, 1]` are
+  refused: *"loss is a probability, from 0 to 1."*
 </ParamField>
 
-## Latency, paid once
+## Latency
 
-The whole round trip is slept **once**, in `onClose`, on the thread that delivers
-the response. For a blocking call that is the caller's own thread, which was waiting
-anyway; for a future it is the channel's executor, so the caller is never blocked by
-it. Neither the callee's pool thread nor the handler's measured duration is touched.
+The whole round trip is slept **once**, in `onClose`, on the thread that delivers the
+response. For a blocking call this is the caller's thread; for a future it is the
+channel executor. The callee's pool thread and measured handler duration are not
+affected.
 
 <Note>
-The approximation this buys is worth naming: the handler starts one leg earlier than
-it should, because the outbound delay is folded into the return. The alternatives
-all cost something worse — an occupied core, an extra thread per call, or a blocked
-async caller — and spacing is precisely what the scale engine reconstructs rather
-than measures.
+The approximation is that the handler starts one network leg early because outbound
+delay is folded into the return. Modeling the outbound leg separately would occupy
+a core, add a thread per call, or block an asynchronous caller.
 </Note>
 
-## The deadline is checked after the delay has been served
+## Deadline checks
 
 ```
 DEADLINE_EXCEEDED: the network outlasted the deadline
 ```
 
-Paying the network after the fact without this check would let a call succeed that
-the wire had already outrun. So `crossZone: 30 refMs` and
-`withDeadlineAfter(50, MILLISECONDS)` mean exactly what they look like.
+The check prevents a call from succeeding after the network delay has exceeded its
+deadline. Therefore `crossZone: 30 refMs` and
+`withDeadlineAfter(50, MILLISECONDS)` use the configured network time.
 
-## Loss, partitions and dead nodes are one event from the caller
+## Loss, partitions, and dead nodes
 
 ```java
 catch (StatusRuntimeException e) {
@@ -68,12 +65,11 @@ catch (StatusRuntimeException e) {
 }
 ```
 
-Nothing answers, and the caller finds out by running out of time. The is
-deliberately **not** modelled as an immediate `UNAVAILABLE`: a socket that refuses
-is a node that answered, and the interesting failure is the one where nothing
-answers at all — where you cannot tell a slow peer from a gone one.
+Nothing answers before the deadline. The caller receives `DEADLINE_EXCEEDED` for a
+slow peer, a dead node, a partition, or a lost packet, so application code sees the
+same outcome in each case.
 
-The trace *can* tell them apart, in `why`:
+The trace records the cause in `why`:
 
 | `why` | what it was |
 |---|---|
@@ -81,32 +77,29 @@ The trace *can* tell them apart, in `why`:
 | `partitioned` | the link between these two is cut |
 | `lost` | the draw against `loss` came up |
 
-## Bytes
+## Byte accounting
 
-Counted by marshalling the message explicitly — gRPC's in-process transport passes
-the object by reference and never serializes, so a byte count can never be inferred
-from the transport. Serialized size plus **five bytes** of gRPC framing per message.
+losim marshals each message explicitly. gRPC's in-process transport passes objects
+by reference, so the transport cannot provide a byte count. The counted size is the
+serialized message plus **five bytes** of gRPC framing per message.
 
 Cross-zone bytes are counted separately, **in both directions**. Counting only the
-request would make a fetch look free: a call that asks for something in forty bytes
-and is sent a megabyte back travels almost entirely in the direction that was not
-counted.
+request would omit most of a response such as a one-megabyte fetch.
 
 <Note>
 **Both directions are charged to the node that made the call**, not to the one that
 answered. A node whose only cross-zone traffic is other people's requests therefore
 shows `crossZoneMb: 0`.
 
-That is the reading you want when the question is *which design is expensive*: the
-egress on the bill follows whoever decided to reach across a zone, so it changes when
-you change the placement, and not when you change who happens to hold the data.
+This assigns egress to the design that chose the cross-zone call. Changing placement
+changes the charge; changing which node holds the data does not.
 </Note>
 
 
-## Cutting a link
+## Partitions
 
-Not here — a partition happens to a pair of nodes, so it goes in one of their
-[`failures:`](/ref/failures) lists:
+A partition applies to a pair of nodes, so configure it in one node's
+[`failures:`](/ref/failures) list:
 
 ```yaml
 nodes:
@@ -118,8 +111,8 @@ nodes:
       - { heal: coordinator, at: 2500 refMs }
 ```
 
-The block it is written in is one end; `partition:` names the other. It is the only
-kind of failure that names anything, because reachability is a property of a pair.
+The node containing the block is one end; `partition:` names the other. It is the
+only failure that names another node because reachability is a pair property.
 
-Cut in **both directions**, and only between that pair. `w1` stays alive, stays
-listed by discovery, and keeps serving anyone who can still reach it.
+The partition cuts **both directions** between that pair only. `w1` remains alive,
+appears in discovery, and serves nodes that can still reach it.

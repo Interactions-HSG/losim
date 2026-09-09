@@ -1,0 +1,108 @@
+---
+title: "System boundary"
+description: "The boundary between the program and losim's simulation model."
+icon: "layer-group"
+---
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  losim                                                       │
+│    ClientSide + ServerSide interceptors on every call        │
+│    a node model that caps memory and disk                 │
+│    a compressed clock                                        │
+│    a scaler engine, a verifier, a bill                       │
+├─────────────────────────────────────────────────────────────┤
+│  your system                                                 │
+│    real .proto, real generated stubs, real marshalling       │
+│    real threads, real allocation, real contention            │
+└─────────────────────────────────────────────────────────────┘
+                    one JVM, one laptop
+```
+
+<Note>
+The simulation uses no ports, containers, simulated scheduler, or virtual clock.
+Nodes run on real threads against a real wall clock. losim shapes the run through
+**gRPC's own extension points** with an in-process server and executor for each
+node, sized to its vCPUs, plus an interceptor on each side of every call.
+</Note>
+
+## Separation boundaries
+
+<Columns cols={2}>
+  <Card title="Failure behavior" icon="fire">
+    "Runs out of memory" describes a real limit. The node received its configured
+    capacity, and application code exceeded it.
+  </Card>
+  <Card title="Portable service code" icon="box-open">
+    No losim type appears in a service signature. The handler remains an ordinary
+    object with an ordinary method.
+  </Card>
+</Columns>
+
+## The public package
+
+`losim.api` is the public package. It depends on no runtime type:
+
+| | |
+|---|---|
+| `Losim` | the static entry point |
+| `LosimCtx` | what you may say to losim from inside a handler |
+| `Spec` | what **this** node is made of |
+
+The public surface is limited to these types. `losim.pb` is protoc's generated
+output for `losim/job.proto`, not part of the API. `Job` is therefore not listed
+here.
+
+`losim.runtime`, `losim.trace`, `losim.scale`, `losim.verify`, and the remaining
+packages are internal. Code that depends on them is tied to the simulator.
+
+## Two implementations
+
+`Losim.current()` returns one of two singletons:
+
+| | inside a run | outside one |
+|---|---|---|
+| recording: `reveal`, `log`, `units`, `sleep` | reach the node | **silent** |
+| state: `node`, `here`, `peers`, `clockMs`, `channelTo` | reach the node | **throw** |
+
+A silent `reveal` lets a handler run directly in a test. A **fabricated** system
+would let the test pass without checking the interaction.
+
+## Node context
+
+The node is not passed as a method parameter. gRPC's `Context` carries it: the
+server interceptor attaches the node with `Contexts.interceptCall`, making it
+ambient for work performed on that thread.
+
+<Warning>
+The context follows work only onto threads created by the node. Wrap the node's
+executor once with `Context.currentContextExecutor`; otherwise the work loses its
+node identity and the verifier flags it without attribution.
+</Warning>
+
+## In-process gRPC
+
+In-process transport retains the gRPC stubs, marshalling, interceptors, status
+codes, deadlines, and metadata. The transport uses no real *sockets*.
+
+<Note>
+**The in-process transport passes object references.** It hands the receiver the
+same object reference. Protobuf messages are immutable, so passing by reference is
+safe. The transport cannot provide a byte count, so losim marshals the message
+explicitly and adds the five bytes of framing that gRPC would have used.
+</Note>
+
+## Package map
+
+| | |
+|---|---|
+| `losim.api` | the public facade available to a program |
+| `losim.runtime` | the system, nodes, and interceptors |
+| `losim.trace` | the three-channel recorder and the trace it writes |
+| `losim.time` | the compressed clock and fault placement |
+| `losim.res` | instance types, heap walks, and losim's own meter |
+| `losim.scale` | the probe grid, fitted laws, solves, and refusals |
+| `losim.sim` | a system and its failure conditions as data |
+| `losim.verify` | checks for measurements that lose their meaning |
+| `losim.price` | billing buckets and excluded quantities |
+| `losim.cli` | `simulate`, `bill`, `compare` |

@@ -1,11 +1,10 @@
 ---
 title: "7. Read the trace"
-description: "Five channels, and the three questions to ask them first."
+description: "The trace channels and the first questions to ask of them."
 icon: "magnifying-glass-chart"
 ---
 
-`build/thumbs.json` is the only artefact that matters. The bill reads it, the
-viewer reads it, and your own assertions should read it too.
+`build/thumbs.json` is the output used by billing, the viewer, and assertions.
 
 ```json build/thumbs.json (abridged)
 {
@@ -53,34 +52,34 @@ viewer reads it, and your own assertions should read it too.
 }
 ```
 
-## Three channels, not one
+## Three channels
 
-A change log, one record per state change, is **silent exactly when a system is
-stuck**, which is when you most want to look at it. Measured against the
-questions a debugger answers, one channel answered one and a half out of five.
+A change log records transitions. It cannot show a system that remains in one
+state, so the trace has separate channels for events, intervals, and sampled
+state.
 
 <Columns cols={3}>
   <Card title="events" icon="bolt">
-    Sparse, rich, one moment each. *This node was killed. This call timed out.
-    This handler saw 25 frames.*
+    Sparse records for individual moments, such as a node being killed, a call
+    timing out, or a handler receiving 25 frames.
   </Card>
   <Card title="spans" icon="bars-staggered">
-    Intervals that carry a **parent across the RPC boundary**, so the span tree is
-    a real distributed call stack.
+    Intervals that carry a **parent across the RPC boundary**. The resulting
+    span tree shows how one distributed call led to another.
   </Card>
   <Card title="series" icon="chart-area">
-    Dense numbers on a fixed cadence. *And this is what everything held meanwhile.*
-    A stuck system produces as much evidence as a busy one.
+    Numbers sampled at a fixed cadence. This channel records what the system was
+    holding while no discrete event occurred.
   </Card>
 </Columns>
 
-## The three questions to ask first
+## Start with three questions
 
 <Steps>
   <Step title="Did the work actually overlap?">
-    Look at the `handler` spans. If `w0`'s handler ends before `w1`'s begins,
-    every time, your fan-out is sequential and your system is one node with
-    extra steps.
+    Look at the `handler` spans. If `w0`'s handler always ends before `w1`'s
+    begins, the fan-out is sequential. The extra nodes are not doing work at
+    the same time.
 
     ```bash
     python3 -c "
@@ -92,8 +91,8 @@ questions a debugger answers, one channel answered one and a half out of five.
     "
     ```
 
-    Summed busy time much larger than the wall span means real concurrency.
-    Roughly equal means you built a queue.
+    When summed busy time is much larger than the wall span, handlers overlapped.
+    When the two values are close, the work formed a queue.
   </Step>
 
   <Step title="Did every node get work?">
@@ -105,53 +104,55 @@ questions a debugger answers, one channel answered one and a half out of five.
     "
     ```
 
-    A node with zero calls is usually a discovery bug — the wrong service name,
-    or a coordinator that found peers once and cached them.
+    A node with zero calls usually points to a discovery problem: the service
+    name may be wrong, or the coordinator may have discovered and cached peers
+    only once.
   </Step>
 
   <Step title="Did anything queue, or fill up?">
-    `queue_wait` events say a call waited for a core. A few are healthy. A wall of
-    them on one node says your placement is ignoring how big the nodes are —
-    which, with a `a1.medium` in the system, is what you should expect on the first
-    attempt.
+    A `queue_wait` event means that a call waited for a core. A few are normal.
+    Many waits on one node usually mean that placement ignores the nodes'
+    capacities. That is easy to trigger when the system includes an
+    `a1.medium`.
 
-    `oom` and `disk_full` events name the node, the resource, the cap and the
+    `oom` and `disk_full` events identify the node, resource, cap, and
     **measured** demand.
   </Step>
 </Steps>
 
-## Two traps in the format
+## Format details
 
 <Warning>
 **`method` is dotted.** gRPC writes `lab.Thumbnailer/Thumbnail`; the trace writes
-`lab.Thumbnailer.Thumbnail`, everywhere, so that everything downstream can split
-on a dot. If you are matching method names, match the dotted form.
+`lab.Thumbnailer.Thumbnail` so downstream tools can split the name on a dot. Use
+the dotted form when matching method names.
 
 **Payload collections are truncated at 12 entries** with a `"+1106 more"` marker.
-The real count is *kept plus marker*, never the surviving length. A `Batch` of 25
-frames renders as 12 frames and a marker — do not read that as 12.
+The real count is the retained entries plus the marker count, not the number of
+entries shown. A `Batch` of 25 frames therefore renders as 12 frames and a
+marker.
 </Warning>
 
-## `nodes` says what events do not
+## The `nodes` array
 
-The `nodes` array is the run's **closing balance**, not a moment: peak retained
-memory, total disk, bytes out and in, cross-zone bytes, calls handled, and the
-caps each node was under.
+The `nodes` array summarizes the run. It records peak retained memory, total
+disk, bytes in and out, cross-zone bytes, handled calls, and the caps applied to
+each node.
 
-It is a separate channel rather than a fifth kind of event because these are not
-moments. Anything that reasons about quantities rather than about what happened —
-the bill, a comparison against ground truth, a node's row in the viewer — needs
-them without reconstructing a peak from a series that was quantised for scrubbing
-and may have missed the last walk entirely.
+It is separate from the event channel because these values describe the whole
+run rather than individual moments. Billing, comparisons with ground truth, and
+the node table in the viewer can use them directly instead of reconstructing
+peaks from a sampled series.
 
 <Note>
-`memoryMb` is **peak retained heap** — what the node was still holding.
-`allocMb` is everything it ever allocated. Those are different numbers and only
-the first one decides an out-of-memory. A design that accumulates and a design
-that streams allocate about the same; only one of them dies.
+`memoryMb` is **peak retained heap**, or what the node was still holding.
+`allocMb` is the total amount it allocated over the run. They answer different
+questions, and only `memoryMb` determines whether the node runs out of memory.
+Accumulating data and streaming it can have similar allocation totals while
+having very different retained-memory peaks.
 </Note>
 
-## Or look at it instead
+## View the trace
 
 Everything on this page is a question you can also answer by watching the run:
 
@@ -160,10 +161,10 @@ java -cp "$CP" losim.cli.Main simulate thumbs.yaml \
      --cp build/losim/classes --out build/results/thumbs.json
 ```
 
-Did the work overlap, did every node get work, did anything queue or fill up — the
-film answers all three at a glance, and the scrubber puts a marker on every moment
-something went wrong. [The viewer ->](/viewer/index)
+The viewer makes the same three checks visual: overlapping work, work assigned
+to each node, and queued or rejected operations. Its scrubber marks the moments
+when something went wrong. [Open the viewer](/viewer/index)
 
-<Card title="Next: break it" icon="arrow-right" href="/first/break-it">
+<Card title="Next: failure handling" icon="arrow-right" href="/first/failure-handling">
   Kill a node mid-run and watch how the coordinator finds out.
 </Card>

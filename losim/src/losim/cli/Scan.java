@@ -11,21 +11,18 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
- * What a gRPC project looks like from the outside, read as text.
+ * Reads a gRPC project as source text.
  *
- * <p>Written for two callers that must never disagree: {@link Adopt}, which says
- * what is left to do, and {@code losim check}, which says whether it still is. One
- * detector, so "what is left" is a command rather than a memory of a terminal that
- * has scrolled away.
+ * <p>{@link Adopt} and {@code losim check} use the same detector, so both commands
+ * report the same findings.
  *
- * <p><b>Text, never bytecode.</b> {@code losim adopt} runs from
+ * <p>{@code losim adopt} reads source text rather than bytecode. It runs from
  * {@code java -jar losim.jar} with nothing else on the classpath — that is the
  * bootstrap, before the project has a build that knows about losim — so nothing
  * here loads a class, resolves a type or asks a compiler. It reads {@code .proto},
- * {@code .java} and the build file the way a person skimming them would, and it is
- * wrong in the direction of saying too much rather than too little.
+ * {@code .java}, and the build file without loading classes.
  *
- * <h2>Three classes of finding, and the third is the point</h2>
+ * <h2>Finding types</h2>
  *
  * <table>
  *   <tr><th>Refused</th><td>the loader, with a line number</td><td>it will not run</td></tr>
@@ -35,13 +32,12 @@ import java.util.stream.Stream;
  *       ever tell you</td></tr>
  * </table>
  *
- * <p>The third list exists because the quickstart is mostly <i>not</i> gRPC: a
+ * <p>The dead list covers quickstart code outside the gRPC handlers, such as a
  * {@code main} with argv parsing, a shutdown hook, credentials, a logger,
  * {@code awaitTermination}, the {@code application} plugin. Almost none of that is
  * visible to the verifier, and that is correct rather than a gap —
- * {@link losim.verify.Rule}'s admission test is that a rule names something
- * yielding <b>a wrong number rather than a broken run</b>. Dead scaffolding yields
- * neither, and adding rules for it would dilute the one list that means something.
+ * {@link losim.verify.Rule} targets code that can produce an incorrect measurement.
+ * Dead scaffolding produces neither a measurement nor a failed run.
  */
 public final class Scan {
 
@@ -62,8 +58,7 @@ public final class Scan {
      * One service implementation, and where it is.
      *
      * @param nested whether it is declared inside another class rather than at the
-     *               top level — the quickstart's is, which is the single most
-     *               consequential thing about that file
+     *               top level
      * @param line   the line its declaration is on, 1-based
      */
     public record Service(String name, String pkg, Path file, int line, boolean nested,
@@ -84,7 +79,7 @@ public final class Scan {
     public record At(Path file, int line) {}
 
     /**
-     * One thing to do, or one thing that will quietly do nothing.
+     * One required change or one code path that has no effect in a simulation.
      *
      * @param kind  what the reader is being told; see {@link Kind}
      * @param what  a short line, the finding itself
@@ -94,11 +89,10 @@ public final class Scan {
     public record Finding(Kind kind, String what, String why, At where) {}
 
     /**
-     * The three classes, plus the one that is neither a fix nor a refusal.
+     * The finding categories reported by the scanner.
      *
-     * <p>{@link #DEAD} is the class no other part of losim will ever mention: a
-     * shutdown hook that never fires is not a wrong number, so the verifier is
-     * right to be silent about it, and the silence is exactly why it is here.
+     * <p>{@link #DEAD} covers code that runs without affecting the simulation, such
+     * as a shutdown hook that never fires.
      */
     public enum Kind {
         /** The run will not start until this is done. */
@@ -107,7 +101,7 @@ public final class Scan {
         UNTRUSTWORTHY,
         /** It runs, does nothing, and nothing else will tell you. */
         DEAD,
-        /** Not wrong, but the run will be less than it could be. */
+        /** The run lacks an optional capability. */
         MISSING,
     }
 
@@ -127,13 +121,13 @@ public final class Scan {
     public List<Path> sources()      { return List.copyOf(sources); }
     public String buildFile()        { return buildFile; }
 
-    /** The build file's own text, for a question nothing here thought to ask. */
+    /** Returns the build file text. */
     public String buildFileText()    { return build; }
 
-    /** Whatever the build file says its gRPC version is, or "". */
+    /** Returns the gRPC version declared by the build file, or "". */
     public String grpcVersion()      { return version("io\\.grpc[:\"]", "grpcVersion"); }
 
-    /** Whatever the build file says its protobuf version is, or "". */
+    /** Returns the protobuf version declared by the build file, or "". */
     public String protobufVersion()  { return version("com\\.google\\.protobuf[:\"]", "protobufVersion"); }
 
     private void read() throws IOException {
@@ -154,11 +148,10 @@ public final class Scan {
     }
 
     /**
-     * Every file of one kind, skipping what is output rather than input.
+     * Collects input files of one kind and skips generated output.
      *
-     * <p>{@code build/} and {@code gen/} hold generated Java by the thousand, and a
-     * report that named a protoc-generated {@code ImplBase} as something the reader
-     * should go and edit would be worse than no report.
+     * <p>{@code build/} and {@code gen/} hold generated Java. Reports should point to
+     * source files rather than generated {@code ImplBase} classes.
      */
     private void walk(String extension, List<Path> into) throws IOException {
         try (Stream<Path> s = Files.walk(root)) {

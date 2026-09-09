@@ -1,6 +1,6 @@
 ---
 title: "events"
-description: "Every event kind losim writes, and what each carries."
+description: "Event kinds and the data each event carries."
 icon: "bolt"
 ---
 
@@ -16,7 +16,7 @@ icon: "bolt"
 | `vm` | the node it happened on, or `"-"` for the simulation itself |
 | `detail` | key-value pairs; **a key whose value would be null is omitted**, never recorded as null |
 
-## The simulation
+## Simulation events
 
 | kind | `vm` | detail |
 |---|---|---|
@@ -27,15 +27,13 @@ icon: "bolt"
 | `trust` / `trust_unchecked` | node or `-` | what the verifier found before anything ran |
 
 <Note>
-`count` is the file's own number, at **full** size; `loaded` is what `Load`
-produced at the size this run actually measured. At `scale: 1` those two are the
-same number, and a gap between them is your `Load` returning less than it was asked
-for. Above `scale: 1` the gap is the rung, and `scale.units` / `scale.fullUnits`
-say what it was. `entry` is the node running `losim.Job`.
+`count` is the file's number at **full** size. `loaded` is what `Load` produced at
+the size measured by this run. They should match at `scale: 1`. Above `scale: 1`,
+`scale.units` and `scale.fullUnits` describe the measured and full sizes. `entry`
+is the node running `losim.Job`.
 
-There is no event for `Job.Load` itself. It runs off the clock, before the trace
-opens, and every node's ledger is reset afterwards — so nothing it spent is charged
-to anybody and nothing it did is in here.
+There is no event for `Job.Load`. It runs before the trace opens, and node ledgers
+are reset afterwards. Its work is therefore not charged or recorded here.
 </Note>
 
 ## Calls
@@ -52,20 +50,20 @@ to anybody and nothing it did is in here.
 | `retry_done` | caller | `method`, `attempts`, `status` |
 
 <Note>
-`call` is the **same number on both sides** — the caller's span id, sent across in a
-metadata header. That is what lets a reader join the two halves of one call.
+`call` is the **same number on both sides**: it is the caller's span id, sent in a
+metadata header. Readers can use it to join the two halves of one call.
 
-`why` on a failure is `unreachable`, `partitioned` or `lost`. The caller could not
-tell them apart; the trace can.
+`why` on a failure is `unreachable`, `partitioned`, or `lost`. The caller cannot
+distinguish them; the trace records the cause.
 
 `ms` on `handler_end` is what the **program** took — losim's own bookkeeping inside
 that window is metered and subtracted. `grossMs` is open-to-close including it.
 </Note>
 
-The entry node's `losim.Job.Run` is an ordinary call in every one of these
-respects, and it is the only one losim made itself.
+The entry node's `losim.Job.Run` appears as an ordinary call in these tables. It
+is the only call initiated by losim itself.
 
-## From your code
+## Events from your code
 
 | kind | detail | written by |
 |---|---|---|
@@ -73,7 +71,7 @@ respects, and it is the only one losim made itself.
 | `log` | `message` | `Losim.current().log(m)` |
 | `sleep` | `refMs` | `Losim.current().sleep(refMs)` |
 
-## What went wrong, to a node
+## Node failures
 
 | kind | `vm` | detail |
 |---|---|---|
@@ -87,31 +85,29 @@ respects, and it is the only one losim made itself.
 | `heal` | one end | `with` |
 | `failure` | the node | `kind`, `drawn`, `atRefMs` |
 
-A `failure` event is written when the failure was **drawn from a `per:` rate**, and
-is followed by the ordinary `kill`, `freeze` or `degrade` event for that node — so a
-scripted failure and a drawn one are otherwise identical, and a reader can still
-tell which was which.
+A `failure` event is written when a failure is **drawn from a `per:` rate**. The
+corresponding `kill`, `freeze`, or `degrade` event follows it.
 
-## What went wrong, to an rpc
+## RPC failures
 
 | kind | `vm` | detail |
 |---|---|---|
 | `rpc_failure` | the node serving it | `kind` (`status` or `slow`), `method`, `call`, plus `status` or `factor` |
 
-A `status` failure closes the call before the handler is reached, so there is no
-`handler_start` to go with it. A `drop` writes nothing at all: the request never
-arrived, and the caller's `rpc_timeout` is the whole of what happened.
+A `status` failure closes the call before the handler is reached, so it has no
+`handler_start`. A `drop` writes no RPC failure event because the request never
+arrived; the caller's `rpc_timeout` records the result.
 
-## Running out
+## Resource exhaustion
 
 | kind | detail |
 |---|---|
 | `oom` | `resource`, `capMb`, `demandMb`, `objects`, `cause` |
 | `disk_full` | `resource`, `capMb`, `demandMb`, `cause` |
 
-Both are recorded **once per node** — the first time it happens.
+losim records each event **once per node**, at its first occurrence.
 
-## Counting them
+## Count events
 
 ```python
 import collections, json

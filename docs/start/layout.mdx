@@ -1,0 +1,121 @@
+---
+title: "Project layout"
+description: "Project directories, generated output, and simulator sources."
+icon: "folder-tree"
+---
+
+## Your project
+
+```
+proto/                   your schema
+src/                     your Java
+gen/                     generated from the schema. Gitignored and never edited.
+simulations/*.yaml       simulation files
+
+build.gradle.kts         losim, protoc, and the toolchain task
+losim                    the launcher: `./losim simulate`, `./losim serve`
+AGENTS.md                what `losim adopt` left for you, if it left anything
+build/results/           your traces, and a bill beside each
+```
+
+<Note>
+**The project needs no `lib/`, `docs/`, or `viewer/` directory.** losim supplies the
+manual and console inside its jar. `./losim serve` and `./losim serve docs` use those
+bundled resources, while project copies take precedence when present.
+</Note>
+
+<Note>
+The project has no separate manifest. It compiles its `.java` and `.proto` files
+together, and a simulation selects a class by path:
+`runs: { Thumbnailer: src/lab/Shrinker.java }`.
+
+**One code folder, many simulations.** Keep code in `src/` and vary system topology,
+network conditions, and failures in separate simulation files. The console's
+**Simulations** page writes them to `simulations/`.
+
+**Your Java names losim in one place.** The entry class implements `losim.Job`, a
+service defined in losim's schema. Other code under `src/` can compile without the
+simulator. Call costs, node types, and failures belong in the simulation.
+[How a project gets this shape ->](/start/adopt)
+
+`build/` and `gen/` are gitignored. Traces are generated artifacts; the evaluator
+reruns the code rather than relying on an exported picture.
+</Note>
+
+## The simulator repository
+
+This section applies when working on losim itself. These paths are outside an
+assignment:
+
+```
+build.gradle.kts         the simulator -> build/losim.jar
+bin/losim                the CLI: build, then run it. Every command here is one of its verbs
+losim/test/              losim's own acceptance criteria     (`losim dev test`)
+tests/                   the reference suite, run end to end (`losim dev suite`)
+docs/                    this manual
+viewer/                  the viewer's source; npm lives here
+prices/                  course data: what egress costs, what being late costs
+vendor/                  grpc 1.83.1, protobuf 4.36.0, protoc for two platforms
+build/                   generated, all of it. The viewer's committed export is viewer/out.
+
+
+losim/src/losim/api/     what a handler may say to losim and all it can reach
+losim/src/losim/runtime/ the system, the nodes, the two interceptors
+losim/src/losim/trace/   the three-channel recorder and the trace it writes
+losim/src/losim/time/    the compressed clock and failure timing
+losim/src/losim/res/     instance types, the heap walk, losim's own meter
+losim/src/losim/scale/   the probe grid, fitted laws, solves, and refusals
+losim/src/losim/sim/     a system and its failure conditions as data
+losim/proto/losim/       losim.Job, the service losim ships
+losim/src/losim/verify/  checks for measurements that lose their meaning
+losim/src/losim/price/   billing buckets and excluded quantities
+losim/src/losim/cli/     losim simulate | bill | compare
+```
+
+## Source dependency rule
+
+<Warning>
+**Your code compiles against `build/losim.jar` and the vendored jars. It does not
+compile against `losim/src`.**
+
+The jar exposes `losim.api`, which has no dependency on runtime types. Handlers can
+therefore compile and unit-test without a running simulator. Code that imports
+`losim.runtime` would be coupled to the simulator.
+</Warning>
+
+This is the command used to compile a project; you do not type it directly:
+
+```bash
+javac --release 21 -cp "$(cat build/losim/classpath)" -d build/losim/classes \
+      $(find gen src -name '*.java')
+```
+
+
+## `build/`, after a run
+
+| | |
+|---|---|
+| `build/losim.jar` | the simulator |
+| `build/losim/classes/` | your compiled system — this is what `--cp` points at |
+| `build/<simulation>.json` | the trace, unless `--out` said otherwise |
+| `build/results/` | **where to point `--out`** — the viewer picks up whatever is here |
+| `build/.losim-plans/` | cached scale plans, keyed on the simulation, the code and the telemetry level |
+
+Fitting a scale plan runs a grid of about thirty small runs and the result is cached.
+Delete `build/.losim-plans` to force a refit. [More on that ->](/engine/probe-grid)
+
+## Seeing a run
+
+The lab server lists traces under `build/results`, and `show()` in
+`RunExperiments.java` opens the viewer on its runs. [The viewer ->](/viewer/index)
+
+
+## The manual's own check
+
+```bash
+bin/losim dev docs check
+```
+
+The manual is checked against the coursework rules in `docs-check/`. The check also
+tests itself with known-bad and known-good samples before scanning the pages, and CI
+runs it on every push.

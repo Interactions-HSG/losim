@@ -1,21 +1,19 @@
 package losim.api;
 
 /**
- * What the machine serving this call is made of.
+ * The fixed capacity of the node serving the current call.
  *
- * <p>Local knowledge, and that is why it is here rather than on {@link Cluster}.
- * A real process can read its own limits — {@code Runtime.availableProcessors()},
+ * <p>This is local knowledge, so it belongs here rather than on {@link Cluster}.
+ * A real process can read its own limits with {@code Runtime.availableProcessors()},
  * its cgroup's memory ceiling, the size of the volume it is writing to, the
  * availability zone in its instance metadata. None of that requires a network.
  *
- * <p>What a real process <i>cannot</i> do is read someone else's, and losim will
- * not either. An orchestrator that wants to send small work to small machines has
- * to <b>ask</b> them, over gRPC, like a scheduler does — which is the whole reason
- * a resource manager has a registration call. Handing the coordinator a table of
- * everyone's capacity for free would teach that placement is a lookup, when the
- * interesting part is that the table is stale the moment it is built.
+ * <p>A real process cannot read another node's limits. An orchestrator that needs
+ * that information asks the node over gRPC, as a scheduler would. A coordinator
+ * therefore receives current capacity through a registration call rather than a
+ * shared table.
  *
- * <p>The caps are the <i>scaled</i> caps: what this machine is allowed on this
+ * <p>The caps are the <i>scaled</i> caps: what this node may use on this
  * run, not what the instance type says at full scale. A job that places work by
  * comparing them is therefore placing it the same way at either scale, which is
  * the property the whole scale model exists to preserve.
@@ -24,12 +22,10 @@ public record Spec(String node, String instance, String zone, int vcpu,
                    double memoryCapMb, double diskCapMb) {
 
     /**
-     * How much work this machine can be given relative to a two-core one.
+     * Relative capacity compared with a two-core node.
      *
-     * <p>Deliberately crude, and deliberately not a score losim computes for you:
-     * placing work well is the exercise, and a ready-made ranking is the exercise
-     * already done. This is the obvious first thing to try, which is what makes it
-     * a useful thing to beat.
+     * <p>This is a capacity hint, not a placement score. It is useful for comparing
+     * nodes with different vCPU counts.
      */
     public double cores() { return vcpu / 2.0; }
 }

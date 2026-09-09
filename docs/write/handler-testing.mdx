@@ -1,11 +1,10 @@
 ---
-title: "Unit-testing a handler"
-description: "An ordinary object, an ordinary method, and no simulation at all."
+title: "Handler testing"
+description: "Test handlers as ordinary objects without a simulation."
 icon: "vial"
 ---
 
-That is what the adapter was for. A handler is a plain method, so it gets a plain
-test:
+The adapter exposes a plain method, so test the handler as an ordinary object:
 
 ```java test/ShrinkerTest.java
 import static org.junit.jupiter.api.Assertions.*;
@@ -36,13 +35,12 @@ class ShrinkerTest {
 }
 ```
 
-No system. No simulation. No interceptor. No clock. Nothing is running.
+The test runs without a system, interceptor, or simulation clock.
 
-## losim is on the classpath, and does nothing
+## losim on the classpath
 
-It has to be: `Losim.current()` has to
-resolve. But there are two implementations behind that call, and outside a run you
-get the other one.
+`Losim.current()` must resolve. Outside a run, recording calls are no-ops and state
+calls fail.
 
 <Columns cols={2}>
   <Card title="Recording calls are silent" icon="volume-xmark">
@@ -51,9 +49,9 @@ get the other one.
     Losim.current().log("counted");        // returns
     Losim.current().units(1);            // returns
     Losim.current().wroteDisk(4096);       // returns
-    Losim.current().sleep(5_000);          // returns AT ONCE
+    Losim.current().sleep(5_000);          // returns immediately
     ```
-    So a test need not know losim exists for a handler to be callable.
+    A handler can therefore be called without a simulation.
   </Card>
   <Card title="State calls throw" icon="triangle-exclamation">
     ```java
@@ -74,16 +72,14 @@ not, because a fabricated system would make a passing test meaningless.
 ```
 
 <Note>
-**The asymmetry is deliberate.** A silent `reveal` lets a handler be called
-directly from a test. A *fabricated* system would let the same test pass while
-asserting nothing — which is worse than failing.
+**The asymmetry is deliberate.** A silent `reveal` supports direct handler tests;
+state calls fail because no simulated system exists.
 
-`sleep` returning immediately matters for the same reason from the other side:
-there is no compressed clock to spend against, and a suite that really slept would
-be slower for nothing. A handler that waits would then be one nobody unit-tests.
+`sleep` returns immediately because a unit test has no compressed clock and should
+not incur simulated waiting.
 </Note>
 
-## Asserting on the parts that touch losim
+## Testing API calls
 
 ```java
 @Test void isRunningIsFalseInATest() {
@@ -100,7 +96,7 @@ be slower for nothing. A handler that waits would then be one nobody unit-tests.
 }
 ```
 
-If a handler genuinely needs the node's own identity, guard it:
+If a handler needs the node's identity, guard the state call:
 
 ```java
 @Override protected Thumbs thumbnail(Batch request) {
@@ -111,16 +107,14 @@ If a handler genuinely needs the node's own identity, guard it:
 ```
 
 <Tip>
-Better still, keep the losim-dependent part out of the method you test. A handler
-whose *logic* is a private method taking only its own arguments is a handler whose
-logic has no branch for whether a simulation is running.
+Keep losim-dependent calls out of the core logic when possible. A private method that
+accepts its own arguments does not need a simulation-state branch.
 </Tip>
 
 ## Running the tests
 
-JUnit is not vendored for lab use — it belongs to a test and must not be reachable
-from a system. The repository keeps its own copy under `vendor/test-jars/` and
-runs it on a separate classpath:
+JUnit is kept separate from the system classpath. The repository stores its test jars
+under `vendor/test-jars/` and runs them separately:
 
 ```bash
 CP=$(ls vendor/jars/*.jar | tr '\n' ':')
@@ -134,9 +128,9 @@ java -jar vendor/test-jars/junit-platform-console-standalone-*.jar execute \
      --scan-class-path build/test-classes --details=tree
 ```
 
-## The limits of a unit test
+## Unit-test limits
 
-Everything interesting about a system:
+System-level behavior requires a simulation:
 
 | | |
 |---|---|
@@ -145,11 +139,9 @@ Everything interesting about a system:
 | whether the coordinator noticed a dead peer | a run, with a fault |
 | what any of it cost | a run, and the bill |
 
-So the division of labour is: **unit tests for what one handler computes, runs for
-everything about how the nodes behave together.** A handler you can only test
-inside a simulation is a handler you will end up debugging inside a simulation, and
-that is much harder.
+Use **unit tests for what one handler computes and simulations for interactions
+between nodes**. This keeps handler failures small and easier to diagnose.
 
 <Card title="Next: debugging" icon="arrow-right" href="/write/debugging">
-  Breakpoints, and what to do when it only fails inside a run.
+  Debugging when behavior depends on a full run.
 </Card>

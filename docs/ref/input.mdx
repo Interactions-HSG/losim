@@ -1,6 +1,6 @@
 ---
 title: "input"
-description: "A source, a unit, and a count."
+description: "The simulation input source, unit, and count."
 icon: "inbox"
 ---
 
@@ -11,41 +11,36 @@ input:
   count:  30000
 ```
 
-Three keys, and one of them is the only number the engine varies. This is what
-losim hands `Job.Load` as a [`losim.Input`](/ref/losim-proto), with `count` already
-shrunk to the size this run is measuring.
+These keys define the workload. losim passes them to `Job.Load` as a
+[`losim.Input`](/ref/losim-proto); the engine adjusts `count` for the run's scale.
 
-None of it is in anybody's Java, which is the point: a workload size written into a
-constant cannot be swept, cannot be varied across a ladder, and makes a direct run a
-different amount of work from the scaled run meant to model it.
+Keeping the workload here lets the engine vary its size across a scale ladder. A
+constant in Java would make direct and scaled runs use different definitions.
 
 <ParamField path="source" type="path">
-  A file or a folder, relative to the project root. losim stats it at load and
-  refuses a missing one on its own line, because a path is the one thing about a
-  workload that can be checked before anything runs.
+  A file or folder relative to the project root. losim checks it before loading the
+  workload and reports a missing path on its own line.
 
-  A folder is the shape that survives scaling — one file per unit is how real input
-  arrives.
+  A folder also supports one file per input unit, which is useful when the workload
+  grows with the scale.
 </ParamField>
 
 <ParamField path="unit" type="string" default="unit">
-  What one item is, **singular**: `frame`, `line`, `order`. The same word
-  `Losim.current().units(n)` counts and [`perUnit:`](/ref/simulated-duration)
-  prices, so a blank one leaves three numbers counting something nobody named.
+  The singular name for one item, such as `frame`, `line`, or `order`. The same word
+  names the units recorded by `Losim.current().units(n)` and priced by
+  [`perUnit:`](/ref/simulated-duration).
 </ParamField>
 
 <ParamField path="count" type="whole number" default="1">
-  How many of them, **at full size**. Whole — *"a count that is not whole is one
-  whose unit is wrong"* — and at least one, because zero is not a smaller run, it is
-  no run.
+  How many items the full-size workload contains. The value must be a whole number
+  of at least one.
 </ParamField>
 
-## Leaving out the source
+## No source
 
-Omitted, `Load` generates the workload from `Losim.current().seed()` and
-`Input.count` instead. That is what a scaled workload should do anyway: reproducible
-from the seed, varying with it across a sweep, and costing nothing on the clock
-because `Load` is off it.
+When `source` is omitted, `Load` generates the workload from
+`Losim.current().seed()` and `Input.count`. The seed keeps sweeps reproducible, and
+the loading work is outside the simulated clock.
 
 ```yaml
 input:
@@ -54,17 +49,15 @@ input:
 ```
 
 <Note>
-**Not an executable.** A simulation that shells out to build its input stops being
-reproducible from its seed, depends on the host's tools, and spends time
-attributable to no node. Generating in `Load` is the same capability without any of
-that.
+**Not an executable.** Building input through a host command adds an external tool
+dependency and makes the result depend on the host. Generate it in `Load` instead.
 </Note>
 
-## What it is at scale
+## Full and measured sizes
 
-`count:` is the workload at **full** size. What a run actually does is that times
-`units / (scale x 8000)` — which is 1 at `scale: 1`, and whichever rung the [scale
-engine](/ref/scale) picked otherwise.
+`count:` is the full-size workload. A run loads the portion selected by the
+[`scale` engine](/ref/scale), using `units / (scale x 8000)` as the fraction in this
+example.
 
 ```yaml
 scale: 6
@@ -73,31 +66,29 @@ input:
   count: 48000
 ```
 
-At the top rung of that ladder `Load` is asked for 8000 lines; at the bottom, 1000.
-Nothing in `Input` says which, and `Run` never sees `Input` at all — a Job that could
-tell a probe from the full size could behave differently at the two, and then the
-projection would be a projection of nothing.
+At the top rung `Load` receives 8000 lines; at the bottom it receives 1000. `Run`
+does not receive `Input`, so the Job cannot change behavior based on whether the
+engine is probing or measuring the full workload.
 
 ## Count versus loaded
 
-`Load` returns a `Workload` carrying its own count, and it need not equal what it
-was handed: a Job that folds duplicates or drops malformed rows produces fewer. The
-trace records both, as `meta.count` and `meta.loaded`.
+`Load` returns a `Workload` with its own count. That count can be lower than the
+requested value when the Job removes duplicates or malformed rows. The trace stores
+both values as `meta.count` and `meta.loaded`.
 
 <Warning>
-**They are only directly comparable at `scale: 1`.** `meta.count` is this file's
-number, at full size; `meta.loaded` is what `Load` produced at whichever rung the
-engine measured. Above `scale: 1` a `loaded` a sixth of `count` is a correct run of
-a `scale: 6` simulation, not a `Load` losing five sixths of its input.
+**They are directly comparable only at `scale: 1`.** `meta.count` is the full-size
+value from this file. `meta.loaded` is what `Load` produced at the selected rung. At
+`scale: 6`, a `loaded` value one sixth of `count` is expected.
 
-What `Load` was actually asked for is `count x scale.units / scale.fullUnits`, and
-both of those are in the trace's `scale` block.
+The trace's `scale` block contains `scale.units` and `scale.fullUnits`, which show
+the requested value as `count x scale.units / scale.fullUnits`.
 </Warning>
 
-Read them anyway. A `Load` that quietly returns a tenth of what it was asked for is
-how a fitted exponent goes wrong for a reason nobody finds.
+Compare them when diagnosing a result. A `Load` that returns much less than
+requested can distort the fitted exponent.
 
-## What is refused
+## Refused input
 
 | | |
 |---|---|
@@ -107,17 +98,15 @@ how a fitted exponent goes wrong for a reason nobody finds.
 | `count:` that is not whole | its unit is wrong; say what one item is |
 | a count that shrinks to none at the chosen rung | refused rather than rounded up, which would change the ratios |
 
-All of them before anything runs, so they read as a line to fix rather than a design
-that fell over.
+losim checks all of these before the simulation starts.
 
 <Note>
-An [overlay](/ref/cli-simulate) cannot change `input:`. An overlay changes the
-weather; a simulation whose workload had been swapped out underneath it is no longer
-a run of that design, and the two could not be compared.
+An [overlay](/ref/cli-simulate) cannot change `input:`. Overlays change runtime
+conditions, not the workload definition being compared.
 </Note>
 
-## Anything the program discovers as it runs does not belong here
+## Values discovered at runtime
 
-A vocabulary, a count of distinct keys, a fan-out that depends on the data: those
-are [revealed](/ref/api-losim) while `Run` works, and fitted against the count —
-which is how the engine learns that one quantity saturates where another does not.
+Values discovered during `Run`, such as a vocabulary, distinct-key count, or
+data-dependent fan-out, belong in [revealed](/ref/api-losim). losim fits those values
+against the input count.

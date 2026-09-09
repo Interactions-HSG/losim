@@ -1,0 +1,186 @@
+---
+title: "Scale-ready jobs"
+description: "Requirements for projecting a system to full scale."
+icon: "up-right-and-down-left-from-center"
+---
+
+With `scale` above 1, losim measures a reduced workload on reduced nodes and projects
+the declared full-size system. The job must respond to the input and system size that
+losim supplies during the probe runs.
+
+The job must expose the input and system variation that the probe grid measures.
+
+## 1. Build Workload From `Input.count`
+
+```java
+@Override public void load(Input in, StreamObserver<Workload> out) {
+    Album album = Albums.of(in.getCount(), Losim.current().seed());
+    out.onNext(Workload.newBuilder()
+            .setCount(album.getFrameCount())
+            .setType(Album.getDescriptor().getFullName())
+            .setPayload(album.toByteString())
+            .build());
+    out.onCompleted();
+}
+```
+
+```yaml
+input:
+  unit:  frame
+  count: 40000000
+```
+
+The count is part of the simulation file, so sweeps can vary it. `Input.count` already
+contains the count for the measured rung.
+See [`losim.Job`](/ref/losim-proto) and [`input:`](/ref/input).
+
+<Warning>
+**A `Load` that ignores `Input.count` cannot be projected.** Every probe then performs
+the same amount of work.
+
+Use the simulation seed when generating data. A private constant produces the same
+generated workload in every run.
+
+`Run` receives a `Workload` and never sees `Input`.
+</Warning>
+
+## 2. Declare Processed Units
+
+```java
+Losim.current().units(request.getFramesCount());
+```
+
+Without it, `perUnit:` has no count to charge and the engine has no per-call variable.
+
+## 3. Reveal Resource Variables
+
+These values give the engine possible variables for fitting.
+
+```java
+Losim.current().reveal("distinctItems", index.size());
+Losim.current().reveal("payloadKb", bytes / 1024.0);
+```
+
+Peak memory on an accumulating node can depend on the number of *distinct* items it
+holds rather than total units. The selected variable affects the fitted exponent.
+
+<Note>
+Measured on a workload where those two genuinely diverge: fitting memory against
+the revealed distinct count gives R² 1.0000 and a projection within 3% of ground
+truth. Fitting it against units gives a projection **34% out** — which is exactly
+what multiplying the small run by the size ratio would have got you.
+
+Every numeric `reveal` becomes a candidate variable. The engine fits each resource
+against those candidates and selects a reproducible relationship.
+[How the laws are chosen ->](/engine/laws)
+</Note>
+
+## 4. Vary System And Data Independently
+
+The probe grid varies data size and system size separately. It regenerates each
+multi-node pool at the selected size. Ask the system for its current membership:
+
+```java
+var workers = here.peersServing("Thumbnailer");    // however many there are
+```
+
+A job with `for (int i = 0; i < 4; i++)` hard-coded cannot run at two or eight workers.
+The system-size measurements then provide no useful variation.
+
+<Tip>
+Singleton nodes such as the coordinator stay unchanged when the system is resized.
+Only pools with `count:` are regenerated.
+</Tip>
+
+## A scaled simulation, in full
+
+```yaml simulations/thumbs-scaled.yaml
+seed: 5
+scale: 5000
+
+nodes:
+  coordinator:
+    instance: m5.2xlarge
+    zone: eu-central-1a
+    runs: { losim.Job: src/lab/RenderJob.java }
+  workers:
+    count: 4
+    prefix: w
+    instance: r5.large         # memory-shaped, because holding is what fills up
+    zone: [eu-central-1a, eu-central-1b]
+    runs: { Thumbnailer: src/lab/Shrinker.java }
+
+input:
+  unit:  frame
+  count: 40000000
+```
+
+The engine solves caps per node and resource. `scale:` above 1 is the complete
+declaration.
+
+## The output
+
+```
+thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 frames (x5,000)
+                                              [plan fitted from 30 probe runs in 41.2s]
+  measured at 8,000 units — what the handlers counted with units(n), and what the
+  laws below are fitted in
+
+  memoryMb   = 0.0597 + 0.00187 * revealed.distinctItems^1.013  (R2 1.0000, wobble 0.000)
+  wireMb     = 0.0    + 0.000151 * units^0.952                (R2 1.0000, wobble 0.004)
+  diskMb       REFUSED: the ladder bends — over the lower half it grows as units^0.59
+               and over the upper half as units^0.87 …
+  makespan     REFUSED: its exponent moves by 0.66 between independent seed sets of the
+               same workload, which over a factor of 5000 is an error bar of x268 …
+
+                     observed              projected
+  memoryMb              6.823                34.07 k  +-x1.10
+  wireMb                0.460                 2.63 k  +-x1.04
+```
+
+The output projects resources whose checks pass and gives reasons for refusals.
+
+## Projection guidance
+
+<AccordionGroup>
+  <Accordion title="Expect thresholds to be refused" icon="stairs">
+    Code that switches behavior above a size, such as a spill threshold or algorithm
+    change, makes the ladder **bend**. The engine compares the exponents of the two
+    ladder halves.
+
+    The resource cannot be projected across that probe range.
+  </Accordion>
+  <Accordion title="Keep fixed overhead small relative to the variable part" icon="weight-hanging">
+    The engine refuses a run size where the variable part is less than **ten times**
+    the fixed overhead. In that range, the fit is dominated by overhead:
+
+    ```
+    memoryMb at 8000 units is only 2.4x its own fixed overhead (0.31 against
+    0.13); below 10x the fit is describing the overhead rather than the workload
+    ```
+
+    A 64 MB index held by every node regardless of workload has this behavior. Use
+    larger probe sizes or treat the resource as fixed-dominated.
+  </Accordion>
+  <Accordion title="Declare failures if you want the projection to survive them" icon="cloud-bolt">
+    A killed node's work is redone elsewhere, so a survivor can absorb its share and
+    increase peak memory. A model fitted only on clean runs can under-predict this.
+
+    The grid runs a weather column when any node declares `failures:` and includes
+    the result as an amplification term. Without failures, the projection describes
+    clean operation.
+  </Accordion>
+  <Accordion title="Do not expect a timeline" icon="clock">
+    Makespan can be noisy when handlers are short. Its exponent may vary between seed
+    sets, so projected capacity can be refused when the timeline is unstable.
+  </Accordion>
+</AccordionGroup>
+
+<CardGroup cols={2}>
+  <Card title="Simulating above scale 1" icon="play" href="/simulate/scaled">
+    The commands, the plan cache, and reading the output.
+  </Card>
+  <Card title="Fitting the law" icon="gears" href="/engine/laws">
+    Candidate variables, wobble, and why R² is not the test.
+  </Card>
+</CardGroup>

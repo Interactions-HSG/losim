@@ -4,17 +4,13 @@ import io.grpc.MethodDescriptor;
 import java.util.List;
 
 /**
- * How many times to try again, and what the schema had to say about it.
+ * Retry policy for one RPC method.
  *
- * <p>Retrying is an operational decision, so it lives in the simulation where it can
- * be diffed and swept. Whether retrying is <i>safe</i> is a property of the method,
- * so it lives in the {@code .proto} as {@code option idempotency_level}. The two
- * have to agree, and losim refuses at load when they do not.
+ * <p>The simulation supplies the retry policy. The service definition supplies
+ * idempotency, and loading rejects policies that conflict with it.
  *
- * <p>A simulation can still retry a method the schema calls unsafe, by writing
- * {@code unsafe: true}. That is the point: it makes "we retry a call that is not
- * safe to run twice" one visible line in a diff rather than an emergent property of
- * a configuration nobody read.
+ * <p>{@code unsafe: true} explicitly permits retrying a method without an
+ * idempotency declaration.
  */
 public record Retry(String method, int attempts, double backoffRefMs,
                     double multiplier, boolean unsafe, String where) {
@@ -29,11 +25,11 @@ public record Retry(String method, int attempts, double backoffRefMs,
     }
 
     /**
-     * Refuses a policy the schema does not support.
+     * Validates this policy against the methods served by the cluster.
      *
      * @param known every method the cluster actually serves
-     * @throws IllegalArgumentException naming the file and line, because a
-     *         configuration error should read like a compiler error
+     * @throws IllegalArgumentException if no served method matches or the policy
+     *         retries a non-idempotent method without explicit permission
      */
     public void checkAgainst(List<MethodDescriptor<?, ?>> known) {
         var matched = known.stream().filter(this::matches).toList();

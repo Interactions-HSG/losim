@@ -1,12 +1,14 @@
 ---
 title: "Messages"
-description: "Every message losim can print at you, and what to do about it."
+description: "Diagnostic messages, their meanings, and suggested fixes."
 icon: "message"
 ---
 
-Grouped by when it happens. Simulation errors read like compiler errors on purpose.
+The tables group messages by when losim emits them. Load and configuration errors
+stop the simulation before execution. Runtime messages describe an active run or
+its result.
 
-## At load — exit code 2, nothing ran
+## Load errors: exit code 2
 
 | message | fix |
 |---|---|
@@ -32,7 +34,7 @@ Grouped by when it happens. Simulation errors read like compiler errors on purpo
 | `lab.Thing.Say carries a marshaller of its own rather than a protobuf one …` | losim weighs a call by its serialized protobuf size |
 | `no such simulation: thumbs.yaml` | |
 
-## What `runs:` refuses
+## Invalid `runs:` entries
 
 | message | fix |
 |---|---|
@@ -44,7 +46,7 @@ Grouped by when it happens. Simulation errors read like compiler errors on purpo
 | `no node in this simulation runs losim.Job, so there is nothing to start` | one node's `runs:` says `{ losim.Job: <path>.java }` |
 | `'b' runs losim.Job, and so does 'a' at thumbs.yaml:6` | two designs are two files, compared with `losim compare` |
 
-## What `failures:` refuses
+## Invalid `failures:` entries
 
 | message | fix |
 |---|---|
@@ -65,36 +67,32 @@ Grouped by when it happens. Simulation errors read like compiler errors on purpo
 | `'Thumbnail' is listed under failures: with nothing wrong with it` | an empty list under an rpc name |
 | `failures: under a service is keyed by the rpc it happens to` | |
 
-## The two shapes losim will not price
+## Unpriceable RPC shapes
 
 <Warning>
-Both are **refused**, not flagged, and that is the opposite of what the trust
-verifier does. Every rule the verifier catches yields a wrong number *beside a
-marker saying it is wrong*. These two yield a wrong number that **looks right**,
-and a law fitted to either comes out smooth, confident and false.
+Both shapes are **refused**. The trust verifier can flag an unreliable measurement,
+while these RPC shapes prevent losim from producing a valid price.
 </Warning>
 
 <ParamField path="a streaming rpc" type="refused">
-  The cost model is one request and one response. `perUnit:` is slept inside
-  `sendMessage`, so on a stream it is paid once per **message** rather than once per
-  call; and `fixed:` is paid at half-close, which for a client-streaming or
-  bidirectional handler is *after* the work it stands for.
+  The cost model is one request and one response. On a stream, `perUnit:` is slept
+  inside `sendMessage`, so it is paid once per **message**. `fixed:` is paid at
+  half-close, which occurs after the represented work for client-streaming and
+  bidirectional handlers.
 
-  The remedy is a unary rpc. There is no flag that makes a stream priceable.
+  Use a unary RPC. A flag cannot make a stream priceable.
 </ParamField>
 
 <ParamField path="a marshaller that is not protobuf" type="refused">
-  Every byte losim counts is the serialized size of a protobuf message. A JSON or
-  byte-array marshaller — grpc-java's `advanced` and `preserialized` examples both
-  use one — has no such size, so the call would weigh nothing on the wire and cost
-  nothing in the bill.
+  losim measures the serialized size of protobuf messages. A JSON or byte-array
+  marshaller, including grpc-java's `advanced` and `preserialized` examples, does
+  not provide that size, so the call would contribute no wire cost.
 
-  Checked on the **marshaller**, not on the schema descriptor: losim builds one
-  method descriptor by hand for its own warm-up, and it carries no schema while
-  being perfectly ordinary protobuf.
+  losim checks the **marshaller**, not the schema descriptor. Its warm-up descriptor
+  is built by hand and has no schema while still using ordinary protobuf messages.
 </ParamField>
 
-## Wiring up
+## Classpath and wiring
 
 | message | fix |
 |---|---|
@@ -107,7 +105,7 @@ and a law fitted to either comes out smooth, confident and false.
 | `could not start node w0: …` | usually a name still held by a previous run's server |
 | `there is already a node called 'w1'` | |
 
-## During a run
+## Runtime messages
 
 | message | meaning |
 |---|---|
@@ -122,7 +120,7 @@ and a law fitted to either comes out smooth, confident and false.
 | `losim.Job/Load failed on coordinator: …` | `Load` runs before anything is measured, so a simulation whose input cannot be built has not started |
 | `… — coordinator runs losim.Job and was restarted` | shutting a node down cancels its calls in flight, and `Run` was one |
 
-## At the end
+## Completion messages
 
 | message | meaning |
 |---|---|
@@ -132,7 +130,7 @@ and a law fitted to either comes out smooth, confident and false.
 | `losim: w0 did not release its name in time` | shutting the node down took longer than two seconds. Harmless for the trace, which is already written — but if you run several systems in one JVM, the next one may fail to bind that name. |
 
 
-## From the scale engine
+## Scale messages
 
 | message | what to change |
 |---|---|
@@ -145,7 +143,7 @@ and a law fitted to either comes out smooth, confident and false.
 | `this run is clocked at 40x real time, and … costs … refMs` | a cost site too fine for the clock; there is no compression to turn down |
 | `no size on the ladder satisfies every resource at once` | |
 
-[Every refusal, in full ->](/simulate/when-it-refuses)
+[Refusal handling ->](/simulate/refusals)
 
 ## Exit codes
 

@@ -1,0 +1,168 @@
+---
+title: "Refusal handling"
+description: "Refusal reasons and the changes that address them."
+icon: "ban"
+---
+
+<Note>
+**A refusal records that the engine could not support a projection.** A projection
+is shown only when its confidence supports the result; otherwise the field is
+absent.
+
+These messages often identify a real property of the design. Read the reason before
+changing the configuration.
+</Note>
+
+## Resource refusals
+
+Other resources can still be projected after a resource refusal.
+
+<AccordionGroup>
+  <Accordion title="the ladder bends" icon="stairs" defaultOpen>
+    ```
+    diskMb  REFUSED: the ladder bends: over the lower half it grows as units^0.59
+    and over the upper half as units^0.87, a difference of 0.28. Something behaves
+    differently small than large — a threshold, a different code path, or a
+    granularity that only shows up when the pieces are few — and no extrapolation
+    across that means anything. R2 over the whole ladder is still 0.883, which is
+    why no threshold on R2 could have separated this from a merely noisy straight
+    line.
+    ```
+
+    **Meaning.** Your code behaves differently at the small and large ends of
+    the probe ladder. Common causes are a size threshold, a cache limit, a batch
+    boundary, or changing fixed overhead.
+
+    **Change.** The engine owns the ladder, so change the *threshold* that
+    switches behavior. If both regimes are part of the design, keep the refusal:
+    one law cannot describe both.
+  </Accordion>
+
+  <Accordion title="its exponent moves between seed sets" icon="wave-square">
+    ```
+    makespan  REFUSED: its exponent moves by 0.66 between independent seed sets of
+    the same workload, which over a factor of 5000 is an error bar of x268 — wider
+    than anything it would be asked to distinguish
+    ```
+
+    **Meaning.** Independent seed sets produce different fitted exponents. R2
+    measures fit to the supplied points, not reproducibility on new points.
+
+    **This is normal for the timeline.** When handlers are shorter than host jitter,
+    time exponents can move between seed sets even when memory is stable.
+
+    **Change.** Keep the refusal, or give handlers more work so their signal
+    rises above host jitter:
+
+    ```java
+    Thumbnail: { fixed: 20 refMs }      # instead of 0.4
+    ```
+  </Accordion>
+
+  <Accordion title="it was never measured above zero" icon="0">
+    ```
+    diskMb  REFUSED: it was never measured above zero, so there is nothing to fit
+    ```
+
+    Your system never wrote to disk, so there is no disk law. If disk usage was
+    expected, add a `Losim.current().wroteDisk(bytes)` call.
+  </Accordion>
+
+  <Accordion title="nothing measured varied with it" icon="equals">
+    ```
+    memoryMb  REFUSED: nothing measured varied with it, so it has no law here
+    ```
+
+    No candidate variable changed. A common cause is a `Load` that ignores its
+    `Input` and performs a fixed amount of work at every rung.
+    [Scale writing ->](/write/scale-writing)
+  </Accordion>
+</AccordionGroup>
+
+## Refusals about the whole run
+
+The simulation does not run and no projection is produced.
+
+<AccordionGroup>
+  <Accordion title="the variable part does not dominate the fixed overhead" icon="weight-hanging">
+    ```
+    memoryMb at 8000 units is only 2.4x its own fixed overhead (0.31 against
+    0.13); below 10x the fit is describing the overhead rather than the workload
+    ```
+
+    **Meaning.** At every ladder size, most of the resource is independent of
+    the workload, such as a baseline heap, fixed index, or constant table.
+
+    **Change.** Increase the variable work, or keep the refusal if the fixed
+    cost genuinely dominates the design.
+  </Accordion>
+
+  <Accordion title="the system would not fit this host" icon="server">
+    ```
+    at 8000 units the system would hold 4200 MB, and this host offers 1843 MB to
+    work in — the run does not fit the laptop it is meant to fit on
+    ```
+
+    The engine uses at most **60%** of the JVM's max heap. Raise it if appropriate:
+
+    ```bash
+    java -Xmx6g -cp "$CP" losim.cli.Main simulate …
+    ```
+
+    Reduce retained data per unit if raising the heap is not appropriate.
+  </Accordion>
+
+  <Accordion title="a cost site too fine for the clock to express" icon="stopwatch">
+    ```
+    this run is clocked at 40x real time, and lab.Thumbnailer.Capacity costs
+    0.0004 refMs — 6x below what the sleep debt can still settle at that
+    compression, so its timings would drift rather than be owed. Give that cost
+    site more to do, or lower the scale: at scale 1 the clock runs at 20x.
+    ```
+
+    **Meaning.** The clock cannot express a duration finer than about 0.05 ms
+    of real time. Below that, the cost is recorded as owed; past the supported range,
+    timings drift.
+
+    **Change.** Compression is derived from scale. Increase the cost at that
+    site or use a smaller scale.
+    [Sleep debt ->](/engine/sleep-debt)
+  </Accordion>
+
+  <Accordion title="a ladder of three cannot show whether a law bends" icon="ruler">
+    ```
+    a ladder of 3 cannot show whether a law bends; four is the fewest that can
+    ```
+
+    The ladder is fixed at four rungs, so this cannot occur in the current engine. The
+    rule remains important because four points are required to test for a bend.
+  </Accordion>
+</AccordionGroup>
+
+## Notes
+
+Printed under the projections, and worth reading:
+
+```
+  note: nothing in this simulation goes wrong, so the model carries no amplification
+        term — a projection from it describes a system where nothing goes wrong
+```
+
+A killed node's work is redone elsewhere, so a survivor can absorb its share and
+increase peak memory. A model fitted only on clean runs can under-predict this effect.
+Declare some weather when the design must tolerate failures.
+
+## Avoid these shortcuts
+
+<Warning>
+**Do not multiply the small run by the size ratio.** That is the shortcut the engine
+refused to use, and it can be wrong when memory grows sublinearly.
+
+**Do not weaken the checks until something is accepted.** The tests are structural:
+they check whether the ladder bends and whether the exponent is reproducible. A
+projection produced by bypassing those checks is not reliable.
+</Warning>
+
+<Card title="Next: troubleshooting" icon="arrow-right" href="/simulate/troubleshooting">
+  Everything else that goes wrong.
+</Card>

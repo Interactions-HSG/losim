@@ -1,0 +1,242 @@
+---
+title: "4. Job service"
+description: "The built-in Job service and the entry points for a simulation."
+icon: "diagram-project"
+---
+
+A simulation declares nodes and failures. Code runs as gRPC services, including the
+service that starts the workload.
+
+losim provides that service in its own schema: [`losim.Job`](/ref/losim-proto),
+with two RPCs. `Load` builds the workload outside the clock; `Run` is the measured
+simulation. Implement it like `Thumbnailer`: extend the generated `ImplBase` and
+run it on a node.
+
+```yaml
+nodes:
+  coordinator:
+    instance: m5.large
+    runs: { losim.Job: src/lab/RenderJob.java }
+```
+
+## The complete job
+
+```java src/lab/RenderJob.java
+package lab;
+
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.protobuf.InvalidProtocolBufferException;
+import io.grpc.stub.StreamObserver;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import lab.pb.*;
+import losim.api.Losim;
+import losim.pb.Input;
+import losim.pb.JobGrpc;
+import losim.pb.Result;
+import losim.pb.Workload;
+
+public final class RenderJob extends JobGrpc.JobImplBase {
+
+    private static final int FRAMES_PER_BATCH = 25;   // batch size
+
+    /** Builds the workload outside the measured run. */
+    @Override public void load(Input in, StreamObserver<Workload> out) {
+        Album album = Albums.of(in.getCount(), Losim.current().seed());
+        out.onNext(Workload.newBuilder()
+                .setCount(album.getFrameCount())
+                .setType(Album.getDescriptor().getFullName())
+                .setPayload(album.toByteString())
+                .build());
+        out.onCompleted();
+    }
+
+    /** Runs the measured simulation. */
+    @Override public void run(Workload work, StreamObserver<Result> out) {
+        var here = Losim.current();
+        Album album;
+        try {
+            album = Album.parseFrom(work.getPayload());     // your cost, on the clock
+        } catch (InvalidProtocolBufferException e) {
+            out.onError(e);
+            return;
+        }
+
+        // 1. Find workers by the service they serve.
+        List<String> workers = here.peersServing("Thumbnailer");
+        if (workers.isEmpty()) throw new IllegalStateException("nobody serves Thumbnailer");
+        here.log(workers.size() + " nodes can make thumbnails");
+
+        // 2. Query each worker's capacity.
+        var capacity = new LinkedHashMap<String, Health>();
+        for (String worker : workers) {
+            var stub = ThumbnailerGrpc.newBlockingStub(here.channelTo(worker))
+                                      .withDeadlineAfter(500, TimeUnit.MILLISECONDS);
+            capacity.put(worker, stub.capacity(Empty.getDefaultInstance()));
+        }
+        here.reveal("peers", capacity.size());
+
+        // Give each node a share proportional to its core count.
+        var share = new ArrayList<String>();
+        capacity.forEach((name, health) -> {
+            for (int i = 0; i < Math.max(1, health.getVcpu()); i++) share.add(name);
+        });
+
+        // 3. Dispatch batches asynchronously.
+        int thumbs = 0, failed = 0;
+        var inflight = new ArrayList<ListenableFuture<Thumbs>>();
+        var frames = album.getFrameList();
+
+        for (int i = 0; i * FRAMES_PER_BATCH < frames.size(); i++) {
+            var batch = Batch.newBuilder().addAllFrames(frames.subList(
+                    i * FRAMES_PER_BATCH,
+                    Math.min(frames.size(), (i + 1) * FRAMES_PER_BATCH))).build();
+
+            String worker = share.get(i % share.size());
+            var stub = ThumbnailerGrpc.newFutureStub(here.channelTo(worker))
+                                      .withDeadlineAfter(2_000, TimeUnit.MILLISECONDS);
+            inflight.add(stub.thumbnail(batch));
+        }
+
+        for (ListenableFuture<Thumbs> f : inflight) {
+            try {
+                thumbs += f.get().getThumbsCount();
+            } catch (ExecutionException e) {
+                // A failed node is reported through the failed call.
+                failed++;
+                here.log("a batch did not come back: " + e.getCause().getMessage());
+            }
+        }
+
+        // 4. Return structured results.
+        out.onNext(Result.newBuilder()
+                .putAnswer("thumbnails", String.valueOf(thumbs))
+                .putAnswer("framesIn", String.valueOf(frames.size()))
+                .putAnswer("batchesLost", String.valueOf(failed))
+                .build());
+        out.onCompleted();
+    }
+}
+```
+
+`Album` is an application message in your `.proto`; it contains repeated `Frame`
+values. Building it does not require losim-specific code:
+
+```java src/lab/Albums.java
+package lab;
+
+import com.google.protobuf.ByteString;
+import java.util.Random;
+import lab.pb.Album;
+import lab.pb.Frame;
+
+final class Albums {
+    static Album of(long frames, long seed) {
+            var rng = new Random(seed);              // use the simulation seed
+        var out = Album.newBuilder();
+        for (int i = 0; i < frames; i++) {
+            int w = 320 + rng.nextInt(1600), h = 240 + rng.nextInt(1200);
+            byte[] pixels = new byte[w * h / 64];
+            rng.nextBytes(pixels);
+            out.addFrame(Frame.newBuilder().setId("f" + i).setWidth(w).setHeight(h)
+                    .setPixels(ByteString.copyFrom(pixels)));
+        }
+        return out.build();
+    }
+}
+```
+
+## The two RPCs
+
+<Note>
+**`Load` runs outside the measured design.** Reading a folder of frames or generating
+an album from the seed happens with the clock stopped. losim resets each node's ledger
+before `Run` starts, so `Load` contributes nothing to the bill or trace.
+
+Parsing the payload in `Run` **is** measured. Reading the input is losim's cost;
+unpacking it is part of the design.
+</Note>
+
+<Warning>
+**`Run` receives no simulation metadata.** It receives a `Workload` containing a
+count and bytes. The handler has no access to `input:` or `source:` and cannot
+distinguish a probe run from a full run.
+
+This restriction makes scaling measurable. If a job could detect the input size,
+it could behave differently at the probe and full sizes, leaving no stable
+behavior to project.
+</Warning>
+
+## `Losim.current()` calls
+
+<AccordionGroup>
+  <Accordion title="peersServing(…) discovers services" icon="magnifying-glass" defaultOpen>
+    Dead nodes are omitted. This is service discovery, not a liveness check. A
+    real network does not provide a current list of live peers. A failed node is
+    discovered when a call stops answering, which is what happens in step 3 when
+    a batch does not return.
+
+    The argument is the **service name from your `.proto`**, `Thumbnailer`. The
+    same name is used as the key in `runs:`. The Java class and file path are
+    separate values.
+    [More ->](/write/finding-peers)
+  </Accordion>
+
+  <Accordion title="channelTo(…) returns an instrumented channel" icon="plug">
+    The result is an ordinary `io.grpc.Channel`, and the call site uses plain
+    gRPC. The node creates and owns the channel, including its lifetime.
+
+    A channel built with `ManagedChannelBuilder` lacks losim's interceptors. Its
+    calls bypass simulated speed, byte counts, latency, partitions, and trace
+    recording. The verifier flags that channel.
+  </Accordion>
+
+  <Accordion title="seed() supplies the workload seed" icon="dice">
+    A `Load` without a `source:` uses this seed. Seed sweeps should vary the
+    *data* as well as the weather; drawing from a private constant would produce
+    the same workload on every run.
+  </Accordion>
+
+  <Accordion title="reveal(…) and log(…) record trace data" icon="comment">
+    `reveal` records a named value in the trace; `log` records a line. Both appear
+    inside the current span, which lets the trace show what the computation did.
+    [More ->](/write/telemetry)
+  </Accordion>
+
+  <Accordion title="local() stores node-local state" icon="box-archive">
+    A map shared by services on this node and reachable from no other node. It is
+    **emptied by a restart**. Use it for a cache or index shared by services on the
+    same node. It has no time cost, but its contents count against the node's
+    memory cap. [More ->](/write/memory)
+  </Accordion>
+</AccordionGroup>
+
+## Span structure
+
+There is no `phase` or `compute` event. `Run` is a handler, so it already has the
+trace's **root** span. Calls made by the job and the handlers they reach nest
+beneath it.
+
+Work the job performs locally, such as parsing the payload, is inside the root
+span and occupies a coordinator core. `Run` queues and uses a thread like any
+other call, so the coordinator needs headroom.
+
+To name a stretch of work in the trace, make it a call to a service that performs
+the work. The trace, bill, and critical path can then account for it directly.
+
+## Patterns to reuse
+
+**Every outbound call has a deadline.** `withDeadlineAfter(2_000, MILLISECONDS)`
+means 2000 *reference* milliseconds. losim rewrites it into real time using
+`k_time`. A call without a deadline waits five seconds before giving up, and the
+trace records that timeout.
+
+**The fan-out is asynchronous.** `newFutureStub` dispatches each batch before the
+job collects the results. Using `newBlockingStub` in the loop would use the nodes
+one at a time. The answer would remain correct while the work became sequential.
+The [Spans view](/viewer/views) shows this difference.
+
+<Card title="Next: the simulation" icon="arrow-right" href="/first/simulation">
+  Five nodes, two zones, and a failure schedule.
+</Card>

@@ -6,10 +6,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Running systems from a `main`, so that nobody needs a command line.
+ * Runs named simulations from a Java {@code main} method.
  *
- * <p>A student on this course has an editor with a run button in it. This is
- * what that button presses:
+ * <p>Example:
  *
  * <pre>{@code
  * public final class RunExperiments {
@@ -22,16 +21,11 @@ import java.util.List;
  * }
  * }</pre>
  *
- * <p>Each {@code run} builds the system, runs the simulation, and writes a trace;
- * {@code show} opens the viewer on all of them at once and stays open. Two
- * simulations run this way are two runs side by side in the picker, which is the
- * only way to compare a design against itself.
+ * <p>Each {@code run} builds the system, runs the simulation, and writes a trace.
+ * {@code show} opens the viewer for the completed runs.
  *
- * <p><b>Why this exists at all.</b> Everything here can also be done from a
- * command line, and for a course this is the wrong way round: the shell is the
- * thing that has to be learned, not the thing that teaches. A file with a
- * {@code main} in it is something a first-year already knows how to run, and it
- * is diffable, commentable and reviewable in a way a shell history is not.
+ * <p>This API provides a reviewable, repeatable alternative to shell commands
+ * for projects that run simulations from an editor.
  */
 public final class Experiments {
 
@@ -51,11 +45,9 @@ public final class Experiments {
     }
 
     /**
-     * Build the lab and run it in the simulation you name.
+     * Builds the project and runs the named simulation.
      *
-     * <p>A failure is reported and does not stop the rest: when three simulations
-     * are being compared, the one that fell over is a result about the design and
-     * the other two are still worth looking at.
+     * <p>A failed run is reported and does not prevent later runs.
      */
     public Experiments run(String simulation) {
         if (lab.simulation(simulation) == null) {
@@ -84,11 +76,9 @@ public final class Experiments {
     }
 
     /**
-     * Open the viewer on everything that has been run, and keep it open.
+     * Opens the viewer for every completed run and keeps it open.
      *
-     * <p>Does not return. That is deliberate: a viewer that closed itself the
-     * moment it opened would be a screenshot, and stopping it is what the stop
-     * button in the editor is for.
+     * <p>The viewer remains active until it is stopped.
      */
     public void show() { show(8000); }
 
@@ -97,14 +87,8 @@ public final class Experiments {
         System.out.println(ran.size() + " run" + (ran.size() == 1 ? "" : "s")
                 + (failed > 0 ? ", " + failed + " of which did not finish" : ""));
         try {
-            // `false`: show what was just run, and do not go and build everything
-            // else in the project on the way — the list above is the experiment.
-            //
-            // `Main.host()` rather than a written-down loopback: this is what the
-            // editor's run button presses, and the editor is a devcontainer or a
-            // Codespace as often as it is a laptop. A viewer bound to 127.0.0.1
-            // in a container is a forwarded port with nothing behind it, so the
-            // run succeeded and the browser said connection refused.
+            // Serve only the results already produced. Use the configured host so
+            // the viewer also works from a container or Codespace.
             Serve.main(lab.root().toString(), null, lab.root().resolve(Lab.RESULTS).toString(),
                        port, Main.host(), true, false);
         } catch (IOException e) {
@@ -112,7 +96,7 @@ public final class Experiments {
         }
     }
 
-    /** Everything is written; do not open anything. For a run you only want the traces from. */
+    /** Prints the result directory without opening the viewer. */
     public void done() {
         System.out.println(ran.size() + " run" + (ran.size() == 1 ? "" : "s") + " -> "
                 + lab.root().resolve(Lab.RESULTS));

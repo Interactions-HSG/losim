@@ -1,6 +1,6 @@
 ---
 title: "On a laptop"
-description: "Requirements for running losim outside the container."
+description: "Requirements for running losim on a laptop."
 icon: "laptop"
 ---
 
@@ -12,7 +12,8 @@ icon: "laptop"
 | **Gradle** | the build, and what `bin/losim` runs before it starts a JVM. The container ships one. |
 | **git** | for the vendored jars, which are committed. |
 
-Nothing else. There is no package manager step, no lockfile, and no download.
+No other setup is required. The project does not use a package-manager install or a
+runtime download.
 
 ## Build and check
 
@@ -21,13 +22,13 @@ bin/losim dev test    # losim's own acceptance criteria, plus one plain JUnit te
 bin/losim dev suite   # the reference suite
 ```
 
-Both build `build/losim.jar` first, because `bin/losim` is `gradle jar` followed
-by a JVM — which is also why nothing here has a build step of its own to skip.
+Both commands build `build/losim.jar` first. `bin/losim` runs `gradle jar` and then
+starts the JVM.
 
 ## Supported platforms for `protoc`
 
-`gradle jar` needs no `protoc` — it only compiles the simulator. Everything that
-compiles a `.proto` (`dev test`, `dev suite`, your own build) picks a vendored
+`gradle jar` does not need `protoc`; it only compiles the simulator. Commands that
+compile a `.proto` (`dev test`, `dev suite`, or your own build) select a vendored
 binary from `vendor/bin/`:
 
 | host | binary |
@@ -36,30 +37,25 @@ binary from `vendor/bin/`:
 | Linux, x86-64 | `protoc-linux-x86_64` |
 
 <Warning>
-On anything else — Linux on ARM, Windows, an Intel Mac — those stop with
-`no vendored protoc for <uname>`. Use the devcontainer; that is what it is for.
-Adding a third binary means committing it, because fetching one at build time is
-exactly what the vendoring rule exists to prevent.
+On other platforms, such as Linux ARM, Windows, or an Intel Mac, the command reports
+`no vendored protoc for <uname>`. Use the devcontainer. Adding a platform requires a
+committed binary; builds do not fetch tools at runtime.
 </Warning>
 
 ## Heap
 
-Runs are given `-Xmx3g` by the bundled scripts. The scale engine checks the host's
-heap before choosing a run size and will refuse a size that does not fit, naming
-the number:
+The bundled scripts give runs `-Xmx3g`. Before choosing a run size, the scale engine
+checks the host heap and refuses a size that does not fit:
 
 ```
 at 8000 units the system would hold 4200 MB, and this host offers 1843 MB to
 work in — the run does not fit the laptop it is meant to fit on
 ```
 
-If you see that, either give the JVM more heap or let the engine pick a smaller
-rung by adding one to the probe ladder.
+If this occurs, increase the JVM heap or use a host with more memory.
 
 ## Editor setup
 
 The repository ships `.vscode/settings.json` pointing the Java extension at
-`vendor/jars/*.jar`, so imports resolve before anything has been built. Any editor
-works: `build.gradle.kts` is the build, and it resolves nothing to compile the
-simulator — the compile classpath is those committed jars, which is what keeps a
-number a run produces independent of what a package manager felt like today.
+`vendor/jars/*.jar`, so imports resolve before a build. Any editor works; the
+simulator compile classpath uses those committed jars.

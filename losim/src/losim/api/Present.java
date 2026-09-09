@@ -5,18 +5,14 @@ import java.util.List;
 import losim.res.Meter;
 
 /**
- * losim inside a run.
+ * The API context used while a simulation is running.
  *
- * Every method here brackets its own body. The interceptors wrap a call and can
- * be metered from outside it; these run <i>inside</i> the handler, in the middle
- * of the student's own code, on the machine's own thread, between the two marks
- * that measure that handler. So each one measures itself and hands the bill to
- * losim (D13).
+ * Each method measures its own allocation and duration. The call interceptors
+ * measure the handler from outside, while these methods run inside the handler's
+ * span and charge their work to losim (D13).
  *
- * <p>The boundary is exact and worth stating, because losim cannot cross it: in
- * {@code reveal("keys", map.size())} the {@code size()} is the program's work and
- * is charged to the program, correctly. Everything after the argument has been
- * evaluated is losim's.
+ * <p>The boundary is visible in {@code reveal("keys", map.size())}: evaluating
+ * {@code size()} is program work. Boxing and recording the value are losim work.
  */
 final class Present implements LosimCtx {
 
@@ -24,9 +20,7 @@ final class Present implements LosimCtx {
 
     // ---------------------------------------------------------------- recording
 
-    // Each overload takes a primitive, so the boxing happens in record() — inside
-    // the bracket — rather than at the call site, where it would be charged to the
-    // program (D13 rule 5).
+    // Primitive overloads keep boxing inside record(), where it is charged to losim.
     @Override public void reveal(String key, int value) {
         long a0 = Meter.allocNow(), t0 = System.nanoTime();
         record(key, value, a0, t0);
@@ -79,9 +73,7 @@ final class Present implements LosimCtx {
         long a0 = Meter.allocNow(), t0 = System.nanoTime();
         Bound b = Ambient.MACHINE.get();
         if (b == null) return;
-        // In a finally, because the accounting is losim's cost either way — and the
-        // refusal has to reach the handler, since a write that cannot happen must
-        // not appear to have happened.
+        // Charge the accounting even when the disk cap rejects the write.
         try { b.wroteDisk(bytes); }
         finally { b.charge(Meter.allocNow() - a0, System.nanoTime() - t0); }
     }
@@ -93,16 +85,13 @@ final class Present implements LosimCtx {
         b.event("sleep", "refMs", refMs);
         b.charge(Meter.allocNow() - a0, System.nanoTime() - t0);
 
-        // Outside the bracket, and that is the whole point of writing it this way:
-        // the wait is the program's own declared duration. Charging it to losim
-        // would subtract it straight back out of the span it exists to lengthen.
+        // The wait is program time, so keep it outside the losim accounting bracket.
         b.sleep(refMs);
     }
 
     // -------------------------------------------------------------------- state
 
-    // Reads, not units: they allocate nothing worth charging and are cheap
-    // enough that bracketing them would cost more than it recovered.
+    // State reads allocate too little to justify a measurement bracket.
     @Override public String node()                       { return bound().name(); }
     @Override public long seed()                         { return bound().seed(); }
     @Override public java.util.concurrent.ConcurrentMap<String, Object> local() {
@@ -114,9 +103,8 @@ final class Present implements LosimCtx {
     @Override public double clockMs()                    { return bound().clockMs(); }
 
     /**
-     * Bracketed, unlike the reads beside it: the first call to a peer builds a
-     * channel and its interceptors, which is losim's own work on the machine's
-     * thread and must not be charged to the program that asked for it.
+     * The first call to a peer builds a channel and its interceptors. Charge that
+     * setup to losim rather than to the program that requested the channel.
      */
     @Override public Channel channelTo(String machine) {
         long a0 = Meter.allocNow(), t0 = System.nanoTime();

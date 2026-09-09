@@ -6,7 +6,7 @@ import java.util.*;
 import losim.trace.JsonReader;
 
 /**
- * Comparing two traces of the same simulation, run in two places.
+ * Compares two traces produced by the same simulation.
  *
  * <p>The requirement is that the same commands produce the same result in the
  * devcontainer, on a laptop and in a Codespace — otherwise a number depends on
@@ -22,9 +22,8 @@ import losim.trace.JsonReader;
  * measurements</b>, and those are printed rather than judged: a Codespace is slower
  * than a laptop, and that is what host calibration is for.
  *
- * <p>The distinction is the whole content of this file. A structural difference is a
- * defect — the two environments are not running the same simulator. A measured
- * difference is information, and the size of it is worth seeing.
+ * <p>A structural difference is a failure; a measurement difference is reported
+ * as host variation.
  */
 public final class Compare {
     private Compare() {}
@@ -39,11 +38,7 @@ public final class Compare {
         var right = JsonReader.readObject(Files.readString(b));
         var aspects = new ArrayList<Aspect>();
 
-        // Said first and alone, because everything below it is read against a shape
-        // both files are assumed to share. Two schemas disagree about what a
-        // channel is called and what a span kind is, so carrying on would print a
-        // wall of differences whose one cause is this line — and a reader who
-        // scrolled past it would go looking for a defect in the simulator.
+        // The remaining comparisons assume a shared schema.
         if (!Objects.equals(left.get("schema"), right.get("schema"))) {
             System.out.printf("%s%n%s%n%n", a, b);
             System.out.printf("  DIFFER  schema%n            %s%n            %s%n%n",
@@ -72,9 +67,7 @@ public final class Compare {
         aspects.add(new Aspect("sampled channels", true, channels(left), channels(right)));
         aspects.add(new Aspect("nodes", true, nodeNames(left), nodeNames(right)));
 
-        // Attribution is structural; the fitted numbers are not. Which variable a
-        // resource turned out to be a function of is a fact about the program, and it
-        // must not depend on where the program ran. The exponent is a measurement.
+        // Resource attribution is structural; fitted exponents are measurements.
         aspects.add(new Aspect("what each resource is a function of", true,
                 attribution(left), attribution(right)));
         aspects.add(new Aspect("what the engine refused", true, refused(left), refused(right)));
@@ -167,7 +160,7 @@ public final class Compare {
         return (List<Map<String, Object>>) t.getOrDefault(key, List.of());
     }
 
-    /** Every event kind, with the union of the keys it carried. */
+    /** Returns each event kind and its union of detail keys. */
     private static Map<String, Set<String>> shape(Map<String, Object> t) {
         var out = new TreeMap<String, Set<String>>();
         for (var e : rows(t, "events")) {

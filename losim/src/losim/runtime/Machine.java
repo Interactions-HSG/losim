@@ -14,18 +14,14 @@ import losim.trace.Telemetry;
 import losim.trace.Values;
 
 /**
- * One machine: its own gRPC server, its own threads, its own budget.
+ * A simulated node with its own gRPC server, worker threads, and resource counters.
  *
- * <p>The thread pool is the whole model. It is sized to the instance's vCPU
- * count, so four concurrent handlers on a two-vCPU machine really do queue and a
- * handler really can race with itself. It is also the unit of measurement,
- * because every thread in it belongs to exactly one machine — which is what makes
- * {@code getThreadAllocatedBytes} an exact attribution rather than an estimate.
+ * <p>The worker pool size is the instance vCPU count. Worker ownership also
+ * provides the attribution boundary for {@code getThreadAllocatedBytes}.
  *
- * <p>Two consequences follow and neither is negotiable. {@code directExecutor()}
- * must never be used, or the caller's thread runs the handler and the vCPU model
- * evaporates. And the threads must be platform threads, because
- * {@code getThreadAllocatedBytes} returns −1 for a virtual one.
+ * <p>Handlers must not use {@code directExecutor()}, and workers must be platform
+ * threads because {@code getThreadAllocatedBytes} is unavailable for virtual
+ * threads.
  */
 public final class Machine implements Bound, Telemetry.Sampled {
 
@@ -36,7 +32,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
     final String name, zone;
 
     /**
-     * The region this machine's zone is in, worked out once.
+     * The machine region, resolved once from its zone.
      *
      * <p>Once, and here, because a machine does not move and the alternative is
      * parsing a zone name on every call — on the caller's own thread, where it
@@ -53,7 +49,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
     private volatile double degraded = 1.0;
     private volatile long frozenUntilNs;
     /**
-     * A service this node serves, and the line of the simulation that placed it.
+     * A service factory and its simulation source location.
      *
      * @param service what the {@code runs:} key filed it under, or null when
      *                nothing filed it — a cluster built in code names no service,
@@ -77,7 +73,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
     private Server server;
 
     /**
-     * What this machine is made of, as a program running on it may ask.
+     * Immutable node information exposed to services.
      *
      * <p>Built once here rather than per call: every field it holds is already
      * final, so there is nothing to measure and nothing to charge anyone for.
@@ -87,7 +83,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
     volatile boolean alive = true;
 
     /**
-     * Set once this machine has been shut down, and never cleared.
+     * Set when the machine shuts down and never cleared.
      *
      * <p>A fault scheduled inside the run's horizon can still be in flight when the
      * run ends. The dispatcher is stopped before the cluster is torn down, which is
@@ -126,7 +122,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
     final AtomicLong crossZoneBytes = new AtomicLong();
 
     /**
-     * The same bytes again, split by the region they were sent to.
+     * Cross-zone bytes grouped by destination region.
      *
      * <p>Because a byte to the zone next door and a byte to Sydney are not the
      * same price, and a single total cannot be billed at two rates. The split is
@@ -138,7 +134,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
      */
     final Map<String, AtomicLong> egressTo = new ConcurrentHashMap<>();
 
-    // losim's own footprint on these threads, metered so it can be taken back off.
+    // losim's own measured work, removed from user totals.
     final AtomicLong losimBytes   = new AtomicLong();
     final AtomicLong losimNanos   = new AtomicLong();
     final AtomicLong losimStops = new AtomicLong();

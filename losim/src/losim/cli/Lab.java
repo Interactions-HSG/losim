@@ -14,26 +14,16 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 /**
- * A project of systems, and how to run one.
+ * Project sources, toolchain discovery, compilation, and simulation runs.
  *
- * <p>This exists so that nobody has to type anything. A lab is a folder of small
- * gRPC systems; running one means generating from its schema, compiling it, and
- * handing the simulation to {@link Main} — three tools in a row, each with its own
- * flags, none of which teaches anything about decentralized systems. Written as
- * a shell script it becomes a thing students have to read, get wrong, and be
- * supported through. Written here it is a button.
+ * <p>A lab is a folder of gRPC sources. Running a simulation generates code from
+ * its schemas, compiles the sources, and invokes {@link Main}.
  *
- * <p><b>Nothing about a system is declared.</b> There is no manifest listing what
- * to build, because a manifest is one more file to keep in step with the folder
- * beside it — and a student who adds a service and forgets to register it would
- * get a run that silently omits their new code. A directory <i>is</i> a system if
- * it has Java in it; its schema is whatever {@code .proto} files it holds and its
- * simulations are whatever it holds. Add a file, and it is in the next run.
+ * <p>No manifest is required. Java and protobuf files in the project are part of
+ * the next build, except for reserved output and support directories.
  *
- * <p><b>Each run forks its own JVM.</b> A system that exhausts its heap is a
- * result this course is about, and it must not take the server down with it —
- * nor may two runs share a JVM, because then they share a heap and an order, and
- * an out-of-memory in one is a mystery in the other.
+ * <p>Each run uses a separate JVM so failures and process state do not leak into
+ * another run or into the server.
  */
 public final class Lab {
 
@@ -48,12 +38,7 @@ public final class Lab {
     }
 
     /**
-     * A lab whose results are written somewhere other than {@code build/results}.
-     *
-     * <p>The server takes {@code --runs}, and a server that listed one directory
-     * while its run button wrote into another would show a student a picker their
-     * own run never appeared in. So the directory is the lab's, not the server's,
-     * and there is one of it.
+     * A lab whose results use a custom directory.
      */
     public Lab(Path root, Path runs) {
         this.root = root.toAbsolutePath().normalize();
@@ -66,18 +51,7 @@ public final class Lab {
     public Path runs() { return runs; }
 
     /**
-     * Whether this directory is a lab at all.
-     *
-     * <p>The test is that a build here resolved losim — which is what a lab is,
-     * and what the simulator's own repository is not. Without it, pointing the
-     * server at the wrong directory lists that directory's furniture as things
-     * to run: the simulator's own sources came back as a "system" whose run
-     * button compiled sixty files. Better to say "this is not a lab" once than
-     * to offer somebody thirteen buttons, none of them theirs.
-     *
-     * <p>The classpath has to name something that exists here, or a working
-     * directory copied off somebody else's laptop — which is what marking a
-     * submission is — would answer yes on the strength of their paths.
+     * <p>A lab has a generated toolchain classpath with at least one local entry.
      */
     public boolean isLab() {
         String said = declared("classpath");
@@ -87,15 +61,9 @@ public final class Lab {
     // ------------------------------------------------------- a declared toolchain
 
     /**
-     * Where the build states the toolchain, which is the only way losim learns it.
+     * Path to the build-generated toolchain properties.
      *
-     * <p>A lab resolves losim with Gradle, so its jars are in a package cache
-     * under names and versions the build chose, not in a directory anybody can
-     * copy. There is nowhere for losim to go looking, and a lab that carried a
-     * second copy of what the build had already resolved would be carrying
-     * something free to disagree with it.
-     *
-     * <p>So the build writes this file, and losim reads what it says:
+     * <p>The file contains entries such as:
      *
      * <pre>
      * classpath=/…/losim-1.1.0.jar:/…/grpc-api-1.83.1.jar:…
@@ -103,8 +71,7 @@ public final class Lab {
      * protoc-gen-grpc-java=/…/protoc-gen-grpc-java-osx-aarch_64.exe
      * </pre>
      *
-     * <p>In Gradle that is one task, and it is the build's own resolved graph
-     * rather than a restatement of it:
+     * <p>A Gradle task can generate it from the resolved runtime classpath:
      *
      * <pre>
      * val losimToolchain by tasks.registering {
@@ -115,26 +82,16 @@ public final class Lab {
      * }
      * </pre>
      *
-     * <p>The <b>configuration</b>, not {@code sourceSets.main.runtimeClasspath} —
-     * that includes the source set's own {@code output}, so the task depends on
-     * {@code compileJava}, which needs {@code gen/}, which losim generates by
-     * reading this file. A recipe that cannot run until it has already run is
-     * worse than none, and this is the only recipe anybody copies.
+     * <p>Use the configuration rather than {@code sourceSets.main.runtimeClasspath}
+     * so generating the file does not depend on compilation.
      *
-     * <p>Under {@code build/} on purpose: it names absolute paths on one machine,
-     * so it is generated rather than committed, and {@code build/} is already
-     * both gitignored and {@link #NOT_CODE}. Regenerated rather than trusted —
-     * {@code ./losim} runs the task before it starts a JVM, and {@link #declared}
-     * reads the file again on every call.
+     * <p>The file belongs under {@code build/} because it contains machine-local
+     * absolute paths. The wrapper regenerates it before starting a JVM.
      */
     public static final String TOOLCHAIN = "build/losim-toolchain.properties";
 
     /**
-     * What the build says about one part of the toolchain, or {@code ""}.
-     *
-     * <p>Read each time rather than cached: {@code losim serve} outlives any
-     * number of Gradle invocations, and a server holding the classpath from
-     * before a dependency was added is a build failure nobody can explain.
+     * Reads one toolchain property, or {@code ""} if it is unavailable.
      */
     private String declared(String key) {
         Path file = root.resolve(TOOLCHAIN);
@@ -143,25 +100,14 @@ public final class Lab {
         try (var in = Files.newInputStream(file)) {
             props.load(in);
         } catch (IOException e) {
-            // An unreadable toolchain is no answer, and this must not throw out of
-            // isLab(): a directory where the file should be is a lab that is not one.
+            // An unreadable toolchain cannot identify a lab.
             return "";
         }
         return props.getProperty(key, "").trim();
     }
 
     /**
-     * A tool the build declared and this machine can run, or null.
-     *
-     * <p>A declaration is a claim about this machine, and it can be false. The file
-     * lives under {@code build/} and is never committed, but it does not have to be
-     * committed to travel: copy a working directory that has run Gradle — which is
-     * what marking a submission is — and it arrives holding absolute paths from
-     * somebody else's laptop.
-     *
-     * <p>So a declared tool that cannot be executed here is not used here, and
-     * {@link #noProtoc} says the build has to run rather than naming a binary from
-     * a machine this is not.
+     * Returns a declared executable when it exists and is executable.
      */
     private Path tool(String name) {
         String said = declared(name);
@@ -171,14 +117,7 @@ public final class Lab {
     }
 
     /**
-     * The code in this lab: one folder of gRPC jobs.
-     *
-     * <p>There is no list of systems here, because a lab is one thing: one folder
-     * of gRPC code, shared by every simulation in it. A tour of five simulations does
-     * not need five directories each holding a copy of the same {@code ping.proto}
-     * — that would be the same code against five different afternoons, written
-     * out five times so that each could have a folder to sit in. What varies
-     * between runs is the simulation, so the simulation is what there are many of.
+     * The protobuf schemas and Java sources in this lab.
      *
      * @param protos  the schema, which may be empty and may be more than one file
      * @param sources every {@code .java} in the lab, wherever the student put it
@@ -192,41 +131,22 @@ public final class Lab {
     // ------------------------------------------------------------------ finding
 
     /**
-     * Directories that are never the student's code.
+     * Root directories excluded from source discovery.
      *
-     * <p>The project's own furniture, plus the two that are output rather than
-     * input: handing {@code gen/} to javac twice is how a build starts reporting
-     * duplicate classes.
-     *
-     * <p>These are names of things at the <b>lab root</b>, and {@link #opaque}
-     * applies them only there. They are not a list of forbidden Java package
-     * names, and several of them are words a package may perfectly well use.
+     * <p>The names apply only at the lab root; nested Java packages may use them.
      */
     private static final List<String> NOT_CODE =
             List.of("build", "docs", "viewer", "node_modules", "presentation",
                     "gen", "out", "classes", "input", "corpus", "simulations");
 
     /**
-     * The reserved names losim writes into itself.
-     *
-     * <p>Finding {@code .java} under {@code gen/} is not a surprise — losim put it
-     * there. Finding {@code .java} under {@code input/} is, and is worth a word.
+     * Output directories created by losim.
      */
     private static final List<String> OURS = List.of("build", "gen", "out", "classes", "node_modules");
 
     /**
-     * Root directories that hold Java and are not compiled, because their name is
-     * the lab's furniture.
-     *
-     * <p>The names in {@link #NOT_CODE} apply at the root only, which is where the
-     * things they name live — but a lab may keep its sources at the root rather
-     * than under {@code src/}, and then a package called {@code input} is at the
-     * root too and is skipped. That skip is correct and it is also invisible: the
-     * only symptom is {@code package input does not exist} on a line that used it,
-     * which reads as the author importing something imaginary.
-     *
-     * <p>So it is said out loud. A silent skip that surfaces as an error somewhere
-     * else is the worst version of this, and it has cost people afternoons.
+     * Reports root directories containing Java that are reserved rather than
+     * compiled.
      */
     public List<Path> reserved() {
         var out = new ArrayList<Path>();
@@ -241,7 +161,7 @@ public final class Lab {
         return out;
     }
 
-    /** What {@link #reserved} has to say, or "" when it has nothing. */
+    /** Describes reserved directories containing Java, or {@code ""}. */
     public String reservedNote() {
         List<Path> held = reserved();
         if (held.isEmpty()) return "";
@@ -255,18 +175,7 @@ public final class Lab {
     }
 
     /**
-     * What was declared and disregarded, or {@code ""} when nothing was.
-     *
-     * <p>The case this exists for is the one that is hardest to diagnose: two
-     * machines disagreeing about the same lab, where the difference is a file one
-     * of them is carrying. A working directory that has run Gradle — which is what
-     * marking a submission is — travels holding absolute paths from a laptop, and
-     * without this the container reports the candidate's code as broken.
-     *
-     * <p>So what was disregarded is named, and so is the one command that rewrites
-     * it. Nothing is guessed at instead: there is no second toolchain to fall back
-     * to, and a run against a classpath from another machine would fail later and
-     * further from the reason.
+     * Describes unusable machine-local toolchain entries, or {@code ""}.
      */
     public String toolchainNote() {
         if (!Files.isRegularFile(root.resolve(TOOLCHAIN))) return "";
@@ -291,11 +200,7 @@ public final class Lab {
     public static final String SIMULATIONS = "simulations";
 
     /**
-     * Everything in this lab that compiles, as one unit.
-     *
-     * <p>One compile, one classpath, one set of classes — so a simulation can place
-     * any class the lab defines on any machine, which is the whole point of
-     * separating what the code <i>can</i> do from where it runs.
+     * All compilable sources and schemas in this lab.
      */
     public Code code() {
         if (!isLab()) return new Code(root, List.of(), List.of());
@@ -303,18 +208,8 @@ public final class Lab {
     }
 
     /**
-     * Every simulation in the lab, by name.
-     *
-     * <p>{@code simulations/} is the home and the place the console writes to. A
-     * {@code .yaml} sitting loose in the lab root counts too, so that a lab which
-     * has one does not show an empty list and leave a student wondering where it
-     * went.
-     *
-     * <p>They come back in the order a person would put them in, which is not the
-     * order a string comparison puts them in: a lab whose simulations are numbered
-     * to be read in sequence would otherwise list {@code 10-} between {@code 1-}
-     * and {@code 2-}, and the numbering that was meant to teach an order would
-     * teach the wrong one.
+     * Returns simulation files from {@code simulations/} and the lab root in
+     * human-oriented order.
      */
     public List<Path> simulations() {
         List<Path> out = new ArrayList<>();
@@ -326,17 +221,7 @@ public final class Lab {
     }
 
     /**
-     * Two files, in the order a reader expects them.
-     *
-     * <p>The extension is compared last, not in the middle of the name, so that
-     * {@code chain-of-calls.yaml} comes before {@code chain-of-calls-slow.yaml}:
-     * a variant belongs under the thing it varies, and comparing whole file names
-     * would put it above, because {@code -} sorts under {@code .}.
-     *
-     * <p>Shared with {@code Serve}'s run index, because a run is named after the
-     * simulation it came from. A tour numbered to be read in order has to be listed
-     * in that order in both places, or the numbering teaches nothing in one of
-     * them.
+     * Compares simulation files by stem, then by full filename.
      */
     public static int byName(Path a, Path b) {
         String x = a.getFileName().toString(), y = b.getFileName().toString();
@@ -374,7 +259,7 @@ public final class Lab {
                         ? Integer.compare(na.length(), nb.length())
                         : na.compareTo(nb);
                 if (by != 0) return by;
-                // Same number, written differently: keep the shorter spelling first.
+                // Use the shorter spelling when numeric values are equal.
                 by = Integer.compare(i - si, j - sj);
                 if (by != 0) return by;
                 continue;
@@ -385,12 +270,12 @@ public final class Lab {
         return Integer.compare(a.length() - i, b.length() - j);
     }
 
-    /** What the picker offers. */
+    /** Names displayed by the simulation picker. */
     public List<String> simulationNames() {
         return simulations().stream().map(p -> p.getFileName().toString()).toList();
     }
 
-    /** A simulation by its file name, or null. */
+    /** Finds a simulation by filename, or returns {@code null}. */
     public Path simulation(String name) {
         if (name == null || name.isBlank()) return simulations().isEmpty() ? null : simulations().get(0);
         for (Path p : simulations()) if (p.getFileName().toString().equals(name)) return p;
@@ -403,31 +288,17 @@ public final class Lab {
     }
 
     /**
-     * Should the walk go into this directory?
+     * Whether source discovery should enter a directory.
      *
-     * <p>{@link #NOT_CODE} applies at the lab root and nowhere below it, because
-     * that is where the things it names actually are: {@code build/}, {@code gen/}
-     * and {@code simulations/} are all resolved against the root, and a data
-     * directory called {@code input/} sits beside them. Below the root there are
-     * only Java packages, and a package is free to be called {@code input} — it is
-     * an ordinary word, and a lab that hands students a corpus generator will very
-     * reasonably put it in one.
-     *
-     * <p>Applying the list at every depth made such a package invisible: it was
-     * skipped silently, and the failure arrived as {@code package input does not
-     * exist} on the line that used it — which reads as the student importing
-     * something imaginary rather than as the compiler being told not to look.
-     *
-     * <p>Dot-directories stay excluded at every depth. {@code .git} can be nested,
-     * and no Java package can be called {@code .anything}, so there is nothing to
-     * collide with.
+     * <p>Reserved names are excluded only at the lab root. Dot-directories are
+     * excluded at every depth.
      */
     private static boolean opaque(Path dir, boolean root) {
         String name = dir.getFileName().toString();
         return name.startsWith(".") || (root && NOT_CODE.contains(name));
     }
 
-    /** Every file of one extension in the lab, skipping what is not the student's. */
+    /** Finds every file with one extension, excluding reserved directories. */
     private List<Path> walk(Path dir, String ext) { return walk(dir, ext, true); }
 
     /**
@@ -465,22 +336,7 @@ public final class Lab {
 
     // ------------------------------------------------------------------ running
 
-    /**
-     * Generate, compile, run, bill — and say which step failed, in its own words.
-     *
-     * <p>Every step's own output goes to {@code log} as it arrives rather than at
-     * the end, because the interesting part of a run that hangs is what it had
-     * printed before it stopped.
-     *
-     * @return 0 if the run completed and its checks held
-     */
-    /**
-     * Generate and compile a system, and say where the classes are.
-     *
-     * <p>Separate from {@link #run} because there is more than one thing worth
-     * doing with a compiled submission: running it in its own world is one, and
-     * running it in a world it has never seen is another.
-     */
+    /** Generates and compiles the lab sources. */
     public Path compile(Consumer<String> log) throws IOException, InterruptedException {
         Code c = code();
         String reserved = reservedNote();
@@ -503,40 +359,13 @@ public final class Lab {
         return compile(c.sources(), gen, classes, log) == 0 ? classes : null;
     }
 
-    /**
-     * Where this system's run in this world is written, or null if it has no world.
-     *
-     * <p>Here rather than at each caller. The name was being derived in three
-     * places — the run, the task list and the log — from two different things, so
-     * a system whose only simulation was `slow.yaml` wrote `id-slow.json` while both
-     * endpoints looked for `id.json` and the finished run never appeared.
-     */
-    /**
-     * Where the lab's compiled classes go, whether or not they are there yet.
-     *
-     * <p>Under {@code build/losim/}, not {@code build/classes}, because Gradle's
-     * java plugin writes {@code build/classes/java/main} and {@link #compile}
-     * wipes what it is about to fill. A lab that resolves losim from Maven is a
-     * Gradle project, so the older path meant losim deleting Gradle's output — and
-     * the editor's — on every press of the run button.
-     */
+    /** Returns the directory used for compiled lab classes. */
     public Path classes() {
         return root.resolve("build").resolve("losim").resolve("classes");
     }
 
     /**
-     * The lab's classes if they are there, and "" if nothing has been compiled yet.
-     *
-     * <p>What {@code --cp} falls back to. Without it the fallback is the JVM's own
-     * classpath, and the wrapper {@code adopt} writes runs on the classpath the
-     * build resolved — the simulator and gRPC, and deliberately <b>not</b> the
-     * project's own output, because the task that writes that classpath must not depend
-     * on compiling: compiling needs the generated sources the task's own output is
-     * read to produce. So a simulation's class was never on it, and
-     * {@code ./losim simulate} could not start.
-     *
-     * <p>Empty rather than a path that is not there, so a project nobody has built
-     * gets the refusal naming the class rather than one naming a directory.
+     * Returns the compiled classes directory, or {@code ""} if it is absent.
      */
     public String classesIfBuilt() {
         Path classes = classes();
@@ -544,12 +373,7 @@ public final class Lab {
     }
 
     /**
-     * Whether what is compiled is newer than everything it was compiled from.
-     *
-     * <p>So that reading a system's palette does not mean rebuilding it. A wrong
-     * answer here is only ever a stale list — the classes are still rebuilt before
-     * anything is run — and the alternative is a page that takes five seconds to
-     * open because it regenerates protobuf every time somebody looks at it.
+     * Whether compiled classes are at least as new as the source files.
      */
     public boolean compiled() {
         Path classes = classes();
@@ -576,11 +400,7 @@ public final class Lab {
     }
 
     /**
-     * Where this simulation's run is written.
-     *
-     * <p>Named after the simulation, because the simulation is the thing there are
-     * many of. `two-machines.yaml` runs into `two-machines.json`, so the picker
-     * reads the way the folder does.
+     * Returns the result path for a simulation, or {@code null} if it is unknown.
      */
     public Path trace(String simulation) {
         Path chosen = simulation(simulation);
@@ -600,17 +420,12 @@ public final class Lab {
             return 2;
         }
 
-        // Asked before anything is deleted, because `gen/` is worth more than a
-        // build directory (see below) and a build that cannot possibly succeed
-        // should leave the lab exactly as it found it.
+        // Check the toolchain before deleting generated output.
         String missing = c.protos().isEmpty() ? null : noProtoc();
         if (missing != null) { log.accept(missing); return 1; }
 
-        // Generated code lands **beside the schema it came from**, not off in a
-        // build directory. Two reasons, and the second is the real one: the
-        // editor finds it there, so `tour.ping.Ping` resolves and completion
-        // works on generated types without anything being configured — and a
-        // student who wants to see what `protoc` actually made can open it.
+        // Keep generated sources in gen/ so the editor can resolve and inspect
+        // the generated types.
         Path gen = root.resolve("gen");
         Path classes = classes();
         wipe(gen);
@@ -628,8 +443,7 @@ public final class Lab {
         }
 
         if (chosen == null) {
-            // Ordinary Java on one machine: there is no cluster to simulate and
-            // nothing to draw, so the code speaks for itself.
+            // Without a simulation, run the lab's main class directly.
             String main = mainClassOf(c.sources());
             if (main == null) {
                 log.accept("Nothing in this lab has a `public static void main`, and there\n"
@@ -643,27 +457,18 @@ public final class Lab {
         Files.createDirectories(runs);
         Path trace = trace(simulation);
         log.accept("\n");
-        // `--no-view`: this run already has a viewer — the one that started it.
+        // The caller owns the viewer for this run.
         int code = exec(List.of(java(), "-cp", cp(), "losim.cli.Main", "simulate", "--no-view",
                 chosen.toString(), "--cp", classes.toString(), "--out", trace.toString()), log);
 
-        // The bill is part of the run, not a second command: a design decision
-        // that costs nothing is not a design decision, and a student who has to
-        // ask for the price will not ask.
+        // Write billing data alongside a completed trace.
         if (Files.exists(trace)) bill(trace, log);
         return code;
     }
 
     /**
-     * Why this lab cannot run {@code protoc}, or null if it can.
-     *
-     * <p>Its own method because the answer is needed twice and in two places
-     * that must not disagree: here, where the binaries are about to be used,
-     * and before {@link #compile} and {@link #run} delete {@code gen/}. A build
-     * that is going to fail on the toolchain has to fail before it destroys the
-     * output of the last one that worked — otherwise a lab loses every generated
-     * type on the first press, and unresolves them in the editor, while reporting
-     * something about protoc rather than about the imports that just broke.
+     * Returns a toolchain diagnostic, or {@code null} when both protobuf tools
+     * are available.
      */
     private String noProtoc() {
         if (tool("protoc") != null && tool("protoc-gen-grpc-java") != null) return null;
@@ -677,13 +482,7 @@ public final class Lab {
     }
 
     /**
-     * losim's own schema, on disk where protoc can read it.
-     *
-     * <p>Written out rather than pointed at. {@link Bundled} hands back a path
-     * inside a zip filesystem, which every part of losim can read and protoc
-     * cannot — it is a separate process taking a file name. A kilobyte, rewritten
-     * on every build, because a stale copy after an upgrade would be a schema the
-     * jar no longer ships.
+     * Extracts losim's bundled schema to a regular file for protoc.
      *
      * @return the include root, or null in a jar built without the schema
      */
@@ -710,15 +509,10 @@ public final class Lab {
         List<String> argv = new ArrayList<>(List.of(protoc.toString(),
                 "--plugin=protoc-gen-grpc-java=" + plugin,
                 "--java_out=" + gen, "--grpc-java_out=" + gen));
-        // An include path per schema directory, because an `import` is resolved
-        // against the include path and nobody said where these files must live.
+        // Each schema directory is an include path for local imports.
         for (Path p : protos) { argv.add("-I"); argv.add(p.getParent().toString()); }
-        // And losim's own, so `import "losim/job.proto"` resolves without anybody
-        // fetching anything. On the include path and never in the input list: the
-        // classes it declares are in the jar this project already compiles against,
-        // and generating them again here would compile a copy that parent-first
-        // delegation then never loads — a protoc run and a javac run spent on
-        // classes nothing uses, in a directory that then claims to hold losim's.
+        // Add the bundled schema as an include path, but do not regenerate its
+        // classes; the project already supplies them.
         Path own = ownSchema();
         if (own != null) { argv.add("-I"); argv.add(own.toString()); }
         for (Path p : protos) argv.add(p.toString());
@@ -743,36 +537,18 @@ public final class Lab {
         StringBuilder json = new StringBuilder();
         List<String> argv = new ArrayList<>(List.of(java(), "-cp", cp(),
                 "losim.cli.Main", "bill", trace.toString(), "--json"));
-        // The lab's own list if it has one; otherwise none is named and `bill`
-        // reads the one losim ships under that name from inside the jar.
+        // Prefer a project-local price list when one exists.
         Path prices = root.resolve("prices/eu-central-1.yaml");
         if (Files.exists(prices)) { argv.add("--prices"); argv.add(prices.toString()); }
-        // The two streams kept apart, which every other call here merges on
-        // purpose. `--json` writes JSON on stdout and says everything else on
-        // stderr; merged, a single line of "no price list, using the defaults"
-        // lands at the top of the file and the bill stops being JSON at all.
-        // Nothing then reads it, and the run silently has no money on it.
-        //
-        // Quietly otherwise: the viewer shows the money, and a wall of numbers
-        // after every run is how a student learns to stop reading the output.
+        // Keep JSON stdout separate from diagnostic stderr.
         int code = exec(argv, json::append, log);
         if (code == 0 && !json.isEmpty()) Files.writeString(out, json.toString());
         else log.accept("(no bill for this run)\n");
     }
 
     /**
-     * The class with a {@code main} in a system that has no simulation.
-     *
-     * <p>Task 1 is ordinary Java, so something has to be started. Rather than
-     * requiring a name, this takes the one class that has a {@code main} — and
-     * says so plainly when there is none, because "could not find or load main
-     * class" is not a sentence a first-year should have to decode.
-     *
-     * <p>The name is the <b>qualified</b> one, read off the source's own
-     * {@code package} line. Returning the file's simple name is what produced
-     * exactly the message above: the manual teaches {@code src/lab/Main.java}
-     * with {@code package lab;} at the top of it, and a JVM asked for
-     * {@code Main} cannot find {@code lab.Main}.
+     * Finds the qualified class with a {@code main} method when no simulation is
+     * configured.
      *
      * @return the class to start, or null if nothing here has a {@code main}
      */
@@ -801,12 +577,7 @@ public final class Lab {
     // ------------------------------------------------------------- the toolchain
 
     /**
-     * The classpath a lab compiles and runs against: the simulator and gRPC.
-     *
-     * <p>Whole, exactly as the build resolved it — never filtered down to the
-     * entries that happen to exist. A classpath part-way through a build is still
-     * the build's business, and losim second-guessing it would produce a compile
-     * error about a class the build knows perfectly well where to find.
+     * Returns the build-resolved classpath when it is usable here.
      */
     public String cp() {
         String said = declared("classpath");
@@ -814,13 +585,7 @@ public final class Lab {
     }
 
     /**
-     * Whether a declared classpath is one this machine could actually use.
-     *
-     * <p>The weakest test that catches the case that matters: a classpath naming a
-     * laptop's home directory, read inside a container, has nothing on it that
-     * exists. One surviving entry is enough to treat the declaration as this
-     * machine's — a build part-way through is still the build's business, and
-     * second-guessing a classpath that mostly resolves would be worse than useless.
+     * Whether at least one declared classpath entry exists locally.
      */
     private static boolean here(String classpath) {
         if (classpath.isEmpty()) return false;
@@ -858,17 +623,7 @@ public final class Lab {
     }
 
     /**
-     * Run a tool and stream what it says.
-     *
-     * <p>Merged streams on purpose: javac writes errors to one and notes to the
-     * other, and a student reading them interleaved is reading what happened.
-     */
-    /**
-     * Run something and put everything it says in one place.
-     *
-     * <p>Merged on purpose: javac's errors and its progress belong in the order
-     * they happened, and a student reading two interleaved streams as one is
-     * reading what actually occurred.
+     * Runs a process and merges stdout and stderr into {@code log}.
      */
     private int exec(List<String> argv, Consumer<String> log) throws IOException, InterruptedException {
         Process p = new ProcessBuilder(argv).directory(root.toFile()).redirectErrorStream(true).start();
@@ -881,11 +636,7 @@ public final class Lab {
     }
 
     /**
-     * The same, with the two streams kept apart.
-     *
-     * <p>For the one caller whose stdout is a file rather than something to read:
-     * a command that writes JSON writes it on stdout and says everything else on
-     * stderr, and merging them puts a sentence inside the JSON.
+     * Runs a process with separate stdout and stderr consumers.
      */
     private int exec(List<String> argv, Consumer<String> out, Consumer<String> err)
             throws IOException, InterruptedException {
@@ -905,8 +656,7 @@ public final class Lab {
             while ((line = in.readLine()) != null) out.accept(line + "\n");
         }
         int code = p.waitFor();
-        // Joined, so a warning cannot arrive after the caller has decided the
-        // run is over and stopped showing anything.
+        // Allow stderr to drain before returning to the caller.
         aside.join(2000);
         return code;
     }

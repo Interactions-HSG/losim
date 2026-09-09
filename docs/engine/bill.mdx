@@ -1,0 +1,86 @@
+---
+title: "Billing"
+description: "Cost buckets recorded in a run and the conditions for each one."
+icon: "receipt"
+---
+
+The bill reads only the trace, so it applies to any gRPC system without
+system-specific billing code.
+
+## Cost buckets
+
+| | modeled quantity |
+|---|---|
+| `capacity` | the system, for the period. An idle node costs as much as a busy one. |
+| `consumption` | what the work burned: cross-zone egress, storage |
+| `incidents` | zero until something breaks, then large |
+| `build` | engineering time to construct and carry this design, per distinct service |
+
+<Note>
+Combining the buckets would obscure design trade-offs. Replication can increase
+capacity and build costs while reducing incidents.
+
+The bill omits unavailable quantities. It does not report them as zero.
+</Note>
+
+## Capacity uses reference time
+
+The wall-clock duration of the run is not the billed duration. The modeled job uses
+the simulated clock, and **that** duration is billed.
+
+A node that received a `spot_notice` is billed at the spot rate, which is 70% off by
+default. Reclaimable capacity therefore costs less while it remains available for
+reclaim.
+
+## A scaled run has two views
+
+The bill reports both the measured run and the modeled full-scale job.
+
+<Warning>
+A bill is **quantities times prices**. The engine does not project every quantity.
+
+Capacity depends on the timeline. Timeline measurements have enough variation that
+the capacity line is often refused.
+</Warning>
+
+```text
+  capacity    the system, for the period            -           CHF   refused
+      its exponent moves by 0.793 between independent seed sets of the same
+      workload, which over a factor of 6 is an error bar of x4.1, wider than
+      anything it would be asked to distinguish
+```
+
+The result can price bytes and storage while omitting capacity when the timeline is
+refused.
+
+## Resource-specific factors
+
+Each resource uses its own factor. Cross-zone bytes use the wire law. The topology
+determines which calls cross a zone, so the share stays fixed while the total grows.
+If the wire law is refused, the bill omits the egress line instead of presenting an
+observed quantity as a full-scale value.
+
+## Incident costs
+
+A node either failed or remained available. A single run cannot provide an observed
+incident rate for a larger run, so the incident bucket is not extrapolated.
+
+## Price data
+
+Prices live in `prices/`, outside the simulator, so an exercise can use a different
+price list without rerunning the simulation. Billing is a pure function of the
+trace.
+
+<Warning>
+Node rental costs are in the instance catalogue beside vCPUs and memory. This keeps
+the `r5.large` definition in one place.
+</Warning>
+
+<CardGroup cols={2}>
+  <Card title="losim bill" icon="terminal" href="/ref/cli-bill">
+    The command and every line it can print.
+  </Card>
+  <Card title="Price list keys" icon="tag" href="/ref/prices">
+    Every field, and what distorting it teaches.
+  </Card>
+</CardGroup>

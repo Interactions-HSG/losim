@@ -1,7 +1,7 @@
 package losim.api;
 
 /**
- * The one losim type a handler mentions.
+ * The losim type a handler uses to access the current context.
  *
  * <pre>{@code
  * @Override protected Pairs map(Chunk req) {
@@ -11,8 +11,8 @@ package losim.api;
  * }
  * }</pre>
  *
- * Nothing here appears in a signature, so the same method can be constructed and
- * called from a plain unit test with no simulation running at all.
+ * The type need not appear in a service signature, so the same handler can be
+ * called from a unit test without a running simulation.
  */
 public final class Losim {
     private Losim() {}
@@ -21,12 +21,10 @@ public final class Losim {
     private static final LosimCtx ABSENT  = new Absent();
 
     /**
-     * The context for the call on this thread.
+     * Returns the context for the current thread.
      *
-     * <p>Returns one of two singletons, so reaching for it allocates nothing.
-     * That matters: a handler calling this a thousand times must not thereby
-     * allocate a thousand objects against the machine whose allocation is being
-     * fitted (D13).
+     * <p>The method returns one of two singletons and allocates nothing. Repeated
+     * calls therefore do not add objects to the program's allocation measurement.
      */
     public static LosimCtx current() {
         return Ambient.MACHINE.get() == null ? ABSENT : PRESENT;

@@ -1,6 +1,6 @@
 ---
 title: "The probe grid"
-description: "The same system, run small, thirty ways — with the axes varied independently."
+description: "Thirty small runs with data size, system size, and faults varied independently."
 icon: "table-cells"
 ---
 
@@ -9,109 +9,103 @@ icon: "table-cells"
   1k 2k 4k 8k    x  2, 4        x  none | the simulation's      x seeds, median taken
 ```
 
-## A grid, not a ladder
+## Independent axes
 
 <Warning>
-A resource that grows with the **data** and a resource that grows with the **system**
-look identical if the two only ever move together. An engine that folds one into the
-other produces projections that are plausible and wrong — the failure mode hardest to
-notice, because nothing looks broken.
+A resource that grows with the **data** can look like one that grows with the
+**system** when both change together. The probe grid varies them independently so the
+engine can distinguish the two effects.
 </Warning>
 
-So each axis moves alone:
+The grid changes one axis at a time:
 
 <Steps>
-  <Step title="The data ladder: the system holds still, the weather is off">
-    Four sizes x **six seeds**. Climbed on the system the simulation declares — not the
-    largest shape in the system ladder. A law fitted on eight workers and applied to a
-    run of two describes a differently-shaped system.
+  <Step title="Data size: system and faults fixed">
+    Four sizes x **six seeds**. The system is the shape declared by the simulation,
+    not the largest shape in the system series. A law fitted on eight workers and
+    applied to a run of two describes a different system.
   </Step>
-  <Step title="The system ladder: the data holds still, the weather is off">
-    Two shapes x 2 seeds, at the middle data size. Every pool with more than one
-    node is regenerated at that size, keeping its instance type, zones and
-    services. **Singletons — the coordinator — are left alone.**
+  <Step title="System size: data and faults fixed">
+    Two shapes x 2 seeds at the middle data size. Every pool with more than one node
+    is regenerated at that size, keeping its instance type, zones, and services.
+    **Singletons, including the coordinator, are left alone.**
   </Step>
-  <Step title="The fault column: both hold still, the weather moves">
+  <Step title="Faults: data and system size fixed">
     The top data size x 2 seeds, with the simulation's own failures.
   </Step>
 </Steps>
 
-The system ladder and the fault column are **cross-checks** rather than sources of an
-error bar, which is why only the data ladder runs at six seeds: only its exponent has
-to be shown to be reproducible.
+The system-size and fault series are **cross-checks**, not inputs to the error bar.
+Only the data-size series uses six seeds because its exponent is tested for
+reproducibility.
 
-## Six seeds, in three sets of two
+## Seed sets
 
-The law is fitted on the **median of all six**. Its reproducibility is measured by
-refitting each independent set of two **the same way** and looking at the spread.
+The law is fitted on the **median of all six**. Reproducibility is measured by
+refitting each independent set of two **the same way** and comparing the spread.
 
 <Note>
-Refitting on a single seed would measure the noise in one run and report it as the
-uncertainty of a law that was never fitted that way — overstating the error bar by
-roughly the square root of the set size. Three sets is the fewest from which a spread
-means anything.
+Refitting on one seed would measure run noise rather than uncertainty in the
+six-seed fit. Three independent sets provide the spread estimate.
 
 Seeds are derived from the simulation's own: `seed x 1000 + i`. So a plan is
 reproducible from the file.
 </Note>
 
-## The fault column is not optional
+## Fault coverage
 
-A killed node's work is redone elsewhere, so a survivor absorbs its share.
-Measured, that roughly **doubles** peak memory on a node that accumulates.
+A killed node's work is redone elsewhere, so a surviving node absorbs its share.
+This can roughly **double** peak memory on a node that accumulates the work.
 
-A model fitted only on clean runs under-predicts by that much — and it under-predicts
-**optimistically**, which is the worse direction. The engine folds the difference in
-as an amplification term per resource.
+A model fitted only on clean runs can under-predict by that amount. The engine records
+the difference as an amplification term for each resource.
 
-With no weather declared you get a note instead:
+When the simulation declares no faults, the result contains a note instead:
 
 ```
 note: nothing in this simulation goes wrong, so the model carries no amplification term —
       a projection from it describes a system where nothing goes wrong
 ```
 
-## Four rungs, minimum
+## Minimum of four sizes
 
 ```
 a ladder of 3 cannot show whether a law bends; four is the fewest that can
 ```
 
-Four is what it takes to split the ladder in half and compare the two halves'
-exponents, which is the test that catches a discontinuity. Three cannot.
+Four sizes allow the engine to compare exponents for the two halves and detect a
+discontinuity. Three sizes do not provide that comparison.
 
-## The plan cache
+## Plan cache
 
-Thirty runs is a real cost, and it is paid **once**:
+losim performs the probe runs once and caches the fitted plan:
 
 ```
 [plan fitted from 30 probe runs in 41.2s]
 [plan cached]
 ```
 
-Cached in `build/.losim-plans/`, keyed on **the simulation, the code it profiles, and
-the telemetry level**.
+Plans are cached in `build/.losim-plans/`, keyed by **the simulation, the profiled
+code, and the telemetry level**.
 
 <Note>
-Keyed on the telemetry level because the whole claim of losim's self-accounting is
-that a fitted law does not depend on how much you instrumented — and a cache that
-ignored the level would make that claim untestable, because three of four runs at
-different levels would silently reuse the first one's plan.
+The telemetry level is part of the key because the fitted law should not depend on
+instrumentation. Omitting it would allow runs at different levels to reuse a plan.
 </Note>
 
 ```bash
 rm -rf build/.losim-plans      # force a refit
 ```
 
-## Choosing the ladder
+## Choose sizes
 
 ```yaml
 scale: 5000
 ```
 
-All four rungs should sit in a region where your code behaves **consistently**. If it
-spills, switches algorithm, or stops fitting in a cache somewhere in the middle, the
-engine will see the law bend and refuse it — correctly. Move the ladder to one side.
+All four sizes should be in a region where the code behaves **consistently**. If it
+spills, switches algorithms, or stops fitting in a cache, the engine will detect the
+change and refuse the fit. Move the range to one side of that transition.
 
-Bigger rungs also help when a fixed overhead dominates: the engine refuses a run size
-where the variable part is less than **ten times** the fixed part.
+Larger sizes also help when fixed overhead dominates. The engine refuses a size where
+the variable part is less than **ten times** the fixed part.

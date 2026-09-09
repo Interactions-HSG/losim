@@ -6,26 +6,23 @@ import losim.trace.Telemetry;
 import losim.trace.Values;
 
 /**
- * What losim does around a call the machine makes: the network, the byte count,
- * and the causal link to whatever the callee then does.
+ * Applies network delay, byte accounting, and tracing around an outgoing call.
  *
- * <h2>The latency's sleep point</h2>
- * The whole round trip is paid once, in {@code onClose}, on the thread that
+ * <h2>Latency accounting</h2>
+ * The round trip is paid once, in {@code onClose}, on the thread that
  * delivers the response. For a blocking call that is the caller's own thread,
  * which is waiting anyway; for an async call it is the channel's executor, so the
  * caller is never blocked by it. Neither the callee's pool thread nor the
  * handler's measured duration is touched.
  *
- * <p>The approximation this buys is worth naming: the handler starts one leg
- * earlier than it should, because the outbound delay is folded into the return.
- * Spacing is precisely what the scaler engine reconstructs rather than measures
- * (D5), and the alternatives all cost something worse — an occupied core, an
- * extra thread per call, or a blocked async caller.
+ * <p>Outbound delay is folded into the return path. This avoids occupying a
+ * handler thread or blocking an asynchronous caller; spacing is reconstructed by
+ * the scaling engine.
  */
 final class ClientSide implements ClientInterceptor {
 
     /**
-     * Rewrites a deadline from reference time into real time.
+     * Converts a reference-time deadline to wall-clock time for gRPC.
      *
      * <p>A student writes {@code withDeadlineAfter(200, MILLISECONDS)} meaning 200
      * reference milliseconds, like every other duration in losim (D3). gRPC's own
@@ -58,18 +55,7 @@ final class ClientSide implements ClientInterceptor {
         final CallOptions call = inRealTime(opts, from.machines().clock.kTime());
         final Deadline deadline = call.getDeadline();
 
-        // What a timeout will need to explain itself: the deadline the caller set,
-        // in the reference milliseconds they wrote it in, and what the callee has
-        // declared this method costs. Both are read here, before the call goes
-        // out, because both are properties of the call rather than of its failure.
-        //
-        // A deadline shorter than the callee's declared cost cannot ever succeed,
-        // and until now a trace said only that a call had timed out. That is the
-        // one fact a reader cannot recover: they can see the deadline in their own
-        // source and the declared cost of theirs, and the run does not put the two
-        // together. Someone spent an afternoon diffing traces against a second
-        // machine to rule out host noise for exactly this, on a deadline that had
-        // been computed once for a smaller workload and left as a literal.
+        // Capture deadline and fixed service cost for timeout diagnostics.
         final Double deadlineRefMs = opts.getDeadline() == null ? null
                 : opts.getDeadline().timeRemaining(java.util.concurrent.TimeUnit.NANOSECONDS) / 1e6;
         final Cost callee = target == null ? null : target.takenBy(md.getFullMethodName());
@@ -80,34 +66,23 @@ final class ClientSide implements ClientInterceptor {
                 : callee.fixedRefMs() * target.effectiveFactor();
         from.charge(Meter.allocNow() - a0, System.nanoTime() - t0);
 
-        // Three ways a message never arrives, and the caller cannot tell them
-        // apart — which is the point. It waits out its own deadline either way.
+        // All dropped requests are observed by the caller as a deadline wait.
         if (target != null && !target.alive)
             return new Dropped<>(from, to, method, call, "unreachable");
         if (!net.reaches(from.name, to))
             return new Dropped<>(from, to, method, call, "partitioned");
         if (net.drops())
             return new Dropped<>(from, to, method, call, "lost");
-        // A fourth, and the caller cannot tell it from the other three either. It
-        // is decided here rather than at the callee because a dropped request
-        // never reaches one: the whole of what the caller finds out is that its
-        // time ran out, which is what makes a deadline the only defence.
+        // A request-level drop is decided before the callee is invoked.
         if (target != null)
             for (Machine.Drawn f : target.failuresOn(md.getFullMethodName()))
                 if (f.spec().kind() == losim.sim.Simulation.RpcKind.DROP && f.fires())
                     return new Dropped<>(from, to, method, call, "dropped by " + to);
 
         final double rttRefMs = net.roundTripRefMs(from.zone, target == null ? from.zone : target.zone);
-        // Traffic between availability zones is billed and traffic within one is
-        // not, so it has to be counted apart from the rest rather than derived
-        // afterwards: only here are both ends of the call known at once.
+        // Cross-zone traffic is counted while both call endpoints are known.
         final boolean crossZone = target != null && !from.zone.equals(target.zone);
-        // And *which* region, because the price depends on how far it went: the
-        // rack next door, another region, or the other side of an ocean. The
-        // destination is only knowable here — by the time the run is billed, the
-        // call is a span and the peer is a name. Read off the machine rather than
-        // parsed from its zone: this is the caller's own thread, and a regex per
-        // call would be charged to the student's program.
+        // Preserve the destination region for region-specific billing.
         final String toRegion = target == null ? null : target.region;
 
         return new ForwardingClientCall.SimpleForwardingClientCall<>(ch.newCall(md, call)) {

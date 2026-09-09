@@ -259,6 +259,6 @@ to make something pass — the engine derives all of those, and a projection tha
 only appears because a check was loosened is worth less than no projection.
 
 If a projection is refused, that is an answer about the design. Read
-`/run/when-it-refuses` before trying to make it go away.
+`/run/refusals` before trying to make it go away.
 
 ---

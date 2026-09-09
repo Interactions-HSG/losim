@@ -1,0 +1,230 @@
+---
+title: "3. Service"
+description: "The gRPC adapter and handler implementation."
+icon: "gear"
+---
+
+## The adapter
+
+protoc generates this signature:
+
+```java
+public void thumbnail(Batch request, StreamObserver<Thumbs> responseObserver)
+```
+
+A callback-based method is inconvenient to call directly from a test. The adapter
+converts it into a method that returns a value and keeps error translation in one
+place.
+
+Create `src/lab/ThumbnailerBase.java`:
+
+```java src/lab/ThumbnailerBase.java
+package lab;
+
+import io.grpc.Status;
+import io.grpc.stub.StreamObserver;
+import lab.pb.Batch;
+import lab.pb.Empty;
+import lab.pb.Health;
+import lab.pb.Thumbs;
+import lab.pb.ThumbnailerGrpc;
+
+/** Adapts grpc-java callbacks to ordinary methods. */
+public abstract class ThumbnailerBase extends ThumbnailerGrpc.ThumbnailerImplBase {
+
+    protected abstract Thumbs thumbnail(Batch request);
+    protected abstract Health capacity(Empty request);
+
+    @Override public final void thumbnail(Batch request, StreamObserver<Thumbs> out) {
+        respond(out, () -> thumbnail(request));
+    }
+
+    @Override public final void capacity(Empty request, StreamObserver<Health> out) {
+        respond(out, () -> capacity(request));
+    }
+
+    private static <T> void respond(StreamObserver<T> out, java.util.function.Supplier<T> body) {
+        try {
+            out.onNext(body.get());
+            out.onCompleted();
+        } catch (RuntimeException e) {
+            // Preserve the handler error in the gRPC status and trace.
+            out.onError(Status.INTERNAL
+                    .withDescription(String.valueOf(e.getMessage()))
+                    .withCause(e)
+                    .asRuntimeException());
+        }
+    }
+}
+```
+
+<Note>
+Write this **once per service**. It is the only place your system mentions
+`StreamObserver`.
+</Note>
+
+## The handler
+
+Create `src/lab/Shrinker.java`:
+
+```java src/lab/Shrinker.java
+package lab;
+
+import com.google.protobuf.ByteString;
+import lab.pb.*;
+import losim.api.Losim;
+public final class Shrinker extends ThumbnailerBase {
+
+    /** Longest edge of a thumbnail, in pixels. */
+    private static final int EDGE = 128;
+
+    @Override protected Thumbs thumbnail(Batch request) {
+        var here = Losim.current();
+
+        // Declare the number of input units processed by this call.
+        here.units(request.getFramesCount());
+
+        var out = Thumbs.newBuilder();
+        long bytes = 0;
+        for (Frame frame : request.getFramesList()) {
+            Thumb thumb = shrink(frame);
+            bytes += thumb.getJpeg().size();
+            out.addThumbs(thumb);
+        }
+
+        // Recording is silent outside a simulation and appears in the trace inside one.
+        here.reveal("frames", request.getFramesCount());
+        here.reveal("jpegKb", bytes / 1024.0);
+
+        return out.setBytes((int) bytes).build();
+    }
+
+    @Override protected Health capacity(Empty request) {
+        // Report this node's limits, not a peer's.
+        var spec = Losim.current().here();
+        return Health.newBuilder()
+                .setMachine(spec.node())
+                .setInstance(spec.instance())
+                .setZone(spec.zone())
+                .setVcpu(spec.vcpu())
+                .setMemoryCapMb(spec.memoryCapMb())
+                .build();
+    }
+
+    private Thumb shrink(Frame frame) {
+        int w = frame.getWidth(), h = frame.getHeight();
+        double scale = EDGE / (double) Math.max(w, h);
+        int tw = Math.max(1, (int) (w * scale)), th = Math.max(1, (int) (h * scale));
+
+        byte[] src = frame.getPixels().toByteArray();
+        byte[] dst = new byte[tw * th];
+        for (int y = 0; y < th; y++)
+            for (int x = 0; x < tw; x++)
+                dst[y * tw + x] = src[Math.min(src.length - 1,
+                        (int) (y / scale) * w + (int) (x / scale))];
+
+        return Thumb.newBuilder()
+                .setId(frame.getId()).setWidth(tw).setHeight(th)
+                .setJpeg(ByteString.copyFrom(dst))
+                .build();
+    }
+}
+```
+
+## losim calls
+
+<Columns cols={2}>
+  <Card title="Plain service signature" icon="check">
+    `Thumbs thumbnail(Batch)` contains no losim type. You can construct a
+    `Shrinker`, call `thumbnail(…)`, and assert on the result without a simulation.
+    The adapter provides this method.
+  </Card>
+  <Card title="Optional losim calls" icon="circle-info">
+    The handler can call `units(…)` once and `reveal(…)` twice. Each call has a
+    separate purpose.
+  </Card>
+</Columns>
+
+### `simulatedDuration:`: call cost
+
+Put this in the simulation, under the **file** that serves it:
+
+```yaml
+simulatedDuration:
+  src/lab/Shrinker.java:
+    Thumbnail: { fixed: 3 refMs, perUnit: 240000 refNs }
+```
+
+The terms have distinct roles:
+
+| | |
+|---|---|
+| `fixed` | what one call takes **regardless of what is in it**. This part is known before the handler runs and is slept before it. |
+| `perUnit` | what each unit of input adds. The handler declares the input size with `units(n)`. This part is slept **after the body returns**, before the response leaves. |
+
+Both are **reference-node** time and compose with everything else. The interceptor
+sleeps `fixed x machineFactor / k_time`. A node with half the reference's vCPUs
+takes twice as long, and `k_time` compresses the whole run.
+
+<Warning>
+The rest of the work is measured. Duration is declared here because a laptop runs
+the handler at full CPU speed on a fraction of the full workload. Without a declared
+duration, the simulation cannot model queueing, contention, deadline pressure, or the
+critical path.
+
+Measured handler durations at probe size are unreliable because they sit inside the
+host's own jitter. The fitted time exponent moves by 0.25 between seed sets of an
+identical workload. [The full argument ->](/write/duration-declarations)
+</Warning>
+
+An unpriced rpc takes **no time**. The engine does not invent a duration.
+
+### `units(n)`: processed input
+
+The `perUnit` term is charged against `units(n)`, and the scale engine uses the
+declaration to identify the independent variable for a cost site. A handler that
+never declares a count is charged the fixed part only, and its span records that.
+
+### `reveal(key, value)`: trace values
+
+Without it, a trace records that a handler ran. With it, the trace records selected
+values from the computation.
+
+<Tip>
+**Prefer the primitive overloads.** `reveal(String, Object)` boxes an `int` at the
+call site before losim's accounting opens. The box is charged to your program even
+though it exists only because the parameter is an `Object`. One call per handler is
+usually invisible; a thousand calls bend the fitted memory exponent by 0.04.
+</Tip>
+
+## Unit-test the handler
+
+Before running a simulation:
+
+```java test/ShrinkerTest.java
+@Test void makesOneThumbnailPerFrame() {
+    var shrinker = new Shrinker();
+
+    Thumbs thumbs = shrinker.thumbnail(Batch.newBuilder()
+            .addFrames(frame("a", 640, 480))
+            .addFrames(frame("b", 800, 600))
+            .build());
+
+    assertEquals(2, thumbs.getThumbsCount());
+    assertEquals(128, thumbs.getThumbs(0).getWidth());
+}
+```
+
+The test needs no system, simulation, interceptor, or clock. The handler is ordinary
+Java and can be debugged directly.
+
+losim is on the classpath so `Losim.current()` resolves. It has no runtime effect in
+this test: recording calls are silent and state calls throw.
+[Handler testing ->](/write/handler-testing)
+
+Removing the two `reveal` lines and the `units` line leaves a plain gRPC handler.
+It compiles without losim on the classpath and can be unit-tested independently.
+
+<Card title="Next: the job" icon="arrow-right" href="/first/job">
+  Peer discovery, capacity queries, and work dispatch.
+</Card>

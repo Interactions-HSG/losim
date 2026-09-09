@@ -1,6 +1,6 @@
 ---
 title: "Writing a job"
-description: "The service losim calls to start the work, and the surface it gets."
+description: "The Job service that starts a simulation."
 icon: "diagram-project"
 ---
 
@@ -11,13 +11,13 @@ public final class MyJob extends JobGrpc.JobImplBase {
 }
 ```
 
-An ordinary gRPC service, implementing a schema losim ships rather than one you
-wrote. [`losim.Job`](/ref/losim-proto) has the whole of it.
+This is an ordinary gRPC service implementing losim's schema. [`losim.Job`](/ref/losim-proto)
+defines both methods.
 
-`Run` returning ends the simulation. Throwing ends it too, and the trace says which
-and why — a run that failed is a result, not an absence of one.
+Returning from `Run` ends the simulation. Throwing also ends it, with the failure
+recorded in the trace.
 
-## Where it runs
+## Job placement
 
 ```yaml
 nodes:
@@ -26,15 +26,14 @@ nodes:
     runs: { losim.Job: src/lab/MyJob.java }
 ```
 
-**Exactly one node**, named by the same `runs:` key everything else uses. Zero is
-refused; two is refused naming the second. It is an ordinary node otherwise: `Run`
-occupies one of its pool threads, queues behind its other work, and is charged for
-what it allocates. Give it headroom.
+**A single node** must run `losim.Job`, using the same `runs:` key as other services.
+`Run` behaves like any handler: it occupies a pool thread, queues behind other work,
+and its allocations are charged.
 
-## Two rpcs, and the line between them
+## RPC methods
 
 <Columns cols={2}>
-  <Card title="Load — off the clock" icon="inbox">
+  <Card title="Load: outside the clock" icon="inbox">
     ```java
     @Override public void load(Input in, StreamObserver<Workload> out) {
         var album = Albums.of(in.getCount(), Losim.current().seed());
@@ -46,10 +45,10 @@ what it allocates. Give it headroom.
         out.onCompleted();
     }
     ```
-    No clock, no sampler, no span, no events — and every node's ledger is reset
-    afterwards. Reading a file is not part of the design being measured.
+    The clock, sampler, span, and events are disabled, and every node ledger resets
+    afterwards. Reading input is setup, not measured design work.
   </Card>
-  <Card title="Run — the simulation" icon="play">
+  <Card title="Run: the simulation" icon="play">
     ```java
     @Override public void run(Workload work, StreamObserver<Result> out) {
         var album = Album.parseFrom(work.getPayload());
@@ -58,46 +57,43 @@ what it allocates. Give it headroom.
         out.onCompleted();
     }
     ```
-    Everything measured. Its handler span is the trace's root, and everything else
-    nests beneath it.
+    Everything is measured. Its handler span is the trace root.
   </Card>
 </Columns>
 
 <Warning>
-**`Run` never sees `Input`.** It gets a count and some bytes. It cannot read
-`input:`, cannot see the `source:`, and cannot tell which rung of a ladder it is on
-— which is the property every projection depends on, stated in the signature rather
-than asked for here.
+**`Run` receives no `Input` object.** It receives a count and bytes. The signature
+also hides `input:`, `source:`, and the scale rung, enforcing the same behavior at
+every rung.
 </Warning>
 
-## `Losim.current()`'s surface, and its limits
+## `Losim.current()` API
 
 <AccordionGroup>
   <Accordion title="peers() and peersServing(service)" icon="magnifying-glass">
-    Every other node by name; and the nodes serving a named service, live ones
-    only. [Finding peers ->](/write/finding-peers)
+    Every other node by name and the live nodes serving a named service.
+    [Finding peers ->](/write/finding-peers)
   </Accordion>
   <Accordion title="channelTo(node)" icon="plug">
-    A channel with losim on it. Build whatever stub your `.proto` generated on top.
+    A channel with losim's interceptors attached. Build the generated stub on top.
   </Accordion>
   <Accordion title="seed()" icon="dice">
-    The simulation's seed. A `Load` that generates its own workload needs one, and
-    it has to come from here: a workload that draws from a constant of its own is a
-    workload whose every run is the same afternoon.
+    The simulation's seed. A generated workload should use it so seed sweeps vary
+    the workload.
 
-    **How much work there is does not come from here.** It comes in `Input.count`,
-    already shrunk to this run's size. [input ->](/ref/input)
+    **Work size comes from `Input.count`.** The value is already shrunk to this run's
+    size. [input ->](/ref/input)
   </Accordion>
   <Accordion title="local()" icon="box-archive">
     A `ConcurrentMap` owned by this node, shared by every service on it, reachable
     from no other, and emptied by a restart. Free in time, charged in memory.
   </Accordion>
-  <Accordion title="clockMs()" icon="clock">
+  <Accordion title="clockMs() controls run-relative time" icon="clock">
     Simulated milliseconds since the run began.
 
-    A design whose shape is *keep going until the run is over* — a load generator, a
-    poller — rather than *do this much work* names its own stretch against it. The
-    simulation cannot name one for you: how long a run takes is what the run is for.
+    A load generator or poller that runs until the simulation ends can use this value
+    to set its own duration. The simulation cannot set that duration for the program,
+    because the run measures how long the work takes.
 
     ```java
     var here = Losim.current();
@@ -108,48 +104,40 @@ than asked for here.
     ```
   </Accordion>
   <Accordion title="reveal(key, value) and log(message)" icon="comment">
-    A named value and a line of narration, both landing inside the span they were
-    called from. [Telemetry ->](/write/telemetry)
+    A named value and a message, both recorded inside the calling span.
+    [Telemetry ->](/write/telemetry)
   </Accordion>
-  <Accordion title="Its limits" icon="ban">
-    It cannot reach into another node's memory, start a thread nothing accounts
-    for, or ask whether a peer is alive. The last one because no real network
-    offers it, and a design that depends on knowing is a design that will not
-    survive contact with one.
+  <Accordion title="Node-local API limits" icon="ban">
+    The API cannot access another node's memory, start unaccounted threads, or query
+    a peer's authoritative liveness.
   </Accordion>
 </AccordionGroup>
 
-## Naming a stretch of work
+## Naming work
 
-There is no `phase` and no `compute`. Both existed because the job was a Java object
-running outside any call, with no span of its own and nothing to nest under.
+There is no `phase` or `compute` field. `Run` already has a handler span.
 
-`Run` is a handler. It has a span — the root — and it occupies a core while it
-works, so local work is already covered and already counted. A coordinator that
-spends four hundred milliseconds folding replies is not idle in the trace: it is
-inside its own root span, with the node's occupancy showing it.
+`Run` is a handler with the root span and a core while it works. Local work is
+therefore already represented. A coordinator folding replies appears active inside
+its root span.
 
-What is gone is the ability to give that stretch a *name of its own* without moving
-it. If a stretch is worth naming, make it an rpc on the node that should be doing
-it:
+To give a stretch of work its own name, make it an RPC on the node that should do it:
 
 ```java
 var stub = FolderGrpc.newBlockingStub(here.channelTo(worker));
 var answer = stub.fold(replies);
 ```
 
-Which is not a workaround. A stretch of work worth naming is a stretch worth being
-able to move, price separately, retry, or watch fail — and all four of those need it
-to be an rpc anyway.
+An RPC is appropriate when a unit of work needs its own name, placement, cost, retry
+policy, or failure behavior.
 
-For a value rather than an interval, `reveal` costs nothing and lands in the root
-span:
+For a value, use `reveal`. It costs nothing and lands in the root span:
 
 ```java
 here.reveal("batches", inflight.size());
 ```
 
-## The answer, and why it is not a `log`
+## Structured results
 
 ```java
 out.onNext(Result.newBuilder()
@@ -160,9 +148,8 @@ out.onNext(Result.newBuilder()
 out.onCompleted();
 ```
 
-Recorded structurally, so a later run can be compared to this one without parsing
-English. It lands as a `done` event with a rendered value, which is what a
-regression check reads:
+The result is recorded structurally, so later runs can be compared without parsing
+prose. It becomes a `done` event with a rendered value:
 
 ```bash
 python3 -c "
@@ -171,22 +158,20 @@ print([e['detail']['value'] for e in t['events'] if e['kind'] == 'done'])
 "
 ```
 
-## A job that outstays its welcome
+## Run timeout
 
-If `Run` has not returned after **two minutes of real time**, losim cancels the call:
+If `Run` has not returned after **two minutes of real time**, losim cancels it:
 
 ```
 thumbs.yaml  seed 7  did not complete in 61042 refMs
-  losim.Job/Run was still running after 120 seconds of real time, which is not a slow
-  run — it is a stuck one
+  losim.Job/Run was still running after 120 seconds of real time, so the run was
+  cancelled as stuck
 ```
 
-The handler span closes `CANCELLED` and a `failed` event says why, rather than a
-span that never ends. That is a backstop, not a deadline, and it is in real time on
-purpose: it is the one clock still worth trusting when the simulated one has stopped
-advancing.
+The handler span closes as `CANCELLED` and a `failed` event records the reason. The
+backstop uses real time so a stopped simulated clock cannot prevent termination.
 
-## Killing the node it runs on
+## Failure of the job node
 
 ```yaml
 coordinator:
@@ -195,13 +180,12 @@ coordinator:
     - { kill: true, at: 400 refMs }
 ```
 
-Loads, runs, and **ends the simulation there**. Shutting a node down cancels the
-calls in flight on it, and `Run` is one of them. The trace says so rather than
-reporting a bare `CANCELLED`.
+The node loads, runs, and **ends the simulation there**. Shutting it down cancels
+calls in flight, including `Run`, and the trace records the reason.
 
-That is not a bug to route around. It is what it costs for the thing that starts the
-work to be an ordinary service, and it is worth doing once deliberately to see it.
+Running the job as an ordinary service means stopping its node cancels work in
+progress.
 
-<Card title="Next: declaring time" icon="arrow-right" href="/write/declaring-time">
-  Why a duration is declared when everything else is measured.
+<Card title="Next: duration declarations" icon="arrow-right" href="/write/duration-declarations">
+  Duration declarations for measured runs.
 </Card>

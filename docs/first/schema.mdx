@@ -1,0 +1,124 @@
+---
+title: "2. Schema"
+description: "The messages and RPCs available between nodes."
+icon: "file-code"
+---
+
+Create `proto/thumbs.proto`:
+
+```proto proto/thumbs.proto
+syntax = "proto3";
+
+package lab;
+
+option java_package = "lab.pb";
+option java_multiple_files = true;
+
+message Frame {
+  string id     = 1;
+  int32  width  = 2;
+  int32  height = 3;
+  bytes  pixels = 4;
+}
+
+message Thumb {
+  string id     = 1;
+  int32  width  = 2;
+  int32  height = 3;
+  bytes  jpeg   = 4;
+}
+
+message Batch  { repeated Frame frames = 1; }
+message Thumbs { repeated Thumb thumbs = 1; int32 bytes = 2; }
+message Empty  {}
+
+  // Information returned by the Capacity RPC.
+message Health {
+  string node     = 1;
+  string instance    = 2;
+  string zone        = 3;
+  int32  vcpu        = 4;
+  double memoryCapMb = 5;
+}
+
+service Thumbnailer {
+  // The method has no side effects and is safe to retry.
+  rpc Thumbnail (Batch) returns (Thumbs) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  rpc Capacity (Empty) returns (Health) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
+```
+
+## Schema choices
+
+<AccordionGroup>
+  <Accordion title="A batch, not a frame" icon="layer-group" defaultOpen>
+    `Thumbnail` takes a `Batch`, so the client chooses a batching policy.
+
+    Every call adds a round trip, a declared fixed duration, and a trace entry. One
+    frame per call can make call overhead dominate. A batch lets the client vary that
+    trade-off.
+
+    The handler can also charge `perUnit` against the number of frames in the batch.
+  </Accordion>
+
+  <Accordion title="`idempotency_level`" icon="rotate">
+    A simulation can declare a retry policy. losim **refuses** to retry a method
+    whose `.proto` does not declare it safe to run twice:
+
+    ```
+    thumbs.yaml:22: retrying lab.Thumbnailer.Thumbnail is refused — its .proto
+    declares no idempotency_level, so running it twice is not known to be safe.
+    ```
+
+    Retrying is an operational setting in the simulation. Safety is a method property
+    in the schema. losim checks both before the first call.
+
+    `NO_SIDE_EFFECTS` describes a read. `IDEMPOTENT` means repeated calls produce the
+    same final state. Either satisfies the check. [More ->](/write/retries)
+  </Accordion>
+
+  <Accordion title="`Capacity`, because you cannot look" icon="eye-slash">
+    A node can read *its own* instance type, zone, cores, and caps. It cannot read a
+    peer's values.
+
+    An orchestrator that needs peer capacity must **ask** over gRPC. A registration
+    call can provide that information, subject to becoming stale.
+  </Accordion>
+</AccordionGroup>
+
+## Generating Java
+
+**You do not run `protoc`.** Pressing ▶ runs the vendored compiler and matching
+plugin for the platform.
+
+Generated code lands in **`<system>/gen/`**, beside the system rather than under
+`build/`. It is gitignored and should not be edited.
+
+losim's trust verifier recognizes it by protobuf's superclass and grpc-java's
+`@GrpcGenerated` annotation.
+
+<Accordion title="The generated code, if you want to see it">
+The vendored compiler, chosen by host — `protoc-osx-aarch_64` on Apple silicon,
+`protoc-linux-x86_64` on Linux x86-64 — with grpc-java's plugin, an include path per
+schema directory, and every `.proto` in the system:
+
+```bash
+vendor/bin/protoc-$P \
+  --plugin=protoc-gen-grpc-java=vendor/bin/protoc-gen-grpc-java-$P \
+  --java_out=<system>/gen --grpc-java_out=<system>/gen \
+  -I proto proto/thumbs.proto
+```
+
+Both binaries are committed, so schema compilation uses the same toolchain on a laptop
+and in a Codespace.
+</Accordion>
+
+
+<Card title="Next: the service" icon="arrow-right" href="/first/service">
+  Twelve lines of adapter, and a handler you can unit-test.
+</Card>

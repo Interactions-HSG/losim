@@ -1,11 +1,11 @@
 ---
 title: "losim"
 sidebarTitle: "What losim is"
-description: "You write a real gRPC system. losim runs it on one laptop, in a world it has slowed down, broken, and shrunk, then shows what it would cost at full size."
+description: "Write a gRPC system, simulate it locally, and inspect its cost at full size."
 icon: "circle-nodes"
 ---
 
-## Two layers
+## The model
 
 <Columns cols={2}>
   <Card title="Your system" icon="code">
@@ -19,54 +19,52 @@ icon: "circle-nodes"
   </Card>
 </Columns>
 
-An assignment is exactly two things: **YAML** for the system, and **protobuf plus
-the Java implementing it** for the code. There is no third surface. Your program
-calls peers over `io.grpc.Channel` and gets back the messages your schema declared;
-what a call costs, what a node is, and what goes wrong are all in the simulation.
+An assignment has two parts: **YAML** for the system and **protobuf plus Java** for
+the implementation. Your program calls peers over `io.grpc.Channel` and receives
+the messages declared by your schema. The simulation defines call costs, nodes,
+and failures.
 
-The one service losim asks you to implement is `losim.Job`, and it is a gRPC service
-like any other — losim's own schema, your `ImplBase`, one node that `runs:` it.
+The service losim asks you to implement is `losim.Job`. It uses losim's schema and
+has one node that runs it.
 
-The numbers describe the program under test. When losim reports an out-of-memory
-failure, the node was small and the program filled it under that limit.
+The measurements describe the program under test. An out-of-memory report means
+that the simulated node reached its memory limit.
 
 <Note>
-**Nothing is downloaded and nothing is generated at build time.** The toolchain is
-vendored into the repository, so the same commands produce the same result on a
-laptop, in the devcontainer, and in a Codespace.
+The toolchain is vendored into the repository. The same commands work on a laptop,
+in the devcontainer, and in a Codespace without downloading or generating build
+dependencies.
 </Note>
 
-## The workflow
+## Workflow
 
 <Steps>
   <Step title="Write a schema">
-    A `.proto` with your services and messages. gRPC is the only way nodes talk.
+    A `.proto` with your services and messages. Nodes communicate through gRPC.
   </Step>
   <Step title="Write services, one of them losim's">
-    Handlers are plain methods you can call from a plain unit test. The one that
-    starts the work implements `losim.Job`, a service losim ships in its own schema.
+    Handlers are plain methods that can be called from a unit test. The entry service
+    implements `losim.Job`, which losim defines in its own schema.
   </Step>
   <Step title="Write a simulation">
-    A YAML file: how many nodes, what they are, which `.java` file each runs, where
-    they are, and what goes wrong at 400 reference milliseconds.
+    A YAML file describing the nodes, their Java files, zones, and failures.
   </Step>
   <Step title="Simulate it and look">
-    One command produces one trace. The trace is the interchange format, and the
-    bill, the viewer, and your own assertions all read it.
+    One command produces one trace. The bill, viewer, and assertions read the trace.
   </Step>
 </Steps>
 
-## Start here
+## Start
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/start/quickstart">
-    Build, simulate something, and see a trace — in about ten minutes.
+    Build, simulate something, and see a trace in about ten minutes.
   </Card>
-  <Card title="The mental model" icon="brain" href="/start/mental-model">
+  <Card title="The model" icon="brain" href="/start/model">
     Reference time, `k_time`, nodes, the system. The pieces that explain the
     rest of the manual.
   </Card>
-  <Card title="Your first system" icon="wrench" href="/first/the-plan">
+  <Card title="Your first system" icon="wrench" href="/first/plan">
     A complete worked system, from an empty file to a bill.
   </Card>
   <Card title="Simulation reference" icon="file-code" href="/ref/simulation">
@@ -74,34 +72,33 @@ laptop, in the devcontainer, and in a Codespace.
   </Card>
 </CardGroup>
 
-## More than a toy
+## Measurements
 
 <AccordionGroup>
-  <Accordion title="Nodes are really small, so running out of memory is real" icon="memory">
+  <Accordion title="Small nodes enforce memory limits" icon="memory">
     A node's memory cap is enforced against a retained-heap walk, which measures
     what the node is still holding, not what it allocated. Those are different
-    numbers, and only one of them decides an out-of-memory.
+    numbers. Retained memory determines whether the node runs out of memory.
 
-    [How a node is modelled ->](/engine/a-node)
+    [Node model ->](/engine/node-model)
   </Accordion>
-  <Accordion title="Concurrency is real, so queueing is real" icon="microchip">
+  <Accordion title="Node concurrency determines queueing" icon="microchip">
     Each node gets one thread pool sized to its vCPU count. Four concurrent calls
     into a two-vCPU node queue, and the wait shows up in the trace as its own
     event.
 
     [Concurrency inside a node ->](/write/concurrency)
   </Accordion>
-  <Accordion title="A projection carries its confidence, or it is absent" icon="chart-line">
+  <Accordion title="Unsupported projections are omitted" icon="chart-line">
     Above `scale: 1` the engine fits a law per resource and then checks whether it
-    bends. When it cannot support the result, the field is empty with a reason
-    rather than filled with a plausible number.
+    bends. When the result is unsupported, the field is empty and includes a reason.
 
-    [When the engine refuses ->](/simulate/when-it-refuses)
+    [Engine refusals ->](/simulate/refusals)
   </Accordion>
-  <Accordion title="Numbers that stopped meaning what they say are marked" icon="triangle-exclamation">
+  <Accordion title="Measurements outside the model are marked" icon="triangle-exclamation">
     Reading the real clock, writing a real file, opening your own channel, and
-    sharing a static field between nodes do not throw. Each produces a run full
-    of plausible figures, every one of them wrong in a direction nobody can see.
+    sharing a static field between nodes do not throw. The run records a trust marker
+    because those values do not describe the simulated node.
 
     [Trust markers ->](/engine/trust)
   </Accordion>

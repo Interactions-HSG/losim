@@ -1,6 +1,6 @@
 ---
 title: "./losim and losim version"
-description: "The launcher a project commits, the file it reads to find the toolchain, and how to take a newer losim."
+description: "The project launcher, toolchain file, and version command."
 icon: "terminal"
 ---
 
@@ -9,8 +9,8 @@ icon: "terminal"
 ./losim version [--check]
 ```
 
-`losim adopt` writes `./losim` into a project and you commit it, the way `gradlew`
-is committed. This is the whole of it, minus the two error messages:
+`losim adopt` writes `./losim` into a project so the launcher can be committed.
+The launcher is:
 
 ```sh
 G=./gradlew
@@ -20,12 +20,10 @@ CP="$(cat build/losim/classpath)"
 exec java -cp "$CP" losim.cli.Main "$@"
 ```
 
-**It builds before it runs**, so there is no separate step to have forgotten and
-no stale classpath to explain. There is also no path to a `losim.jar` anywhere in
-it — the jar is wherever Gradle put it, which is a package cache under a name the
-build chose.
+**It builds before it runs.** This avoids a separate build step and avoids using a
+stale classpath. Gradle supplies the jar from its cache.
 
-## The toolchain file
+## Toolchain file
 
 `losimToolchain` is a task in the `build.gradle.kts` that `adopt` wrote. It writes
 `build/losim-toolchain.properties`:
@@ -37,53 +35,47 @@ protoc=/…/build/losim/bin/protoc
 protoc-gen-grpc-java=/…/build/losim/bin/protoc-gen-grpc-java
 ```
 
-That file **is** what losim knows about this project. There is no `lib/` to look
-in and nothing to configure: a directory is a project if a build here declared a
-classpath, and it is that classpath that gets compiled and run against.
+That file records the project toolchain used by losim. There is no separate
+`lib/` directory; the declared classpath is used for compilation and execution.
 
 <Warning>
-It names absolute paths on one node, so it is generated and never committed —
-`build/` is gitignored. Copy a working directory to another node (which is what
-marking a submission is) and the file arrives naming a laptop that is not there.
-losim disregards it and says so, rather than reporting the code as broken; the fix
-is to run `./losim`, which rewrites it first.
+It contains absolute paths for one machine, so it is generated and never
+committed; `build/` is gitignored. If the project moves to another machine, the
+paths are invalid. losim ignores the stale file and reports that fact. Running
+`./losim` rewrites it.
 </Warning>
 
-The task also writes `build/losim/classpath`, the same list as one plain line, for
-the launcher to read. `java.util.Properties` escapes `:` and `\` on the way out, so
-a shell reading the `.properties` file with `sed` would get a classpath that is
-subtly not the one Gradle resolved. Java reads the properties; the shell reads the
-line.
+The task also writes `build/losim/classpath` as one plain line for the launcher.
+`java.util.Properties` escapes `:` and `\` in the properties file, so a shell
+reading that file with `sed` would not get the classpath Gradle resolved. Java
+reads the properties; the shell reads the plain line.
 
-## Pinning what it resolved
+## Pin the resolved dependencies
 
-A project's classpath used to be jars committed to its repository. It is a resolved
-graph now, and locking is what puts back what that cost — that the same build
-tomorrow resolves the same bytes, and that a number a run produces does not depend
-on what a package manager felt like today.
+A project's classpath is a resolved dependency graph. Dependency locking makes
+future builds resolve the same versions and artifacts.
 
 ```bash
 gradle --write-locks losimToolchain     # then commit gradle.lockfile
 ```
 
-Once, after the first build. The build file already declares `dependencyLocking`,
-but that line on its own does nothing until the file exists.
+Run this once after the first build. Declaring `dependencyLocking` does not create
+a lockfile until Gradle resolves a configuration.
 
 <Warning>
-The task has to be named. Gradle locks the configurations an invocation actually
-resolves, and a bare `gradle --write-locks` resolves none — so it succeeds, prints
-nothing, and writes no lockfile. `losimToolchain` resolves the three that decide
-what a run sees: the classpath, `protoc`, and the gRPC plugin.
+Name the task explicitly. Gradle locks the configurations resolved by the
+invocation. A bare `gradle --write-locks` resolves none, so it succeeds without
+writing a lockfile. `losimToolchain` resolves the classpath, `protoc`, and the
+gRPC plugin used by a run.
 </Warning>
 
-## Taking a newer losim
+## Take a newer losim
 
 ```bash
 ./losim version --check
 ```
 
-One `HEAD` on the releases page, which redirects to the newest release and so puts
-the tag in a header. No token, no rate limit, and nothing downloaded.
+The command checks the latest release tag without downloading the release.
 
 ```
 1.4.0
@@ -94,19 +86,17 @@ the tag in a header. No token, no rate limit, and nothing downloaded.
   and your simulations, schema and Java are untouched by a version.
 ```
 
-Updating is that one line. Before 1.5.0 a project carried the simulator as committed
-jars and `losim update` fetched and replaced them; there is nothing to replace now,
-which is why that command is gone.
+Update the one version line. Current projects resolve the simulator through the
+build, so `losim update` is no longer needed.
 
 <Note>
-`--check` is the only thing in losim that touches the network, and only when you
-type it. A project builds and runs against what its build already resolved, so a
-node with no network is a node that still works.
+`--check` is the only command here that accesses the network, and only when invoked.
+Builds and runs use already-resolved dependencies.
 </Note>
 
-## Without a `./losim` yet
+## Without `./losim`
 
-The release carries one asset, so that the first command has something to be:
+Download the release jar, then use it to create the launcher:
 
 ```bash
 curl -sSLo losim.jar https://github.com/Interactions-HSG/losim/releases/latest/download/losim.jar

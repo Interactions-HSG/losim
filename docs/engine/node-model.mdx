@@ -1,0 +1,110 @@
+---
+title: "Node model"
+description: "A thread pool, a server, and resource caps enforced by the heap walk."
+icon: "server"
+---
+
+## The node pool
+
+Each node owns a prestarted `ThreadPoolExecutor`. Its core and maximum sizes both
+equal the instance's vCPU count, and it uses platform threads.
+
+The executor is the accounting boundary. It limits concurrent handlers and gives
+losim a fixed set of thread ids for allocation measurements.
+
+<Steps>
+  <Step title="Concurrency">
+    A two-vCPU node can run two calls at once. A fourth call waits in the pool.
+  </Step>
+  <Step title="Attribution">
+    losim assigns every pool thread to its node. It can therefore query
+    `getThreadAllocatedBytes` for those thread ids and attribute the result to the
+    right node.
+  </Step>
+  <Step title="Boundary">
+    A thread created elsewhere has no node association. Its allocations do not
+    enter a node's totals, and the work does not consume that node's modeled
+    cores.
+  </Step>
+</Steps>
+
+<Warning>
+`directExecutor()` must not be used. It runs the handler on the caller's thread,
+which bypasses the node executor and its vCPU limit.
+
+The threads must be platform threads, because `getThreadAllocatedBytes` returns `-1`
+for a virtual one.
+</Warning>
+
+The pool records queue wait separately from handler execution. The trace can then
+distinguish contention from a handler that genuinely takes a long time.
+
+## Memory: allocated versus retained
+
+| | measured by | tells you |
+|---|---|---|
+| `allocMb` | `getThreadAllocatedBytes`, exactly | how much churn |
+| `memoryMb` | a **retained-heap walk** from the node's roots | what would kill it |
+
+`allocMb` includes objects later collected as well as objects still reachable.
+The retained set determines whether the node reaches its memory limit.
+
+### The heap walk
+
+The heap walk starts at the node's service instances and follows reachable
+references until it reaches the node boundary.
+
+- losim reflects into application objects. They live in the unnamed module, so
+  their fields are accessible without opening a package.
+- losim models JDK containers. `java.util` is not open, and
+  `setAccessible` on `HashMap.table` would throw. The model avoids requiring
+  `--add-opens` launcher flags.
+
+Object sizes assume compressed oops, which is on by default below a 32 GiB heap.
+
+### The node boundary
+
+| inside | outside |
+|---|---|
+| your fields, your collections | another node, the system |
+| the protobuf messages you hold, which are your data | telemetry, spans, the clock, the network |
+| | gRPC's transport, which everyone shares |
+| | servers, channels, executors, threads |
+
+The implementation enforces the boundary. losim's own structures remain outside
+each node's retained heap.
+
+### Cadence and the final walk
+
+A walk costs about 0.06 microseconds per object. To limit its overhead, a busy node
+is walked every eighth sampler tick, so `retainMb` changes in steps.
+
+<Note>
+losim performs another walk after the job ends. That final measurement catches a
+node that exceeded its cap after the last scheduled walk.
+</Note>
+
+## Disk
+
+The simulator tracks disk through declarations. `wroteDisk(bytes)` increases the
+node's counter and throws `IllegalStateException` when the cap is exceeded.
+
+## Node failures
+
+| | what it does to the node |
+|---|---|
+| kill | `alive = false`. Callers get `Dropped` calls that wait out their deadlines. |
+| freeze | calls wait on the node's own threads and are rechecked every few milliseconds |
+| degrade | a multiplier on every declared cost |
+| restart | a node declared with `runs:` gets **fresh service instances**, so whatever it was holding is gone |
+
+## Shutting down
+
+<Note>
+`shutdownNow` returns before shutdown has finished. The server begins stopping, but
+the in-process transport keeps the node name registered until completion. A single
+run per JVM usually hides this because the process exits immediately afterwards.
+
+The probe grid runs systems back to back in one JVM, reusing a node called `w0`.
+It waits for shutdown to release that name before starting the next system.
+</Note>

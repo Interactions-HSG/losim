@@ -1,18 +1,17 @@
 # Prices
 
-Course data, deliberately outside the simulator. One file per region; pick one
-with `--prices`:
+These files hold course billing data outside the simulator. Choose a region with
+`--prices`:
 
 ```bash
 java -cp "$CP" losim.cli.Main bill build/runs/mine.json --prices prices/ap-northeast-1.yaml
 ```
 
-Nothing here changes what a run *does*. Billing is a pure function of the trace,
-so the same run can be priced in ten places without being run again. This answers
-the point: *would this design still be sensible in Tokyo?* is a question you
-answer by re-billing, not by re-running.
+Billing is a pure function of the trace, so changing the region does not rerun the
+simulation. Re-bill the same trace to compare the design under another region's
+prices.
 
-## The ten regions
+## Regions
 
 | file | provider | where | index | build / service / month |
 |---|---|---|---|---|
@@ -27,33 +26,28 @@ answer by re-billing, not by re-running.
 | `southafricanorth` | Azure | Johannesburg | 1.35 | 130 |
 | `sa-east-1` | AWS | São Paulo | 1.45 | 120 |
 
-Ten rather than every region either cloud sells. A list of seventy-six is a list
-nobody reads; what a course needs is enough places, far enough apart, that "the
-next rack", "somewhere else in Europe" and "the other side of the world" are
-visibly three different prices.
+The table covers a selection of regions rather than every region offered by either
+provider. The locations provide distinct same-region, cross-region, and
+intercontinental prices for course examples.
 
-## These are estimates
+## Estimate policy
 
-**No figure here is a vendor's list price, and none should be quoted as one.**
+**These figures are not vendor list prices.**
 Egress and storage are the Frankfurt baseline times the region's index, which is
 a rough ordering of what infrastructure costs where. `build_per_service_month`
 follows what an engineer costs locally instead, which is why Mumbai is cheap to
 build in and expensive to leave, and Zurich is the other way round.
 
-They are wrong in the third decimal on purpose. A number that looked
-authoritative would be argued with instead of reasoned from, and the thing worth
-reasoning about is the *ratio* — that an intercontinental gigabyte costs nine
-times an in-region one, everywhere, and that no amount of tuning changes which
-side of that a design's traffic lands on.
+Values are intentionally approximate. The useful comparison is the *ratio*: an
+intercontinental gigabyte costs nine times an in-region one in this data, and tuning
+does not change which traffic crosses that boundary.
 
-Real prices move quarterly, differ per contract, and are not what this course is
-teaching. If you want the real ones, put them in these files: that is what the
-files are for, and nothing in `losim/` has to change.
+Real prices change over time and by contract. To use them, update these files;
+nothing in `losim/` needs to change.
 
-## Talking costs what the distance costs
+## Egress rates by distance
 
-Three rates, because there are three distances a byte can travel — and one that
-is free:
+The rates distinguish same-zone, regional, continental, and intercontinental traffic:
 
 | link | rate | when |
 |---|---|---|
@@ -62,21 +56,18 @@ is free:
 | same continent | `egress_cross_region_per_gb` | `eu-central-1a` -> `eu-west-1a` |
 | across an ocean | `egress_intercontinental_per_gb` | `eu-central-1a` -> `ap-northeast-1a` |
 
-A machine's zone decides which. The region is read off the zone name — `eu-central-1a`
-is in `eu-central-1`, `switzerlandnorth-1` is in `switzerlandnorth` — so there is
-nothing to declare and nothing to keep in step.
+A machine's zone determines the rate. losim reads the region from the zone name:
+`eu-central-1a` is in `eu-central-1`, and `switzerlandnorth-1` is in
+`switzerlandnorth`. No additional declaration is needed.
 
 The trace records the split (`egressMb`, per machine, by destination region) as
-the calls happen, because only the caller knows both ends. The bill then prints
-up to three egress lines rather than one, so traffic that crossed an ocean is
-a row you can see rather than a number folded into a total.
+the calls happen because only the caller knows both ends. The bill prints separate
+egress lines by destination region, so intercontinental traffic remains visible.
 
-A zone losim does not recognise — `rack-3`, `left` — is its own region on an
-unknown continent, and traffic to it is billed at the **cross-region** rate. The
-cheaper of the two, deliberately: guessing "across an ocean" for a name nobody
-recognised would put the largest egress line on the bill on the strength of a
-guess.
+A zone that losim does not recognise, such as `rack-3` or `left`, becomes its own
+region on an unknown continent. Traffic to it uses the **cross-region** rate;
+losim does not infer intercontinental distance from an unknown name.
 
-## Every field
+## Field reference
 
 See [the manual](../docs/ref/prices.mdx).

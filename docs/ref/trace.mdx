@@ -4,40 +4,35 @@ description: "The JSON channels written for each run."
 icon: "file-code"
 ---
 
-One run, one JSON file. Everything downstream reads it: the bill, the viewer, your
-own assertions.
+Each run writes one JSON file. The bill, viewer, and user assertions read this file.
 
 ```json
 {
   "schema": 4,
-  "meta":     { … },
-  "events":   [ … ],
-  "spans":    [ … ],
-  "series":   { "dtMs": 6.0, "t": [ … ], "channels": { … } },
-  "nodes":    [ … ]
+  "meta":     {},
+  "events":   [],
+  "spans":    [],
+  "series":   { "dtMs": 6.0, "t": [], "channels": {} },
+  "nodes":    []
 }
 ```
 
-## The contract
+## Contract
 
 <Warning>
 **The trace is the interchange format, so its shapes are a contract.**
 
 Event kinds and their keys are extended **only additively**. `spans` and `series`
-are new top-level channels rather than changes to `events`, for exactly that reason.
-The acceptance test is diffing a trace's event kinds and keys before and after a
-change and finding it empty — which is also what
-[`losim compare`](/ref/cli-compare) checks across environments.
+are new top-level channels; they do not change `events`. The acceptance test compares
+a trace's event kinds and keys before and after a change. [`losim compare`](/ref/cli-compare)
+performs the same check across environments.
 
 `schema` is bumped only when a shape changes incompatibly. It is currently **4**.
 </Warning>
 
 <Note>
-It has been bumped, and 3.0 is why. `nodes` became `nodes`, `meta.job` became
-`meta.entry`, `failed` became `failed`, and the five span kinds became two. That
-is the escape hatch the additive rule leaves open, and using it is what
-`losim compare` reports first and alone when two traces disagree about it — rather
-than a wall of differences with no cause named.
+Schema version **4** records the current trace shape. Readers reject incompatible
+shapes. `losim compare` reports schema differences before field-level differences.
 </Note>
 
 ## meta
@@ -64,7 +59,7 @@ than a wall of differences with no cause named.
 | `schemaVersion`, `clockedAt`, `telemetry` | written by the recorder |
 | `simulation`, `seed` | what was asked for |
 | `entry` | the node running `losim.Job` |
-| `unit`, `count` | what one item is, and how many at **full** size — the file's own number |
+| `unit`, `count` | what one item is and how many exist at **full** size, the file's own number |
 | `loaded` | how many `Load` produced at the size this run measured. At `scale: 1` that is `count`; above it, `count` times the rung |
 | `completed` | whether `Job.Run` returned normally |
 | `failure` | present only when it did not, naming the cause |
@@ -72,7 +67,7 @@ than a wall of differences with no cause named.
 | `trusted` | present only when a classpath was given; `false` if anything was flagged |
 | `mode`, `scale`, `projections` | present only above `scale: 1` |
 
-## The four data channels
+## Data channels
 
 <CardGroup cols={2}>
   <Card title="events" icon="bolt" href="/ref/events">
@@ -94,22 +89,21 @@ than a wall of differences with no cause named.
 `events` and `spans` are sorted by start time, so a reader can scrub. Every time and
 every span detail is rounded to **three decimal places**; a `NaN` is written as `0`.
 
-Figures in the `nodes` channel are megabytes to about a byte — six
-decimal places, because three would be a kilobyte and a run small enough to be
-measured in kilobytes would report every byte it moved as zero.
+Figures in the `nodes` channel are megabytes with six decimal places. Three decimal
+places would round a value below a kilobyte to zero.
 
-## Two traps
+## Trace conventions
 
 <Warning>
 **`method` is dotted.** gRPC writes `render.Thumbnailer/Thumbnail`; the trace
-writes `render.Thumbnailer.Thumbnail`, everywhere — `losim.Job.Run` included — so
-everything downstream can split on a dot.
+writes `render.Thumbnailer.Thumbnail`, including `losim.Job.Run`, so downstream
+readers can split on a dot.
 
 **Payload collections are truncated at 12 entries**, with a `"+1106 more"` marker.
-The real count is *kept plus marker*, never the surviving length.
+The stored representation includes the marker and the original count.
 </Warning>
 
-## Reading it
+## Reading the trace
 
 It is plain JSON with no custom types:
 
@@ -124,7 +118,5 @@ for m in t["nodes"]:
     print(f'{m["name"]:<12} {m["calls"]:>4} calls  {m["memoryMb"]:>8.2f} MB held')
 ```
 
-losim reads it back with its own reader for `bill` and `compare`, and that path is
-exercised by the reference suite — every assertion there reads the trace off disk,
-because a build whose trace was unreadable would pass every check losim makes of
-itself.
+The reference suite exercises the reader used by `bill` and `compare`. Its assertions
+read traces from disk, so unreadable trace output fails those checks.

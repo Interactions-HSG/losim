@@ -1,6 +1,6 @@
 ---
 title: "Spec"
-description: "What the node serving this call is made of — and why it is only ever this node's."
+description: "The instance, location, and capacity of the serving node."
 icon: "id-card"
 ---
 
@@ -26,31 +26,24 @@ public record Spec(String node, String instance, String zone, int vcpu,
   The disk cap it is under on this run.
 </ResponseField>
 <ResponseField name="cores()" type="double">
-  `vcpu / 2.0` — how much work this node can be given relative to a two-core one.
+  `vcpu / 2.0` is the node's capacity relative to a two-core node.
 
-  Deliberately crude, and deliberately **not** a score losim computes for you.
-  Placing work well is the exercise, and a ready-made ranking is the exercise
-  already done. That is the obvious first thing to try, which is what makes it a
-  useful thing to beat.
+  This is a capacity ratio, not a placement score. The simulation still decides
+  where to place work.
 </ResponseField>
 
-## Local knowledge only
+## Local knowledge
 
 <Warning>
-There is no way to read a **peer's** `Spec`. Not by design accident — by design.
+There is no way to read a **peer's** `Spec`.
 
-A real process can read its own limits and its own instance metadata without a
-network, and cannot read anyone else's at all. An orchestrator that wants to send
-small work to small nodes therefore has to **ask** them, over gRPC, which is the
-whole reason a resource manager has a registration call and why that call is worth
-writing.
+An orchestrator can read its own limits and instance metadata without a network. It
+must ask other nodes for theirs, for example through a gRPC registration call.
 
-Handing the coordinator a table of everyone's capacity for free would teach that
-placement is a lookup, when the interesting part is that the table is stale the
-moment it is built.
+The coordinator must account for the fact that reported capacity can become stale.
 </Warning>
 
-So a service that wants to be placed well answers a question about itself:
+A service can report its own capacity through an RPC:
 
 ```java
 @Override protected Health capacity(Empty request) {
@@ -65,20 +58,17 @@ So a service that wants to be placed well answers a question about itself:
 }
 ```
 
-## The caps are the scaled caps
+## Scaled caps
 
-`memoryCapMb()` and `diskCapMb()` are what this node is allowed **on this run**,
-not what the instance type says at full scale. Above `scale: 1` the engine has solved
-for them.
+`memoryCapMb()` and `diskCapMb()` are the limits for this node **on this run**, not
+the instance type's full-scale values. Above `scale: 1`, the engine solves for them.
 
-That is deliberate, and it matters: a job that places work by comparing them places
-it the **same way at either scale**, which is the property the whole scale model
-exists to preserve.
+This lets a job that compares caps place work the **same way at either scale**.
 
-## Free to call
+## Cost of access
 
-Every field is final on the node and the record is built once, before it boots.
-Nothing here is measured, and nothing is charged for asking.
+The node builds the record once, before it boots. Reading its fields is not measured
+or charged.
 
 ## Outside a run
 

@@ -1,42 +1,39 @@
 ---
-title: "Debugging gRPC, without losim"
-description: "Four levels of isolation. Start at the one where a breakpoint still means something."
+title: "Debugging gRPC without losim"
+description: "Debug from a handler test through a full run."
 icon: "bug"
 ---
 
-The two-layer design has a payoff nobody mentions until something breaks:
-**your system runs perfectly well without the simulator.** It is ordinary gRPC. So
-when something is wrong, the useful question is *which layer is this in*, not
-*what is losim doing*, and the way to answer it is to take layers away.
+The system is ordinary gRPC and can run without the simulator. When something is
+wrong, identify the layer first and isolate the other layers.
 
 <Warning>
-**Do not put a breakpoint in a running simulation as a first move.**
+**Start with isolated tests before running a simulation.**
 
-A run is real threads on a real wall clock. Stopping one node's pool thread does
-not stop the others, does not stop the clock, does not stop the sampler and does not
-stop the fault dispatcher. Every duration, every deadline and every fault time in
-that run is now wrong, and the trace will show a system that was never there.
+A run uses real threads and a real wall clock. Pausing one pool thread does not pause
+other nodes, the clock, the sampler, or the fault dispatcher. Debugging timings are
+therefore not representative.
 
-There is a place for it — [level 4](#level-4-inside-a-run) — but it is the last
-resort, not the first.
+Use a running simulation at [level 4](#level-4-inside-a-run), after the isolated
+tests.
 </Warning>
 
-## Level 1 — the handler, alone
+## Level 1: Handler alone
 
-Nothing simulating anything. This is where a breakpoint means exactly what it
-means in any other Java program, because nothing else is running.
+No simulator or transport is involved. A breakpoint behaves as it does in any
+ordinary Java test.
 
 ```java
 @Test void oneFrameBecomesOneThumbnail() {
-    var shrinker = new Shrinker();                       // ← breakpoint here
-    Thumbs thumbs = shrinker.thumbnail(oneBatch());      // ← step into this
+    var shrinker = new Shrinker();                       // breakpoint here
+    Thumbs thumbs = shrinker.thumbnail(oneBatch());      // step into this
     assertEquals(1, thumbs.getThumbsCount());
 }
 ```
 
-Step into `thumbnail`. It is your code, called directly, on the test thread.
+Step into `thumbnail`: it is your code called directly on the test thread.
 
-| what this catches | |
+| diagnostic target | |
 |---|---|
 | wrong arithmetic, wrong loop bounds, an off-by-one in the output | almost everything, in practice |
 | a builder you forgot to `build()` | yes |
@@ -46,10 +43,10 @@ Step into `thumbnail`. It is your code, called directly, on the test thread.
 <Note>
 `Losim.current()` still resolves here and does nothing: recording calls are silent,
 state calls throw. So a handler that reveals and records is testable as it stands.
-[The full asymmetry ->](/write/unit-testing)
+[Handler testing ->](/write/handler-testing)
 </Note>
 
-## Level 2 — two handlers, wired by hand
+## Level 2: Two handlers
 
 Still no gRPC. If handler A calls handler B, test the pair by calling the methods
 directly:
@@ -59,23 +56,20 @@ directly:
     var big   = new Shrinker();
     var small = new Shrinker();
 
-    // Whatever your handler would have done over a channel, done as a method call.
+    // Call the method directly instead of using a channel.
     Thumbs thumbs = small.thumbnail(batchOf(40));
     assertEquals(40, thumbs.getThumbsCount());
 }
 ```
 
-This catches protocol logic — *did I put the right thing in the request, do I read
-the right thing out of the reply* — with no transport in the way at all. Most
-"distributed" bugs are actually here.
+This tests request construction and response handling without transport.
 
-## Level 3 — real gRPC, in a test, with no simulator
+## Level 3: Real gRPC without the simulator
 
 <div id="level-3" />
 
-When you genuinely suspect the wire — a marshalling problem, a status that is not
-what you thought, a `oneof` that renders wrong — stand up a real gRPC server in the
-test. grpc-java's in-process transport is vendored, so this costs nothing:
+When the issue may be on the wire, such as marshalling, status, or `oneof` handling,
+run a real gRPC server in the test. grpc-java's in-process transport is vendored:
 
 ```java test/WireTest.java
 import io.grpc.*;
@@ -94,7 +88,7 @@ class WireTest {
 
         // directExecutor: the handler runs on the CALLING thread, so a breakpoint
         // inside it stops everything, and the stack you land in goes all the way
-        // back to the test. That is the whole reason to do it this way.
+        // back to the test. This keeps the call stack in the test process.
         server = InProcessServerBuilder.forName(name)
                 .directExecutor()
                 .addService(new Shrinker())
@@ -124,24 +118,23 @@ class WireTest {
 }
 ```
 
-This is the level at which you can check things a simulation would only obscure:
+This level checks transport behavior directly:
 
-- that your **adapter turns an exception into a status with a description**, rather
-  than a bare `UNKNOWN` — which is the difference between a readable trace and a
-  blank row;
+  - that your adapter turns an exception into a status with a description instead
+    of a bare `UNKNOWN`;
 - that a `oneof` or a `map` field round-trips the way you expect;
 - that a `NO_SIDE_EFFECTS` annotation actually landed on the descriptor:
   ```java
   assertTrue(ThumbnailerGrpc.getThumbnailMethod().isIdempotent()
           || ThumbnailerGrpc.getThumbnailMethod().isSafe());
   ```
-  which is precisely what losim's [retry gate](/write/retries) will check later, and
-  much easier to diagnose here than as a simulation refusal.
+      which is what losim's [retry gate](/write/retries) checks later and is easier
+      to diagnose here than as a simulation refusal.
 
 <Warning>
-**`ManagedChannelBuilder`, `InProcessServerBuilder` and `directExecutor()` are all
-things the verifier flags** — in a *system*. Here they are correct, because there is
-no simulation to be wrong about.
+**`ManagedChannelBuilder`, `InProcessServerBuilder`, and `directExecutor()` are all
+things the verifier flags** in a *system*. Here they are valid because this test has
+no simulation.
 
 Keep this code in a **test source set that no service or job references.** The
 verifier walks outward from the classes your simulation names; a test nothing points
@@ -150,24 +143,24 @@ it will be walked, and it will be flagged — rightly, because then it could run
 inside a real system.
 </Warning>
 
-### Not true at this level
+### Limits at this level
 
-| | |
+| diagnostic target | behavior |
 |---|---|
 | a simulation's `simulatedDuration:` | does not apply. There is no simulation and no interceptor, so no duration is slept. |
-| `k_time` | does not exist. Everything is your afternoon. |
+| `k_time` | is absent. Time uses the host clock. |
 | memory and disk caps | not enforced. Nothing is walking the heap. |
-| `peers()`, `channelTo()`, `here()` | throw — there is no system. |
+| `peers()`, `channelTo()`, `here()` | throw because there is no system. |
 | byte counts, spans, failures | not recorded. |
 
-So never conclude anything about *performance* from level 3. It is for behaviour.
+Do not draw performance conclusions from level 3. It tests behavior and transport.
 
-## Level 4 — inside a run
+## Level 4: Inside a run
 
 <div id="level-4-inside-a-run" />
 
-When the bug is genuinely about how nodes behave together, the trace is the
-debugger — that is what the three channels are for. Reach for these in order:
+Use level 4 when the bug depends on interactions between nodes. Read the trace
+channels in this order:
 
 <Steps>
   <Step title="Shrink the system and stop compressing time">
@@ -181,15 +174,15 @@ debugger — that is what the three channels are for. Reach for these in order:
         instance: m5.large
         zone: eu-central-1a
         runs: { Thumbnailer: src/lab/Shrinker.java }
-                             # and no failures: anywhere — nothing goes wrong yet
+                             # no failures are configured
     ```
-    One coordinator, one worker, no weather. If it is broken here, none of the
-    interesting things are the cause.
+    Start with one coordinator, one worker, and no failures. If it fails here, the
+    additional system features are not the cause.
   </Step>
 
-  <Step title="Read the span tree, not the events">
+  <Step title="Read the span tree first">
     Every server span is opened **under** the call that reached it, so the tree is a
-    real distributed call stack.
+    distributed call stack.
 
     The fastest way to read it is the [Spans view](/viewer/views#spans):
 
@@ -198,10 +191,8 @@ debugger — that is what the three channels are for. Reach for these in order:
     ```
 
 
-    Each bar is segmented into **out / queue / working / back**, so "it was slow" is
-    immediately "it waited 300 refMs for a core". Self time is drawn lighter inside
-    the bar, the critical path is outlined, and `slower than` finds a straggler
-    instead of making you notice one.
+    Each bar is segmented into **out / queue / working / back**, separating waiting
+    from handler time. The view also shows self time, the critical path, and stragglers.
 
     Or print it, which needs nothing but python:
 
@@ -219,15 +210,13 @@ debugger — that is what the three channels are for. Reach for these in order:
     show(0)
     ```
 
-    A call that hangs off the **root** instead of under its caller means the parent
-    header did not travel — almost always a channel you built yourself. In the
-    waterfall it is the row with no indent that should have had one.
+    A call attached to the **root** instead of its caller usually means the parent
+    header was lost, often because the channel was built outside losim.
   </Step>
 
   <Step title="Turn payloads on and read what actually crossed">
-    `--telemetry FULL` is the default and records every call's real argument and
-    real result. If a handler produced the wrong answer, the argument it was given
-    is right there in its span's `detail.arg`.
+    `--telemetry FULL` records each call's real argument and result. If a handler
+    produced the wrong answer, inspect its span's `detail.arg`.
   </Step>
 
   <Step title="Ask losim for its own stack">
@@ -235,20 +224,17 @@ debugger — that is what the three channels are for. Reach for these in order:
     LOSIM_DEBUG=1 java -cp "$CP" losim.cli.Main simulate mine.yaml --cp build/losim/classes
     ```
 
-    Exit code 3 means something went wrong **inside losim**, and one line of it is
-    not enough to find. This prints the stack behind it. Exit code 2 is your
-    simulation and already reads like a compiler error.
+    Exit code 3 means something went wrong **inside losim**; this prints its stack.
+    Exit code 2 is a simulation configuration error.
   </Step>
 
-  <Step title="Only then, a breakpoint">
-    If you must: use **one worker**, no failures, and no deadline on the
-    call you are stopping inside. Accept that
-    every number in the resulting trace is fiction — you are looking at control
-    flow, not at measurements.
+  <Step title="Use a breakpoint last">
+    If you must: use **one worker**, no failures, and no deadline on the call being
+    stopped. Treat the resulting trace as control-flow evidence, not measurement.
   </Step>
 </Steps>
 
-## Symptom table
+## Symptoms
 
 <AccordionGroup>
   <Accordion title="Every call times out, and nothing looks wrong">
@@ -261,12 +247,12 @@ debugger — that is what the three channels are for. Reach for these in order:
     on your behalf. Set deadlines.
   </Accordion>
   <Accordion title="One node does all the work; the others show zero calls">
-    Discovery. You are almost certainly passing the Java class name to
+    Check service discovery. You may be passing the Java class name to
     `peersServing`, where it wants the **service name from the `.proto`** — or you
     fetched the peer list once and are indexing it with something that is always
     zero.
   </Accordion>
-  <Accordion title="Handlers never overlap — the span tree is a staircase">
+  <Accordion title="Handlers never overlap: the span tree is a staircase">
     A blocking stub inside the dispatch loop. Use `newFutureStub`, dispatch
     everything, then collect. [Calling peers ->](/write/calling-peers)
   </Accordion>
@@ -290,6 +276,6 @@ debugger — that is what the three channels are for. Reach for these in order:
   </Accordion>
 </AccordionGroup>
 
-<Card title="Next: writing to scale" icon="arrow-right" href="/write/writing-to-scale">
-  What a job has to do to be projectable.
+<Card title="Next: scale writing" icon="arrow-right" href="/write/scale-writing">
+  Job requirements for projection.
 </Card>

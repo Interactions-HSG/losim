@@ -1,0 +1,141 @@
+---
+title: "Model"
+description: "Concepts used throughout the manual."
+icon: "brain"
+---
+
+## 1. One compressed clock
+
+Everything you declare uses **reference milliseconds** (`refMs`). Reference time is
+defined by a reference node with two vCPUs running alone.
+
+The engine compresses the run by **`k_time`**, normally 20x and up to 40x for a
+scaled run. At 40x, 800 refMs takes 20 real milliseconds.
+
+<Warning>
+`k_time` is why bare durations are refused. `900` does not identify whether it is
+simulated or wall-clock time. Write `900 refMs` or `2 refSeconds`.
+</Warning>
+
+Time enters the model in these ways:
+
+| | meaning | stretches on a slow node? | occupies a core? |
+|---|---|---|---|
+| `simulatedDuration:` in the simulation | declared **work** for an rpc | yes | yes |
+| `Losim.current().sleep(refMs)` | a declared **wait**, such as a backoff or poll interval | no | no |
+| `Thread.sleep(…)` | host time, unaffected by `k_time` | n/a | n/a |
+
+The third one is flagged; see [that page](/write/waiting) for details. Waiting is
+not work: a node backing off does not use a vCPU.
+
+## 2. A node is a thread pool with limits
+
+Each node in the system is:
+
+- one in-process gRPC server,
+- one thread pool sized to its **vCPU count**,
+- a memory cap and a disk cap,
+- a zone.
+
+The pool is the model of concurrency. Four calls into a two-vCPU node queue, and the
+wait is recorded. Each pool thread belongs to one node, enabling per-node
+attribution.
+
+The model has direct consequences:
+
+<Columns cols={2}>
+  <Card title="Work off the pool is charged to nobody" icon="ghost">
+    A thread your handler starts is not part of the node's pool. Its memory and CPU
+    are not attributed to the node, so losim flags it.
+  </Card>
+  <Card title="A node can only read its own limits" icon="lock">
+    `Losim.current().here()` gives the current node's instance type, zone, cores,
+    and caps. To learn a peer's capacity, ask it over gRPC.
+  </Card>
+</Columns>
+
+## 3. Nodes communicate through gRPC
+
+There is one messaging path. Fire-and-forget uses an `Empty`-returning method on an
+async stub, so it receives the same costs, failures, telemetry, and byte accounting.
+
+Peers are found by **the services they serve**, not by hostname:
+
+```java
+var here = Losim.current();
+String peer = here.peersServing("Thumbnailer").get(0);
+Channel to  = here.channelTo(peer);
+ThumbnailerGrpc.newBlockingStub(to).thumbnail(frame);   // ordinary generated stub
+```
+
+`channelTo` returns an ordinary `io.grpc.Channel`, so the call site is plain gRPC.
+losim's interceptor adds latency, byte counts, spans, failures, and retries. A
+hand-built channel bypasses those features and is flagged.
+
+## 4. The simulation is checked before execution
+
+The system, failures, and runtime conditions are declared in YAML. Code is referenced
+by `.java` path. Two designs can therefore be compared as data files.
+
+losim checks configuration **at load, with the line it was written on**. It can reject
+unknown instance types, missing `runs:` paths, invalid partitions, unknown keys,
+unitless durations, and unsupported retry policies before execution.
+
+## 5. Work starts at an RPC
+
+losim does not construct application objects. It calls **`losim.Job/Run`** on the
+node named by `runs:`. Other trace activity comes from application code.
+
+That service is defined in losim's `.proto` with two RPCs: `Load` builds the workload
+with the clock stopped, and `Run` performs the simulation. `Run` receives a
+`Workload`, not the simulation declaration.
+
+```yaml
+coordinator:
+  instance: m5.large
+  runs: { losim.Job: src/lab/RenderJob.java }
+```
+
+[losim.Job ->](/ref/losim-proto)
+
+## 6. The trace is the interchange format
+
+Each run produces one JSON file with these top-level channels:
+
+| channel | contents |
+|---|---|
+| `meta` | the simulation, the seed, the entry node, the unit and count, whether it completed, how long it took |
+| `nodes` | the closing balance per node: peak memory, disk, bytes, calls, caps |
+| `events` | sparse events such as *this node was killed* |
+| `spans` | intervals that carry a parent **across the RPC boundary** |
+| `series` | dense numbers on a fixed cadence showing what everything held meanwhile |
+
+The channels use different densities: sparse events, intervals, and fixed-cadence
+series each answer a different inspection question.
+
+The trace is a **contract**: fields are extended additively so runs remain
+comparable. [Full format ->](/ref/trace)
+
+## 7. Two scales, with conditional projection
+
+A simulation with `scale:` above 1 represents a workload larger than the measured
+run. losim shrinks the workload **and the nodes**, runs what fits, and projects the
+full-scale values.
+
+The projection uses fitted laws rather than simple multiplication. The engine fits a
+law for each resource against its independent variable, then tests the fit:
+
+- whether the ladder **bends** between the small end and the large end
+- whether repeated measurements produce the same exponent
+
+When either test fails, the projection is **absent with a reason**. The engine does
+not fill it with an unsupported number.
+
+<CardGroup cols={2}>
+  <Card title="Write your first system" icon="hammer" href="/first/plan">
+    Everything above, applied end to end.
+  </Card>
+  <Card title="The scale model" icon="chart-line" href="/engine/scaling-limits">
+    The probe grid, the laws, and the refusals.
+  </Card>
+</CardGroup>

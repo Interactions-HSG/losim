@@ -1,23 +1,21 @@
 # losim
 
-losim runs a real gRPC system on one host and changes the conditions around it. It
-slows calls, injects failures, caps resources, and can shrink both the data and the
-nodes by the same factor so a large system can be exercised on a laptop. It then
-projects the observed run back to full scale.
+losim runs a real gRPC system on one host while applying simulated latency,
+failures, resource caps, and scale reduction. It uses the reduced run to project
+the system at full size.
 
-The system has two parts:
+The repository contains:
 
 - the student's code, running with real gRPC, real allocation, and real threads
 - losim, which sits around it and models nodes, time, failures, and scaling
 
-An assignment is exactly two things: **YAML** for the system, and **protobuf plus
-the Java implementing it** for the code. There is no third surface — the thing that
-starts the work is a gRPC service like every other.
+An assignment uses **YAML** for the system and **protobuf plus Java** for the
+implementation. A gRPC service starts the work.
 
 The node is made small, so a design that would fail at 16 GiB can fail here at
 16 MiB for the same reason. The failure belongs to the program under test.
 
-## Try it
+## Run it
 
 ```bash
 bin/losim dev test    # losim's own checks: every phase's acceptance criteria
@@ -29,16 +27,14 @@ bin/losim bill build/wordcount.json
 bin/losim compare build/a.json build/b.json
 ```
 
-Nothing is downloaded and nothing is generated at build time. The toolchain is
-vendored, so the same commands behave the same way on a laptop, in the devcontainer,
-and in a Codespace.
+The repository includes the toolchain. The commands work on a laptop, in the
+devcontainer, and in a Codespace without downloading dependencies during the build.
 
-## A service
+## Service code
 
-An ordinary gRPC service starts from an ordinary `.proto`, with no losim types in
-the API. A small adapter turns grpc-java's `void map(Chunk, StreamObserver<Counts>)`
-into a value-returning method, which makes the handler easy to call from a plain
-unit test.
+An ordinary gRPC service starts from a `.proto` with no losim types in its API. An
+adapter converts grpc-java's `void map(Chunk, StreamObserver<Counts>)` into a
+value-returning method that a unit test can call directly.
 
 ```java
 public final class Mapper extends WorkerBase {
@@ -50,8 +46,8 @@ public final class Mapper extends WorkerBase {
 }
 ```
 
-No losim type appears in the signature, and the call above is optional. Delete it
-and this file still compiles with losim off the classpath.
+The signature contains no losim type. Remove the optional `reveal` call and the
+service source still compiles without losim on its classpath.
 
 What the call costs is declared in the simulation, under the file that runs it:
 
@@ -60,18 +56,18 @@ simulatedDuration:
   losim/test/src/Mapper.java: { Map: { fixed: 2 refMs } }
 ```
 
-The unit is reference-node time, so it composes with scaling: the interceptor
-sleeps `fixed * nodeFactor / k_time`. A key naming a file no node runs, or an rpc
-that file's class does not serve, is refused before anything runs.
+The unit is reference-node time. The interceptor sleeps
+`fixed * nodeFactor / k_time`. The loader checks that a node runs the file and that
+the class serves the named RPC.
 
 Some durations only the running program knows, such as a backoff or a poll interval.
 For those cases there is `Losim.current().sleep(refMs)`. It uses the same unit and
 the same `k_time` scaling. Waiting is not work, so it does not make a node busy.
 `Thread.sleep` is different, and the verifier flags it.
 
-gRPC is the only way nodes talk. Even fire-and-forget is an `Empty`-returning
-method on an async stub, so costs, failures, telemetry, and byte counts apply to it
-the same way they apply to any other call.
+Nodes communicate through gRPC. Fire-and-forget uses an `Empty`-returning method on
+an async stub, so losim records its costs, failures, telemetry, and bytes like any
+other call.
 
 A handler calls a peer the same way the job does, by what it serves rather than by
 hostname, over a channel losim made:
@@ -82,14 +78,13 @@ Channel to = here.channelTo(here.peersServing("Worker").get(0));
 return WorkerGrpc.newBlockingStub(to).map(request);
 ```
 
-What comes back is an `io.grpc.Channel`, and the call site is plain gRPC. losim
-adds the interceptor, which is where latency, byte counts, spans, failures, and the
-retry policy live.
+The result is an `io.grpc.Channel`, and the call site remains plain gRPC. losim adds
+the interceptor that records latency, byte counts, spans, failures, and retries.
 
-## A simulation
+## Simulation data
 
-The system, its weather, and its bad afternoon are data. Anything that needs code
-points at a `.java` file, so two designs can be compared by comparing two files.
+The simulation file contains the nodes, failures, and timing. Code is referenced
+by `.java` path, which lets separate designs use separate simulation files.
 
 ```yaml
 seed: 7
@@ -116,17 +111,15 @@ input:
   count: 8000
 ```
 
-Exactly one node runs `losim.Job`, and that is where the work starts. Failures are
-written inside whatever they happen to, so one cannot be aimed at a node that is not
-there.
+Exactly one node runs `losim.Job`, which starts the work. Failures are nested under
+the node or RPC they affect, so the loader can validate their targets.
 
 Every duration is reference-node time and has to say so. A bare `900` is refused,
 and so is `900ms`, because those are ambiguous between the simulated world and the
 host.
 
-Everything else that can be wrong is refused the same way, with the line it was
-written on: an unknown instance type, a `runs:` path that is not there, a partition
-naming a node the system does not have, or a key that is a typo for a real one.
+The loader reports other errors with the source line: an unknown instance type, a
+missing `runs:` path, a partition naming an absent node, or a misspelled key.
 
 ```text
 wordcount.yaml:14: retrying losim.t.Volley.Hit is refused — its .proto declares no
@@ -135,25 +128,24 @@ idempotency_level = IDEMPOTENT;' on the rpc if it is, or write 'unsafe: true' he
 if you mean to retry it anyway.
 ```
 
-## Above scale 1
+## Scale above 1
 
-The simulation above runs what it declares. This one declares a size no laptop can
-hold, and losim shrinks the workload and the nodes by the same factor:
+The simulation above runs its declared input. The following simulation declares a
+larger input, so losim shrinks the workload and nodes by the same factor:
 
 ```yaml
 scale: 5000
 ```
 
-One number, and no second key saying it is a model. `Job.Run` receives a `Workload`
-and nothing else, so it cannot tell which rung of the ladder it is on — the property
-the whole projection rests on, stated in the signature.
+The `scale` value identifies a model run. `Job.Run` receives a `Workload` and no
+other scale information, so the workload size is explicit in the request.
 
 ```text
 wordcount-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 records (x5,000), k_time 40
 
   memoryMb   = 0.0597 + 0.00187 * revealed.distinctKeys^1.013  (R2 1.0000, wobble 0.000)
   wireMb     = 0.0    + 0.000151 * records^0.952               (R2 1.0000, wobble 0.004)
-  diskMb       REFUSED: the ladder bends — over the lower half it grows as records^0.59
+  diskMb       REFUSED: over the lower half it grows as records^0.59
                and over the upper half as records^0.87 ...
   makespan     REFUSED: its exponent moves by 0.66 between independent seed sets of the
                same workload, which over a factor of 5000 is an error bar of x268 ...
@@ -163,18 +155,16 @@ wordcount-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 records (x5,000), k_ti
   wireMb                0.460                 2.63 k  +-x1.04
 ```
 
-Memory was attributed to distinct keys, not to records. Peak reducer memory is a
-function of vocabulary, which grows more slowly than records. Fitting it against
-the right variable gives a projection that stays close to ground truth. Fitting it
-against records does not.
+Memory was attributed to distinct keys. Peak reducer memory follows vocabulary size,
+which grows more slowly than the record count. Fitting the law against that variable
+keeps the projection close to the direct run; fitting against records does not.
 
-Two resources were refused rather than guessed at. A projection carries its
-confidence or it is absent. A plausible number without that context is only a guess,
-so the engine leaves the field empty when it cannot support the result.
+Two resources were refused because their measurements did not support a projection.
+The engine leaves a field empty and records the reason when its confidence is too low.
 
-The timeline is replayed, not multiplied. Four calls into eight cores take one wave;
-thirty-two take four. Replaying the observed call graph with projected durations
-and each node's real concurrency keeps the result close to the trace.
+The engine replays the timeline with the observed call graph, projected durations,
+and each node's concurrency. Four calls into eight cores occupy one wave; thirty-two
+occupy four.
 
 The plan travels in the trace, so `projected = f(observed)` is recomputable by
 whoever reads it, and is cached against the simulation and the code it profiles.
@@ -186,69 +176,65 @@ A handler that reads `System.nanoTime` gets the host's time rather than the
 compressed clock; one that writes a real file bypasses the disk model; one that
 hands its work to the common pool is charged to nobody.
 
-So the verifier reads the project's compiled classes before anything runs, and
-**flags rather than refuses**. The run still happens, and what carries a caveat says so beside
-itself:
+The verifier reads the project's compiled classes before the run. It **flags rather
+than refuses** affected measurements, lets the run continue, and records the nodes:
 
 ```text
-  trust: 4 nodes report figures that do not mean what they say
+  trust: 4 nodes report figures that are not reliable
     w0, w1, w2
-      each reads the real clock, so its timeline is not projectable
+      each reads the real clock, so its timeline cannot be projected
         Peeker.java:19               System.nanoTime() in map
         Peeker.java:22               System.nanoTime() in map
     spiller
-      writes to a real disk, which the disk model never sees, so its disk figure
+      writes to a real disk, which the disk model never sees; its disk figure
       is a lower bound
         Scribbler.java:21            Files.writeString() in map
-    Nothing was stopped: each of these is a wrong number, not a broken run.
+    The run continues, but these measurements are wrong.
 ```
 
 The flags go on the nodes in the trace, and above `scale: 1` they sit next to the
 projection they undermine.
 
-Generated code is skipped without a special case: protoc's output trips these rules
-freely, and it is recognised by protobuf's superclass and grpc-java's own
-`@GrpcGenerated`. A constant is not shared state: `static final Map M = new
+Generated code is skipped, including protobuf's superclass and grpc-java's own
+`@GrpcGenerated`. A constant is not shared state. `static final Map M = new
 HashMap<>()` is one map for eight nodes and is flagged, while `static final
 String[] WORDS = {"a", "the"}` is a table and is not. What the call sites do not
 say, the declarations do: `System::nanoTime` appears in no instruction anywhere,
 only in a bootstrap argument, and a class that `extends Thread` starts itself
 through a method on itself.
 
-Unseeded `Random` and identity-hash iteration order are fine, because runs are not
-reproducible anyway. Raw threads are not banned either. Work outside the node's own
-pool is attributed to nobody, and that is what gets said.
+Unseeded `Random` and identity-hash iteration order are allowed because runs are not
+reproducible. Raw threads are also allowed. Work outside the node's pool is
+unattributed, and the trace records that fact.
 
-## The cost
+## Cost
 
-Four buckets are printed apart rather than summed because they answer different
-questions. Replication triples capacity and adds to build in order to empty
-incidents.
+The bill prints four buckets separately because each describes a different cost.
+Replication can increase capacity and build cost while reducing incidents.
 
 ```text
-what it is a model of
+model quantity
   build       services carried                 1.000 services       CHF    0.2500
   capacity    the nodes, for the period            -                CHF   refused
-      its exponent moves by 0.793 between independent seed sets of the same workload,
-      which over a factor of 6 is an error bar of x4.1 — wider than anything it would
-      be asked to distinguish
+      its exponent moves by 0.793 between independent seed sets of the same workload.
+      Over a factor of 6, the error bar is x4.1.
   consumption intermediate data on disk    0.0004000 GB-month       CHF    0.0000
 ```
 
-A run above `scale: 1` is billed twice, for what happened and for what it models. The engine
-does not project every quantity. Capacity depends on the timeline, and the timeline
-is the noisiest thing losim measures.
+A run above `scale: 1` produces an observed bill and a bill for the modeled size.
+The engine refuses quantities whose measurements cannot support projection. Capacity
+depends on the timeline, which is the noisiest quantity losim measures.
 
-That leaves an honest account: the bytes cost this much, the storage costs this much,
-and the node cost can stay absent when the timeline is too uncertain.
+The result lists byte and storage costs directly. Capacity remains absent when the
+timeline is too uncertain to project.
 
 Prices are course data and live in [prices/](prices/), outside the simulator. What a
 node costs to rent is deliberately not there: that belongs to the instance
 catalogue, beside its vCPUs and its memory.
 
-## The reference suite
+## Reference suite
 
-Thirteen cases in [tests/](tests/), plus the bill, each a gRPC system run through
+The suite contains gRPC systems run through
 the command line a student types and asserted against the trace it wrote. The
 systems compile against `build/losim.jar` and the vendored gRPC alone, and every
 assertion reads the trace JSON off disk.
@@ -258,8 +244,8 @@ checked against a run at full size, a matrix that varies the system size
 independently of the data, two workloads the engine has to refuse, and one ladder fitted at four
 levels of instrumentation.
 
-It has found seven bugs so far, none of which the phase suites could see. The
-sharpest: a job could not run at `NO_PAYLOAD` at all, because a span recorded its
+The reference suite has found bugs that the phase suites did not cover. One example:
+a job could not run at `NO_PAYLOAD` because a span recorded its
 result as null when payloads were off and span details are a concurrent map, which
 rejects a null value.
 
@@ -267,13 +253,11 @@ CI runs everything twice, on a plain runner and inside the image a Codespace boo
 and then compares the two traces. What has to agree is structure and attribution.
 The measurements are allowed to differ.
 
-## Status
+## Project status
 
-The system, the scale engine, the trust markers and the reference suite are in. One
-in-process server per node, one executor per node sized to its vCPU count, losim
-wrapped around every call as gRPC's own interceptors, a simulation driving it, an
-engine that shrinks the world and projects the result back, a verifier that says which answers still mean what they say, and
-thirteen gRPC systems in CI that check whether it still works.
+The system includes one in-process server and one executor per node, gRPC
+interceptors around every call, simulations, scaling, trust checks, billing, and a
+reference suite of gRPC systems in CI.
 
 | | |
 |---|---|
@@ -282,31 +266,31 @@ thirteen gRPC systems in CI that check whether it still works.
 | a network | latency by zone, jitter, loss, partitions, and a dead node, a cut link and a lost packet are one event from the caller |
 | three-channel telemetry | events, spans that carry a parent across the RPC boundary, and dense series, with every call's real argument and real result |
 | memory, measured twice | allocation per node, exactly; and a retained-heap walk, because only one of those decides an out-of-memory |
-| a bad afternoon | kill, freeze, degrade, spot reclaim with notice, partition, restart — and per rpc, a status, a slowdown or a dropped request — written inside whatever it happens to, at an instant or as a rate drawn from the seed |
-| retries you have to mean | refused unless the `.proto` declares the method idempotent, or the simulation says `unsafe: true` in as many words |
+| failures | kill, freeze, degrade, spot reclaim with notice, partition, restart, and per-RPC status, slowdown, or dropped request |
+| retries | refused unless the `.proto` declares the method idempotent or the simulation sets `unsafe: true` |
 | two scales, per measurement | what happened, and what it is a model of, with an error bar or with a reason it is absent |
 | **losim's own cost, excluded** | everything losim does on a node's threads is metered and subtracted, so what is reported is the program's |
 | trust markers | real clocks, real files, real sockets, shared statics and unattributed threads, found in the compiled classes at the line they were written on, flagged, never refused |
 | a bill, at both scales | five buckets over the quantities the run produced, and at full scale a capacity line absent with a reason, because it depends on the one thing the engine would not project |
 
-That last row is the one that is easy to get wrong and hard to spot. A thousand
-`reveal` calls per handler move the *unsubtracted* memory exponent by 0.026, and
+The `reveal` calls do affect the raw measurement. A thousand
+calls per handler move the *unsubtracted* memory exponent by 0.026, while
 the reported one by 0.0004. The law a student's code is projected by does not
 depend on how much they instrumented it.
 
-## Layout
+## Repository layout
 
 ```text
-losim/src/losim/api/       what a handler may say to losim — and all it can reach
+  losim/src/losim/api/       what a handler may say to losim and all it can reach
 losim/src/losim/runtime/   the nodes, the servers, the two interceptors
 losim/src/losim/trace/     the three-channel recorder and the trace it writes
-losim/src/losim/time/      the compressed clock, and when failures fire
+  losim/src/losim/time/      the compressed clock and failure timing
 losim/src/losim/res/       instance types, the heap walk, losim's own meter
-losim/src/losim/scale/     the probe grid, the laws, the solve — and the refusals
-losim/src/losim/sim/       a system and its weather, as data
+  losim/src/losim/scale/     the probe grid, fitted laws, solves, and refusals
+  losim/src/losim/sim/       a system and its failure conditions as data
 losim/proto/losim/         losim.Job — the one service losim ships
 losim/src/losim/verify/    what makes a number stop meaning what it says
-losim/src/losim/price/     five buckets, and what cannot be put in them
+  losim/src/losim/price/     cost buckets and excluded quantities
 losim/src/losim/cli/       losim simulate | bill | compare
 losim/test/                every phase's acceptance criteria, run by `losim dev test`
 tests/                     the reference suite: gRPC systems, run by `losim dev suite`
@@ -323,7 +307,7 @@ See [losim/test/junit/HandlerTest.java](losim/test/junit/HandlerTest.java).
 
 ## Documentation
 
-The manual is a Mintlify site in [docs/](docs/), from the quickstart to the
+The manual is a Mintlify site in [docs/](docs/). It covers the quickstart,
 simulation grammar, trace format, scale engine, bill, and viewer.
 
 ```bash
@@ -331,7 +315,7 @@ bin/losim serve docs        # preview at http://localhost:3000
 bin/losim dev docs check    # the manual's own check
 ```
 
-`losim dev docs check` is the one worth knowing about. This repository ships worked
+`losim dev docs check` checks the manual. This repository ships worked
 solutions to the coursework, and the manual must not contain them. Every page is
 scanned against a rule set in [docs-check/](docs-check/), and the check tests
 itself before it scans. Every rule has a sample it must catch and a nearby sample

@@ -4,32 +4,25 @@ import io.grpc.Channel;
 import java.util.List;
 
 /**
- * What a program is allowed to say to losim, and to ask it, from inside a handler.
+ * Operations available to a handler through losim.
  *
- * There are exactly two implementations, and the difference between them is the
- * point. Inside a run, calls reach the machine that is serving. Outside one — in
- * a plain unit test, where losim is on the classpath only so that this interface
- * resolves and nothing is simulating anything — the recording calls are silent and
- * the state calls throw.
+ * The running context forwards calls to the serving node. The test context keeps
+ * recording calls silent and throws for state calls.
  *
- * <p>That asymmetry is deliberate. A silent {@code reveal} lets a handler be
- * called directly from a test without the test having to know losim exists. A
- * fabricated empty cluster would let the same test pass while asserting nothing,
- * which is worse than failing.
+ * <p>A silent {@code reveal} lets a handler run in a unit test without a simulator.
+ * State calls throw instead of returning an invented cluster or clock.
  *
- * <h2>Recording — silent outside a run</h2>
+ * <h2>Recording, silent outside a run</h2>
  * {@link #reveal}, {@link #log}, {@link #units}
  *
- * <h2>State — throws outside a run</h2>
+ * <h2>State, throws outside a run</h2>
  * {@link #machine}, {@link #here}, {@link #peers}, {@link #peersServing},
  * {@link #clockMs}
  *
- * <p><b>Every method on this interface meters its own body.</b> These run inside
- * the handler, on the machine's own thread, between the two marks that measure
- * that handler — so what losim spends here is charged to losim and taken back off
- * what the machine reports (D13). The boundary is exact: in
- * {@code reveal("keys", map.size())} the {@code size()} is the program's cost and
- * stays with the program; everything after the argument is evaluated is losim's.
+ * <p>Each method meters its own body. These calls run inside the handler span, so
+ * losim's allocation and duration are charged to losim and excluded from the
+ * program's measurements (D13). In {@code reveal("keys", map.size())}, evaluating
+ * {@code size()} remains program work; boxing and recording are losim work.
  */
 public interface LosimCtx {
 
@@ -42,13 +35,9 @@ public interface LosimCtx {
      * Records a named value from inside a handler, so a reader of the trace can
      * see what the computation was doing and not merely that it happened.
      *
-     * <p>The primitive overloads are not a convenience. {@code reveal(String,
-     * Object)} boxes an {@code int} at the <i>call site</i> — before losim's
-     * accounting can open — so the box is charged to the program though it exists
-     * only because the parameter is an {@code Object}. At one call per handler
-     * that is invisible; at a thousand it bends the fitted memory exponent by
-     * 0.04, and the exponent is the one number that must not bend. Taking the
-     * primitive moves the boxing inside the bracket, where it belongs to losim.
+     * <p>Primitive overloads keep boxing inside losim's accounting bracket. The
+     * {@code Object} overload would box an {@code int} at the call site and charge
+     * that allocation to the program.
      */
     void reveal(String key, int value);
     void reveal(String key, long value);
@@ -65,26 +54,18 @@ public interface LosimCtx {
     /**
      * How many units this call processed.
      *
-     * <p>Two things need it. The simulation's {@code refNsPerUnit:} is charged
-     * against it,
-     * and the scaler engine needs to know which independent variable a cost site
-     * is a function of — units, or distinct keys, or bytes — because fitting a
-     * resource against the wrong variable gives an exponent that will not survive
-     * a change of corpus.
+     * <p>The simulation charges the per-unit duration against this count. The
+     * scaling engine also uses it as the independent variable for fitting costs.
      */
     void units(long n);
 
     /**
      * Records that this call wrote bytes to the machine's disk.
      *
-     * <p>Not a recording call, and it does not behave like one: a machine whose
-     * disk is full cannot take the write, so this <b>throws</b> when the cap is
-     * exceeded, and the handler fails the way it would have failed for real.
-     * Recording the write and carrying on would let a design that cannot fit on
-     * its disks appear to work.
+     * <p>This method throws when the disk cap is exceeded, so the handler fails at
+     * the same point as it would on a full disk.
      *
-     * <p>Silent outside a run, like the recording calls — a unit test has no disk
-     * to fill.
+     * <p>Outside a run it does nothing, like the recording calls.
      */
     void wroteDisk(long bytes);
 
@@ -93,29 +74,17 @@ public interface LosimCtx {
     /**
      * Waits, for a duration written in reference-machine time.
      *
-     * <p>Every duration losim knows is reference time divided by {@code k_time},
-     * and this is no exception: {@code sleep(200)} waits two hundred milliseconds
-     * of the simulated world, whatever the compression happens to be.
-     * {@code Thread.sleep(200)} waits two hundred milliseconds of your afternoon,
-     * which at a compression of forty is eight thousand of the simulated world's —
-     * and is the one duration in a run that does not move when the compression
-     * does. That is why the verifier flags it (D11), and this is what it flags it
-     * in favour of.
+     * <p>{@code sleep(200)} waits 200 reference milliseconds divided by
+     * {@code k_time}. {@code Thread.sleep(200)} waits 200 host milliseconds and is
+     * independent of the simulation clock, so the verifier flags it (D11).
      *
-     * <p><b>Waiting is not work</b>, and two things follow. It does not stretch on
-     * a degraded machine — a machine at half speed computes slower but does not
-     * wait longer — where declared work does. And it does not mark the machine
-     * busy: a backoff occupies no vCPU, so counting it as occupancy would overstate
-     * how loaded the cluster was.
+     * <p>Waiting does not consume a vCPU and is not multiplied by node degradation.
+     * Declared work has both properties.
      *
-     * <p>The simulation's {@code simulatedDuration:} is the right way to declare what a
-     * handler's <i>work</i> costs, and it is a table, so it is fixed per rpc. This
-     * is for a duration only the running program knows: a backoff that grows with
-     * the attempt, a poll interval, a lease held until something else happens.
+     * <p>Use {@code simulatedDuration:} for fixed RPC work. Use this method for a
+     * duration known only at runtime, such as a backoff, poll interval, or lease.
      *
-     * <p>Returns immediately outside a run, like the recording calls — there is no
-     * clock to spend against in a unit test, and one that really slept would make
-     * a test suite slower for no reason.
+     * <p>Outside a run it returns immediately.
      */
     void sleep(double refMs);
 

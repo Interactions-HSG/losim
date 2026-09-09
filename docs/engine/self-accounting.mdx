@@ -1,39 +1,39 @@
 ---
-title: "What losim charges itself"
-description: "Recording runs on the node's own threads. So it is metered, subtracted, and published."
+title: "losim's self-accounting"
+description: "losim meters its own work, subtracts it from node totals, and records it."
 icon: "scale-unbalanced"
 ---
 
-## The problem
+## Measurement contamination
 
-losim runs on the node's own threads. Opening a span, rendering an argument,
-accounting a cost — each allocates and each takes wall clock, **on the very threads
-whose allocation and duration are the measurement**.
+losim runs on the node's own threads. Each span operation allocates memory and
+consumes wall-clock time **on the threads whose allocation and duration are being
+measured**.
 
-The counters cannot tell losim's bytes from your program's. So losim has to.
+The counters see both allocations. losim measures its own contribution and removes
+it from the node totals.
 
 <Warning>
-And the distortion is not merely additive. The overhead is roughly constant **per
-call** rather than proportional to the data in it, so in `demand = c + a·n^b` it lands
-in `c` — and the probe grid runs at small `n`, where a fixed term is proportionally
-largest.
+The overhead is roughly constant **per call** and is independent of the data size.
+In `demand = c + a·n^b`, it therefore lands in `c`. The probe grid runs at small
+`n`, where a fixed term is proportionally largest.
 
-Unmeasured, it inflates `c`, **drags the fitted exponent**, and the distortion is then
-extrapolated to full scale.
+Without subtraction, the overhead inflates `c`, changes the fitted exponent, and
+gets extrapolated to full scale.
 </Warning>
 
-## The mechanism
+## Accounting mechanism
 
 Every region of losim's own work is bracketed:
 
 ```java
 long a0 = Meter.allocNow(), t0 = System.nanoTime();
-…losim's work…
+// losim's work
 node.charge(Meter.allocNow() - a0, System.nanoTime() - t0);
 ```
 
-Charged to the node's ledger **and** to the span it happened inside — so neither
-the node's reported allocation nor the handler's reported duration includes it.
+The charge goes into the node ledger and enclosing span. Reported allocation and
+handler duration then exclude losim's work.
 
 ```java
 public long allocatedBytes() {
@@ -41,78 +41,77 @@ public long allocatedBytes() {
 }
 ```
 
-## Three details that make it exact
+## Implementation details
 
 <AccordionGroup>
-  <Accordion title="The bracket is not a helper taking a lambda" icon="code" defaultOpen>
-    Constructing the lambda would allocate against the node **before the first
-    mark is even read**. So the two `Meter.allocNow()` calls are written out
-    literally, everywhere.
+  <Accordion title="The bracket uses explicit counter reads" icon="code" defaultOpen>
+    Constructing a lambda would allocate against the node **before the first mark
+    is read**. The two `Meter.allocNow()` calls are therefore written out at each
+    bracket.
   </Accordion>
 
   <Accordion title="Outside the bracket: calibrated and charged back" icon="magnifying-glass">
-    A bracket reads the clock and the allocation counter twice, and the **first read
-    of each pair is taken before there is anything to charge it to.**
+    A bracket reads the clock and allocation counter twice. The **first read of each
+    pair occurs before there is anything to charge it to.**
 
-    Measured once per JVM — around **70 ns** on a reference laptop — and charged back
-    per metered stop. Without it, losim bills a node *more* the more heavily its
-    program is instrumented, which is exactly backwards.
+    It is measured once per JVM, around **70 ns** on a reference laptop, and charged
+    back per metered stop. This prevents instrumentation from increasing the billed
+    node work.
   </Accordion>
 
-  <Accordion title="The primitive overloads of `reveal` exist for this" icon="box">
-    `reveal(String, Object)` boxes an `int` at the **call site** — before the bracket
-    opens — so the box is charged to your program though it exists only because the
+  <Accordion title="Primitive `reveal` overloads avoid call-site boxing" icon="box">
+    `reveal(String, Object)` boxes an `int` at the **call site**, before the bracket
+    opens. The box is charged to your program even though it exists only because the
     parameter is an `Object`.
 
-    Taking the primitive moves the boxing inside the bracket, where it belongs.
+    Passing the primitive keeps the boxing inside the bracket.
 
-    At one call per handler this is invisible. At a thousand it bends the fitted
-    memory exponent by **0.04**.
+    At one call per handler this is small. At a thousand it bends the fitted memory
+    exponent by **0.04**.
   </Accordion>
 </AccordionGroup>
 
-## The boundary losim cannot cross
+## Measurement boundary
 
 In `reveal("keys", map.size())`, the `size()` is **your** work and is charged to your
-program — correctly. Everything after the argument has been evaluated is losim's.
+program. Everything after the argument has been evaluated is losim's.
 
-Similarly, `Losim.current().sleep(refMs)` charges the bookkeeping but leaves **the
-wait itself outside the bracket**: it is the program's own declared duration, and
-charging it to losim would subtract it straight back out of the span it exists to
-lengthen.
+Similarly, `Losim.current().sleep(refMs)` charges the bookkeeping while leaving
+**the wait itself outside the bracket**. The wait is the program's declared
+duration. Charging it to losim would remove the work the span is intended to
+measure.
 
-## Only this node's own threads can be subtracted back
+## Node-local subtraction
 
 <Note>
 Only what landed on **this node's own threads** can be taken back off it.
 
-An async response is delivered on the channel's executor, which is not a node at
-all — its bytes were never counted against one, so subtracting them would credit the
-node for work it never did. The wall-clock charge still applies to the span; the
-allocation charge does not.
+An async response is delivered on the channel's executor, which is not a node.
+Its bytes were never counted against a node, so subtracting them would credit the
+node for work it did not perform. The wall-clock charge still applies to the span,
+but the allocation charge does not.
 </Note>
 
-## The sampler is not on a node's thread
+## Sampler thread
 
-Deliberately. What the sampler costs must not land on the counters it is reading, so
-it runs on its own thread — `losim-sampler` — and is not part of any node's pool.
+The sampler runs on `losim-sampler`, outside every node pool, so its work does not
+enter the counters it reads.
 
-## It is published, not hidden
+## Published in the trace
 
 ```json
 { "name": "w0", "allocMb": 388.4, "losimMb": 0.44, "losimStops": 1284 }
 ```
 
 <Note>
-*"`allocMb` is the program's own"* is a **claim**, and a reader is entitled to see
-the size of what was taken off it before believing it. So both the bytes and the
-number of metered stops travel in the trace.
+*"`allocMb` is the program's own"* is a **claim**. The trace includes both the bytes
+removed and the number of metered stops so the claim can be checked.
 </Note>
 
-## Does it work?
+## Verification
 
-Measured at the extreme — a thousand `reveal` calls per handler, where losim charges
-itself **54 MB** and meters **162,000 regions**:
+Measured at the extreme, a thousand `reveal` calls per handler make losim charge
+itself **54 MB** and meter **162,000 regions**:
 
 | | moves by |
 |---|---|
@@ -125,7 +124,6 @@ rendered, and a thousand reveals per handler), the fitted allocation exponent mo
 
 <Warning>
 **The extreme case is mandatory.** At one `reveal` per handler, a leak that halved an
-exponent would be undetectable. That is the thing that regresses invisibly: every
-number stays plausible and only the projection is wrong. The law your code is
-projected by does not depend on how much you instrumented it.
+exponent could remain undetected. The projected law must be independent of the
+amount of instrumentation.
 </Warning>

@@ -1,0 +1,68 @@
+---
+title: "1. System plan"
+description: "The tutorial system and its source files."
+icon: "list-check"
+---
+
+Build a small thumbnail system. A coordinator reads an album, sends batches of
+frames to nodes that serve the thumbnail service, and collects the results. The
+later steps add failures so we can inspect the system's response.
+
+The tutorial focuses on the system *shape*: how services are arranged so losim
+can measure them. The thumbnail algorithm stays simple.
+
+## Tutorial files
+
+<Steps>
+  <Step title="thumbs.proto: the schema">
+    The schema defines two request messages, two response messages, and one service
+    with two methods.
+    Nodes communicate through gRPC, so their available calls are defined here.
+
+    [Write it ->](/first/schema)
+  </Step>
+  <Step title="Shrinker.java: the service">
+    A handler that accepts a batch of frames and returns thumbnails, plus the
+    adapter used to call it from a test.
+
+    [Write it ->](/first/service)
+  </Step>
+  <Step title="RenderJob.java: the job">
+    One class implementing `losim.Job`. `Load` builds the album outside the clock.
+    `Run` finds peers by their services, asks each for its capacity, distributes the
+    work, and reports the result.
+
+    [Write it ->](/first/job)
+  </Step>
+  <Step title="thumbs.yaml: the simulation">
+    Five nodes in two zones, network latency, and a failure at 900 reference
+    milliseconds. This file contains configuration, not code.
+
+    [Write it ->](/first/simulation)
+  </Step>
+</Steps>
+
+## System shape
+
+```
+  coordinator (m5.large, eu-central-1a)   runs losim.Job
+      │
+      ├── w0  c5.large  eu-central-1a  ┐
+      ├── w1  c5.large  eu-central-1b  │  all four serve Thumbnailer
+      ├── w2  c5.large  eu-central-1a  │  so the Job finds them by that,
+      └── w3  a1.medium eu-central-1b  ┘  found by service
+```
+
+`w3` has **one core while the other workers have two**. It does less work in the
+same interval and costs less, which makes the effect of placement visible.
+
+## Result
+
+The run produces a trace with events, node activity, and a four-bucket bill. A
+later step kills a node and shows the coordinator detecting the failure through
+the call deadline.
+
+<Note>
+Every code listing in this tutorial is complete and compiles. Nothing is elided
+with `...` except where a page says so explicitly.
+</Note>

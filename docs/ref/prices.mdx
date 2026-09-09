@@ -1,6 +1,6 @@
 ---
 title: "The price list"
-description: "Course data, deliberately outside the simulator — ten regions of it."
+description: "Price data kept outside the simulator."
 icon: "tag"
 ---
 
@@ -24,15 +24,13 @@ incident_per_lost_machine: 0.20
 java -cp "$CP" losim.cli.Main bill build/thumbs.json --prices prices/eu-central-1.yaml
 ```
 
-If the file does not exist, the built-in defaults above are used and the command says
-so. Any key not in this list is refused.
+If the file is missing, losim uses the defaults above and reports that fact. Any key
+not in this list is refused.
 
-## Ten regions
+## Regions
 
 There is one file per region. Billing is a **pure function of the trace**, so the
-same run can be priced in all ten without being run again — which is the point:
-*would this design still be sensible in Tokyo?* is a question you answer by
-re-billing.
+same run can be priced in all ten regions without running it again.
 
 | file | provider | where | index | build / service / month |
 |---|---|---|---|---|
@@ -47,31 +45,22 @@ re-billing.
 | `southafricanorth` | Azure | Johannesburg | 1.35 | 130 |
 | `sa-east-1` | AWS | São Paulo | 1.45 | 120 |
 
-Ten rather than every region either cloud sells. A list of seventy-six is a list
-nobody reads; what a course needs is enough places, far enough apart, that "the
-next rack", "somewhere else in Europe" and "the other side of the world" are
-visibly three different prices.
+The list contains representative regions rather than every region sold by either
+cloud. They provide local, nearby, and distant pricing differences.
 
 <Warning>
-**These are estimates, and none of them is a vendor's list price.** Egress and
-storage are the Frankfurt baseline times the region's index — a rough ordering of
-what infrastructure costs where, not a quotation from anybody.
-`build_per_service_month` follows what an engineer costs locally instead, which is
-why Mumbai is cheap to build in and expensive to leave, and Zurich is the other way
-round.
+**These are estimates, not vendor list prices.** Egress and storage use the
+Frankfurt baseline multiplied by the region index. `build_per_service_month` uses a
+separate local-cost estimate.
 
-They are wrong in the third decimal on purpose. A number that looked authoritative
-would be argued with instead of reasoned from, and the thing worth reasoning about
-is the **ratio** — that an intercontinental gigabyte costs nine times an in-region
-one, everywhere, and that no amount of tuning changes which side of that a design's
-traffic lands on. If you want the real ones, put them in these files. That is what the files
-are for, and nothing in `losim/` has to change.
+The values are deliberately approximate. Use the **ratios** for comparisons. To use
+current provider rates, replace the values in these files; no simulator code needs
+to change.
 </Warning>
 
-## Talking costs what the distance costs
+## Distance rates
 
-Three rates, because there are three distances a byte can travel — and one that is
-free:
+Traffic uses three paid distances and one free distance:
 
 | link | rate | when |
 |---|---|---|
@@ -80,43 +69,36 @@ free:
 | same continent | `egress_cross_region_per_gb` | `eu-central-1a` -> `eu-west-1a` |
 | across an ocean | `egress_intercontinental_per_gb` | `eu-central-1a` -> `ap-northeast-1a` |
 
-A node's `zone` decides which, and the **region is read off the zone name** —
-`eu-central-1a` is in `eu-central-1`, `switzerlandnorth-1` is in `switzerlandnorth`.
-There is nothing to declare and so nothing to keep in step.
+The node's `zone` determines the distance, and losim reads the **region from the
+zone name**. For example, `eu-central-1a` belongs to `eu-central-1`, while
+`switzerlandnorth-1` belongs to `switzerlandnorth`.
 
-The run records the split as the calls happen — `egressMb` on each node, by
-destination region ([nodes channel](/ref/nodes-channel)) — because only the
-caller ever knows both ends of a call. The bill then prints up to three egress lines
-rather than one, so traffic that crossed an ocean is a row you can point at rather
-than a number folded into a total.
+The run records `egressMb` on each node by destination region
+([nodes channel](/ref/nodes-channel)). The bill can then show up to three egress
+lines instead of folding all traffic into one total.
 
 <Note>
-A zone losim does not recognise — `rack-3`, `left` — is its own region on an unknown
-continent, and traffic to it is billed at the **cross-region** rate. The cheaper of
-the two, deliberately: guessing "across an ocean" for a name nobody recognised would
-put the largest egress line on the bill on the strength of a guess.
+A zone losim does not recognize, such as `rack-3` or `left`, is treated as its own
+region on an unknown continent. Traffic to it uses the **cross-region** rate rather
+than an inferred ocean crossing.
 
-Nothing validates zone names. A simulation may use any it likes, because refusing one
-would break every simulation written against an earlier losim for the sake of a table
-this release happens to carry.
+losim does not validate zone names. Simulations may use any zone string.
 </Note>
 
-## Every field
+## Fields
 
 <ParamField path="currency" type="string" default="CHF">
-  Printed beside every figure. Cosmetic.
+  Printed beside every figure. This field is cosmetic.
 </ParamField>
 
 <ParamField path="spot_discount" type="double" default="0.70">
-  How much off the on-demand rate a reclaimable node costs. A node that
-  received a `spot_notice` is billed at `onDemand x (1 - spot_discount)`.
+  The discount applied to a reclaimable node. After `spot_notice`, billing uses
+  `onDemand x (1 - spot_discount)`.
 </ParamField>
 
 <ParamField path="region" type="string" default="">
-  Which region these rates are for. Bookkeeping only — it names the file on the bill,
-  so one from Tokyo cannot be mistaken for one from Frankfurt. **Where a node
-  actually is comes from the simulation, never from here**: a price list that could
-  move a system would be a second simulation.
+  The region represented by the rates. It identifies the price file on the bill.
+  **Node location comes from the simulation, never from this field.**
 </ParamField>
 
 <ParamField path="egress_per_gb" type="double" default="0.01">
@@ -128,8 +110,7 @@ this release happens to carry.
 </ParamField>
 
 <ParamField path="egress_intercontinental_per_gb" type="double" default="0.09">
-  Per GB **across an ocean**. Nine times the in-region rate by default, which is the
-  ratio worth remembering.
+  Per GB **across an ocean**. The default is nine times the in-region rate.
 </ParamField>
 
 <ParamField path="storage_per_gb_month" type="double" default="0.10">
@@ -137,13 +118,13 @@ this release happens to carry.
 </ParamField>
 
 <ParamField path="billing_minimum_seconds" type="long" default="60">
-  The shortest period a node can be billed for. A run of 2 reference seconds is
-  still billed a minute of capacity.
+  The shortest period billed for a node. A run of 2 reference seconds is billed for
+  one minute of capacity.
 </ParamField>
 
 <ParamField path="build_per_service_month" type="double" default="250.0">
-  Engineering time to construct and carry one service, monthly. Carried whether or
-  not it is ever needed — which is what makes adding a service a real decision.
+  Monthly engineering cost for one service. It applies whether or not the service
+  handles a call.
 </ParamField>
 
 <ParamField path="sla_seconds" type="double" default="10">
@@ -155,26 +136,22 @@ this release happens to carry.
 </ParamField>
 
 <ParamField path="incident_per_rerun" type="double" default="0.02">
-  Per `rpc_timeout` — work redone because a node did not answer inside its
-  deadline.
+  Per `rpc_timeout`, for work redone after a node misses its deadline.
 </ParamField>
 
 <ParamField path="incident_per_lost_machine" type="double" default="0.20">
-  Per `kill` or `spot_notice`. A node that **filled up** — an `oom` or a
-  `disk_full` — is charged **five times** this, because a node sized too small for
-  what its design asked it to hold is a different kind of mistake from one that
-  simply went away.
+  Per `kill` or `spot_notice`. A node that **filled up**, through `oom` or
+  `disk_full`, is charged **five times** this amount.
 </ParamField>
 
-## Kept outside the simulator
+## Outside the simulator
 
 <Note>
-So a price list can be updated, or **deliberately distorted for an exercise**,
-without touching the simulator. That is the whole reason it lives in `prices/`.
+The price list can be updated or **deliberately distorted for an exercise** without
+changing the simulator. That is why it lives in `prices/`.
 
-Billing is a pure function of the trace, so re-billing the same run under a different
-price list costs nothing and needs no re-run. A design whose ranking flips is a design
-whose advantage was a price assumption.
+Billing reads the trace, so a different price list needs no re-run. A changed design
+ranking indicates dependence on that price assumption.
 </Note>
 
 ```yaml prices/expensive-egress.yaml
@@ -187,11 +164,9 @@ java -cp "$CP" losim.cli.Main bill build/a.json --prices prices/expensive-egress
 java -cp "$CP" losim.cli.Main bill build/b.json --prices prices/expensive-egress.yaml
 ```
 
-Now find out whether a design that moved data across zones for convenience was ever
-really cheaper.
+This tests whether moving data across zones for convenience is cheaper.
 
 <Warning>
-**What a node costs to rent is not here.** That belongs to the [instance
-catalogue](/ref/instances), beside its vCPUs and its memory, because it is a property
-of the node rather than a choice the course makes.
+**Node rental cost is not defined here.** It belongs to the [instance
+catalogue](/ref/instances), with the node's vCPUs and memory.
 </Warning>

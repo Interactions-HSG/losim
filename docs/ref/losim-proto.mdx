@@ -1,13 +1,11 @@
 ---
 title: "losim.Job"
-description: "The one service losim ships, its two rpcs, and why Input and Workload are different types."
+description: "The built-in Job service and its Input and Workload messages."
 icon: "play"
 ---
 
-losim starts a simulation by calling an rpc. There is no driver object, no
-interface to implement and no class named in a key: the thing that starts the work
-is a gRPC service like every other, and a node offers it the same way it offers
-yours.
+losim starts a simulation by calling a gRPC RPC. Implement the generated service
+on one node; no driver object or Java interface is required.
 
 ```proto
 syntax = "proto3";
@@ -37,98 +35,92 @@ service Job {
 }
 ```
 
-That is the whole of it. `losim/job.proto` ships inside `losim.jar` and is on your
-protoc's include path already, so you import it and never regenerate it:
+`losim/job.proto` ships inside `losim.jar` and is already on protoc's include path.
+Import it; do not regenerate it:
 
 ```proto
 import "losim/job.proto";
 ```
 
 <Warning>
-**Do not pass `losim/job.proto` to protoc as an input file.** Importing it resolves
-`losim.pb.*` to the classes already in `losim.jar`; compiling it puts a second copy
-of those classes in your own `gen/`. The in-process transport does not serialize —
-it hands the server the same object the client passed — so two copies of `Input`
-from two classloaders is a `ClassCastException` inside generated code you did not
-write. `losim build` sets the include path for you.
+**Do not pass `losim/job.proto` to protoc as an input file.** The import resolves
+`losim.pb.*` to the classes in `losim.jar`. Compiling the file yourself creates a
+second copy in `gen/`, which can cause a `ClassCastException` when the in-process
+transport passes an `Input` between classloaders. `losim build` sets the include
+path for you.
 </Warning>
 
-## The two rpcs
+## The RPCs
 
 <Steps>
   <Step title="Load runs off the clock">
-    losim calls it with the clock stopped, no sampler, no span and no events, then
-    resets every node's ledger before anything else starts. Reading a file and
-    parsing it is not part of the design being measured, so nothing `Load` spends
-    is charged to anybody.
+    losim calls it with the clock stopped and without sampling, spans, or events.
+    It resets each node's ledger before the simulation starts, so file reading and
+    parsing do not enter the measured design or node bill.
 
-    It reads `source:` — or, when the simulation named none, generates the workload
-    from `Losim.current().seed()`, which is reproducible and varies across a sweep.
+    It reads `source:` or, when no source is configured, generates the workload from
+    `Losim.current().seed()`. The seed keeps the generated workload reproducible and
+    changes it across a sweep.
   </Step>
   <Step title="Run is the simulation">
-    Everything it does is measured. It is the only rpc losim calls itself;
-    everything else in the trace happened because your code made it happen.
+    Work performed by `Run` is measured. It is the only RPC losim calls itself;
+    other trace events come from application code.
 
     The simulation ends when `Run` returns. The `Result` becomes the `done` event.
   </Step>
 </Steps>
 
-Two rpcs on one service rather than two services, because the code that prepares
-the input and the code that uses it are the same class. There is no third thing to
-place and no key connecting them.
+The two RPCs share one service because the same class prepares and uses the input.
+There is no separate service or configuration key connecting them.
 
-## Why Input and Workload are different types
+## Input and workload
 
-`Input` is a **declaration**: what the simulation said. `Workload` is the **data**:
-what `Load` actually built.
+`Input` is the simulation's **declaration**. `Workload` is the **data** that `Load`
+actually built.
 
-Keeping them apart is not tidiness. It is the property the whole scale model rests
-on. `Run` receives a `Workload` and nothing else, so it cannot read `input:`, cannot
-see the `source:`, and cannot tell which rung of the ladder it is on. A Job that
-could tell a probe from the full size could behave differently at the two, and then
-the projection would be a projection of nothing.
+Keeping them separate protects the scale model. `Run` receives only a `Workload`, so
+it cannot read `input:`, inspect `source:`, or identify the scale rung. The Job
+therefore uses the same behavior for probe and full-size runs.
 
-The signature enforces that. The manual used to ask for it.
+The RPC signature enforces this boundary.
 
 <ResponseField name="Input.source" type="string">
-  A file or a directory, relative to the project root. **Empty** when the
-  simulation named none — which means generate from the seed.
+  A file or directory relative to the project root. It is **empty** when the
+  simulation should generate data from the seed.
 </ResponseField>
 
 <ResponseField name="Input.unit" type="string">
-  What one item is, singular: `frame`, `line`, `order`. The same word
-  `Losim.current().units(n)` counts and `perUnit:` prices.
+  The singular name for one item, such as `frame`, `line`, or `order`. The same word
+  names the units counted by `Losim.current().units(n)` and priced by `perUnit:`.
 </ResponseField>
 
 <ResponseField name="Input.count" type="int64">
-  How many of them **this run** is to process: the simulation's `count:` times the
-  fraction of it being measured. 1 at `scale: 1`, and whichever rung the engine
-  picked otherwise.
+  How many items this run should process: the simulation's `count:` multiplied by
+  the fraction selected for the current scale rung. At `scale: 1`, the fraction is
+  1.
 </ResponseField>
 
 <ResponseField name="Workload.count" type="int64">
-  How many units `Load` actually produced. It need not equal `Input.count` — a Job
-  that folds duplicates or drops malformed rows produces fewer. It lands in the
-  trace as `meta.loaded`, beside `meta.count`, because a `Load` that quietly returns
-  a tenth of what it was asked for is how a fitted exponent goes wrong for a reason
-  nobody finds.
+  How many units `Load` produced. The value can be lower than `Input.count` when a
+  Job folds duplicates or drops malformed rows. The trace stores it as `meta.loaded`
+  beside `meta.count`.
 
-  `meta.count` is the **file's** number, at full size, so the two are directly
+  `meta.count` is the full-size value from the input file, so the two are directly
   comparable only at `scale: 1`. See [input](/ref/input).
 </ResponseField>
 
 <ResponseField name="Workload.type / Workload.payload" type="string / bytes">
-  The work, as one of your own messages: its full name, and its bytes. `Load` packs
-  it off the clock; `Run` parses it on the clock. Reading your input is losim's
-  cost, and unpacking it is your design's.
+  The work as one of your own messages: its full name and serialized bytes. `Load`
+  packs it off the clock; `Run` parses it on the clock. losim accounts for loading,
+  while the design accounts for unpacking.
 </ResponseField>
 
 <ResponseField name="Result.answer" type="map<string, string>">
-  The answer, recorded structurally so two simulations can be compared without
-  parsing English.
+  The answer, recorded as a map so two simulations can be compared without parsing
+  prose.
 </ResponseField>
 
-## Implementing it
+## Implementation
 
 ```java
 package lab;
@@ -170,10 +162,10 @@ public class RenderJob extends JobGrpc.JobImplBase {
 }
 ```
 
-`Frames` and `Frame` are your messages, in your `.proto`. `Workload.type` carries
-their full name so a reader of the trace knows what the payload was.
+`Frames` and `Frame` are messages from your `.proto`. `Workload.type` records their
+full name so the trace identifies the payload.
 
-## Where it runs
+## Placement
 
 ```yaml
 nodes:
@@ -182,25 +174,23 @@ nodes:
     runs: { losim.Job: src/RenderJob.java }
 ```
 
-**Exactly one node**, and the key is the service name gRPC puts on the wire —
-`losim.Job`, dotted, not `Job`. Zero is refused naming the `nodes:` block; two is
-refused naming the second one. Two designs are two simulation files, compared with
+**Exactly one node**, using the service name gRPC puts on the wire: `losim.Job`,
+dotted, not `Job`. Zero nodes is refused in the `nodes:` block, as is a second node.
+Use separate simulation files for separate designs, and compare them with
 [`losim compare`](/ref/cli-compare).
 
-That node is an ordinary node in every other respect. `Run` occupies one of its
-pool threads and queues behind its other work, so give it headroom. And a failure
-that kills it kills the call: `Run` closes `CANCELLED` and the simulation ends with
-a `failed` event saying which node went away. That is what it costs for the thing
-that starts the work to be an ordinary service.
+The node is otherwise ordinary. `Run` occupies one of its pool threads and queues
+behind other work, so leave capacity for it. If the node fails, the call closes
+`CANCELLED` and the simulation ends with a `failed` event naming the node.
 
-## What it replaced
+## Earlier API
 
 <Note>
-Before 3.0 this was a Java interface — `losim.api.Job`, with `Scalable`, `Cluster`
-and `Input.Shape` around it. Seven public types, a lifecycle of their own, and a
-third surface to learn beside the YAML and the protobuf.
+Before 3.0 this used the Java interface `losim.api.Job`, with `Scalable`, `Cluster`,
+and `Input.Shape` around it. Those types formed a separate API beside YAML and
+protobuf.
 
-An assignment is now two things: the simulation file, and your `.proto` with the
-Java implementing it. `losim check` refuses `implements Job` by name and tells you
-what to write instead.
+An assignment now consists of the simulation file and the `.proto` plus its Java
+implementation. `losim check` refuses `implements Job` by name and tells you what
+to write instead.
 </Note>

@@ -1,0 +1,199 @@
+---
+title: "8. Failure handling"
+description: "Kill a node during a run and inspect coordinator detection."
+icon: "bomb"
+---
+
+Add a failure schedule to `thumbs.yaml` before testing failure handling:
+
+```yaml simulations/thumbs.yaml
+  workers:
+    count: 4
+    prefix: w
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b]
+    runs: { Thumbnailer: src/lab/Shrinker.java }
+    overrides:
+      w1:
+        failures:
+          # Kill the node after the survey, while work is still in progress.
+          - { kill: true, at: 900 refMs }
+      w2:
+        failures:
+          # Make the node four times slower without stopping it.
+          - { degrade: 4, at: 1200 refMs }
+```
+
+Each failure belongs **inside the node where it occurs**. Run the simulation again.
+
+## Failure trace
+
+```
+thumbs.yaml  seed 7  completed in 3980 refMs
+  1102 events, 340 spans, 68 series -> build/thumbs.json
+```
+
+Look at what the coordinator logged:
+
+```
+a batch did not come back: w1 did not answer (unreachable)
+a batch did not come back: w1 did not answer (unreachable)
+a batch did not come back: w1 did not answer (unreachable)
+```
+
+Three batches were lost. Each used the coordinator's **full 2000 refMs deadline**
+before detection, increasing the run from 2416 refMs to 3980.
+
+<Note>
+The caller observes a dead node, a cut link, and a lost packet in the same way:
+nothing answers before the deadline. Modeling any of them as an immediate
+`UNAVAILABLE` removes the distinction from the simulation.
+</Note>
+
+## Ways a message can be lost
+
+<CodeGroup>
+```yaml the node is gone
+w1:
+  failures:
+    - { kill: true, at: 900 refMs }
+```
+
+```yaml the link is cut
+w1:
+  failures:
+    - { partition: coordinator, at: 900 refMs }
+    - { heal: coordinator, at: 2500 refMs }
+```
+
+```yaml the packet is dropped
+network:
+  loss: 0.02      # 2% of messages simply never arrive
+```
+
+```yaml this one rpc, on this one node
+w1:
+  runs:
+    Thumbnailer:
+      file: src/lab/Shrinker.java
+      failures:
+        Thumbnail:
+          - { drop: true, per: 20 calls }
+```
+</CodeGroup>
+
+All four produce the same thing at the call site: a `rpc_timeout` event and a
+`DEADLINE_EXCEEDED` status, with `why` recording which it was — so the
+trace can tell them apart even though your program could not.
+
+## Failure types
+
+Node failures are written in that node's `failures:`:
+
+| | behavior |
+|---|---|
+| `kill: true` | the node stops answering. Add `restartAfter: 400 refMs` to bring it back. |
+| `freeze: true` + `for: 300 refMs` | a stop-the-world pause. Calls **do not fail**; they wait on the node's own threads. |
+| `degrade: 4` | multiplies every declared cost on that node. |
+| `spotReclaim: true` + `notice: 200 refMs` | the node sends notice and then stops. |
+| `partition: coordinator` / `heal: coordinator` | cuts and restores the link between this node and the coordinator. |
+| `restart: true` | starts fresh service instances with an empty `local()`. |
+
+RPC-level failures apply to **one RPC on one node** and are written inside its
+`runs:` entry: `status:`, `slow:`, and `drop:`. They let one replica fail while its
+peers continue serving requests.
+
+[Every field ->](/ref/failures)
+
+## Repeating failures
+
+A failure at 900 refMs tests one point in time. A **rate** repeats the failure using
+`per:` instead of `at:`:
+
+```yaml
+  workers:
+    count: 4
+    prefix: w
+    instance: c5.large
+    runs: { Thumbnailer: src/lab/Shrinker.java }
+    failures:
+      - { kill: true,   per: 800 refMs }
+      - { freeze: true, per: 400 refMs, for: 150 refMs }
+```
+
+Written on the pool, this gives each of the four nodes its own failure schedule.
+The gaps are drawn exponentially from the seed.
+
+<Note>
+A rate has no end: each firing schedules the next one for the duration of the run.
+</Note>
+
+**One seed provides limited evidence.** A sweep uses the losim library, so write it
+in the language you are already using:
+
+```java src/lab/Sweep.java
+package lab;
+
+import java.nio.file.Path;
+import losim.runtime.Simulate;
+import losim.sim.Loader;
+
+/** Run the simulation for twenty seeds. */
+public final class Sweep {
+
+    public static void main(String[] args) throws Exception {
+        var base = Loader.load(Path.of("thumbs.yaml"));
+        int completed = 0;
+
+        for (long seed = 1; seed <= 20; seed++) {
+            var result = Simulate.of(base.withSeed(seed));
+            if (result.completed()) completed++;
+            else System.out.printf("seed %2d  %s%n", seed, result.failure());
+        }
+        System.out.printf("%d of 20 finished%n", completed);
+    }
+}
+```
+
+`Loader.load` reads the simulation. `withSeed` returns a copy with the seed changed.
+`Simulate.of` runs it in this JVM and returns the result as an object. The code writes
+nothing to disk, and a failed seed prints **why** instead of returning only `false`.
+
+<Tip>
+  `withSeed` has siblings: `withUnits`, `withWorkers`, `withoutWeather`, `withKTime`,
+`withExpectedRun`. Any of them is an axis you can sweep the same way, which is how you
+ask *"is this a bad seed or a bad design?"*
+
+For a long sweep, use `Telemetry.Level.OFF`
+(`Simulate.of(simulation, loader, Telemetry.Level.OFF)`) — a sweep asks whether the
+run finished, not what happened inside it, and building a full trace twenty times is the
+slow part.
+</Tip>
+
+
+## Add a retry
+
+A shorter deadline can be combined with a retry. losim validates the retry policy:
+
+```yaml
+retries:
+  - { method: Thumbnail, attempts: 3, backoff: 50 refMs, multiplier: 2 }
+```
+
+This is allowed because `Thumbnail` declared `NO_SIDE_EFFECTS` in the
+`.proto`. Try it on a method that declared nothing and the run refuses at load,
+naming the file and the line. [Why the gate exists ->](/write/retries)
+
+Retrying adds cost. The retry interceptor sits
+**outside** the recording one, so every attempt is a separate call with its own
+span, byte count, loss draw, and check of callee availability. The bill includes
+the cost of those attempts.
+
+The coordinator can also **notice sooner**. It asks every worker for capacity at
+the start and repeats the check before dispatching each batch.
+`peersServing("Thumbnailer")` omits dead nodes. A coordinator that rechecks before
+each batch therefore stops sending work to `w1` after the first failure.
+
+<Card title="Next: costs" icon="arrow-right" href="/first/costs">
+  Five buckets, printed separately.
+</Card>

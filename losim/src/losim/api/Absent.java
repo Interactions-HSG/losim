@@ -4,11 +4,10 @@ import io.grpc.Channel;
 import java.util.List;
 
 /**
- * losim when nothing is running: a handler called straight from a unit test.
+ * The context used when a handler is called directly from a unit test.
  *
- * Silent for recording, so a test need not know losim exists. Throwing for
- * state, because the alternative — an empty cluster, a zero clock — lets a test
- * assert things about a world that was never there, and pass.
+ * Recording calls are silent, so a unit test need not depend on losim. State calls
+ * throw because an invented cluster or clock would make the test misleading.
  */
 final class Absent implements LosimCtx {
 
@@ -39,7 +38,7 @@ final class Absent implements LosimCtx {
     private static IllegalStateException absent(String call) {
         return new IllegalStateException(
                 "no simulation is running, so Losim.current()." + call + " has no answer here. "
-              + "Recording calls (reveal, log, units) are silent outside a run; state calls are "
-              + "not, because a fabricated cluster would make a passing test meaningless.");
+              + "Recording calls (reveal, log, units) are silent outside a run; state calls "
+              + "throw, because a fabricated cluster would make a passing test misleading.");
     }
 }

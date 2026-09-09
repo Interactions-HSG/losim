@@ -1,0 +1,293 @@
+---
+title: "Failure responses"
+description: "Design responses to node failures, slow nodes, and partitions."
+icon: "cloud-bolt"
+---
+
+losim can model these failure types. Each tests a different assumption, so handling
+one does not imply handling the others.
+
+## Failure assumptions
+
+<AccordionGroup>
+  <Accordion title="kill: the node stops answering" icon="skull" defaultOpen>
+    ```yaml
+    w1:
+      failures:
+        - { kill: true, at: 900 refMs }
+        - { kill: true, at: 900 refMs, restartAfter: 400 refMs }
+    ```
+
+    **Breaks:** the assumption that a peer you found is a peer you can reach.
+
+    The caller detects the failure when its call reaches the deadline.
+    `peersServing(…)` stops listing the node on the next call; work already
+    dispatched still uses its full deadline.
+
+    **Design response:** re-check discovery before each dispatch and keep enough
+    state to redo lost work elsewhere. A coordinator must track each dispatched item
+    to recover after a node failure.
+  </Accordion>
+
+  <Accordion title="freeze: the node pauses" icon="snowflake">
+    ```yaml
+    w1:
+      failures:
+        - { freeze: true, at: 900 refMs, for: 300 refMs }
+    ```
+
+    **Breaks:** the assumption that a node is either working or stopped.
+
+    Calls remain pending on the node's own threads. The caller observes delayed
+    progress. The pause can represent a
+    stop-the-world pause, host swapping, or a node that is not scheduled.
+
+    **Design response:** deadlines. Without one, a frozen node can hold your
+    whole system.
+  </Accordion>
+
+  <Accordion title="degrade: the node stays slow" icon="gauge-simple-low">
+    ```yaml
+    w2:
+      failures:
+        - { degrade: 4, at: 1200 refMs }
+    ```
+
+    **Breaks:** the assumption that nodes of the same type have equal performance.
+
+    Every declared cost is multiplied. The node becomes a straggler while remaining
+    available, so normal failure handling may not trigger.
+
+    **Design response:** notice. Hand out work in smaller pieces, watch how long
+    each one took, and stop feeding the node that is behind.
+  </Accordion>
+
+  <Accordion title="spotReclaim: the node sends notice first" icon="bell">
+    ```yaml
+    w0:
+      failures:
+        - { spotReclaim: true, at: 900 refMs, notice: 200 refMs }
+    ```
+
+    **Breaks:** no assumption if the notice is handled; otherwise it tests failure
+    handling after a warning.
+
+    A `spot_notice` event fires, then the node dies after `notice`. Spot capacity is
+    roughly 70% cheaper, and the bill prices the node at the spot rate.
+
+    **Design response:** drain work from nodes as it completes instead of committing
+    all work to a node up front. The notice is recorded in the trace, not delivered
+    through an application API.
+  </Accordion>
+
+  <Accordion title="partition: the link is cut while both ends stay alive" icon="scissors">
+    ```yaml
+    w1:
+      failures:
+        - { partition: coordinator, at: 900 refMs }
+        - { heal: coordinator, at: 2500 refMs }
+    ```
+
+    **Breaks:** the assumption that unreachable means dead.
+
+    `w1` is alive, remains listed by discovery, and continues serving reachable
+    callers. The coordinator sees the same result as a kill. This is a **network
+    partition**; the two endpoints have different views of the connection.
+
+    **Design response:** route through another reachable node when the design allows
+    it, and do not assume every node has the same view of the system.
+  </Accordion>
+
+  <Accordion title="loss: messages never arrive" icon="ghost">
+    ```yaml
+    network:
+      loss: 0.02
+    ```
+
+    **Breaks:** the assumption that a call that failed did not happen.
+
+    Two per cent of messages simply vanish. Some of them are **responses** to work
+    that was done — so a retry does the work twice, which is what the
+    [idempotency gate](/write/retries) is about.
+  </Accordion>
+
+  <Accordion title="status: one RPC on one node refuses" icon="triangle-exclamation">
+    ```yaml
+    w1:
+      runs:
+        Thumbnailer:
+          file: src/lab/Shrinker.java
+          failures:
+            Thumbnail:
+              - { status: RESOURCE_EXHAUSTED, per: 20 calls }
+    ```
+
+    **Breaks:** the assumption that replicas of one service are interchangeable.
+
+    The handler is never reached; the caller gets a status it has to handle. One
+    call in twenty, on **this node only** — its four peers are fine.
+
+    **Design response:** treat a status as information about that peer. Retrying the
+    same node twenty times repeats the first refusal without using new information.
+  </Accordion>
+
+  <Accordion title="slow: one call path drags" icon="hourglass-half">
+    ```yaml
+            Thumbnail:
+              - { slow: 6, per: 10 calls }
+    ```
+
+    **Breaks:** the assumption that a slow answer means a slow node.
+
+    This RPC's declared cost is multiplied, while other calls on the node keep their
+    declared costs. A **straggler** can be avoided by selecting another peer.
+
+    **Design response:** measure per call, not per node. A node average hides one
+    rpc in ten taking six times as long.
+  </Accordion>
+
+  <Accordion title="drop: the request never arrives" icon="ghost">
+    ```yaml
+            Thumbnail:
+              - { drop: true, per: 50 calls }
+    ```
+
+    **Breaks:** the assumption that loss is uniform.
+
+    The caller drops the request before delivery. The callee sees no request, and its
+    trace has no event for it. The caller observes a timeout for the selected RPC on
+    the selected node.
+
+    **Design response:** use the same handling as loss. The
+    [idempotency gate](/write/retries) protects against repeating a request when it
+    is unclear whether the request or its response was dropped.
+  </Accordion>
+</AccordionGroup>
+
+## Repeating failures
+
+```yaml
+workers:
+  count: 4
+  prefix: w
+  instance: c5.large
+  runs: { Thumbnailer: src/lab/Shrinker.java }
+  failures:
+    - { kill: true,   per: 800 refMs }
+    - { freeze: true, per: 400 refMs, for: 150 refMs }
+    - { degrade: 3,   per: 600 refMs }
+```
+
+A failure at 900 refMs tests one point in time. A rate tests failures throughout the
+run.
+
+Written on a pool, each node gets its own schedule; the pool does not fail as one
+unit. Gaps are drawn exponentially from the seed. Only `kill`, `freeze`, and
+`degrade` take a `per:`. The other failure types happen once, so a rate on one is
+refused with the line.
+
+<Note>
+A rate schedules the next firing for the duration of the run.
+</Note>
+
+## Multiple seeds
+
+```java src/lab/Sweep.java
+var base = Loader.load(Path.of("weather.yaml"));
+var loader = Thread.currentThread().getContextClassLoader();
+
+int ok = 0;
+for (long seed = 1; seed <= 20; seed++) {
+    var r = Simulate.of(base.withSeed(seed), loader, Telemetry.Level.OFF);
+    if (r.completed()) ok++;
+    else System.out.printf("seed %2d  %s%n", seed, r.failure());
+}
+System.out.printf("%d of 20 survived%n", ok);
+```
+
+A failed seed prints **why** and returns `false`.
+[The whole file ->](/simulate/sweeps)
+
+
+The seed sweep shows the spread of outcomes across runs.
+
+## General design pattern
+
+These practices apply across the failure types:
+
+<Steps>
+  <Step title="Hand out work in pieces, and remember what you handed out">
+    A coordinator that cannot say which piece is outstanding cannot redo it.
+  </Step>
+  <Step title="Put a deadline on everything">
+    It is the only thing that distinguishes a frozen node from a slow one in
+    finite time.
+  </Step>
+  <Step title="Re-check service discovery before dispatch">
+    Discovery is cheap. A stale list costs a deadline per piece.
+  </Step>
+  <Step title="Prefer the node that just answered">
+    The fastest signal about which nodes are healthy is which nodes
+    responded, and you already have it.
+  </Step>
+</Steps>
+
+## Example
+
+Run the same system twice: once with failures and once without them.
+
+```yaml simulations/weather.yaml
+seed: 7
+
+nodes:
+  coordinator:
+    instance: m5.large
+    zone: eu-central-1a
+    runs: { losim.Job: src/lab/RenderJob.java }
+  workers:
+    count: 4
+    prefix: w
+    instance: c5.large
+    zone: [eu-central-1a, eu-central-1b]
+    runs: { Thumbnailer: src/lab/Shrinker.java }
+    overrides:
+      w0:
+        failures:
+          - { partition: coordinator, at: 1600 refMs }
+          - { heal: coordinator, at: 2400 refMs }
+      w1:
+        failures:
+          - { kill: true, at: 900 refMs }
+      w2:
+        failures:
+          - { degrade: 4, at: 1200 refMs }
+
+input:
+  unit:  frame
+  count: 4000
+```
+
+Save a second copy beside it as `calm.yaml` with every `failures:` block removed.
+Both files then use the same system and work, with weather only in `weather.yaml`.
+Simulate both:
+
+```java RunExperiments.java
+Experiments.here()
+        .run("weather.yaml")
+        .run("calm.yaml")
+        .show();
+```
+
+
+Open `weather`, then pick `calm` from `compare with...` so both run on [one clock](/viewer/views#two-runs-on-one-clock).
+`w1` goes red and stays red. `w2` keeps working but falls behind. The partition leaves
+`w0` alive and serving while the coordinator cannot reach it. Each event appears as a
+marker on the bar.
+
+The side-by-side view makes the slow node visible by comparing it with the same node
+in the calm run at the same instant.
+
+
+<Card title="Next: retries" icon="arrow-right" href="/write/retries">
+  The gate that prevents unsafe retries.
+</Card>

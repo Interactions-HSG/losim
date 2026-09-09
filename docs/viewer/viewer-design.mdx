@@ -1,0 +1,135 @@
+---
+title: "Viewer design"
+description: "System behaviors that appear clearly in the viewer."
+icon: "wand-magic-sparkles"
+---
+
+The viewer can draw only what the trace contains. Each practice below adds a specific
+observable to the run.
+
+<Steps>
+  <Step title="Make each stage an RPC">
+    ```java
+    var stub = ThumbnailerGrpc.newFutureStub(here.channelTo(worker));
+    ```
+
+    Every call is a labeled span on the serving node, nested beneath its caller. The
+    RPC name identifies the stage in the trace.
+
+    A `Run` that does everything itself has one root span. A `Run` that delegates to
+    three services produces a navigable tree in the [Spans view](/viewer/views#spans).
+  </Step>
+
+  <Step title="Reveal numbers for the node panel">
+    ```java
+    Losim.current().reveal("frames", request.getFramesCount());
+    Losim.current().reveal("jpegKb", bytes / 1024.0);
+    ```
+
+    This puts **real numbers on a node** instead of only showing activity. Pin the
+    node to keep the panel beside the film while the values update.
+
+    Use primitive overloads. The `Object` overload boxes values at the call site and
+    repeated calls can affect the fitted memory exponent.
+  </Step>
+
+  <Step title="Declare handler costs">
+    ```yaml
+    simulatedDuration:
+      src/lab/Shrinker.java:
+        Thumbnail: { fixed: 3 refMs, perUnit: 240000 refNs }
+    ```
+
+    Without it every handler is instant, messages cross in one frame, and there is no
+    queueing, contention, or critical path. An unpriced RPC takes no time.
+
+    Put it in the **simulation**, under the same path named by `runs:`. Older
+    `@Takes` annotations and `takes:` blocks are not loaded.
+  </Step>
+
+  <Step title="Declare how many units each call processed">
+    ```java
+    Losim.current().units(request.getFramesCount());
+    ```
+
+    The count appears on the span, so duration can be interpreted against the work
+    performed. It is visible in the [Spans view](/viewer/views#spans).
+  </Step>
+
+  <Step title="Account for disk">
+    ```java
+    Losim.current().wroteDisk(bytes);
+    ```
+
+    It throws when the cap is exceeded. A `disk_full` event also puts a red marker on
+    the scrubber at the failure time.
+  </Step>
+
+  <Step title="Put the trace where the viewer looks">
+    ```bash
+    --out build/results/mine.json
+    ```
+
+    A run is priced as it is created, so the Ledger is available immediately.
+
+    A trace dragged onto the page without a bill shows no cost.
+  </Step>
+</Steps>
+
+## Behaviors that change the view
+
+<Columns cols={2}>
+  <Card title="Do the reading in Load" icon="inbox">
+    ```java
+    @Override public void load(Input in, StreamObserver<Workload> out) { … }
+    ```
+    `Load` runs off the clock, so building the workload is not measured. Doing it in
+    `Run` adds that work to the coordinator's root span.
+  </Card>
+  <Card title="Dispatch asynchronously" icon="arrows-split-up-and-left">
+    ```java
+    ThumbnailerGrpc.newFutureStub(channel)
+    ```
+    A blocking stub in the dispatch loop serializes dispatch. Asynchronous stubs let
+    multiple nodes work concurrently.
+  </Card>
+</Columns>
+
+## Telemetry level
+
+```bash
+--telemetry FULL          # the default, and what you want for looking
+```
+
+`FULL` records every call's **real argument and real result**. The film uses these
+payloads for messages in flight and the pinned panel displays them.
+
+Use `NO_PAYLOAD` for measurement runs and `FULL` for runs you will inspect.
+
+<Note>
+A production system would normally avoid putting arguments and results in telemetry.
+losim includes them so the viewer can show the computation rather than opaque byte
+counts.
+</Note>
+
+## Set up the layout
+
+The simulation layout also affects the view. Four identical nodes in one zone draw as
+four identical boxes.
+
+```yaml
+workers:
+  count: 4
+  prefix: w
+  instance: c5.large
+  zone: [eu-central-1a, eu-central-1b]
+  runs: { Thumbnailer: src/lab/Shrinker.java }
+  overrides:
+    w3: { instance: a1.medium }
+    w1:
+      failures:
+        - { kill: true, at: 900 refMs }
+```
+
+Two zones become two bands. An `a1.medium` among three `c5.large`s is visibly smaller,
+and the kill is a red marker reachable with `]`.

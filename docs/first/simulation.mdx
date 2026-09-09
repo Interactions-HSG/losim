@@ -1,6 +1,6 @@
 ---
-title: "5. The simulation"
-description: "The system, its weather and its bad afternoon — as data."
+title: "5. Simulation"
+description: "The system, its failures, and its timing as data."
 icon: "file-lines"
 ---
 
@@ -39,16 +39,15 @@ simulatedDuration:
     Capacity:  { fixed: 1 refMs }
 ```
 
-That is a complete simulation. Simulate it as it stands and everything works; the
-next page does exactly that, and the page after adds the weather.
+This file is complete. The next page runs it; a later page adds failures.
 
-## Line by line
+## Fields
 
 <ParamField path="seed" type="long" default="1">
   Everything random in the run is drawn from this: when a drawn failure fires, how
-  jitter falls, and — through `Losim.current().seed()` — a workload your `Load`
-  generates. **One seed shows a design survived an afternoon; twenty show it
-  survives afternoons.**
+  jitter falls, and a workload your `Load` generates through
+  `Losim.current().seed()`. One seed shows one run; multiple seeds show how the
+  design behaves across runs.
 </ParamField>
 
 <ParamField path="scale" type="number" default="1">
@@ -56,20 +55,20 @@ next page does exactly that, and the page after adds the weather.
   model: `Load` is asked for exactly what `input:` declares, and every number on
   screen is what happened.
 
-  Above 1 the simulation is a model, and the engine works out for itself how to
-  build it. [scale ->](/ref/scale)
+  Above 1 the simulation is a model, and the engine derives the run size.
+  [scale ->](/ref/scale)
 </ParamField>
 
 <ParamField path="nodes" type="map" required>
   Each key is either **one node** (no `count:`) or a **pool** (`count: n`, named
-  `prefix0 … prefix{n-1}`). Every pool member gets the same instance type, services
+  `prefix0 ... prefix{n-1}`). Every pool member gets the same instance type and services
   and caps unless `overrides:` says otherwise, and zones are dealt round robin from
   the list.
 </ParamField>
 
 <ParamField path="nodes.*.runs" type="map of service to .java path">
-  The **service name** on the left, the **file** that implements it on the right.
-  Exactly one node in the file runs `losim.Job` — that is where the work starts.
+  The **service name** is on the left and the implementing **file** is on the right.
+  Exactly one node runs `losim.Job`; that node starts the work.
 
   A node with no `runs:` still exists and still listens; it just offers nothing.
 </ParamField>
@@ -86,28 +85,26 @@ next page does exactly that, and the page after adds the weather.
 </ParamField>
 
 <ParamField path="simulatedDuration" type="map">
-  What each rpc costs, keyed by the **same path** `runs:` names. An rpc nobody
-  prices takes no time, and a system where nothing is priced has no queueing and no
-  critical path. [simulatedDuration ->](/ref/simulated-duration)
+  What each RPC costs, keyed by the **same path** named by `runs:`. An unpriced RPC
+  takes no simulated time. [simulatedDuration ->](/ref/simulated-duration)
 </ParamField>
 
-## One string for the service, one for the file
+## Service names and source files
 
 <Note>
 | where | what it names | example |
 |---|---|---|
 | the `runs:` **key** | the service in your `.proto` | `Thumbnailer` |
 | the `runs:` **value** | the file that implements it | `src/lab/Shrinker.java` |
-| `peersServing(…)` | the service again | `Thumbnailer` |
+| `peersServing(...)` | the service again | `Thumbnailer` |
 | `simulatedDuration:` | the file again | `src/lab/Shrinker.java` |
 
-Two strings, each written the same way everywhere it appears. The key is what peers
-find a node by; the value is what losim compiles and loads. A key that disagrees
-with what the class actually serves is refused, because `peersServing` would find
-nobody and a design that copes with a missing peer would look like one that worked.
+The service key is what peers use to find a node. The file value is what losim
+compiles and loads. The loader refuses a key that disagrees with the service the
+class provides.
 </Note>
 
-## Every duration says what kind of time it is
+## Duration syntax
 
 ```yaml
 crossZone:   3 refMs            # ok
@@ -118,13 +115,12 @@ crossZone:   3ms                # refused
 ```
 thumbs.yaml:18: '3ms' does not say what kind of time it is. Durations are
 reference-node time: write '3 refMs' or '3 refSeconds'. A bare number would be
-ambiguous between the simulated world and your afternoon, and those differ by
-k_time.
+  ambiguous between simulated time and host time, which differ by `k_time`.
 ```
 
 Accepted spellings: `refMs`, `refms`, `refSeconds`, `refSec`, `refS`, `refs`.
 
-## Everything else that can be wrong is refused the same way
+## Load errors
 
 At load, with the line it was written on, before anything runs:
 
@@ -136,12 +132,12 @@ failures, count, prefix, memoryMb, diskMb, overrides
 
 ```text an unknown instance
 thumbs.yaml:9: unknown instance type 'c5.medium'; known types: a1.nano,
-a1.medium, m5.large, m5.xlarge, m5.2xlarge, c5.large, c5.xlarge, …
+a1.medium, m5.large, m5.xlarge, m5.2xlarge, c5.large, c5.xlarge, ...
 ```
 
 ```text a file that is not there
 thumbs.yaml:14: there is no file at 'src/lab/Shrinkr.java'. Paths are relative
-to the project — the directory holding proto/, src/ and the simulations.
+to the project root, which contains proto/, src/ and simulations/.
 ```
 
 ```text a partition aimed at nothing
@@ -150,7 +146,7 @@ coordinator, w0, w1, w2, w3
 ```
 </CodeGroup>
 
-None of those should be discovered halfway through a run as a puzzling number.
+The loader reports these errors before the run starts.
 
 <Card title="Next: simulate it" icon="arrow-right" href="/first/simulate-it">
   Compile, simulate, and read what comes out.

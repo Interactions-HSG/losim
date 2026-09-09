@@ -9,27 +9,25 @@ java -jar losim.jar adopt [<dir>] [--force] [--dirty]
 ./losim check [--root .]
 ```
 
-The migration page has the whole story: [adopting a gRPC system ->](/start/adopt).
-That is the surface.
+The migration guide explains the process: [adopting a gRPC system](/start/adopt).
 
 ## `adopt`
 
 | | |
 |---|---|
 | `<dir>` | the project to adopt. Default `.` |
-| `--force` | overwrite files it wrote before. Without it, a file that is already there is left alone and said so |
-| `--dirty` | adopt a tree with uncommitted changes. Without it, that is a refusal — the moves are `git mv`, and a move you cannot read as a diff is a move you cannot undo |
+| `--force` | overwrite files previously written by the command. Existing files are otherwise kept |
+| `--dirty` | adopt a tree with uncommitted changes. Without it, the command refuses because it moves files with `git mv` |
 
-**It never edits a `.java`.** It moves `src/main/proto` to `proto/` and
-`src/main/java` to `src/`, writes `build.gradle.kts`, `./losim`, `AGENTS.md`,
-`simulations/1-one-call.yaml` and two lines of `.gitignore`, moves `build.gradle`
-aside to `build.gradle.bak`, and prints what is left.
+The command never edits a `.java`. It moves `src/main/proto` to `proto/` and
+`src/main/java` to `src/`. It writes `build.gradle.kts`, `./losim`, `AGENTS.md`,
+`simulations/1-one-call.yaml`, and two lines of `.gitignore`. It moves
+`build.gradle` to `build.gradle.bak` and prints the remaining work.
 
 <Note>
-The simulation it writes names the classes it expects **after** you split the
-handler out — so it fails at load with a message naming the class, which is a
-better first failure than one that silently runs against
-`HelloWorldServer$GreeterImpl` and marks every number untrustworthy.
+The generated simulation names the files expected after the handler is split out.
+Loading then reports the missing file and class instead of running the nested
+`HelloWorldServer$GreeterImpl` implementation.
 </Note>
 
 ### Exit codes
@@ -41,38 +39,36 @@ better first failure than one that silently runs against
 
 ## `check`
 
-The same detector, run again, on a project that has already been adopted.
+`check` runs the same detector on a project that has already been adopted.
 
 ```
 1 service, 1 rpc, 2 source files
 
-  runs, and a number comes out wrong
+  runs with an unreliable measurement
    1  GreeterImpl is nested inside another class
       src/io/grpc/examples/helloworld/HelloWorldServer.java:53
-      the trust verifier walks a nested class together with the class
-      enclosing it, so everything the enclosing bootstrap does — its own
-      server, its channel, its statics — is read as this service's.
+      the trust verifier walks a nested class together with its enclosing class.
+      The enclosing server, channel, and static fields are then attributed to it.
 
-  dead rather than wrong, and no run will ever say so
+  dead code
       src/io/grpc/examples/helloworld/HelloWorldServer.java
        :48    main(String[]) and its arguments  a node has no command line
        :26    addShutdownHook                   a node is killed by a fault, not by SIGTERM
 ```
 
-It compiles nothing and runs nothing, which is the point: it answers before the
-first build, when a compiler has nothing useful to say yet.
+It does not compile or run the project. It reports findings before the first
+build.
 
-**It exits 0 whether or not it found anything.** A project part-way through a
-migration is the ordinary state of a project part-way through a migration, and a
-check that fails for it becomes a check people pass `--no-verify` to.
+The command exits 0 whether or not it finds anything. Findings describe migration
+work; they are not command failures.
 
 ## What it reads
 
-Text, never bytecode — `adopt` runs from `java -jar losim.jar` with nothing else
-on the classpath, which is the bootstrap. So: the `.proto` (services, rpcs,
-`stream`, `idempotency_level`), each `.java` (what extends a protoc `ImplBase` and
-at what nesting level, who builds a server or a channel, what is dead), and the
-build file (its gRPC and protobuf versions, by coordinate or by variable).
+`adopt` reads source text rather than bytecode. It runs from `java -jar losim.jar`
+without the project on the classpath. It reads the `.proto` for services, RPCs,
+`stream`, and `idempotency_level`; each `.java` for implementations, nesting,
+servers, channels, and dead code; and the build file for gRPC and protobuf
+versions.
 
-It skips `build/`, `gen/`, `out/`, `target/` and anything hidden: a report that
-sent you to edit a generated `ImplBase` would be worse than no report.
+It skips `build/`, `gen/`, `out/`, `target/`, and hidden paths. Reports therefore
+point to source files instead of generated `ImplBase` classes.

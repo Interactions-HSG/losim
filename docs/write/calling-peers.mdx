@@ -1,6 +1,6 @@
 ---
 title: "Calling a peer"
-description: "An ordinary gRPC call site, and everything losim attaches to it."
+description: "Make gRPC calls through the node-owned channel."
 icon: "plug"
 ---
 
@@ -10,32 +10,31 @@ Channel to = here.channelTo(here.peersServing("Thumbnailer").get(0));
 Thumbs thumbs = ThumbnailerGrpc.newBlockingStub(to).thumbnail(batch);
 ```
 
-What comes back is an `io.grpc.Channel`. The call site is plain gRPC — the stub is
-the one protoc generated, the argument is your message, the result is your message.
+The result is an `io.grpc.Channel`. The call site remains ordinary gRPC: use the
+protoc-generated stub with your request and response messages.
 
-## Riding on that channel
+## Node channel
 
-Every call through a losim channel passes through two interceptors, and this is
-where everything the simulator does happens:
+Every call through a losim channel passes through interceptors that provide:
 
 | | |
 |---|---|
 | **the network** | latency by zone, jitter either side, loss, and whether the two ends can currently reach each other |
-| **byte counts** | the message is marshalled explicitly, because gRPC's in-process transport passes the object by reference and never serializes — so a byte count can never be inferred from the transport. Serialized size plus gRPC's five bytes of framing. |
-| **cross-zone bytes** | counted apart, in **both directions**. Counting only the request would make a fetch look free: a call that asks for a region in forty bytes and is sent a megabyte back travels almost entirely in the direction that was not counted. |
-| **spans** | one on the caller and one on the callee, and the callee's is opened **under the caller's** — the parent crosses the wire in a metadata header, so the span tree is a real distributed call stack |
+| **byte counts** | explicit message marshalling, plus gRPC's five bytes of framing |
+| **cross-zone bytes** | counted separately in **both directions** |
+| **spans** | one on the caller and one on the callee, with the parent sent in metadata |
 | **retries** | if the simulation declared a policy for this method, outside the recording interceptor, so every attempt is genuinely separate |
 | **deadlines** | rewritten from reference time into real time, so `withDeadlineAfter` means what everything else means |
 
-## The channel is the node's, not yours
+## Channel ownership
 
 ```java
 Channel a = here.channelTo("w1");
 Channel b = here.channelTo("w1");     // the same channel
 ```
 
-Made once and kept, so a handler never sees a lifetime. Every service on the node
-gets the same one for that peer — one per pair, with one place that closes them.
+The node creates and keeps one channel per peer. Services on the node share it, and
+the node owns its lifetime.
 
 <Warning>
 **Do not build your own.**
@@ -44,13 +43,11 @@ gets the same one for that peer — one per pair, with one place that closes the
 var ch = ManagedChannelBuilder.forAddress("w1", 50051).usePlaintext().build();
 ```
 
-No interceptor is attached to that. The call happens at full speed, costs no bytes,
-waits out no latency, **survives a partition**, keeps working after the node at
-the other end has been killed, and leaves nothing in the trace to say it happened.
+No losim interceptor is attached. The call bypasses latency, byte counts, spans,
+partitions, and node liveness checks.
 
-Nothing throws. You get a run full of plausible figures, every one of them wrong in
-a direction nobody can see — which is exactly why the verifier flags
-`ManagedChannelBuilder` and this is what it flags it in favour of.
+The run can still produce plausible but incomplete figures. The verifier therefore
+flags `ManagedChannelBuilder`.
 </Warning>
 
 ## Blocking, async, and futures
@@ -80,20 +77,17 @@ ThumbnailerGrpc.newStub(to).notify(ping, new StreamObserver<Empty>() {
 </CodeGroup>
 
 <Note>
-**Blocking in a loop is the most common first system.** Four nodes, used strictly
-one at a time, producing the right answer and teaching nothing. The [Spans
-view](/viewer/views) shows it as a staircase; concurrency shows as a block.
+**Blocking in a loop serializes work.** The [Spans view](/viewer/views) shows a
+staircase; concurrent work appears as overlapping blocks.
 
-Where the round-trip latency is paid is worth knowing: the whole round trip is
-slept once, on the thread that delivers the response. For a blocking call that is
-your own thread, which was waiting anyway; for a future it is the channel's
-executor, so the caller is never blocked by it. Neither the callee's pool thread
-nor the handler's measured duration is touched.
+The whole round trip is slept once on the response-delivery thread. For a blocking
+call this is the caller; for a future it is the channel executor. The callee's pool
+thread and measured handler duration are not affected.
 </Note>
 
-## A handler calling a peer
+## A handler can call a peer
 
-Exactly the same, and there is nothing special about it:
+Use the same API from a handler:
 
 ```java
 @Override protected Thumbs thumbnail(Batch request) {
@@ -106,11 +100,10 @@ Exactly the same, and there is nothing special about it:
 }
 ```
 
-The forwarded call gets its own span, opened under this handler's span, so the
-trace shows the hop. And the handler occupies one of this node's cores while it
-waits — which is real, and is exactly the cost of forwarding.
+The forwarded call gets its own span under this handler's span. The handler also
+occupies one core while it waits, which is part of forwarding's cost.
 
-## Silence, and what the trace knows
+## Timeout details
 
 ```java
 try {
@@ -122,7 +115,7 @@ try {
 }
 ```
 
-The trace can tell, even though you cannot:
+The trace records the cause even though the caller sees the same status:
 
 ```json
 { "kind": "rpc_timeout", "vm": "coordinator",
@@ -133,9 +126,9 @@ The trace can tell, even though you cannot:
 `why` is `unreachable`, `partitioned` or `lost`.
 
 <Warning>
-**A call with no deadline waits five seconds and then gives up on your behalf**, so
-a simulation that forgot to set one still terminates. Five seconds of *reference*
-time is a very long time in a run whose horizon is six. Set deadlines.
+**A call with no deadline waits five seconds and then gives up**, so the simulation
+still terminates. Five seconds of *reference* time can dominate a short run. Set
+deadlines explicitly.
 </Warning>
 
 <Card title="Next: deadlines" icon="arrow-right" href="/write/deadlines">

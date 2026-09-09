@@ -1,0 +1,99 @@
+---
+title: "Sleep debt"
+description: "How sub-floor costs are accumulated without losing total time."
+icon: "scale-balanced"
+---
+
+## The timer floor
+
+The clock cannot express a duration finer than about **0.05 ms** of real time. At
+the engine's maximum compression of 40x, a declared cost of 1 refMs is 25 µs and
+falls below that floor. At 20x, a cost of 0.5 refMs has the same result.
+
+Rounding those costs up slows the run. Dropping them shortens it. Both choices
+distort the measured duration.
+
+## Debt accounting
+
+A cost finer than the floor is **owed** instead of slept:
+
+```java
+owed += refMs / kTime;
+if (owed < FLOOR) return;            // nothing to sleep yet
+park(owed / correction);
+owed -= actuallySlept;               // settle against reality, not intent
+```
+
+The debt is kept per **thread**. It accumulates until it is large enough to express,
+then is paid in one park.
+
+## Closed-loop accounting
+
+<Note>
+The debt is settled against what was **actually** slept. The requested duration is
+used only as the initial target.
+
+With open-loop accounting, the calibration's residual compounds across thousands of
+tiny sleeps, producing **6.8% aggregate error typically and 16% at worst**. Crediting
+the overshoot back shortens later sleeps to absorb it, reducing the error to **0.3%
+and 2%**.
+</Note>
+
+Sub-floor costs therefore contribute to total time without forcing `k_time` down
+to the timer resolution.
+
+## Preserved and unavailable
+
+<Columns cols={2}>
+  <Card title="Kept" icon="check">
+    **Aggregate time.** A hundred 0.001 refMs costs still add up to 0.1 refMs.
+
+    **Ordering.** Events happen in the order they happened.
+  </Card>
+  <Card title="Lost" icon="xmark">
+    **Per-call observability.** The trace cannot recover where a particular cost fell
+    inside the debt window because several sub-floor costs are paid off together.
+  </Card>
+</Columns>
+
+The trace records this limitation. The engine checks `k_time` against the finest
+fitted cost site and refuses a run when the timing would drift.
+
+## The limit
+
+The ledger is good for about **fifty times** below the floor. Past that the residual
+stops being absorbed and the run's own timings drift.
+
+```
+this run is clocked at 40x real time, and lab.Thumbnailer.Capacity costs 0.0004
+refMs, 6x below what the sleep debt can still settle at that compression. Its
+timings would drift instead of being owed. Give that cost site more to do, or lower
+the scale: at scale 1 the clock runs at 20x.
+```
+
+<Tip>
+Choose one:
+
+**Lower `k_time`.** Lowering `k_time` makes the run take longer in real time while
+leaving the other values unchanged.
+
+**Give that cost site more to do.** A handler declared at 0.5 refMs may be below the
+noise floor of the modeled operation. Consider whether it should be annotated or
+declared at its measured cost.
+</Tip>
+
+## Per-host calibration
+
+```java
+double[] targets = {0.05, 0.1, 0.25, 0.5, 1, 2};
+```
+
+The calibration uses two hundred repetitions at the short end and sixty at the long
+end. The mean ratio of *slept* to *asked for* is the correction. A host that never
+overshoots gets a correction of 1.
+
+<Note>
+The correction is measured per host because timer behavior varies between hosts.
+`losim compare` therefore treats durations as **measurements**, not structural values
+that must agree across environments.
+</Note>

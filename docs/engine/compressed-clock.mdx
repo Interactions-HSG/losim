@@ -1,71 +1,66 @@
 ---
 title: "The compressed clock"
-description: "One wall clock, run faster than it says, calibrated per host."
+description: "A host-calibrated wall clock for simulated durations."
 icon: "gauge-high"
 ---
 
-There is no virtual clock. There is one real wall clock, and every declared duration
-is divided by `k_time` before it is slept.
+losim schedules simulated work on the host wall clock. Before sleeping, it divides
+each declared duration by `k_time`.
 
 ```
 what gets slept  =  refMs x (2 / vcpu) x degradeFactor / k_time
 ```
 
 <Note>
-`k_time` is **derived, and there is nowhere to write it**. Nobody authoring a system
-knows what compression it can express — that is a property of the smallest cost in
-it, which is a thing the run finds out. So it follows the one number you do know:
-[the scale](/ref/scale). 20x at scale 1, rising to a ceiling of 40x.
+`k_time` is derived from the host and the simulation scale. Authors do not set it.
+It is 20x at scale 1 and rises to a ceiling of 40x.
 
-It has to be global — there is one wall clock, and two nodes sleeping under
-different factors would disagree about when *now* is — and the same for the probe
-grid as for the run it fits, or the fit describes a differently-compressed system.
-That is why it is fixed before anything runs and checked afterwards, rather than
-chosen once the grid has been climbed.
+The value is global because all nodes share one wall clock. The probe grid and the
+run it fits use the same value. losim sets it before execution and checks it after
+calibration.
 </Note>
 
-## Two facts about the host decide how this is built
+## Host calibration
 
 <AccordionGroup>
-  <Accordion title="parkNanos overshoots by a stable ratio, not a fixed offset" icon="chart-line" defaultOpen>
-    About **1.28** on a reference laptop, and the same ratio across three orders of
-    magnitude. That makes it a **calibration** problem rather than a resolution one:
-    measure the ratio at startup, per host, and divide every sleep by it.
+  <Accordion title="parkNanos has a stable overshoot ratio" icon="chart-line" defaultOpen>
+    On a reference laptop, `parkNanos` overshoots by about **1.28**. The ratio
+    remains stable across three orders of magnitude, so losim measures it at
+    startup for each host and corrects later sleeps.
 
-    Calibrated, mean error across the usable range falls from about **27% to about
-    3%**.
+    Calibration reduces mean error across the usable range from about **27% to
+    about 3%**.
 
-    The calibration is fitted over the durations it will actually be applied to —
+    The calibration uses the durations it will actually be applied to:
     0.05, 0.1, 0.25, 0.5, 1 and 2 ms. Below the floor the measurement's own overhead
     dominates, and including those points would let the noisiest one set the
     calibration for every other.
   </Accordion>
 
-  <Accordion title="Below about 0.05 ms nothing can be expressed at all" icon="ruler-horizontal">
-    The measurement's own overhead dominates the thing measured. A cost that fine is
-    therefore **owed** rather than slept, and settled later.
+  <Accordion title="Below about 0.05 ms, measurement overhead dominates" icon="ruler-horizontal">
+    The measurement overhead is larger than the interval. losim records such a
+    cost as **owed** and settles it later.
 
-    So `k_time` is **not** capped by timer resolution. What a sub-floor cost loses is
-    per-call observability, not aggregate time: ordering survives, placement inside
-    the debt window does not, and the trace has to say so.
-    [The sleep debt ->](/engine/the-sleep-debt)
+    Timer resolution does not cap `k_time`. A sub-floor cost remains part of aggregate
+    time, but individual calls cannot be observed precisely. Ordering survives while
+    placement inside the debt window does not, and the trace records that limitation.
+    [Sleep debt ->](/engine/sleep-debt)
   </Accordion>
 </AccordionGroup>
 
-## The clock starts after the system is built
+## Clock origin
 
-Building six in-process servers costs real milliseconds, and at 20x that is
-hundreds of reference milliseconds of a run that has not begun.
+Building six in-process servers costs real milliseconds. At 20x, that setup time
+would consume hundreds of reference milliseconds.
 
-Left alone it would put every fault written for an early instant **in the past**, so
-they would all fire at once during setup — and it would mean an instant in the
-simulation is not the same instant in the trace, which is the one correspondence a
-reader needs.
+Without an offset, faults scheduled near the start could fire during setup. losim
+starts the simulation clock after system construction so trace times match simulation
+times.
 
-So the clock is zeroed at `the system being built`, and everything before that belongs to no
-simulation.
+The clock is zeroed after system construction. Setup work therefore belongs to no
+simulation timestamp.
 
-## `k_time`'s reach, and its limits
+## Effects of `k_time`
 
 | | divided by `k_time`? |
 |---|---|
@@ -75,43 +70,37 @@ simulation.
 | `withDeadlineAfter(…)` | yes |
 | when a drawn failure fires | yes |
 | the sampler's cadence | yes |
-| **`Thread.sleep(…)`** | **no** — the one duration in a run that does not move when the compression does |
+| **`Thread.sleep(...)`** | **no**; it is host time and is independent of compression |
 
-That last row is the whole reason `Thread.sleep` is flagged.
+The verifier flags `Thread.sleep` because it bypasses this clock.
 
-## What it is set to
+## Compression values
 
 | | |
 |---|---|
-| scale 1 | **20x**. A run of itself, fast enough to iterate on. |
-| scale above 1 | **40x**, the ceiling. More work per instant is more for a coarse clock to absorb, and the point of a probe grid is to fit thirty runs into a coffee break. |
+| scale 1 | **20x**. A scale-1 run uses this value. |
+| scale above 1 | **40x**, the ceiling. The probe grid uses this value for larger simulations. |
 
-The ceiling exists because of the floor below: past about fifty times under the timer
-floor the sleep debt stops settling and the run's own timings drift. If your smallest
-declared cost is finer than the clock can express, the engine says so — after the
-grid, where it can name the cost site and the number:
+The ceiling keeps sleep debt within the timer's usable range. If a declared cost is
+smaller than the clock can express, the engine reports the cost site after the grid:
 
 ```
 this run is clocked at 40x real time, and lab.Thumbnailer.Capacity costs 0.0004
-refMs — 6x below what the sleep debt can still settle at that compression, so its
+refMs, 6x below what the sleep debt can still settle at that compression, so its
 timings would drift rather than be owed. Give that cost site more to do, or lower
 the scale: at scale 1 the clock runs at 20x.
 ```
 
 <Note>
-Notice what the remedy is not. There is no number to turn down: the compression is
-the engine's, and the thing that is wrong is a cost site too small to be timed. That
-is a fact about the design, and it was one before losim said so.
+The remedy is to increase the work at the cost site or use a lower scale.
 </Note>
 
-## Runs are not reproducible, and that is deliberate
+## Run variation
 
-Real threads, a real clock, no simulated scheduler. Two runs of one simulation on one
-node differ in every duration and most byte counts.
+The run uses real threads and a real clock without a simulated scheduler. Repeating
+the same simulation on one host changes durations and many byte counts.
 
 <Note>
-The answer to that is a **sweep**, not determinism. One seed shows a design survived
-an afternoon; twenty show it survives afternoons. And it is why nothing is flagged
-for determinism's sake — unseeded `Random` and identity-hash iteration order are
-fine, because runs are not reproducible anyway.
+Use a **sweep** to measure variation across seeds. losim does not require deterministic
+thread scheduling, unseeded `Random`, or identity-hash iteration order.
 </Note>

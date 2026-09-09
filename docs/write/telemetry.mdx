@@ -1,17 +1,15 @@
 ---
 title: "Telemetry"
-description: "reveal, log and units — what turns a run that happened into a run you can read."
+description: "Use reveal, log, and units to describe a run."
 icon: "signal"
 ---
 
-losim replaces the debugger for anything involving more than one node, so the
-telemetry has to hold up: **if it cannot answer a question a debugger would have
-answered, that is a bug in the telemetry — and if watching changes what it reports,
-that is a worse one.**
+Telemetry provides evidence for inspecting multi-node behavior without changing the
+measured result.
 
-Your part is small. Four calls, and each one earns its place.
+The API provides calls for different kinds of information.
 
-## `reveal(key, value)` — what the computation was doing
+## `reveal(key, value)`
 
 ```java
 Losim.current().reveal("frames", request.getFramesCount());
@@ -20,8 +18,8 @@ Losim.current().reveal("cacheHit", hit);
 Losim.current().reveal("strategy", "forwarded");
 ```
 
-Without it, a trace says a handler *happened*. With it, a trace says what it did —
-and the viewer puts real numbers on a node instead of "it was busy".
+Without it, the trace records that a handler ran. With it, the trace records selected
+values from the computation.
 
 Lands as a `state` event on the node, inside the handler's span:
 
@@ -31,51 +29,41 @@ Lands as a `state` event on the node, inside the handler's span:
 ```
 
 <Warning>
-**Use the primitive overloads.** There are five — `int`, `long`, `double`,
-`boolean`, `String` — plus an `Object` fallback.
+**Use the primitive overloads.** They cover `int`, `long`, `double`, `boolean`, and
+`String`; `Object` is the fallback.
 
 `reveal(String, Object)` boxes an `int` at the **call site**, before losim's
-accounting can open, so the box is charged to your program though it exists only
-because the parameter is an `Object`. At one call per handler that is invisible. At
-a thousand it bends the fitted memory exponent by 0.04, and the exponent is the one
-number that must not bend. Taking the primitive moves the boxing inside the
-bracket, where it belongs to losim.
+accounting starts, so that allocation is charged to the program. Use a primitive
+overload to keep the boxing inside losim's accounting.
 </Warning>
 
-## `units(n)` — the independent variable
+## `units(n)`: Independent variable
 
 ```java
 Losim.current().units(request.getFramesCount());
 ```
 
-Two things need it:
+The simulation charges `perUnit:` against it; without it, only the fixed part is
+slept. The scale engine also uses it as the independent variable for a cost site.
 
-1. the simulation's `perUnit:` is charged against it. Without it, only the fixed
-   part is slept, and the span says so.
-2. The scale engine needs to know which variable a cost site is a function of.
-   Fitting a resource against the wrong variable gives an exponent that will not
-   survive a change of input.
-
-## `log(message)` — narration
+## `log(message)`: Text
 
 ```java
 Losim.current().log("forwarding to a node with more memory");
 here.log(workers.size() + " nodes can make thumbnails");
 ```
 
-For the sentence a reader needs and no key-value pair captures. Use it sparingly;
-`reveal` is what a later run can be compared against, and `log` is not.
+Use `log` for text that is not a key-value value. Use `reveal` for values that later
+runs should compare.
 
-## Structure comes from the calls
+## Trace structure
 
-There is no `phase` and no `compute` to add structure with. A span is an rpc or a
-handler, so the shape of the trace is the shape of the call graph — which is the
-honest version: a stretch of work has a name in the trace exactly when it is a thing
-some node was asked to do. [Writing a job ->](/write/jobs)
+Spans represent RPCs and handlers, so trace structure follows the call graph. [Writing
+a job ->](/write/jobs)
 
-## Recorded without being asked
+## Automatic measurements
 
-You do not have to ask for any of this:
+losim records these automatically:
 
 <Columns cols={2}>
   <Card title="Every call, both ends" icon="right-left">
@@ -89,10 +77,10 @@ You do not have to ask for any of this:
   </Card>
 </Columns>
 
-Plus every fault, every retry, every queue wait, every out-of-memory, every
-timeout, and the boot of every node.
+It also records faults, retries, queue waits, out-of-memory events, timeouts, and node
+startup.
 
-## Levels, and what they cost
+## Telemetry levels
 
 ```bash
 --telemetry FULL        # default: everything, including payloads
@@ -100,28 +88,21 @@ timeout, and the boot of every node.
 --telemetry OFF         # nothing
 ```
 
-Payload rendering is by far the most expensive part, and it is also what makes a
-trace worth looking at. The honest way to think about it: `FULL` is for a run you
-are going to *read*, `NO_PAYLOAD` for a run you are going to *measure*.
+Payload rendering is the most expensive part. Use `FULL` for inspection and
+`NO_PAYLOAD` for measurement runs.
 
 <Note>
-Recording runs on the nodes' own threads, so what it costs lands on the counters
-being read. losim therefore meters **its own work** in every one of these calls and
-subtracts it, and publishes the size of the subtraction as `losimMb` and
-`losimStops` in the `nodes` channel — because "this is the program's own
-allocation" is a claim, and a reader is entitled to see how big the correction was
-before believing it.
+Recording runs on node threads, so losim meters **its own work** and subtracts it from
+the application counters. The `nodes` channel publishes the correction as `losimMb`
+and `losimStops`.
 
-Measured at the extreme — a thousand `reveal` calls per handler, where losim
-charges itself 54 MB and meters 162,000 regions — the *unsubtracted* memory
-exponent moves by 0.026 and the reported one by 0.0004. The law your code is
-projected by does not depend on how much you instrumented it.
+The correction keeps fitted laws independent of the amount of instrumentation.
 [How that works ->](/engine/self-accounting)
 </Note>
 
-## Payloads are bounded
+## Payload limits
 
-A trace that embeds a gigabyte of payload is its own kind of useless, so:
+Payloads are bounded before they are embedded in a trace:
 
 | | |
 |---|---|
@@ -132,14 +113,13 @@ A trace that embeds a gigabyte of payload is its own kind of useless, so:
 | default values | omitted — a zero, an empty string and a `false` are not recorded |
 
 <Warning>
-The real count is **kept plus marker**, never the surviving length. A batch of 25
-frames renders as 12 frames and a marker. Do not read that as 12.
+The real count is **kept plus marker**, not the number of displayed entries. A batch
+of 25 frames renders as 12 frames and a marker.
 </Warning>
 
-## Reading it back
+## Reading the trace
 
-The trace is JSON and nothing stops you asserting on it — that is exactly what the
-reference suite does:
+The trace is JSON and can be asserted on directly, as in the reference suite:
 
 ```python
 import json
@@ -153,6 +133,6 @@ lost = [e for e in t["events"] if e["kind"] == "rpc_timeout"]
 print(len(lost), "calls did not answer in time")
 ```
 
-<Card title="Next: surviving weather" icon="arrow-right" href="/write/surviving-weather">
-  Designing for the afternoon that goes badly.
+<Card title="Next: failure responses" icon="arrow-right" href="/write/failure-responses">
+  Designing for node failures and degraded service.
 </Card>

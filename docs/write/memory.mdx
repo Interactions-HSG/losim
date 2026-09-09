@@ -1,19 +1,18 @@
 ---
 title: "Memory"
-description: "What a node holds versus what it allocated, and why only one of them kills it."
+description: "Retained memory, allocation, and node limits."
 icon: "memory"
 ---
 
-## Two numbers, and they are not the same
+## Memory measures
 
 | | |
 |---|---|
-| **`allocMb`** | what your program allocated, from `getThreadAllocatedBytes` on this node's own pool threads — losim's own allocation on those threads is metered and taken back off, so this is what your code cost, not what watching it cost. |
-| **`memoryMb`** | the **most it was ever seen holding** — a retained-heap walk from the node's own service instances. |
+| **`allocMb`** | what your program allocated, from `getThreadAllocatedBytes` on this node's own pool threads. losim's allocation on those threads is subtracted. |
+| **`memoryMb`** | the **most it was ever seen holding**, measured by a retained-heap walk from the node's own service instances. |
 
-A design that accumulates and a design that streams allocate about the same amount.
-Only one of them dies. Allocation cannot tell them apart; retention can, and
-retention is what the cap is enforced against.
+An accumulating and a streaming design can allocate similar totals. The cap checks
+retained memory, which distinguishes them.
 
 ```
 accumulating service: allocated 21.9 MB, retains 20.6 MB
@@ -30,47 +29,39 @@ When a walk finds a node holding more than its cap:
     "objects": 148_221, "cause": "retained heap exceeded the node" } }
 ```
 
-and the node is killed. It is a real failure with a real cause — your data
-structure, in your code — and the caller finds out the way it finds out about any
-dead node: by running out of time.
+The node is killed, and callers detect the failure when calls to it reach their
+deadlines.
 
 <Note>
-The check runs on the sampler's cadence **and** once more at the end of the run,
-because a node that fills up between the last walk and the end of the run has
-still filled up. A service handed its share in the closing moments is exactly that
-case, and without the final walk it would be reported as comfortably inside a cap
-it had already exceeded — the one direction an out-of-memory must never be wrong
-in.
+The check runs on the sampler's cadence **and** once at the end of the run. A node
+that exceeds its cap after the last sample is still checked by the final walk.
 </Note>
 
 ## The boundary of a node
 
-The walk starts from the node's own service instances — whatever your
-`BindableService` objects hold in their fields — and stops at anything that is not
-this node's data:
+The walk starts from the node's service instances and their fields. It counts data
+owned by that node and stops at shared runtime infrastructure:
 
 <Columns cols={2}>
   <Card title="Counted" icon="check">
-    Your fields. Your collections. The protobuf messages you are holding, which
-    are exactly your data.
+    The walk counts your fields, collections, and protobuf messages held by the node.
   </Card>
   <Card title="Not counted" icon="xmark">
-    Another node. The system. Telemetry, spans, the clock, the network. gRPC's
-    transport, which everyone shares. Servers, channels, executors, threads.
+    The walk excludes other nodes, shared runtime infrastructure, telemetry, spans,
+    the clock, the network, servers, channels, executors, and threads.
   </Card>
 </Columns>
 
-So if a node needs to hold something that does not hang off a service:
+If a node needs to hold data that does not hang off a service:
 
 ```java
 Losim.current();                      // …no. There is no API for this from a handler.
 ```
 
-it has to be reachable from a service instance. Put it in a field. A cache in a
-static field is not this node's; it is *everyone's*, which is a different
-problem and is [flagged](/engine/trust).
+it must be reachable from a service instance. A static cache is shared across nodes
+and is [flagged](/engine/trust).
 
-## Making a design fill up on purpose
+## Triggering a memory limit
 
 Memory caps come from the instance type, and a simulation can override one node:
 
@@ -85,17 +76,15 @@ nodes:
       w2: { memoryMb: 4 }           # cannot hold its share, and will say so
 ```
 
-That is the cheapest way to find out whether your design degrades or collapses when
-one node is smaller than the others — and whether the rest of the system notices.
+This tests behavior when one node is smaller than its peers and whether the system
+detects the failure.
 
 <Tip>
-Above `scale: 1` you do not write caps at all. The engine solves for them, per
-node and per resource, so that demand-over-capacity is preserved: a design that
-would exhaust a 16 GiB node at full scale exhausts its scaled-down counterpart
-here, for the same reason. [How caps are solved ->](/engine/solving-caps)
+Above `scale: 1` you do not write caps. The engine solves them per node and resource
+so demand relative to capacity is preserved. [How caps are solved ->](/engine/solving-caps)
 </Tip>
 
-## The series, per tick
+## Series by tick
 
 Per node, per tick:
 
@@ -106,58 +95,45 @@ Per node, per tick:
 | `memPct` | the first over the second |
 | `allocMb` | what your program has allocated so far, cumulative |
 
-The heap walk costs about 0.06 µs per object, so a busy node is walked every
-eighth tick rather than every tick. `retainMb` therefore steps rather than glides —
-that is the cadence, not your program.
+The heap walk costs about 0.06 µs per object, so a busy node is walked every eighth
+tick rather than every tick. `retainMb` changes at that sampling cadence.
 
 <Note>
-**`allocMb` only ever rises.** What the meter reads is the node's own threads,
-losim's bookkeeping included; the series has that bookkeeping subtracted out, so a
-node is not billed for being watched.
+**`allocMb` only ever rises.** The meter reads the node's own threads, including
+losim bookkeeping; the series subtracts that bookkeeping.
 
-The raw counter underneath it is not monotonic. Asked about *another* thread,
-`getThreadAllocatedBytes` adds up that thread's retired total and the used part of
-the buffer it is currently allocating out of, without reading the two together, so
-a sampler that catches a thread swapping buffers sees up to a whole buffer's worth
-disappear. The size of the largest fall matches the TLAB size exactly, and setting
-`-XX:-UseTLAB` removes it entirely. A program's own memory only grows, so the fall
-is the instrument slipping, and the series reports the high-water mark instead: a
-counter that goes backwards would read as a broken trace, and the scale engine
-fits a law against this one.
+The underlying counter is not monotonic when sampled from another thread. A buffer
+swap can make the observed value fall by up to a TLAB's size. The series therefore
+reports a high-water mark rather than a decreasing allocation counter.
 
-A thread reading its own counter cannot be mid-swap while it asks, so every
-measurement losim takes inside a handler is safe from this.
+A thread reading its own counter cannot be mid-swap while it asks, so measurements
+inside a handler are not affected by this issue.
 
-A node that loses a thread, which is what being killed does, can no longer be
-metered at all. losim reports a `meter_lost` event and holds the last figure it
-could read instead of reporting zero, so a reader can tell a node that
-allocated nothing apart from one that could no longer be read.
+A killed node can no longer be metered. losim reports a `meter_lost` event and keeps
+the last readable value instead of reporting zero.
 </Note>
 
-## Keeping a design honest
+## Memory practices
 
 <AccordionGroup>
-  <Accordion title="Hold the answer, not the input" icon="lightbulb">
-    A handler that keeps the request alive in order to build the response holds
-    both. Building into a fresh message and letting the request go is usually the
-    difference between fitting and not.
+  <Accordion title="Release the input after processing" icon="lightbulb">
+    A handler that keeps the request while building the response retains both. Build
+    the response separately and release the request when possible.
   </Accordion>
-  <Accordion title="Streaming beats accumulating, and losim will prove it" icon="water">
-    Two services, the same work, one keeping its answers and one not. Run both
-    against the same cap and read `memoryMb` from the `nodes` channel. The
-    numbers are the argument.
+  <Accordion title="Compare streaming and accumulating" icon="water">
+    Run two services with the same work and cap, one retaining answers and one
+    streaming them. Compare `memoryMb` in the `nodes` channel.
   </Accordion>
   <Accordion title="reveal the variable, not just the size" icon="eye">
-    `reveal("distinctItems", index.size())` tells the scale engine what your memory
-    is *really* a function of. Peak memory on an accumulating node is usually a
-    function of how many distinct things it saw, not how many units went past ;
-    and the two grow at different rates. Fitting against the wrong one gives an
-    exponent that will not survive a change of input. [Writing to
-    scale ->](/write/writing-to-scale)
+    `reveal("distinctItems", index.size())` tells the scale engine what memory is
+    *really* a function of. Peak memory on an accumulating node often depends on
+    distinct items rather than processed units. Fitting against the wrong variable
+    makes the exponent sensitive to input changes. [Writing to
+    scale ->](/write/scale-writing)
   </Accordion>
 </AccordionGroup>
 
-## See it
+## Observe a memory limit
 
 One node deliberately too small for what it is asked to hold:
 
@@ -190,10 +166,8 @@ Experiments.here()
         .show();
 ```
 
-**What to look for.** `w2` is drawn the same size as its peers but fills up visibly
-faster, and the number under it — **how much is left** — runs down to nothing. Press
-`]` to jump straight to the `oom` marker. Pin `w2` first and you watch it happen
-rather than discover that it did.
+`w2` has the same display size as its peers but reaches its cap first. Press `]` to
+jump to the `oom` marker and inspect the node.
 
 <Card title="Next: disk" icon="arrow-right" href="/write/disk">
   A write that can be refused.

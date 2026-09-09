@@ -4,22 +4,20 @@ import io.grpc.Channel;
 import java.util.List;
 
 /**
- * The machine a call is being served by, as the facade sees it.
+ * The node serving the current call, as exposed through the API facade.
  *
- * This is the seam between what a program may say to losim and what losim does
- * about it. {@code losim.api} names it; {@code losim.runtime} implements it. The
- * facade therefore depends on no runtime type, which is what lets a handler be
- * compiled and unit-tested against the API alone.
+ * {@code losim.api} declares this interface and {@code losim.runtime} implements
+ * it. The facade has no runtime dependency, so handlers can compile and run unit
+ * tests against the API alone.
  *
- * <p>Not part of the surface a student writes against.
+ * <p>This is an internal API; student code uses {@link Losim}.
  */
 public interface Bound {
 
     String name();
 
     /**
-     * What this machine is made of — cached, not measured: every field is final
-     * on the machine and known before it boots.
+     * The node's fixed capacity, cached from its instance specification.
      */
     Spec here();
 
@@ -33,14 +31,13 @@ public interface Bound {
     /** The simulation's seed. */
     long seed();
 
-    /** This machine's own store, shared by every service on it. */
+    /** The node's store, shared by its services. */
     java.util.concurrent.ConcurrentMap<String, Object> local();
 
     /**
-     * A channel to a peer, made once and owned by the machine.
+     * A channel to a peer, created once and owned by the node.
      *
-     * <p>Cached rather than built per call, because a handler that had to manage a
-     * channel's lifetime would have to be told about lifetimes at all.
+     * <p>The channel is cached so handlers do not manage its lifetime.
      */
     Channel dial(String peer);
 
@@ -50,21 +47,20 @@ public interface Bound {
     /** Declares how many units the call in flight processed. */
     void units(long n);
 
-    /** Takes a write, or refuses it because the disk is full. */
+    /** Records a write and throws if the disk cap would be exceeded. */
     void wroteDisk(long bytes);
 
     /**
      * Spends a declared duration against the compressed clock.
      *
-     * <p>The program's own time, not losim's, so the caller must leave this
-     * outside whatever region it is metering.
+     * <p>This is program time. Callers should keep it outside regions metered as
+     * losim's own work.
      */
     void sleep(double refMs);
 
     /**
-     * Charges a region of losim's own work to this machine's ledger, and to the
-     * span it happened inside — so neither the machine's reported allocation nor
-     * the handler's reported duration includes it.
+     * Charges losim's own work to the node ledger and enclosing span. The charge is
+     * excluded from the handler's allocation and duration.
      */
     void charge(long bytes, long nanos);
 }

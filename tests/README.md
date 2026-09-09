@@ -1,8 +1,7 @@
-# The reference suite
+# Reference suite
 
-Thirteen cases: nine gRPC systems a course could ship, and four that test the scaler
-engine rather than the systems. Each runs through the command line a student types
-and is asserted against the trace it wrote.
+The suite covers gRPC systems and scaler-engine cases. Each case runs through the
+student-facing command line and is asserted against its trace.
 
 ```bash
 bin/losim dev suite            # all of them, about five minutes
@@ -10,24 +9,19 @@ bin/losim dev suite t5 t8      # one or two
 bin/losim dev suite t10        # the engine against ground truth
 ```
 
-The nine systems take under a minute between them. The four engine cases take the
-rest: each scaled run fits its plan from a grid of about thirty small runs, and there
-are thirteen scaled runs across t10 to t13. That is the price of checking the one
-thing losim claims that a smaller simulator does not.
+The system cases take under a minute. The engine cases take longer because each
+scaled run fits a plan from about thirty small runs.
 
-**This is not `losim dev test`.** That one is losim's own acceptance criteria, calling
-into losim's classes. This one is the product surface, and the difference is the
-point:
+`losim dev suite` is separate from `losim dev test`. The latter tests losim's own
+classes; the suite tests the student-facing workflow:
 
-- the systems compile against `build/losim.jar` and the vendored gRPC **alone**,
-  never against `losim/src`; this is the same rule a lab is under, kept true by being used;
-- every case runs through `losim run <scenario.yaml> --cp …`, so the scenario
-  grammar, the class loading and the exit codes are exercised rather than bypassed;
+- the systems compile against `build/losim.jar` and the vendored gRPC only, never
+  against `losim/src`, matching the lab classpath;
+- every case runs through `losim run <scenario.yaml> --cp ...`, so the scenario
+  grammar, class loading, and exit codes are exercised;
 - every assertion reads the **trace JSON off disk**. The trace is the interchange
-  format (D9), and a build whose trace was unreadable would pass every check in
-  `losim dev test`;
-- **one JVM per case.** A suite whose cases share a JVM has an order, and an order
-  is a thing that breaks when somebody adds a case in the middle.
+  format (D9), so unreadable output fails the assertion;
+- each case uses its own JVM, which prevents state from one case affecting another.
 
 | | the system | asserts | catches |
 |---|---|---|---|
@@ -41,7 +35,7 @@ point:
 | **t8** oom | an accumulating reducer, run twice: once on a machine too small for its bucket, once on one with room | an `oom` naming machine, resource, cap and **measured** demand; the roomy run completes | the retained-heap walk regressing. Allocation cannot tell an accumulating reducer from a streaming one; only retention can |
 | **t9** causality | the pipeline again, across two zones | every server span opened under the call that reached it, on another machine; nothing served before it was called; concurrency reported concurrent | trace ordering, and the metadata-header propagation — take the parent from the ambient context instead and every span hangs off the root, silently |
 
-## Four that test the engine, not the systems
+## Engine cases
 
 These need a workload whose resources genuinely scale differently, or they prove
 nothing at all. The corpus is drawn from a Zipf distribution so that vocabulary
@@ -51,61 +45,54 @@ exponent of 1 for everything and every case below would pass vacuously.
 
 | | the runs | asserts | catches |
 |---|---|---|---|
-| **t10** groundtruth | one scaled run projecting to 48,000 records from a ladder topping out at 8,000, and one direct run **at** 48,000 | every projected resource within 25% of what actually happened, and never worse than multiplying the small run by the size ratio; memory attributed to distinct keys; the makespan **absent with a reason**; the plan recomputable from the trace | the engine silently degrading. The core contribution's only real test — every other case checks that a projection is *shaped* right, and a projection can be perfectly well shaped and completely wrong |
+| **t10** groundtruth | one scaled run projecting to 48,000 records from a ladder topping out at 8,000, and one direct run **at** 48,000 | every projected resource within 25% of what actually happened, and never worse than multiplying the small run by the size ratio; memory attributed to distinct keys; the makespan **absent with a reason**; the plan recomputable from the trace | the engine silently degrading. This is the core projection test; the other cases check projection shape, which can be correct even when the result is wrong |
 | **t11** scale-wordcount | five cells: 2, 4 and 8 workers clean, plus one kill and standing chaos at four | the attribution never moves with the cluster, and the memory exponent moves by <0.05 across the row — while disk *per machine* halves when the cluster doubles; four times the cluster shortens the phase that fans out and not the phase that merges; the weathered cells carry a fault amplification the clean one does not | the engine folding the cluster dimension into the data dimension — the failure mode that makes every projection plausible and wrong, because nothing looks broken |
 | **t12** refusal | a reducer that spills above a key count, and a cluster whose fixed 64 MB index dwarfs what the probe scale varies | the split-ladder test catches the bend and **R² over the whole ladder is still 0.88**; no projection is emitted for that resource while the others still are; the second run names its resource and does not happen at all | extrapolating past a discontinuity, and anyone later "simplifying" the check back to R². The second half is the reason that number is quoted in the refusal itself |
 | **t13** transparent | the same ladder four times: telemetry off, no payloads, everything rendered, and a thousand `reveal` calls per handler | the **fitted laws**, not the numbers: the allocation exponent moves by 0.0001 across all four, while losim charges itself 0.31 -> 4.45 -> 54.19 MB and meters 2,132 regions against 162,132 | the observer effect creeping back in. It regresses silently: every number stays plausible and only the projection is wrong. **The extreme case is mandatory** — at one reveal per handler a leak that halves an exponent is undetectable |
 
-The last one is also why the plan cache is keyed on the telemetry level: without that,
-three of t13's four runs would silently reuse the first one's plan and the case would
-be checking nothing.
+The plan cache is keyed on telemetry level so t13 does not reuse a plan fitted with a
+different level.
 
 ## Bugs found
 
-Eight bugs, none of which the phase suites could see, because each needs something
-they never do — end a run mid-call, read a value nobody read, join two events written
-by opposite sides of a call, or run a job at a telemetry level the tests never use.
+The phase suites missed these bugs because they require mid-call termination, values
+that no other test reads, events written by both sides of a call, or an unused
+telemetry level.
 
-- **Dangling spans.** A run that ended while a handler was still in flight left its
+- Dangling spans. A run that ended while a handler was still in flight left its
   span open forever. "No span dangles" is meant to mean the recorder lost track; it
-  had quietly come to mean "the job was tidy about finishing".
-- **An out-of-memory that arrived too late to count.** The cap was checked only on
+  had come to mean "the job was tidy about finishing".
+- An out-of-memory event arrived too late to count. The cap was checked only on
   the sampler's cadence, so a reducer handed its bucket in the closing moments was
   reported comfortably inside a cap it had already exceeded.
-- **Every call in every trace claimed to have lasted −1 ms.** `close(span, "ms",
+- Every call in every trace claimed to have lasted -1 ms. `close(span, "ms",
   span.grossMs())` evaluates its argument before `close` sets the span's end.
-- **One call, two types.** The client wrote `call` as a number and the server wrote
+- One call had two types. The client wrote `call` as a number and the server wrote
   it as a string, so nothing downstream could join the two halves of a call.
-- **A job could not run at `NO_PAYLOAD` at all.** `cluster.compute(...)` recorded its
+- A job could not run at `NO_PAYLOAD`. `cluster.compute(...)` recorded its
   result as `null` when payloads were off, and span details are a concurrent map,
-  which rejects a null value outright — so the recording killed the work it was
-  recording. Nothing had ever run a job at that level.
-- **The probe ladder was climbed on the wrong cluster.** It used the largest shape the
-  file declared rather than the cluster the run would actually use, so a scenario declaring
-  two workers got laws fitted on four. Invisible wherever the two happened to agree,
-  which was everywhere they had been tried.
-- **The plan cache ignored the telemetry level**, so a plan fitted with every payload
-  recorded would be handed straight to a run with them off — the same mistake as
-  fitting on clean runs and predicting a faulty one, and silent in the same way.
-- **Every run smaller than a kilobyte reported moving zero bytes.** The trace wrote
+  which rejects a null value outright. The recording code therefore killed the work
+  it was recording; no job had run at that level.
+- The probe ladder used the wrong cluster. It used the largest shape the file declared
+  rather than the cluster the run would actually use, so a scenario declaring two
+  workers got laws fitted on four. The error went undetected when the shapes agreed.
+- The plan cache ignored the telemetry level, so a plan fitted with every payload
+  recorded would be handed to a run with payloads off. The fitted plan then used the
+  wrong instrumentation level.
+- Every run smaller than a kilobyte reported zero bytes. The trace wrote
   megabytes to three decimal places, and three decimal places of a megabyte is a
   kilobyte. Correct totals, a unit that threw them away.
 
-And one gap rather than a bug: the trace carried no per-machine totals, so nothing
-downstream — a ground-truth comparison, the bill — could read what a machine actually
-consumed. They are now a fourth top-level channel beside `events`, `spans` and
-`series`.
+The trace also lacked per-machine totals. Ground-truth comparisons and the bill could
+not read what a machine consumed. Per-machine totals are now a top-level channel
+beside `events`, `spans`, and `series`.
 
-## The gallery
+## Gallery
 
-`tests/gallery/` is a second, smaller project beside the suite, and it is not a
-suite case. Nothing asserts anything about it. It is seven worked examples a
-student browses in the viewer, each one a design that does one thing the others do
-not, and it is here rather than in somebody's untracked working directory because
-a worked example that quietly stops loading is worse than no worked example at all
-— `GalleryTest` walks its simulations with the other two directories'.
+`tests/gallery/` is a separate project for viewer examples. The suite does not assert
+its results. `GalleryTest` walks its simulations with the other test directories.
 
-It has the same three parts the suite has, one level down:
+It contains these directories:
 
 | | |
 |---|---|
@@ -129,11 +116,9 @@ suite never produces: `heal`, which needs a run that partitions something, and
 down. `viewer/checks/stops.ts` says out loud that it cannot hold the scrubber to
 those without the gallery.
 
-Regenerating the traces is not part of any suite: it is minutes of cluster time,
-and the traces are build output. There is no verb for it yet, so it is the same
-three steps `losim dev suite` takes, by hand — compile the schema, compile the
-Java against the jar and the vendored gRPC **alone**, then one simulation per
-file:
+Regenerating the traces is not part of the suite because it takes several minutes
+and produces build output. Run the same commands manually: compile the schema,
+compile the Java against the jar and vendored gRPC, then run one simulation per file:
 
 ```bash
 PLATFORM=osx-aarch_64          # or linux-x86_64, or linux-aarch_64
@@ -155,6 +140,6 @@ for s in tests/gallery/simulations/*.yaml; do
 done
 ```
 
-`losim dev viewer traces --gallery` then copies them into the picker and prices
-each one beside it. Six finish in seconds; **scaled** takes about twelve, because
-it fits its plan from twenty-eight probe results first.
+`losim dev viewer traces --gallery` copies the traces into the picker and prices each
+one beside it. Most finish in seconds; **scaled** takes about twelve because it fits
+its plan from twenty-eight probe results first.

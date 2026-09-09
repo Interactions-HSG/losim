@@ -1,6 +1,6 @@
 ---
 title: "losim bill"
-description: "What a run cost, in four buckets — and at both scales when there are two."
+description: "Reports observed and projected costs in four buckets."
 icon: "receipt"
 ---
 
@@ -9,12 +9,12 @@ java -cp build/losim.jar losim.cli.Main bill <trace.json> [--prices <file>] [--j
 ```
 
 <ParamField path="--prices <file>" type="path" default="prices/eu-central-1.yaml">
-  A price list. If the file does not exist, the built-in defaults are used and the
-  command says so — **on stderr**, so that `--json` still produces a clean document.
+  A price list. If the file is missing, losim uses its built-in defaults and reports
+  that on **stderr**, keeping `--json` valid on stdout.
 </ParamField>
 
 <ParamField path="--json" type="flag">
-  The same four buckets as data, plus the **rates** they were computed from.
+  The four buckets as data, plus the **rates** used to compute them.
 
   ```json
   {
@@ -34,26 +34,23 @@ java -cp build/losim.jar losim.cli.Main bill <trace.json> [--prices <file>] [--j
   `projected` is present only for a scaled run. Notes go to **stderr**, so the
   document on stdout is clean and pipeable.
 
-  The `rates` object is the part that matters. Anything that wants to accrue cost **as
-  a run plays** — the viewer's [Ledger](/viewer/views#the-ledger) — cannot get that
-  from a total, and has to build the shape itself. Publishing the rates is what stops
-  that becoming two accountants who will eventually disagree: the viewer re-prices
-  nothing, every amount it shows is a line this command already computed, and each
-  line's shape is normalised so the closing total equals this bill to the rappen.
+  The `rates` object lets other tools display the bill without rebuilding its pricing
+  rules. The viewer's [Ledger](/viewer/views#the-ledger) uses the lines and rates
+  produced here, so its closing total matches this command.
 </ParamField>
 
 <Note>
 **The viewer looks for a bill by convention.** A run writes
 
-`<name>.bill.json` beside each `<name>.json`, and the page loads it if it is there.
-A trace dragged onto the page has none, and the money is then simply absent rather
-than invented. [Opening a trace ->](/viewer/opening-a-trace)
+`<name>.bill.json` beside each `<name>.json`; the page loads it when present. A trace
+dragged onto the page may have no bill, in which case the viewer shows no invented
+cost. [Opening a trace ->](/viewer/opening-a-trace)
 </Note>
 
-Billing is a **pure function of the trace**, so re-billing the same run under a
-different price list costs nothing and needs no re-run.
+Billing is a **pure function of the trace**, so a different price list needs no
+re-run.
 
-## The four buckets
+## Cost buckets
 
 | bucket | what it is a model of |
 |---|---|
@@ -63,17 +60,17 @@ different price list costs nothing and needs no re-run.
 | `build` | engineering time to construct and carry this design, per distinct service |
 
 <Note>
-They are printed **apart rather than summed**, because they are four different kinds
-of decision and adding them hides the trade every design makes. Replication triples
-capacity and adds to build in order to empty incidents; one number cannot say that.
+They are printed **apart rather than summed** because each bucket informs a
+different decision. Replication can increase capacity and build cost while
+reducing incidents.
 
-A line appears only when there is a quantity to put in it. A bucket nobody could
-fill in is not a bucket that cost nothing.
+A line appears only when there is a quantity to report. A refused bucket is not
+treated as zero cost.
 </Note>
 
-## Every line losim can print
+## Output lines
 
-So you can map a row of output back to the thing that caused it.
+Each row identifies the quantity that produced it.
 
 | bucket | line | unit |
 |---|---|---|
@@ -90,30 +87,28 @@ So you can map a row of output back to the thing that caused it.
 | `incidents` | `late finish` | seconds |
 
 <Note>
-**Capacity reads differently on the two sides.** What happened is one line per node,
-named, with its instance type — five nodes you can point at. What it is a model of
-is a single system line, because at full scale the number of nodes is itself
-something the engine had to project.
+**Capacity differs between the two sides.** The observed side has one named line per
+node. The projected side has one system line because full-scale node count is itself
+projected.
 </Note>
 
-## Inside each bucket
+## Bucket details
 
 
 <AccordionGroup>
   <Accordion title="capacity">
-    One line per node: `durationRefMs` as hours, times the instance's on-demand
-    rate from the catalogue, with a billing minimum (60s by default).
+    One line per node: `durationRefMs` converted to hours and multiplied by the
+    instance's on-demand rate, with a billing minimum of 60 seconds by default.
 
-    A node that received a `spot_notice` is billed at the spot rate — 70% off by
-    default — and its line says `(c5.large, spot)`.
+    A node that received a `spot_notice` is billed at the spot rate, 70% off by
+    default, and its line says `(c5.large, spot)`.
 
-    Priced in **reference** time, deliberately: the run took a few seconds of your
-    afternoon, but the job it is a model of takes what the simulated clock says.
+    Prices use **reference** time. The real run may take seconds, while the modeled
+    job takes the duration shown by the simulated clock.
   </Accordion>
   <Accordion title="consumption">
-    **Egress, at three distances.** Traffic inside one zone is free; everything that
-    left a zone is billed at a rate that depends on how far it went, so there are up
-    to three lines rather than one:
+    **Egress has three distances.** Traffic inside one zone is free. Traffic leaving
+    the zone uses a rate based on its destination:
 
     | line | rate | when |
     |---|---|---|
@@ -121,36 +116,30 @@ something the engine had to project.
     | `egress to another region` | `egress_cross_region_per_gb` | another region on the same continent |
     | `egress across an ocean` | `egress_intercontinental_per_gb` | anything further |
 
-    Read off each node's `egressMb`, which the run recorded by destination region
-    as the calls happened — only the caller ever knows both ends of a call. A trace
-    written before that existed has no split and is billed whole at the in-region
-    rate, which is the old behaviour rather than a guess at a distance nobody
-    recorded.
+    Read each node's `egressMb`, recorded by destination region as calls happen. A
+    trace without that split is billed at the in-region rate.
 
-    **Storage** — the worst node's `diskMb`, in GB-months, held for the period.
+    **Storage** is the worst node's `diskMb`, converted to GB-months for the period.
   </Accordion>
   <Accordion title="incidents">
-    Counted from events: `rpc_timeout` as reruns, `kill` plus `spot_notice` as
-    nodes lost, `oom` plus `disk_full` as nodes that filled up (priced at five
-    times a lost node), and a per-second penalty past the service level.
+    Counted from events: `rpc_timeout` as reruns, `kill` plus `spot_notice` as nodes
+    lost, `oom` plus `disk_full` as nodes that filled up, and a per-second penalty
+    past the service level.
 
-    **Never scaled.** The lines do appear in the projected account — but at the
-    numbers observed, carried across rather than grown. Three nodes lost
-    in the run is three nodes lost in the model of a job six times the size.
+    **Never scaled.** Projected incident lines use the observed counts. Three nodes
+    lost in the run remains three nodes lost in the projected model.
 
-    A node either failed or it did not, and an incident bucket extrapolated from
-    one afternoon would be a forecast dressed as an observation. So read the projected
-    incidents as *what this run cost*, not as what the bigger job would suffer.
+    Treat projected incidents as *what this run cost*, not as a forecast of failures
+    for the larger job.
 
   </Accordion>
   <Accordion title="build">
-    The number of **distinct services** the system carries, times a monthly cost per
-    service. Carried whether or not it is ever needed — which is what makes adding a
-    service a real decision.
+    The number of **distinct services** the system carries, multiplied by the monthly
+    cost per service. The charge applies whether or not a service handles a call.
   </Accordion>
 </AccordionGroup>
 
-## Two bills for a scaled run
+## Scaled runs
 
 ```
 what happened
@@ -181,28 +170,22 @@ what it is a model of
   TOTAL COST   CHF       0.2500   (of what could be priced)
 ```
 
-Read the two halves against each other:
+Compare the two halves:
 
-- `capacity` is per node on the left and one line on the right. What happened
-  is five nodes you can name; what it is a model of is a system whose size is
-  itself a projection.
-- `consumption` grew — 0.0001 to 0.0004 GB-month — because storage has a law
-  fitted to it.
-- `incidents` did not move. Those are the observed failures, carried across.
-- `capacity` contributed `0.0000` to the total because it was refused, which is
-  why the total says *of what could be priced* rather than standing as a number.
+- `capacity` is per node on the left and one line on the right. The projected
+  system size is not a list of observed nodes.
+- `consumption` grew from 0.0001 to 0.0004 GB-month because storage has a fitted law.
+- `incidents` did not move; the observed failures are carried across.
+- `capacity` contributed `0.0000` because its projection was refused, so the total
+  is labeled *of what could be priced*.
 
-A line the engine refused is a line nobody can fill in. Capacity is usually the
-largest of them and the one that depends on the timeline, which is the noisiest thing
-losim measures — so the uncertainty in what a design costs is rarely where anyone
-expects to find it.
+A refused line has no projected value. Capacity often depends on the measured
+timeline, so it is a common source of uncertainty in the total.
 
 
-Each projected quantity carries **its own** growth factor, because that is the whole
-point of the engine: resources do not share one. Cross-zone bytes are grown by the
-wire law rather than a law of their own — which calls cross a zone is a property of
-the topology, not of the size — and if the wire law itself was refused, the line is
-refused rather than printed with an observed quantity under a full-scale heading.
+Each projected quantity carries **its own** growth factor. Cross-zone bytes use the
+wire law because crossing a zone depends on topology, not workload size. If the wire
+law is refused, the line is refused instead of being printed as a full-scale value.
 
 <Card title="Price list keys" icon="tag" href="/ref/prices">
   Every field, and what changing it teaches.

@@ -1,6 +1,6 @@
 ---
 title: "Trust rules"
-description: "Everything that makes a number stop meaning what it says — flagged, never refused."
+description: "Flags for measurements that no longer describe the simulated system."
 icon: "shield-halved"
 ---
 
@@ -8,21 +8,21 @@ The verifier reads your compiled classes **before anything runs**, walking outwa
 from the classes the simulation's `runs:` paths name. It never fails a run.
 
 <Note>
-Each rule names something that yields a **wrong number** rather than a broken run.
-Code that reads the real clock still works; it simply reports the host's afternoon as
-though it were the simulated world, and the two differ by `k_time`.
+Each rule identifies code that produces a **wrong number** while the run continues.
+Code that reads the real clock still works, but it reports host time instead of
+simulated time. The two differ by `k_time`.
 
-So the useful output is not *"this code is bad"* but *"this number is a lower
-bound"*, attached to the node and to the figure it undermines.
+The verifier reports the affected number as a lower bound and attaches the finding
+to the node and resource it affects.
 </Note>
 
-## The eight rules
+## Trust rules
 
 <AccordionGroup>
   <Accordion title="REAL_CLOCK — reads the real clock" icon="clock">
     Every duration losim knows is reference time divided by `k_time`. A handler that
-    reads the host clock gets your afternoon instead, mixes the two scales in one
-    number, and reports whichever the code happened to use.
+    reads the host clock mixes host time with simulated time and reports the value
+    returned by whichever clock the code used.
 
     `System.nanoTime`, `System.currentTimeMillis`, `Instant.now`, `LocalDate.now`,
     `LocalDateTime.now`, `LocalTime.now`, `OffsetDateTime.now`, `OffsetTime.now`,
@@ -32,44 +32,43 @@ bound"*, attached to the node and to the figure it undermines.
   </Accordion>
 
   <Accordion title="REAL_SLEEP — sleeps in host milliseconds" icon="bed">
-    The same lie from the other end, and it is about the **unit** rather than about
-    waiting. A hand-rolled backoff that sleeps 100 ms sleeps 100 ms whatever `k_time`
-    is — at a compression of forty, four thousand reference milliseconds.
+    This rule concerns the **unit** used for waiting. A hand-rolled backoff that
+    sleeps 100 ms always sleeps 100 ms, regardless of `k_time`; at a compression of
+    forty, that equals four thousand reference milliseconds.
 
     `Thread.sleep`, `TimeUnit.sleep`, `LockSupport.parkNanos`, `LockSupport.parkUntil`
 
     **Instead:** `Losim.current().sleep(refMs)`.
 
-    Blocking on real work — a latch, a future, `Object.wait`, a bare
-    `LockSupport.park()` — is **not this and is not flagged**: waiting for something
-    that is happening is what a distributed program is mostly made of, and its length
-    is set by that something's own progress. Timed forms of those are left alone too,
+    Blocking on real work, such as a latch, future, `Object.wait`, or bare
+    `LockSupport.park()`, is allowed. Its duration is set by the operation being
+    awaited. Timed forms are also left alone,
     because the timeout is only spent when the wait fails and a static check cannot
     see which run that is.
   </Accordion>
 
   <Accordion title="UNATTRIBUTED_THREAD — work on a thread the node did not create" icon="ghost">
-    A node **is** its pool: every thread in it belongs to exactly one node,
-    which is how allocation is attributed at all. A thread outside it is summed by
-    nobody and contends for nobody's cores.
+    Every thread in a node's pool belongs to that node, which allows losim to
+    attribute allocation. Work on a thread outside the pool has no node attribution
+    and uses no node's modeled cores.
 
     `Thread.start`, `Thread.ofVirtual`, `Thread.startVirtualThread`, `Executors.*`,
     `ForkJoinPool.*`, `CompletableFuture.supplyAsync`, `CompletableFuture.runAsync`,
     `*.parallelStream`, `java.util.stream.*.parallel`
 
-    Virtual threads are here rather than in a rule of their own, because the failure
-    is the same one and switching to a platform thread would not fix it.
+    Virtual threads use this rule because they have the same attribution problem as
+    other threads outside a node's pool. Switching to a platform thread does not
+    change that problem.
 
-    **Instead:** spread work by **calling more nodes**, and let each node's own
-    concurrency come from serving several calls at once on its pool. Raw threads are
-    not banned — real concurrency inside a node is a feature. What is flagged is
-    work that is attributed to nobody.
+    **Use this approach:** spread work by **calling more nodes** and let each node's
+    pool serve several calls concurrently. Raw threads are allowed. The verifier
+    flags work that has no node attribution.
   </Accordion>
 
   <Accordion title="FILE_IO — writes to a real disk" icon="hard-drive">
     losim accounts disk through `Losim.current().wroteDisk(n)` and caps it per
-    node. Bytes written past that are invisible to the cap and to every projection
-    of it — and they are written to the host, outside the one-node boundary.
+    node. Bytes written past that limit bypass the cap and every projection of it.
+    They are written to the host, outside the one-node boundary.
 
     `java.nio.file.Files.*`, `FileOutputStream.*`, `FileInputStream.*`,
     `FileWriter.*`, `FileReader.*`, `RandomAccessFile.*`, `File.delete`, `File.mkdir`,
@@ -77,8 +76,8 @@ bound"*, attached to the node and to the figure it undermines.
   </Accordion>
 
   <Accordion title="OUTSIDE_THE_JVM — reaches outside the JVM" icon="globe">
-    *On one node* is the boundary the whole design rests on. Anything that leaves
-    the JVM is neither simulated, nor measured, nor reproducible on the next host.
+    *On one node* is the boundary used by the model. Anything that leaves the JVM
+    falls outside simulation, measurement, and cross-host reproducibility.
 
     `java.net.Socket.*`, `ServerSocket.*`, `DatagramSocket.*`, `URL.openStream`,
     `URL.openConnection`, `java.net.http.*`, `SocketChannel.*`,
@@ -86,10 +85,9 @@ bound"*, attached to the node and to the figure it undermines.
   </Accordion>
 
   <Accordion title="OWN_CHANNEL — a channel or server the system did not make" icon="plug">
-    losim is on both sides of every call as gRPC's own interceptors: that is where
-    latency, loss, partitions, cost, spans and byte counts come from. A channel built
-    by hand has none of them attached, so the call happens and nothing in the trace
-    records that it did.
+    losim's interceptors run on both sides of every call. They record latency, loss,
+    partitions, cost, spans, and byte counts. A channel built by hand lacks these
+    interceptors, so its calls produce no corresponding trace data.
 
     `ManagedChannelBuilder.*`, `ServerBuilder.*`, `Grpc.newChannelBuilder*`,
     `Grpc.newServerBuilder*`, `io.grpc.inprocess.*`, `io.grpc.netty.*`,
@@ -98,41 +96,36 @@ bound"*, attached to the node and to the figure it undermines.
     **Instead:** `Losim.current().channelTo(peer)` or `here.channelTo(node)`.
 
     <Note>
-    That is exactly what a [level-3 debugging harness](/write/debugging) uses — and
-    correctly, because there is no simulation to be wrong about. Keep such code in a
+    A [level-3 debugging harness](/write/debugging) uses these classes correctly
+    because it has no simulation. Keep such code in a
     test source set that no service or job references, and the walk never reaches it.
     </Note>
   </Accordion>
 
   <Accordion title="SHARED_STATE — mutable state in a static field" icon="share-nodes">
     A static field is one field for the whole system, so a system of eight "nodes"
-    holding a static map holds **one map**. It is the one flag that undermines every
-    per-node figure at once.
+    holding a static map holds **one map**. Every node's figure then includes the
+    shared value.
 
-    **Constants are not this.** `static final String[] WORDS = {"a", "the"}` is a
-    table and is not flagged; `static final Map M = new HashMap<>()` is one map for
-    eight nodes and is. The difference is that nothing is *called* to build the
-    second — the class initialiser is read, rather than the declaration guessed at.
+    Constants are separate from mutable shared state. `static final String[] WORDS =
+    {"a", "the"}` is a table and is not flagged. `static final Map M = new
+    HashMap<>()` is one map for eight nodes and is flagged. The verifier reads the
+    class initializer to distinguish these cases.
   </Accordion>
 
   <Accordion title="MACHINES_TOUCHING — one node reaching into another" icon="hand">
-    The sharpest form of the above, and worth saying separately because it is not a
-    measurement problem but a modelling one. A static handle on another node's
-    service is a call that crosses no network, waits out no latency, survives a
-    partition, and keeps working after the node at the other end is killed.
+    A static handle on another node's service is a modelling error. The call crosses
+    no network, waits out no latency, survives a partition, and keeps working after
+    the node at the other end is killed.
   </Accordion>
 </AccordionGroup>
 
-## Not flagged, on purpose
+## Unflagged behavior
 
 <Note>
-**Nothing is flagged for determinism's sake.** Unseeded `Random`, `Math.random` and
-identity-hash iteration order are all fine, because runs are not reproducible anyway
-and a sweep of seeds is the answer to that.
+Unseeded `Random`, `Math.random`, and identity-hash iteration order are allowed.
+Runs are not reproducible, so use a sweep of seeds to measure their variation.
 
-**Raw threads are not banned.** Real concurrency inside a node is a feature. Work
-outside the node's own pool is merely attributed to nobody, and that is what gets
-said.
 </Note>
 
 ## Consequences of each flag
@@ -148,11 +141,11 @@ meaningless:
 | `wire` | its wire bytes are a lower bound | `wireMb` |
 | `isolation` | its figures are not only its own | **all of them** |
 
-Above `scale: 1` the caveat is printed **beside the projection it undermines** — because
-an error bar says how well a law was fitted, and says nothing about whether what it
-was fitted to meant anything.
+Above `scale: 1`, the caveat is printed **beside the projection it undermines**. An
+error bar describes fit quality; it does not establish that the measured value was
+valid.
 
-## A nested class is walked with the class enclosing it
+## Nested classes inherit enclosing-class findings
 
 The rules are applied to a class **and every class it is declared inside**. So a
 service written as a nested class carries whatever its enclosing class does.
@@ -172,22 +165,20 @@ Placed as it stands, every run reports
 srv  built its own channel or server, which no interceptor is attached to
 ```
 
-— and the node's wire figures are marked, though the handler itself does
-nothing wrong. **Move the service to a file of its own.** That is edit one on the
-[adoption page](/start/adopt), and it is the whole of the fix.
+The node's wire figures are marked, although the handler itself does nothing wrong.
+**Move the service to a file of its own.** See the [adoption page](/start/adopt).
 
 <Note>
-Walking the enclosing class is not an over-approximation to be tuned away. A
-handler that reaches an enclosing class's static field really is sharing state
-across nodes, and the walk is what sees it.
+The enclosing-class walk is intentional. A handler that reaches an enclosing class's
+static field shares state across nodes, and the walk detects it.
 </Note>
 
 ## Generated code is skipped
 
-protoc's output trips these rules freely — a `*Grpc` class holds six mutable statics.
-It is recognised by protobuf's own superclass and grpc-java's `@GrpcGenerated`, not
-by a guess about its name.
+protoc's output often matches these rules because a `*Grpc` class holds six mutable
+statics. The verifier recognises generated code through protobuf's superclass and
+grpc-java's `@GrpcGenerated`.
 
-<Card title="The verifier's read" icon="microscope" href="/engine/trust">
-  Including the two things a verifier reading only instructions would miss.
+  <Card title="The verifier's read" icon="microscope" href="/engine/trust">
+  This includes information that a verifier reading only instructions would miss.
 </Card>

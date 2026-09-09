@@ -8,17 +8,13 @@ import java.util.List;
 /**
  * {@code AGENTS.md}, for the project being adopted.
  *
- * <p>The other half of the migration. {@link Adopt} refuses to touch a
- * {@code .java} because guessing what a program means produces a system its author
- * did not write; this is how the Java half gets done anyway — by the coding agent
- * of the person who wrote it, from the same three classes of finding the command
- * just printed.
+ * <p>{@link Adopt} does not edit Java files because it cannot infer their intent.
+ * This class records the findings in {@code AGENTS.md} so the project's coding agent
+ * can make those edits.
  *
- * <p>The body is a resource, so it is written and reviewed as prose rather than as
- * a string constant. What is appended is what {@link Scan} found <b>in this
- * project</b>, because an agent reading a generic file has to rediscover
- * specifics the command already knows — and because a terminal scrolls away and a
- * file in the repository does not.
+ * <p>The body is a resource and the appended section contains the findings from
+ * {@link Scan} for this project. The file keeps those details available after the
+ * command exits.
  */
 final class Agents {
     private Agents() {}
@@ -31,29 +27,26 @@ final class Agents {
         try (InputStream in = Agents.class.getResourceAsStream("/losim/AGENTS.md")) {
             if (in != null) return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         } catch (Exception ignored) {
-            // A jar without the resource is a jar built by hand. The findings below
-            // are the half that could not be written any other way, so they still go.
+            // Keep project-specific findings available even when the jar has no resource.
         }
         return "# losim, under a gRPC system that already works\n\n"
                 + "(This jar carries no copy of the general instructions. The manual has"
                 + " them: /start/adopt.)\n";
     }
 
-    /** What was found here, in the three classes, with a line number each. */
+    /** Formats the findings with their source lines. */
     private static String here(Scan scan, Path root) {
         var sb = new StringBuilder("## This project\n\n");
         sb.append("What `losim adopt` found in this repository, at the moment it ran."
                 + " `./losim check` re-runs exactly this.\n\n");
 
         if (!scan.services().isEmpty()) {
-            // The pair a `runs:` entry is written from: the file a node is given,
-            // and the service it thereby serves. Named together, because an agent
-            // that has to derive one from the other derives it wrong.
+            // Keep the source file and the service it provides together.
             sb.append("**Services.** ");
             var said = new java.util.ArrayList<String>();
             for (Scan.Service s : scan.services()) {
                 said.add("`" + scan.serviceOf(s) + "` in `" + rel(root, s.file())
-                        + ":" + s.line() + "`" + (s.nested() ? " (nested — see edit 1)" : ""));
+                        + ":" + s.line() + "`" + (s.nested() ? " (nested)" : ""));
             }
             sb.append(String.join(", ", said)).append("\n\n");
         }

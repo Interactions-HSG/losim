@@ -1,6 +1,6 @@
 ---
 title: "spans"
-description: "Intervals with parent IDs that cross rpc boundaries."
+description: "Trace intervals with parent IDs across RPC boundaries."
 icon: "bars-staggered"
 ---
 
@@ -23,53 +23,50 @@ icon: "bars-staggered"
 | `units` | present only when the handler declared a count |
 | `detail` | see below, sorted by key |
 
-## Two kinds, and that is all
+## Span types
 
 <ResponseField name="rpc" type="on the caller">
   `detail` carries `to`, `bytes` (the request), `ms`, and `netRefMs` when the
   network had any latency. At `FULL`, `arg` and `result`.
 
-  A call that was never delivered carries `delivered: false` and `why`.
+  An undelivered call carries `delivered: false` and `why`.
 </ResponseField>
 
 <ResponseField name="handler" type="on the callee">
   Opened **under the caller's `rpc` span**. `detail` carries `call`, `inBytes`,
-  `outBytes` and `status`; `error` when it failed; `arg` and `result` at `FULL`.
+  `outBytes`, and `status`; failed calls also carry `error`. At `FULL`, it includes
+  `arg` and `result`.
 </ResponseField>
 
 <Note>
-There were five kinds before 3.0 — `job`, `phase` and `compute` besides these two.
-They existed because the thing that started the work was a Java object running
-outside any call, so it had no span of its own and nothing to nest under.
+Before 3.0, the trace also had `job`, `phase`, and `compute` spans. They represented
+work started by a Java object outside an RPC.
 
-It is a gRPC service now. Its handler span **is** the root, labelled
-`losim.Job.Run`, and everything else nests beneath it through the same parent header
-every other call uses. A named stretch of work is a call to a service that does it,
-which is a thing the trace, the bill and the critical path can all already see.
+The entry point is now a gRPC service. Its handler span **is** the root, labeled
+`losim.Job.Run`, and other spans nest beneath it through the same parent metadata as
+all other calls.
 </Note>
 
-## The root
+## Root span
 
-The one span with `parent: 0` is the `handler` on the entry node labelled
-`losim.Job.Run`. Its `t0` is zero and its `t1` is when the simulation ended.
+The span with `parent: 0` is the entry node's `handler`, labeled `losim.Job.Run`.
+Its `t0` is zero and its `t1` is the simulation end.
 
-A run that ended badly can leave other spans at the root — a handler on a node that
-was killed, whose caller's span went away with it. Those are dangling on purpose and
-carry `ABANDONED`.
+A run that ends while a node is being killed can leave a handler at the root after
+its caller span is gone. Such spans are intentional and carry `ABANDONED`.
 
-## The parent crosses the wire
+## Parent propagation
 
 <Note>
-The callee's span is opened under a parent id that arrived in a **gRPC metadata
-header**, from a thread on another node this one has no context from.
+The caller sends the parent id in a **gRPC metadata header**. The callee reads that
+header when it opens its handler span.
 
-Taking the parent from the ambient context instead would hang every server span off
-the root — which is to say there would be no distributed call stack at all. If you
-see spans hanging off `0` that should not be, the call went over a channel losim did
-not make.
+Using ambient context instead would attach every server span to the root and lose the
+distributed call stack. A span unexpectedly attached to `0` indicates a channel
+without losim's transport.
 </Note>
 
-## Printing the tree
+## Print the tree
 
 ```python
 import json, collections
@@ -97,7 +94,7 @@ coordinator  handler  losim.Job.Run                       0.0 ->   2416.0  OK
     w1         handler render.Thumbnailer.Thumbnail      82.6 ->     97.4  OK
 ```
 
-## Two durations, and the difference is losim's
+## Gross and program durations
 
 | | |
 |---|---|
@@ -105,8 +102,7 @@ coordinator  handler  losim.Job.Run                       0.0 ->   2416.0  OK
 | **program** | gross minus whatever losim spent inside that window, on that thread |
 
 `handler_end` events carry both as `grossMs` and `ms`. The scale engine fits the
-**program** duration, because reporting a handler as slower for having been watched
-would make every projection depend on how much you instrumented it.
+**program** duration so instrumentation cost does not affect the projection.
 
 ## `ABANDONED`
 
@@ -114,11 +110,9 @@ would make every projection depend on how much you instrumented it.
 { "status": "ABANDONED", "detail": { "why": "the run ended while this was in flight" } }
 ```
 
-A run can end with work still in flight — a handler whose caller gave up, a node
-killed mid-call. Those spans are real and so is their end. Left open they would be
-indistinguishable from a recorder that lost track, which is the one thing a dangling
-span is supposed to mean.
+A run can end with work still in flight, such as a handler whose caller gave up or a
+node killed mid-call. The span is closed explicitly so it is distinguishable from a
+recorder that lost track.
 
-That includes the root. Kill the entry node and `losim.Job.Run` closes `CANCELLED`,
-with a `failed` event saying which node went away — rather than a span that simply
-never ends.
+This includes the root. If the entry node is killed, `losim.Job.Run` closes
+`CANCELLED` and a `failed` event names the node.

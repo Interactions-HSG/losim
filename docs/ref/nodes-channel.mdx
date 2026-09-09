@@ -1,6 +1,6 @@
 ---
 title: "nodes"
-description: "The run's closing per-node measurements."
+description: "Closing per-node measurements from a run."
 icon: "server"
 ---
 
@@ -17,17 +17,14 @@ icon: "server"
 ]
 ```
 
-## Its own channel
+## Closing measurements
 
 <Note>
-These are **not moments** — they are the run's closing balance. Anything that
-reasons about quantities rather than about what happened (the bill, a comparison
-against ground truth, a node's row in the viewer) needs them without reconstructing
-a peak from a sampled series that was quantised for scrubbing and may have missed
-the last walk entirely.
+These are **closing measurements**, not samples. Billing, comparisons, and the
+viewer use them directly instead of reconstructing peaks from sampled data.
 
-A final heap walk happens after `Job.Run` returns, so a node that filled up in the
-last tick is not reported at whatever it held eight ticks ago.
+losim performs a final heap walk after `Job.Run` returns, so the result includes
+a node that filled up during the last tick.
 </Note>
 
 ## Identity
@@ -35,7 +32,7 @@ last tick is not reported at whatever it held eight ticks ago.
 | field | |
 |---|---|
 | `name` | |
-| `instance` | its instance type — recorded here rather than read back off a `boot` event, so a bill does not depend on a telemetry level being on |
+| `instance` | its instance type |
 | `zone` | |
 | `vcpu` | |
 | `serves` | the **service** names it offered, as `runs:` keyed them |
@@ -46,41 +43,37 @@ last tick is not reported at whatever it held eight ticks ago.
 
 | field | |
 |---|---|
-| `memoryMb` | **peak retained heap** — the most it was ever seen holding |
+| `memoryMb` | **peak retained heap**, the largest retained value measured |
 | `allocMb` | everything it allocated, losim's own subtracted |
 | `diskMb` | bytes declared through `wroteDisk` |
 | `wireMb` | bytes out |
 | `inMb` | bytes in |
-| `crossZoneMb` | bytes this node's calls sent across a zone boundary **in both directions** — request out and answer back — which is the traffic anyone pays for |
+| `crossZoneMb` | bytes this node's calls sent across a zone boundary **in both directions**, including the request and response |
 | `egressMb` | the same bytes again, split by the **region** they went to. Absent when nothing left the zone |
 | `calls` | handlers it completed |
 
 <Warning>
-`memoryMb` and `allocMb` are different questions. A design that accumulates and one
-that streams **allocate about the same**; only the first one retains, and only
-retention decides an out-of-memory.
+`memoryMb` and `allocMb` measure different things. Streaming and accumulating can
+produce similar allocation totals, but only retained memory counts toward an
+out-of-memory failure.
 </Warning>
 
-## losim's overhead
+## losim overhead
 
 | field | |
 |---|---|
 | `losimMb` | bytes losim itself allocated on this node's threads, and took back off `allocMb` |
 | `losimStops` | how many times it stopped to meter |
 
-Published rather than kept private, because *"`allocMb` is the program's own"* is a
-claim, and a reader is entitled to see the size of what was taken off it before
-believing it. [Self-accounting ->](/engine/self-accounting)
+These values show how much losim removed from `allocMb`.
+[Self-accounting](/engine/self-accounting)
 
 ## Units
 
-Megabytes, to six decimal places — about a byte. Megabytes because that is what the
-scale engine names its laws in, so an observed figure and a projected one sit beside
-each other without a conversion in between. Six places because three would be a
-kilobyte, and a run small enough to be measured in kilobytes would report every byte
-it moved as zero.
+Values use megabytes to six decimal places. The scale engine uses the same unit
+for observed and projected laws, preserving small measurements.
 
-## Reading it
+## Read the data
 
 ```python
 import json

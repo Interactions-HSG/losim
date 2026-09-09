@@ -1,11 +1,11 @@
 ---
 title: "Concurrency"
-description: "The pool is the node. Real threads, real queueing, and one rule you cannot break."
+description: "Node thread pools, queueing, and concurrency rules."
 icon: "microchip"
 ---
 
-Each node has one thread pool, sized to its **vCPU count** from the instance
-catalogue. Four concurrent calls into a two-vCPU node genuinely queue.
+Each node has one thread pool sized to its **vCPU count** from the instance
+catalogue. Four calls into a two-vCPU node queue.
 
 ```
 a1.medium   1 vCPU        m5.large   2 vCPU
@@ -14,18 +14,17 @@ c5.xlarge   4 vCPU        m5.2xlarge 8 vCPU
 c5.4xlarge 16 vCPU        r5.large   2 vCPU
 ```
 
-Nothing about this is simulated. They are real platform threads on a real wall
-clock, and a handler really can race with itself.
+The pool uses platform threads and the wall clock. Multiple invocations of one
+handler can run concurrently.
 
-## Queueing is visible
+## Queueing
 
 ```json
 { "kind": "queue_wait", "vm": "w3", "detail": { "ms": 18.4 } }
 ```
 
-Recorded when a call waited more than a microsecond for a core. Without it, a
-queued call would be indistinguishable from a slow one — which is the single most
-common misreading of a system under load.
+The event is recorded when a call waits more than a microsecond for a core. It
+separates queueing from handler execution time.
 
 The series carries both halves per node:
 
@@ -35,19 +34,17 @@ The series carries both halves per node:
 | `queued` | handlers **waiting** for one |
 | `busyPct` | `inflight ÷ vcpu`, capped at 100 |
 
-A node at `busyPct: 100` with a growing `queued` is a node you are sending
-too much to. A node at `busyPct: 0` with work left to do is a node your
-placement forgot about.
+At `busyPct: 100` with growing `queued`, the node is receiving more work than its
+pool can serve. A node at `busyPct: 0` while work remains may be missing from
+placement.
 
-## The rule you cannot break
+## Thread ownership
 
 <Warning>
 **Work must run on the node's own threads.**
 
-Every thread in a node's pool belongs to exactly one node, which is what
-makes `getThreadAllocatedBytes` an exact attribution rather than an estimate. A
-thread you started yourself is summed by nobody and contends for nobody's cores, so
-the node reads cheaper and less busy than it is.
+Every pool thread belongs to one node, which defines the attribution boundary for
+`getThreadAllocatedBytes`. Application-created threads are outside that boundary.
 
 ```java
 new Thread(() -> heavyWork()).start();                    // flagged
@@ -57,8 +54,8 @@ list.parallelStream().map(this::heavyWork).toList();      // flagged — common 
 Thread.ofVirtual().start(() -> heavyWork());              // flagged
 ```
 
-None of them throw. Each produces a node whose memory and CPU figures are
-wrong, so the verifier names the file and line instead.
+These calls do not necessarily throw. They produce measurements that omit work, so
+the verifier reports the file and line.
 </Warning>
 
 A handler that reaches for `Losim.current()` from such a thread gets told directly:
@@ -69,33 +66,28 @@ loses its identity, and its memory and CPU are attributed to nobody.
 Wrap the node's executor with Context.currentContextExecutor.
 ```
 
-## The alternative: more calls, more nodes
+## Ways to add concurrency
 
 <Columns cols={2}>
   <Card title="Serve more calls at once" icon="arrows-split-up-and-left">
-    A node's concurrency comes from its pool serving several calls
-    simultaneously. Batch smaller, dispatch more calls, and the pool does the rest
-    — that is what the pool is.
+    A node's pool serves several calls simultaneously. Smaller batches and more
+    concurrent calls let the pool use its available cores.
   </Card>
   <Card title="Call more nodes" icon="server">
-    Work is spread by **calling peers**, not by starting threads. That is the
-    whole model: a system gets faster by being a system.
+    Spread work by **calling peers**, not by starting application threads.
   </Card>
 </Columns>
 
 <Note>
-Raw threads are **not banned**, and real concurrency inside a node is a feature.
-What is flagged is work outside the node's own pool, because that work is
-attributed to nobody. If you genuinely need to fan out inside one node, the
-mechanism exists — but for almost everything a course asks for, more concurrent
-calls is the answer, and it is the answer that scales.
+Raw threads are **not banned**. The verifier flags work outside the node pool because
+it cannot attribute that work to a node. Calling peers is usually the portable way to
+distribute work.
 </Note>
 
-## Concurrency inside a handler is real
+## Shared handler state
 
-Two calls into the same service instance run on two threads against the same
-fields. If your service holds a `HashMap`, two handlers can corrupt it — and
-losim will not save you, because that is your program behaving exactly as it would.
+Two calls into the same service instance can run on separate threads and access the
+same fields. A non-thread-safe `HashMap` can therefore be corrupted.
 
 ```java
 public final class Shrinker extends ThumbnailerBase {
@@ -105,9 +97,8 @@ public final class Shrinker extends ThumbnailerBase {
 ```
 
 <Tip>
-That is worth causing on purpose once. Set a service's instance to `c5.4xlarge`
-(16 vCPUs), fan out enough calls to keep them all busy, use a plain `HashMap`, and
-watch what comes out. It is the cheapest lesson in the course.
+To reproduce contention, use `c5.4xlarge` (16 vCPUs), dispatch enough calls to keep
+the pool busy, and use a plain `HashMap`.
 </Tip>
 
 ## Making contention happen
@@ -119,11 +110,10 @@ nodes:
     runs: { Thumbnailer: src/lab/Shrinker.java }
 ```
 
-Dispatch eight 100 refMs calls at it and you get roughly four waves, not one and not
-eight. That is the model working, and it is the thing to check first if a system's
-timings look impossibly good.
+Dispatch eight 100 refMs calls at it; they complete in roughly four waves. This is a
+useful first check when timings appear too low.
 
-## See it
+## Observe queueing
 
 Save this as `queueing.yaml`. One two-vCPU node, eight concurrent calls at 100 refMs:
 
@@ -143,13 +133,9 @@ Experiments.here()
         .show();
 ```
 
-**What to look for.** Four waves rather than one or eight, and `queue_wait`
-events on the scrubber. Pin `small` in the [node panel](/viewer/views) and watch
-`inflight` sit at 2 while `queued` climbs. Then change the instance to `c5.4xlarge`
-and run it again into `build/results/queueing-16.json`; put the two up
-[on one clock](/viewer/views#two-runs-on-one-clock) and watch where the `queue_wait`
-markers are on each. That is the whole difference between the two runs, in the one
-place it is visible.
+The run should show four waves, `queue_wait` events, and `inflight` at 2 while
+`queued` grows. Repeat with `c5.4xlarge` and compare the runs
+[on one clock](/viewer/views#two-runs-on-one-clock).
 
 
 

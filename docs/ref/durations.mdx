@@ -1,10 +1,10 @@
 ---
 title: "Durations"
-description: "Reference-node time, and why a bare number is refused."
+description: "Reference-node time and the required duration syntax."
 icon: "clock"
 ---
 
-Every duration in a simulation is **reference-node time** and has to say so.
+Simulation durations use **reference-node time** and must include a unit.
 
 ```yaml
 at:          900 refMs
@@ -17,12 +17,12 @@ crossZone:   3 refMs
 | | |
 |---|---|
 | `refMs`, `refms` | reference milliseconds |
-| `refSeconds`, `refSec`, `refS`, `refs` | reference seconds — multiplied by 1000 |
+| `refSeconds`, `refSec`, `refS`, `refs` | reference seconds, multiplied by 1000 |
 
 The number may have a decimal point, and whitespace before the unit is optional:
 `0.5 refMs`, `2refSeconds` and `900refMs` are all accepted.
 
-## Bare durations, refused
+## Bare durations are refused
 
 ```yaml
 at: 900        # refused
@@ -38,19 +38,19 @@ k_time.
 ```
 
 <Note>
-**Why this is worth refusing.** A run is compressed by `k_time`, which is a global
-factor whoever writes the simulation never sees at the point of writing a duration. A
-bare `900` could mean 900 milliseconds of the simulated world or 900 of your
-afternoon, and at 40x those differ by a factor of forty.
+**Why this is refused.** A run is compressed by `k_time`, a global factor that is
+not known when a duration is written. A bare `900` could mean 900 milliseconds in
+the simulated world or 900 wall-clock milliseconds. At 40x, those values differ
+by a factor of forty.
 
-Writing `refMs` costs five characters and removes the whole class of question.
+Writing `refMs` removes the ambiguity.
 </Note>
 
-## The reference node
+## Reference node
 
-Two vCPUs, running alone, nothing else going on. A duration declared in refMs is a
-claim about how long something takes *there*, which stays true whatever system it
-lands on:
+The reference node has two vCPUs and no competing work. A duration in `refMs`
+states how long the work takes on that node. The statement remains the same when
+the work runs on another node:
 
 ```
 actual wall time  =  refMs x (2 / vcpu) x degradeFactor / k_time
@@ -64,12 +64,13 @@ actual wall time  =  refMs x (2 / vcpu) x degradeFactor / k_time
 | a node under `degrade: factor: 4` | x4 on top |
 
 <Warning>
-The multiplication applies to **work** — what `simulatedDuration:` declares. It does **not** apply to
-waiting: a node at half speed computes slower but does not wait longer, so
+The multiplication applies to **work**, which is what `simulatedDuration:`
+declares. It does not apply to waiting. A slower node computes for longer, but a
+scheduled wait does not stretch, so
 `Losim.current().sleep(refMs)` is divided by `k_time` and nothing else.
 </Warning>
 
-## Durations in Java
+## Java durations
 
 Two places, and both are reference time as well:
 
@@ -78,9 +79,9 @@ Losim.current().sleep(200);                                   // 200 refMs
 stub.withDeadlineAfter(2_000, TimeUnit.MILLISECONDS);         // 2000 refMs
 ```
 
-The deadline is written in milliseconds because that is gRPC's API; losim divides
-the remaining time by `k_time` in the client interceptor, at the one place where
-your intent is still visible.
+The deadline uses milliseconds because that is gRPC's API. losim divides the
+remaining time by `k_time` in the client interceptor, where the deadline's intent
+is still available.
 
-`Thread.sleep(200)` is 200 milliseconds of **your afternoon** — the one duration in
-a run that `k_time` never touches. That is why it is flagged.
+`Thread.sleep(200)` is 200 wall-clock milliseconds and is not affected by `k_time`.
+The verifier flags it.

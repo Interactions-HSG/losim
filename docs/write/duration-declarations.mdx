@@ -1,0 +1,131 @@
+---
+title: "Duration declarations"
+description: "The simulatedDuration block and reference-time costs."
+icon: "stopwatch"
+---
+
+```yaml
+simulatedDuration:
+  src/lab/Shrinker.java:
+    Thumbnail: { fixed: 3 refMs, perUnit: 240000 refNs }
+```
+
+**Declare durations in the simulation.** A duration describes modeled node work and
+keeps the handler independent of losim.
+
+## Declared time
+
+losim shrinks the workload **and** the nodes by the same factor, so memory and bytes
+retain the same relationship to capacity.
+
+Time does not scale because **the host's CPU is not scaled**. It runs at full speed
+on the reduced workload, so handlers can be effectively instant. Without a declared
+duration there is no modeled queueing, contention, deadline pressure, or critical
+path.
+
+Measuring durations at probe size is unreliable because host jitter can dominate the
+handler time.
+
+<Note>
+The duration is declared and **optional**. An RPC with no duration takes no time,
+rather than using an arbitrary value.
+</Note>
+
+## Reference time
+
+`refMs` is time on a **reference node** with two vCPUs running alone. The server
+interceptor applies:
+
+```
+refMs x machineFactor / k_time
+```
+
+| | |
+|---|---|
+| `machineFactor` | `2 / vcpu`, from the instance catalogue. A 2-vCPU node takes 1x; a 4-vCPU node takes 0.5x; a degraded node multiplies on top. |
+| `k_time` | the run's global compression. |
+
+A declaration of `refMs = 3` means *three milliseconds of work on a two-core node*.
+The value remains comparable across systems and compression levels.
+
+## Duration terms
+
+<ParamField path="refMs" type="double" default="0">
+  What one call takes **regardless of its contents**: the fixed part. losim applies it
+  before the handler runs on the node's pool thread.
+</ParamField>
+
+<ParamField path="perUnit" type="double" default="0">
+  What each input unit adds, in reference **nanoseconds**. The handler declares the
+  count with `Losim.current().units(n)`, and losim applies this part **after the body
+  returns**, before the response leaves.
+
+  The caller therefore waits for the declared work to finish.
+</ParamField>
+
+<Warning>
+A handler that never calls `units(n)` is charged the **fixed part only**, and its
+span says so. If your per-unit term looks like it is doing nothing, that is
+almost always why.
+</Warning>
+
+## Choosing values
+
+Choose values that represent the design being compared. The declaration makes the
+timing assumption explicit.
+Use these rough anchors:
+
+| | roughly |
+|---|---|
+| a hash lookup, a field copy | far below 0.01 refMs — do not annotate it |
+| parsing or validating a message | 0.1 – 1 refMs |
+| an image operation, a compression, a sort of a few thousand items | 1 – 20 refMs |
+| something you would put on a dashboard | 50 refMs and up |
+
+<Tip>
+Keep declarations **consistent between designs you compare**. A handler declared at
+3 refMs in one design and 30 in another compares timing assumptions, not designs.
+</Tip>
+
+## Timing floor
+
+The clock cannot express a duration finer than about **0.05 ms** of real time. losim
+records smaller costs as owed, but refuses a projection when the timing resolution is
+insufficient:
+
+```
+this run is clocked at 40x real time, and lab.Thumbnailer.Capacity costs 0.0004
+refMs — 6x below what the sleep debt can still settle at that compression, so its
+timings would drift rather than be owed. Give that cost site more to do, or lower
+the scale: at scale 1 the clock runs at 20x.
+```
+
+`k_time` belongs to the engine and is derived from [the scale](/ref/scale). A cost
+site that is too small for the available resolution must be increased or omitted.
+
+[Sleep debt ->](/engine/sleep-debt)
+
+## Declaration path
+
+Under the **path** named by `runs:`, followed by the RPC:
+
+```yaml
+nodes:
+  workers: { count: 4, prefix: w, instance: c5.large, zone: eu-central-1a, runs: { Thumbnailer: src/lab/Shrinker.java } }
+
+simulatedDuration:
+  src/lab/Shrinker.java:
+    Thumbnail: { fixed: 3 refMs, perUnit: 240000 refNs }
+```
+
+A duration belongs to the **code**, not only the RPC name. Two implementations of
+one RPC can therefore use different declarations.
+
+If the path is not run by any node, or the file does not serve the named RPC, the
+loader refuses the simulation before execution and reports the source line.
+
+[The full grammar ->](/ref/simulated-duration)
+
+<Card title="Next: waiting" icon="arrow-right" href="/write/waiting">
+  A backoff is not work, and the distinction affects measurements.
+</Card>

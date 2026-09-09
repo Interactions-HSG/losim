@@ -1,32 +1,29 @@
 ---
 title: "The simulation file"
-description: "Every top-level key, and the rule that governs all of them."
+description: "Top-level keys, validation rules, and a complete example."
 icon: "file-lines"
 ---
 
-A distributed system, its weather and its bad afternoon — as data. Nothing here is
-authored that the file could find out for itself. Everything that needs code points
-at a `.java` file, so the simulation stays diffable, sweepable and readable by
-someone who did not write it.
+The simulation file stores the system, failures, and timing. It references code by
+`.java` path, which lets runs vary without changing source files.
 
-## Every top-level key
+## Top-level keys
 
 ```yaml
 seed: 7                    # long,   default 1
 scale: 5000                # number, default 1, at least 1
 
-nodes:             { … }   # required, at least one
-input:             { … }
-network:           { … }
-retries:           [ … ]
-simulatedDuration: { … }
+nodes:             { ... }   # required, at least one
+input:             { ... }
+network:           { ... }
+retries:           [ ... ]
+simulatedDuration: { ... }
 ```
 
-Seven, and any other key at this level is refused with the line it was written on.
-There is no `job:`, because the node that runs `losim.Job` is the one that starts
-the work; no `mode:`, because `scale: 1` needs no model and anything above it does;
-and no `faults:` or `chaos:` — the two keys that named what goes wrong are one
-`failures:` list, written inside whatever it happens to.
+These are the accepted top-level keys. Other keys are refused with their source
+line. The node running `losim.Job` starts the work, so there is no `job:` key.
+`scale` selects direct or modeled execution, and `failures:` is nested under its
+target instead of using `faults:` or `chaos:`.
 
 <ParamField path="seed" type="long" default="1">
   Everything random draws from it: when failures fire, network jitter, packet
@@ -41,7 +38,7 @@ and no `faults:` or `chaos:` — the two keys that named what goes wrong are one
 </ParamField>
 
 <ParamField path="nodes" type="map" required>
-  The system. One entry is one node, or — with `count:` — a pool of them. Exactly
+  The system. One entry is one node or, with `count:`, a pool. Exactly
   one node in the file must run `losim.Job`. See [nodes](/ref/nodes).
 </ParamField>
 
@@ -51,28 +48,26 @@ and no `faults:` or `chaos:` — the two keys that named what goes wrong are one
   [input](/ref/input).
 </ParamField>
 
-## The rule that governs the whole file
+## Validation
 
 <Warning>
-**Everything that can be wrong is refused at load, with the line it was written
-on** — an unknown key, an unknown instance type, a duration that forgot its unit, a
-`runs:` value that is not a `.java` file or names one that is not there, a
-partition aimed at a node the system does not have, a failure that says both when
-and how often, a retry policy the schema does not support, two nodes with the same
-name.
+The loader refuses invalid configuration with the source line: an unknown key, an
+unknown instance type, a duration without a unit,
+an invalid `runs:` value, a
+partition aimed at an absent node, a failure that specifies both a time and a rate,
+an unsupported retry policy, or duplicate node names.
 
-Nothing runs, and the exit code is 2. None of these should be discovered halfway
-through as a puzzling number.
+Nothing runs, and the exit code is 2.
 </Warning>
 
-Three questions cannot be answered at load, because the loader loads no classes:
+The loader does not load classes, so it cannot check three runtime relationships:
 whether the class in a file really serves the service it is filed under, whether
 that service has an rpc a `failures:` block names, and whether it has one
 `simulatedDuration:` prices. Those are asked once the nodes are up and their
 servers can answer, and refused there with the line from this file. See
-[when it refuses](/simulate/when-it-refuses).
+[refusal handling](/simulate/refusals).
 
-## The sections
+## Sections
 
 <CardGroup cols={2}>
   <Card title="Durations" icon="clock" href="/ref/durations">
@@ -85,23 +80,23 @@ servers can answer, and refused there with the line from this file. See
     Latency, jitter and loss.
   </Card>
   <Card title="failures" icon="bolt" href="/ref/failures">
-    What goes wrong, written inside the thing it happens to.
+    Failures nested under their target node or RPC.
   </Card>
   <Card title="retries" icon="rotate" href="/ref/retries">
-    And the gate the schema holds.
+    Retry validation defined by the schema.
   </Card>
   <Card title="simulatedDuration" icon="stopwatch" href="/ref/simulated-duration">
-    What an rpc costs, keyed by the file that serves it.
+    RPC costs keyed by the implementing file.
   </Card>
   <Card title="input" icon="inbox" href="/ref/input">
     A source, a unit, and a count.
   </Card>
   <Card title="scale" icon="chart-line" href="/ref/scale">
-    One number, and what the engine derives from it.
+    The scale value and its derived plan.
   </Card>
 </CardGroup>
 
-## A complete example
+## Example
 
 ```yaml
 seed: 7

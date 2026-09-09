@@ -1,6 +1,6 @@
 ---
 title: "Retries"
-description: "Declared in the simulation, gated by the schema, and never free."
+description: "Retry policies, schema checks, and retry cost."
 icon: "rotate"
 ---
 
@@ -9,19 +9,18 @@ retries:
   - { method: Thumbnail, attempts: 3, backoff: 50 refMs, multiplier: 2 }
 ```
 
-Three attempts, waiting 50 refMs before the second and 100 before the third.
+This permits three attempts. The waits before attempts two and three are 50 refMs
+and 100 refMs.
 
-## The policy lives in the simulation
+## Policy location
 
-Retrying is an **operational** decision, so it belongs where it can be diffed and
-swept — a line in a file, not a `for` loop buried in a handler. Two designs that
-differ only in their retry policy differ by two lines of YAML, and the bill will
-tell you which one was worth it.
+Retrying is an **operational** decision, so put it in the simulation where it can be
+reviewed and swept. The handler remains independent of deployment policy.
 
-## The schema has a veto
+## Schema validation
 
-Whether retrying is *safe* is a property of the **method**, not of the deployment.
-So it lives in the `.proto`, and losim refuses at load when the two disagree:
+Whether retrying is *safe* is a property of the **method**, not deployment. It lives
+in the `.proto`; losim refuses a policy that disagrees with the schema:
 
 ```
 thumbs.yaml:22: retrying lab.Volley.Hit is refused — its .proto declares no
@@ -34,12 +33,12 @@ Declare it if it is true:
 
 ```proto
 service Thumbnailer {
-  // A pure read: computes and returns, changes nothing.
+  // Reads data and does not change it.
   rpc Thumbnail (Batch) returns (Thumbs) { option idempotency_level = NO_SIDE_EFFECTS; }
 }
 
 service Registry {
-  // Not a read, but running it twice lands in the same place as running it once.
+  // Repeating it produces the same final state as one call.
   rpc Announce (Health) returns (Empty) { option idempotency_level = IDEMPOTENT; }
 }
 ```
@@ -52,9 +51,7 @@ retries:
 ```
 
 <Note>
-`unsafe: true` is the point of the gate, not a way round it. It makes *"we retry a
-call that is not safe to run twice"* **one visible line in a diff**, rather than an
-emergent property of a configuration nobody read.
+`unsafe: true` makes the exception explicit in the simulation configuration.
 </Note>
 
 ## Matching a method
@@ -66,12 +63,11 @@ emergent property of a configuration nobody read.
 - { method: "*" }                            # everything the system serves
 ```
 
-A policy naming a method **no node in the system serves** is refused too — a typo
-in a policy would otherwise be a policy that silently does nothing.
+A policy naming a method **no node in the system serves** is also refused.
 
-## Every attempt is a real call
+## Attempt accounting
 
-The retry interceptor sits **outside** the recording one. So each attempt gets:
+The retry interceptor sits **outside** the recording interceptor. Each attempt gets:
 
 - its own span and its own row in the trace,
 - its own byte count, in both directions,
@@ -79,9 +75,9 @@ The retry interceptor sits **outside** the recording one. So each attempt gets:
 - its own look at whether the callee is still alive.
 
 <Warning>
-A retry that reused the first attempt's accounting would make a design that retries
-look **cheaper** than one that does not, which is the opposite of the truth. If your
-system retries under load, the bill's wire and capacity lines go up, and they should.
+A retry that reused the first attempt's accounting would make a retrying design look
+**cheaper** than one that does not. Additional attempts increase wire and capacity
+costs.
 </Warning>
 
 The trace says what happened:
@@ -95,26 +91,25 @@ The trace says what happened:
     "method": "lab.Thumbnailer.Thumbnail", "attempts": 3, "status": "OK" } }
 ```
 
-`retry_done` only appears when there was more than one attempt.
+`retry_done` appears only when there was more than one attempt.
 
-## Retried versus not
+## Retryable statuses
 
 <Columns cols={2}>
   <Card title="Retried" icon="rotate">
     `UNAVAILABLE`, `DEADLINE_EXCEEDED`, `RESOURCE_EXHAUSTED`, `ABORTED`, `UNKNOWN`.
 
-    Nothing answered, the callee was overloaded, or time ran out.
+    The callee was unavailable, overloaded, or too slow.
   </Card>
   <Card title="Not retried" icon="ban">
-    Everything else — an `INVALID_ARGUMENT` will be invalid the second time too.
+    Everything else, including `INVALID_ARGUMENT`.
 
-    Also: any call where a message already arrived, any cancelled call, and any
-    **streaming** call. Replaying a stream means buffering it, and a buffer whose
-    size nobody declared is its own failure mode.
+    Also calls where a message already arrived, cancelled calls, and any
+    **streaming** call. Replaying a stream would require buffering it.
   </Card>
 </Columns>
 
-## Retries and deadlines interact badly by default
+## Retries and deadlines
 
 Each attempt gets the same `CallOptions`, which means the same **absolute**
 deadline. A three-attempt policy with a growing backoff can exhaust the deadline
@@ -124,15 +119,14 @@ before it exhausts its attempts:
 { "kind": "retry_done", "detail": { "attempts": 2, "status": "DEADLINE_EXCEEDED" } }
 ```
 
-Two attempts out of three, and the second one never had time to succeed. If you
-mean three real attempts, the deadline has to cover three of them plus the
-backoffs.
+The second attempt had no time to succeed. If three attempts are required, the
+deadline must cover all attempts and backoffs.
 
-## Rolling your own instead
+## Custom retry loops
 
 The simulation's policy is fixed per method. Use `Losim.current().sleep(refMs)` in
-your own loop when the decision depends on something only the program knows — which
-peer to try next, how many are left, whether this piece has already been redone:
+your own loop when the decision depends on program state, such as which peer to try,
+how many peers remain, or whether work was already redone:
 
 ```java
 for (int attempt = 1; ; attempt++) {
@@ -147,13 +141,12 @@ for (int attempt = 1; ; attempt++) {
 }
 ```
 
-Retrying the *same* peer that failed is what the declarative policy does.
-Retrying a **different** one is usually the better design, and only your code can
-decide that.
+The declarative policy retries the same peer. A custom loop can choose a **different**
+peer.
 
-## See it
+## Observe retries
 
-Loss high enough that retrying is visibly a decision:
+This example makes the retry trade-off visible:
 
 ```yaml retrying.yaml
 seed: 4
@@ -176,8 +169,7 @@ retries:
   - { method: Thumbnail, attempts: 3, backoff: 40 refMs, multiplier: 2 }
 ```
 
-Save a second simulation beside the first with the `retries:` block deleted, then run
-both — two worlds for one system is exactly what variants are for:
+Save a second simulation beside the first without the `retries:` block, then run both:
 
 ```java RunExperiments.java
 Experiments.here()
@@ -187,13 +179,10 @@ Experiments.here()
 ```
 
 
-**What to look for.** Open `retrying` and put `no-retries` beside it with
-`compare with…`. The retrying one finishes and the other may not — and the verdict
-line underneath prices exactly what that was worth. Every attempt is a real call, so
-the wire and capacity lines are higher: retrying bought reliability and it is on the
-bill.
+Compare `retrying` with `no-retries`. The retrying run may finish when the other does
+not, while its wire and capacity costs are higher.
 
 
-<Card title="Next: unit-testing a handler" icon="arrow-right" href="/write/unit-testing">
-  With nothing simulating anything.
+<Card title="Next: handler testing" icon="arrow-right" href="/write/handler-testing">
+  Test the handler without a simulation.
 </Card>

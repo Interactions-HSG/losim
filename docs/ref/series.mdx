@@ -1,6 +1,6 @@
 ---
 title: "series"
-description: "Dense numbers on a fixed cadence, and the encoding that makes them cheap."
+description: "Dense measurements on a fixed cadence and their encoding."
 icon: "chart-area"
 ---
 
@@ -19,26 +19,25 @@ icon: "chart-area"
 }
 ```
 
-Channels are keyed `"<vm>.<metric>"`. `t` is shared by every channel — one array of
-simulated times, `dtMs` apart.
+Channels use the key `"<vm>.<metric>"`. Every channel shares `t`, the simulated
+times spaced by `dtMs`.
 
-## The point of series
+## Series data
 
 <Note>
-A change log is **silent exactly when a system is stuck**, which is exactly when you
-want to look at it. Series make the trace's size follow the run's **duration** rather
-than its busyness, so a frozen system produces as much evidence as a working one.
+A change log records transitions and can miss a system that remains stuck. Series
+make trace size follow run **duration** rather than activity, so a frozen system
+remains observable.
 
-The sampler starts at its finest — half a real millisecond — and **thins as it
-goes**: every time the trace fills up, half the samples are dropped and the interval
-doubles. So a run of any length yields a bounded number of ticks, without anyone
-having declared in advance how long the run would be.
+The sampler starts at half a real millisecond and **thins as it goes**. When the
+trace fills, it drops half the samples and doubles the interval. The number of
+ticks stays bounded across runs of different lengths.
 </Note>
 
-The sampler runs on **its own thread**, not one of the nodes' pool threads,
-deliberately: what it costs must not land on the counters it is reading.
+The sampler runs on **its own thread**, not a node pool thread, so its work is not
+included in the counters it reads.
 
-## The metrics
+## Metrics
 
 | metric | |
 |---|---|
@@ -58,16 +57,14 @@ deliberately: what it costs must not land on the counters it is reading.
 | `bytesInMb`, `bytesOutMb` | cumulative |
 
 <Warning>
-`retainMb` **steps rather than glides**. A heap walk costs about 0.06 µs an object,
-so a busy node is walked every eighth tick rather than every tick. That is the
-cadence, not your program.
+`retainMb` **steps rather than glides**. A heap walk costs about 0.06 microseconds
+per object, so a busy node is walked every eighth tick rather than every tick.
 </Warning>
 
-## Three encodings
+## Encodings
 
-Most channels barely move — a node is alive for the whole run, idle for most of
-it, and its cap never changes at all. So each channel is stored in whichever of three
-forms is smallest:
+Each channel uses the smallest of three encodings. Many channels stay constant or
+change in long runs.
 
 <ResponseField name="constant" type="every tick is the same value">
   ```json
@@ -88,19 +85,17 @@ forms is smallest:
   ```
 </ResponseField>
 
-Choosing the smallest is worth about two orders of magnitude, which is what lets the
-richer trace come out **smaller** than the change log it replaced.
+Choosing the smallest encoding can reduce the trace by about two orders of
+magnitude.
 
 <Note>
-Samples are quantised before encoding — a `…Pct` to one decimal place, a `…Mb` to
-two. Without that a flat stretch is not flat: it jitters in the sixth decimal, no run
-ever forms, and the encoding saves nothing.
+Samples are quantized before encoding: `…Pct` to one decimal place and `…Mb` to
+two. Flat stretches can then form runs.
 
-That is also why the `nodes` channel exists separately. Fitting a law against
-numbers rounded to a hundredth of a megabyte would fit the rounding.
+The `nodes` channel remains separate so fitted laws use unrounded measurements.
 </Note>
 
-## Decoding
+## Decode a channel
 
 ```python
 def channel(t, key):

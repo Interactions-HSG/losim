@@ -1,16 +1,16 @@
 ---
 title: "Developing the viewer"
-description: "The only part of this repository where npm exists — and the rules that keep it out of a student's way."
+description: "Develop the viewer without changing the student project workflow."
 icon: "code"
 ---
 
 <Note>
-**Students never run any of this.** The built page is committed, so
-[opening a trace](/viewer/opening-a-trace) is a static server and nothing else.
-Everything here is for whoever *changes* the viewer.
+**Students use the committed page.** It is built in advance, so
+[opening a trace](/viewer/opening-a-trace) only requires a static server. This page
+is for viewer development.
 </Note>
 
-## The loop
+## Development loop
 
 ```bash
 cd viewer && npm install && cd ..    # once
@@ -20,31 +20,27 @@ bin/losim dev viewer check    # everything a node can decide
 bin/losim dev viewer build    # the static export into viewer/out
 ```
 
-`build` is the one that matters, and it is one line of npm:
+`build` produces the committed export:
 
 ```bash
 npx next build
 ```
 
-Next writes `viewer/out`, and that is where everything reads it: `dev viewer serve`,
-the devcontainer, and `losim serve` in any project that has a `viewer/`. Nothing
-copies it anywhere first.
+Next writes `viewer/out`. `dev viewer serve`, the devcontainer, and `losim serve` read
+that directory directly.
 
 <Note>
-**The export ships with no traces in it** — an empty index, and the sweep fills it
-in at serve time. So what is committed is the application, about 1.4 MB, and never
-somebody else's runs.
+**The export contains the application code.** The index remains empty until the
+serving sweep adds traces.
 </Note>
 
 
 <Warning>
-**Commit `viewer/out` with your change.** It is committed the way the generated
-protobuf sources are, for the same reason: a student must never need npm, and must
-never wait for a first-run download. A viewer change that is not exported is a viewer
-change nobody else can see.
+**Commit `viewer/out` with your change.** Students should not need npm or a first-run
+download. A source change without the updated export is not available to them.
 </Warning>
 
-## The layout
+## Layout
 
 ```
 viewer/
@@ -61,14 +57,14 @@ build/traces/     this repo's own scratch directory, for the sweep below
 
 ```
 
-Every command is a verb of the CLI — `losim dev viewer build`, `serve`, `dev`,
-`check`, `traces` — because four shell scripts that each knew a little about where
-the export goes is how the export and the thing serving it drift apart.
+The CLI uses one verb for each viewer operation: `build`, `serve`, `dev`, `check`, and
+`traces`. This keeps export and serving paths consistent.
 
 ## `losim dev viewer check`
 
-Everything about the viewer that **a node can decide**, in one command. It needs
-`losim dev viewer traces` to have run, because these check against runs that happened rather than against fixtures that agree with them by construction.
+Everything about the viewer that **a node can decide** is checked in one command. It
+needs `losim dev viewer traces` because checks use generated runs rather than fixed
+fixtures.
 
 | | |
 |---|---|
@@ -81,8 +77,8 @@ Everything about the viewer that **a node can decide**, in one command. It needs
 | `author` | does what the designer writes load, and is what it must refuse refused |
 
 <Note>
-**Exactly four Python modules are still imported**, and it is worth being precise about
-which, because the rest of `view/` is the abandoned renderer:
+The checks import the Python modules listed here. The remaining files under `view/`
+belong to the abandoned renderer:
 
 ```
 view/losim_view/design.py     216 lines   imported by viewer/checks/glyph_ref.py
@@ -91,59 +87,54 @@ view/losim_view/layout.py     383         imported by viewer/checks/layout_ref.p
 view/losim_view/trace.py      335         imported by viewer/checks/layout_ref.py
 ```
 
-Those two reference scripts put `view/` on `sys.path` and import them directly, so
+The reference scripts put `view/` on `sys.path` and import these modules directly, so
 deleting any of the four breaks `losim dev viewer check`.
 
-`view/losim_view/film.py`, `view/dataflow.py` and `view/sheet.py` are the manim
-sidecar. Nothing imports the last two, `film.py` is imported only by them, and `manim`
-is not installed here — so they cannot run and nothing depends on them.
+`view/losim_view/film.py`, `view/dataflow.py`, and `view/sheet.py` are the manim
+sidecar. The last two have no importers, and `film.py` is imported only by them.
+This environment has no `manim` installation, so these files have no effect on the
+viewer checks.
 
-That is why the glyph paths were authored in SVG's own convention and compared by
-**string equality** rather than by looking at two pictures and arguing about them.
+The glyph paths use SVG's convention and are compared by **string equality** rather
+than by visual inspection.
 </Note>
 
-What is left over is what a *browser* has to answer — does the MP4 play in a slide
-deck, is a 25-node system legible, does the export serve with no npm. A browser is
-where those are answered: `losim dev viewer serve`, then look.
+Use `losim dev viewer serve` to check MP4 playback, larger systems, and serving
+without npm.
 
-## Four decisions in the code worth knowing before you change it
+## Implementation decisions
 
 <AccordionGroup>
   <Accordion title="Every pixel is a pure function of (trace, t, selection)" icon="function" defaultOpen>
-    Nothing accumulates, nothing is remembered between frames, no view knows what it
-    drew last time. One constraint, and it pays for itself four times:
+    Each pixel depends only on the trace, time, and selection. Views hold no state
+    between frames, so scrubbing and recording use the same code path:
 
-    - the transience rule enforces itself — a call that has finished is simply not
-      in the frame. There is nothing to remove, so nothing to forget to remove. In the
-      renderer that came before this, "the picture holds only what is currently true"
-      was a rule that had to be *remembered*, and a rule left to discipline decays
-      until the last frame is the static figure again;
-    - scrubbing is free — seeking backwards is the same operation as playing;
-    - recording is the same code path as playing — only the clock's driver differs;
+    - the transience rule excludes finished calls from the frame. The renderer does
+      not remove or retain them;
+    - scrubbing and playback use the same operation;
+    - recording uses the same code path as playback, with a different clock driver;
     - the views cannot disagree, because they are functions of one value.
 
     If you find yourself adding state to a view, that is the thing to push back on.
   </Accordion>
 
-  <Accordion title="Attribution is a partition, never a re-price" icon="scale-balanced">
-    Pointing at a node lights up its money, and that needs a second question
-    answered — *whose line is this?* The amount never changes; only the claim about
-    who is answerable for it.
+  <Accordion title="Attribution preserves the price" icon="scale-balanced">
+    Pointing at a node shows its cost. The viewer must also identify which line owns
+    that cost. The amount stays fixed while the attribution changes.
 
-    Its own (a capacity line names one node), its share (a system total split by a
-    quantity the trace already holds), or **nobody's** (the late penalty
-    belong to the job, and spreading them over nine nodes would invent a claim
-    nothing supports).
+    Attribution can belong to one node, a node's share of a system total, or
+    **nobody**. Late penalties belong to the job, so spreading them over nine nodes
+    would invent an unsupported attribution.
 
     The classification is matched against the exact line labels `losim.price.Bill`
     writes. The coupling is deliberate and checked: an unrecognised line is `unknown`
     and attributed to nobody, rather than guessed at.
   </Accordion>
 
-  <Accordion title="Colours arrive as values, never as CSS variables" icon="palette">
-    The recorder serialises the `<svg>` into a standalone image, and a standalone
-    image has no page to inherit `var(--ink)` from — so a film themed through CSS
-    records as black on black.
+  <Accordion title="Colours are passed as values" icon="palette">
+    The recorder serialises the `<svg>` into a standalone image. That image has no
+    page from which to inherit `var(--ink)`, so a film themed through CSS records as
+    black on black.
 
     The theme comes down as a **prop**. `lib/theme.ts` carries the ground (surface,
     strokes, greys) and follows `prefers-color-scheme`; `lib/design.ts` carries the
@@ -151,7 +142,7 @@ where those are answered: `losim dev viewer serve`, then look.
     between themes.
   </Accordion>
 
-  <Accordion title="The clock lives outside React" icon="stopwatch">
+  <Accordion title="React subscribes to the clock" icon="stopwatch">
     At 60 fps a clock in `useState` is sixty re-renders of the whole tree per second,
     and the scrubber, the panel and the views do not all need that.
 
@@ -160,33 +151,33 @@ where those are answered: `losim dev viewer serve`, then look.
     snapshot has to stay a primitive, or every subscriber re-renders forever.
   </Accordion>
 
-  <Accordion title="Two runtime dependencies, and that is the budget" icon="box">
+  <Accordion title="Runtime dependencies" icon="box">
     `d3` and `mediabunny`, on top of Next and React. elkjs, Radix, framer-motion and
     react-virtual were each considered and rejected.
 
-    Fifteen dependencies would mean a viewer that stops building in two years — and
-    this one has to still build when the course runs again.
+    Extra dependencies increase the chance that the viewer will stop building when
+    the course runs again.
   </Accordion>
 </AccordionGroup>
 
-## Three things `next.config.mjs` sets, and why
+## `next.config.mjs` settings
 
 | | |
 |---|---|
-| `output: 'export'` | a static site. There is no server of its own, because whatever serves it is a plain static one — `losim serve`, or anything else. |
-| `trailingSlash: true` | `/index.html`, not a path without one — a static server has never heard of Next and will not try `.html` for a bare path. Without this the exported app 404s on exactly the setup it exists to support. |
-| `turbopack.root` | pinned, because a `package.json` somewhere up the tree would otherwise decide where the project root is — a stray directory on a laptop, somewhere else entirely in a Codespace. |
+| `output: 'export'` | a static site served by `losim serve` or another static server |
+| `trailingSlash: true` | `/index.html` paths, which static servers can serve without Next-specific routing |
+| `turbopack.root` | a pinned project root, so an unrelated `package.json` higher in the tree cannot change it |
 
-## Two numbers in `lib/trace.ts` that are not the same
+## Trace durations in `lib/trace.ts`
 
 | | |
 |---|---|
-| `trace.duration` | covers **every event**, not the job |
-| `trace.jobRefMs` | `meta.durationRefMs` — what the money is priced against |
+| `trace.duration` | covers **every event**, including work after the job |
+| `trace.jobRefMs` | `meta.durationRefMs`, the duration used for billing |
 
-They differ because the heap walk runs every eighth tick, so an out-of-memory can land
-*after* the job it ended. Clipped at the job's end, that OOM could not be scrubbed to
-and never reached the bill.
+They differ because the heap walk runs every eighth tick, so an out-of-memory event
+can occur *after* the job it ended. Clipping the trace at the job's end would remove
+that event from the scrubber and the bill.
 
 <Warning>
 Use `jobRefMs` for anything that must agree with `losim bill`, and `duration` for
@@ -203,40 +194,35 @@ bin/losim dev viewer traces build/mine      # one directory, or one file, anywhe
 bin/losim dev viewer traces --suite         # ...and the reference suite's
 ```
 
-**Only `build/traces` by default.** The collections have to be asked for, so what a
-student sees is their own work. For each trace it copies the file, prices it beside
-itself as `<name>.bill.json` when the bill is missing or stale, and rewrites
-`index.json` — with the same code that answers `/traces/index.json` when losim is the
-server, so a static picker and a served one cannot come apart. A listed directory that
-exists but yields nothing says so: a silent fall-through is exactly how twenty-two
-suite traces once went missing from the picker.
+**Only `build/traces` is used by default.** Other collections must be requested, so
+students see their own work. For each trace, the command copies the file, writes
+`<name>.bill.json` beside it when the bill is missing or stale, and rewrites
+`index.json` with the same code that answers `/traces/index.json` when losim is the
+server. A listed directory that exists but yields no traces reports that result.
 
-Each run is tagged with where it came from, and the picker groups on that tag with
-yours first. `dev viewer serve` forwards its own arguments here, so
-`bin/losim dev viewer serve ~/my-project/runs` works — which is the case that matters,
-because losim is a library and your traces live in your project, not in this tree.
+Each run is tagged with its source, and the picker groups runs by that tag with
+yours first. `dev viewer serve` forwards its arguments here, so
+`bin/losim dev viewer serve ~/my-project/runs` serves traces from another project.
+losim is a library, and project traces can live outside this repository.
 
 <Warning>
-`build/served` is a **mirror of the last sweep**: anything not swept this time
-is deleted from it. That is what makes a collection un-askable-for once asked for,
-rather than something that accumulates forever.
+`build/served` is a **mirror of the last sweep**. Each sweep removes files that were
+not included, so the collection reflects the current request.
 </Warning>
 
 
 <Note>
-The bill is best-effort on purpose. Missing, the film still plays and the money is
-simply absent — which is the right failure, because a viewer that invented its own
-prices would be a second accountant.
+If the bill is missing, the film still plays and cost is absent. The viewer does not
+invent prices.
 </Note>
 
-## The design language
+## Design data
 
-`lib/design.ts` holds it as data — colours, sizes, proportions, and the rules about
-which to use when. Nothing in it imports d3 or React. A palette that lived inside a
-component would be a palette the next component had to reimplement, and two pictures
-that must agree but are written twice are two pictures that will not.
+`lib/design.ts` holds colours, sizes, proportions, and their selection rules as data.
+The module is independent of d3 and React. Keeping this data outside components
+prevents each component from reimplementing it.
 
-Its one real idea is **layer discipline**:
+The drawing uses these layers:
 
 | layer | how it is drawn | what it says |
 |---|---|---|
@@ -245,12 +231,10 @@ Its one real idea is **layer discipline**:
 | narration | bold red, numbered | what you are being shown |
 
 <Warning>
-**Red is never part of the system.** It is the lecturer's pen. The moment it starts
-filling shapes it stops meaning *look here*, and the picture goes flat.
+**Red marks annotations rather than system state.** It is the lecturer's pen. Filling
+system shapes with red would remove that distinction.
 </Warning>
 
 `lib/glyphs.ts` holds the geometry as SVG path data, authored origin-centred with **y
-down** — SVG's own convention, because they were always meant for a browser. The path
-strings are checkable against the Python renderer they were ported from by **string
-equality**, which is why the port could be verified rather than argued about in front
-of two pictures.
+down**, SVG's browser convention. The path strings are checked against the Python
+renderer by **string equality**.
