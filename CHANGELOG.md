@@ -6,6 +6,29 @@ A version is what an assignment resolves from Gradle, so it is a fact about a ja
 rather than about a branch. Every release is cut from a tag whose name and
 `./VERSION` are checked against each other before anything is built.
 
+## 3.1.1
+
+**The half of 3.1.0 that was missed.** 3.1.0 said the manual and the lecture now
+use one vocabulary, and one word was still out of step: the piece of input a
+worker is handed.
+
+### A Batch is a Split
+
+`GLOSSARY.md` calls it "**Chunk**, **split**". `Chunk` was already taken — the
+reference suite declares a differently shaped one in the same package the manual
+teaches a student to use — so it is the other half of the same row.
+
+The manual's tutorial schema says `message Split` now, and so does the gallery's
+`thumbs.proto` and the two systems written against it. Nothing that resolves
+losim is affected: that proto belongs to the gallery and the tutorial, and
+`losim/src/losim/pb` is generated from `job.proto`, which never mentioned either
+name. A lab with its own schema is untouched, as it was in 3.1.0.
+
+Four uses of the old word stay, because they are not this message: javap's own
+batching inside the verifier, a line count in the scaled reference system, "a
+batch boundary" as a cause of a bent probe ladder, and the batch-processing job
+named in a javadoc.
+
 ## 3.1.0
 
 **The manual and the lecture now use one vocabulary.** Nothing in the engine
