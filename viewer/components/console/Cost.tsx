@@ -210,7 +210,7 @@ export function Cost() {
       dim === 'bucket'
         ? (COLOUR[k as Bucket] ?? colourOf(0))
         : k === NOBODY
-          ? 'var(--text-3)'
+          ? chrome.text3
           : colourOf(keys.indexOf(k)),
     [dim, keys],
   );

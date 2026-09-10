@@ -26,6 +26,7 @@ import * as G from '../lib/glyphs.ts';
 import type { Flight, Frame, FrameNode } from '../lib/frame.ts';
 import type { Layout } from '../lib/layout.ts';
 import { alarm, chill, taskColour, warn, type Theme } from '../lib/theme.ts';
+import { font } from '../lib/tokens.stylex.ts';
 
 export interface DataflowProps {
   layout: Layout;
@@ -70,7 +71,6 @@ export interface DataflowProps {
   task?: number | null;
   ref?: React.Ref<SVGSVGElement>;
   style?: React.CSSProperties;
-  className?: string;
 }
 
 /** Room for the column captions under the lowest band. */
@@ -91,7 +91,6 @@ export function Dataflow({
   task,
   ref,
   style,
-  className,
 }: DataflowProps) {
   const halfW = layout.width / 2 + 0.35;
   const halfH = layout.height / 2;
@@ -108,7 +107,6 @@ export function Dataflow({
     <svg
       ref={ref}
       viewBox={`${minX} ${minY} ${w} ${h}`}
-      className={className}
       style={{ display: 'block', background: theme.surface,
         // Film.tsx used to size this from `.canvas svg`. StyleX has no
         // descendant selectors, so the drawing fills its own frame — and a
@@ -153,7 +151,7 @@ export function Dataflow({
               fontWeight={600}
               letterSpacing={0.022}
               fill={theme.zoneLabel}
-              style={{ fontFamily: 'var(--sans)', textTransform: 'uppercase' }}
+              style={{ fontFamily: font.sans, textTransform: 'uppercase' }}
             >
               {zone}
             </text>
@@ -175,7 +173,7 @@ export function Dataflow({
             fontWeight={600}
             letterSpacing={0.05}
             fill={theme.pencil}
-            style={{ fontFamily: 'var(--sans)', textTransform: 'uppercase' }}
+            style={{ fontFamily: font.sans, textTransform: 'uppercase' }}
           >
             {label}
           </text>
@@ -300,7 +298,7 @@ const Node = memo(
             fontSize={0.175}
             fontWeight={600}
             fill={taskColour(theme, task)}
-            style={{ fontFamily: 'var(--sans)' }}
+            style={{ fontFamily: font.sans }}
           >
             {m.work[0].method}
             {m.work.length > 1 && (
@@ -317,7 +315,7 @@ const Node = memo(
             fontSize={0.185}
             fontWeight={500}
             fill={dead ? chill(theme) : theme.ink}
-            style={{ fontFamily: 'var(--sans)' }}
+            style={{ fontFamily: font.sans }}
           >
             {m.name}
           </text>
@@ -335,7 +333,7 @@ const Node = memo(
             fontWeight={600}
             letterSpacing={0.018}
             fill={theme.pencil}
-            style={{ fontFamily: 'var(--sans)' }}
+            style={{ fontFamily: font.sans }}
           >
             {m.serves.join(' · ')}
           </text>
@@ -351,7 +349,7 @@ const Node = memo(
             fontSize={0.125}
             fontWeight={500}
             fill={m.diskShare >= D.WARN_AT ? alarm(theme) : theme.pencil}
-            style={{ fontFamily: 'var(--sans)' }}
+            style={{ fontFamily: font.sans }}
           >
             disk {mb(m.diskFreeMb)} left
           </text>
@@ -363,7 +361,7 @@ const Node = memo(
             y={h / 2 + 0.47}
             fontSize={0.108}
             fill={theme.rule}
-            style={{ fontFamily: 'var(--sans)' }}
+            style={{ fontFamily: font.sans }}
           >
             {m.instance}
           </text>
@@ -405,7 +403,7 @@ function Lanes({ m, theme }: { m: FrameNode; theme: Theme }) {
           fontSize={0.1}
           fontWeight={600}
           fill={warn(theme)}
-          style={{ fontFamily: 'var(--sans)' }}
+          style={{ fontFamily: font.sans }}
         >
           +{Math.round(m.queued)}
         </text>
@@ -559,7 +557,7 @@ const Packet = memo(function Packet({
           fontSize={Math.min(0.12, 0.1 * f.size)}
           fontWeight={600}
           fill={colour}
-          style={{ fontFamily: 'var(--sans)' }}
+          style={{ fontFamily: font.sans }}
         >
           {f.method}
         </text>
@@ -578,7 +576,7 @@ const Packet = memo(function Packet({
               stroke={theme.surface}
               strokeWidth={0.055}
               strokeLinejoin="round"
-              style={{ fontFamily: 'var(--sans)', paintOrder: 'stroke' }}
+              style={{ fontFamily: font.sans, paintOrder: 'stroke' }}
             >
               {from} <tspan fill={colour}>{f.returning ? '←' : '→'}</tspan> {to}
               {f.bytes > 0 && (
@@ -597,7 +595,7 @@ const Packet = memo(function Packet({
                 stroke={theme.surface}
                 strokeWidth={0.06}
                 strokeLinejoin="round"
-                style={{ fontFamily: 'var(--sans)', paintOrder: 'stroke' }}
+                style={{ fontFamily: font.sans, paintOrder: 'stroke' }}
               >
                 {f.digest}
               </text>

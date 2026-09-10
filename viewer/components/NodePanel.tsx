@@ -253,7 +253,7 @@ function Row({ k, v, hint }: { k: string; v: string; hint?: string }) {
     <tr>
       <Th style={panel.plainHead}>
         {k}
-        {hint && <div style={{ color: 'var(--text-3)', fontSize: 11 }}>{hint}</div>}
+        {hint && <div style={{ color: chrome.text3, fontSize: 11 }}>{hint}</div>}
       </Th>
       <Td num style={panel.right}>
         {v}
@@ -304,7 +304,7 @@ function Gauge({
         style={{
           height: 6,
           borderRadius: 3,
-          background: 'var(--surface-2)',
+          background: chrome.surface2,
           overflow: 'hidden',
           margin: '4px 0 2px',
         }}
@@ -352,7 +352,7 @@ function Spark({
       {cap !== undefined && cap > 0 && (
         <line x1={0} x2={w} y1={height - (cap / top) * height} y2={height - (cap / top) * height} stroke={D.ALARM} strokeWidth={0.8} strokeDasharray="3 3" opacity={0.6} />
       )}
-      <line x1={at} x2={at} y1={-2} y2={height + 2} stroke="var(--text)" strokeWidth={1} opacity={0.55} />
+      <line x1={at} x2={at} y1={-2} y2={height + 2} stroke={chrome.text} strokeWidth={1} opacity={0.55} />
     </svg>
   );
 }

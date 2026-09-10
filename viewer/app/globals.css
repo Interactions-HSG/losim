@@ -2,93 +2,30 @@
 @stylex;
 
 /*
- * The chrome around the figure.
+ * What is left when every component styles itself.
  *
- * Two registers, on purpose, and the line between them is the whole idea.
+ * This file was 560 lines: the design tokens, a button, a segmented control, a
+ * card, a chip, the chart, and the defaults for every bare tag. All of it has
+ * moved — the tokens to lib/tokens.stylex.ts, the shared controls to
+ * lib/ui.stylex.ts, the prose tags to lib/text.tsx, the form controls to
+ * components/console/form.tsx, and everything only one component used to that
+ * component, where a style and the markup it dresses can be read together.
  *
- * **The figure** — nodes, zones, packets, spans — is drawn in the language of
- * the whiteboard: paper, thin black, data in pale green, red reserved for the
- * lecturer's pen. Those tokens live in lib/design.ts, they mean specific things,
- * and nothing here is allowed to touch them. A node near its cap is amber
- * because that is what amber means, not because amber suits the theme.
+ * Three things cannot move, and they are all the document's rather than any
+ * component's:
  *
- * **Everything else** — the app around it — is chrome, and chrome should get out
- * of the way and look like software made this decade. Neutral surfaces, one
- * accent, real spacing, and a dark scheme that follows the system.
- *
- * So the film sits on a paper-coloured card inside a modern shell, the way a
- * document sits inside a reader. The figure never changes with the theme, which
- * is also what keeps a recorded film identical whatever the viewer had set.
+ *   - `*`, because StyleX has no element selectors, by design.
+ *   - `html` and `body` need a height before anything inside them can have one,
+ *     and the rest of what they used to say — the background, the text colour,
+ *     the font — is now set in app/layout.tsx from the same tokens as everything
+ *     else, so it is one declaration rather than two that can drift.
+ *   - The scrollbar. `::-webkit-scrollbar` is a pseudo-element StyleX would
+ *     attach to whichever element carried the style, and this has to apply to
+ *     every scrolling box on the page. Its two colours are written out because a
+ *     StyleX variable's real name is a hash and a plain stylesheet cannot name
+ *     it; they are `--border-strong` and `--text-3` from tokens.stylex.ts, and
+ *     they are the only two values in the app that exist twice.
  */
-
-:root {
-  color-scheme: light dark;
-
-  /* Chrome. Neutral, low-contrast, out of the way. */
-  --bg: #f6f7f9;
-  --surface: #ffffff;
-  --surface-2: #f1f3f6;
-  --border: #e3e6eb;
-  --border-strong: #cfd4dc;
-  --text: #14161a;
-  --text-2: #5b626d;
-  --text-3: #8e959f;
-  --accent: #3d6fd4;
-  --accent-soft: #e8eefb;
-  --danger: #c4342a;
-  --warn: #e8a33d;
-
-  /* The console's own bar. Dark, so the chrome ends somewhere visible and the
-     page below it can be quiet all the way down. */
-  --bar: #1c2029;
-  --bar-ink: #f2f4f7;
-  --bar-dim: #a7b0bd;
-
-  --shadow-1: 0 1px 2px rgba(16, 20, 28, 0.05), 0 1px 1px rgba(16, 20, 28, 0.03);
-  --shadow-2: 0 4px 16px rgba(16, 20, 28, 0.08), 0 1px 3px rgba(16, 20, 28, 0.05);
-  --shadow-3: 0 12px 40px rgba(16, 20, 28, 0.16), 0 2px 8px rgba(16, 20, 28, 0.06);
-
-  --r-sm: 6px;
-  --r: 10px;
-  --r-lg: 14px;
-
-  /* The figure. Fixed, in both schemes: a film recorded in the dark and one
-     recorded in the light have to be the same file. */
-  --paper: #f7f7f5;
-  --ink: #1a1a1a;
-  --pencil: #5a5a5a;
-  --rule: #bfbfbf;
-  --faint: #e4e4e0;
-  --narrate: #d6392b;
-
-  --sans:
-    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial,
-    sans-serif;
-  --serif: Charter, XCharter, 'Bitstream Charter', 'Source Serif 4', 'Iowan Old Style', Georgia, serif;
-  --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0e1013;
-    --surface: #16191e;
-    --surface-2: #1d2127;
-    --border: #262b33;
-    --border-strong: #363d47;
-    --text: #e8eaee;
-    --text-2: #9aa2ae;
-    --text-3: #6b7380;
-    --accent: #6b95ea;
-    --accent-soft: #1b2740;
-    --bar: #090b0e;
-    --bar-ink: #e8eaee;
-    --bar-dim: #838c99;
-
-    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-2: 0 4px 16px rgba(0, 0, 0, 0.45);
-    --shadow-3: 0 12px 40px rgba(0, 0, 0, 0.55);
-  }
-}
 
 * {
   box-sizing: border-box;
@@ -99,149 +36,6 @@ body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--sans);
-  font-size: 14.5px;
-  line-height: 1.55;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-  font-feature-settings: 'cv05', 'ss01';
-}
-
-/* ------------------------------------------------------------------ controls */
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 34px;
-  padding: 0 16px;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  box-shadow: var(--shadow-1);
-  cursor: pointer;
-  transition: background 0.12s, border-color 0.12s, transform 0.06s;
-  white-space: nowrap;
-}
-.btn:hover:not(:disabled) {
-  background: var(--surface-2);
-  border-color: var(--border-strong);
-}
-.btn:active:not(:disabled) {
-  transform: translateY(0.5px);
-}
-.btn:disabled {
-  color: var(--text-3);
-  cursor: default;
-  box-shadow: none;
-}
-.btn.primary {
-  color: #fff;
-  background: var(--accent);
-  border-color: transparent;
-}
-.btn.primary:hover:not(:disabled) {
-  filter: brightness(1.07);
-  background: var(--accent);
-}
-.btn.icon {
-  width: 34px;
-  padding: 0;
-  justify-content: center;
-}
-.btn:focus-visible,
-.seg button:focus-visible,
-select.picker:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-/* A segmented control, for the speeds. */
-.seg {
-  display: inline-flex;
-  padding: 2px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-}
-.seg button {
-  min-width: 34px;
-  height: 24px;
-  padding: 0 7px;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-2);
-  background: transparent;
-  border: 0;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.12s, color 0.12s;
-}
-.seg button:hover {
-  color: var(--text);
-}
-.seg button[aria-pressed='true'] {
-  color: var(--text);
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
-}
-
-select.picker {
-  height: 30px;
-  max-width: 260px;
-  padding: 0 28px 0 10px;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text);
-  background: var(--surface)
-    url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238e959f' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")
-    no-repeat right 10px center;
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  box-shadow: var(--shadow-1);
-  appearance: none;
-  cursor: pointer;
-}
-
-/* --------------------------------------------------------------------- bits */
-
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-1);
-}
-
-.mono {
-  font-family: var(--mono);
-  font-variant-numeric: tabular-nums;
-}
-
-.muted {
-  color: var(--text-2);
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 22px;
-  padding: 0 8px;
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--text-2);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 999px;
 }
 
 ::-webkit-scrollbar {
@@ -249,149 +43,26 @@ select.picker {
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
+  background: #cfd4dc;
   border: 3px solid transparent;
   background-clip: content-box;
   border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-3);
+  background: #8e959f;
   background-clip: content-box;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 
-/* -------------------------------------------------------- the console's charts
- *
- * Drawn in the chrome's language, not the figure's: these are a cost report and
- * a monitoring page, and they are allowed to look like software. What they take
- * from the figure is the discipline about rulers — the axis is fixed to the
- * whole run, and the part of it that has not happened yet is shaded rather than
- * cropped, so dragging the clock moves the drawing and never the scale under it.
- */
-
-.chart {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-.chart .grid {
-  stroke: var(--border);
-  stroke-width: 1;
-}
-.chart .tick {
-  fill: var(--text-3);
-  font: 400 10.5px var(--mono);
-  font-variant-numeric: tabular-nums;
-}
-.chart .bl {
-  fill: var(--text-2);
-  font: 400 11px var(--sans);
-}
-.chart .total {
-  fill: var(--text);
-  font: 500 11.5px var(--sans);
-  font-variant-numeric: tabular-nums;
-}
-.chart .ln {
-  fill: none;
-  stroke-width: 2;
-  stroke-linejoin: round;
-  stroke-linecap: round;
-}
-.chart .area {
-  opacity: 0.14;
-}
-.chart .dot {
-  stroke: var(--surface);
-  stroke-width: 1.5;
-}
-.chart .future {
-  fill: var(--text);
-  opacity: 0.05;
-}
-.chart .cursor {
-  stroke: var(--danger);
-  stroke-width: 1;
-  stroke-dasharray: 3 3;
-  opacity: 0.75;
-}
-.chart .here {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 1.5;
-}
-.chart .mid {
-  fill: var(--text);
-  font: 500 15px var(--sans);
-  font-variant-numeric: tabular-nums;
-}
-
-.spark {
-  display: block;
-  width: 100%;
-  height: 24px;
-}
-
-.legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 18px;
-  font-size: 12px;
-  color: var(--text-2);
-}
-.legend span {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-.legend i {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  flex: none;
-}
-
-/* ---------------------------------------------------------- the console's own
- *
- * Prefixed, and that is not fussiness: `NodePanel` has owned a bare `.panel`
- * for as long as it has existed, these are all global stylesheets, and the
- * node panel is drawn *inside* a console panel on the film page. Two rules
- * called `.panel` in one document is a bug that only shows up on one page.
- *
- * Here rather than beside each component because `Panel` and `Tile` are rendered
- * dozens of times on a page, and a component that carries its own <style> writes
- * that stylesheet out once per instance.
- */
-
-/* The categorical palette for the console's charts: ten hues that stay apart
- * from each other and off the four bucket colours, in both schemes. Reached
- * through `style`, never a `fill=` attribute — see components/console/Chart.tsx.
- */
-:root {
-  --s1: #3c6e9f;
-  --s2: #8e6ba8;
-  --s3: #3e8e8a;
-  --s4: #b07d3a;
-  --s5: #4f7a46;
-  --s6: #a8556b;
-  --s7: #5e7ba8;
-  --s8: #7a6ea8;
-  --s9: #3f8360;
-  --s10: #9b6b4a;
-}
 @media (prefers-color-scheme: dark) {
-  :root {
-    --s1: #7fb0e0;
-    --s2: #c3a3dc;
-    --s3: #6fc6c0;
-    --s4: #e2b06a;
-    --s5: #8cbf7e;
-    --s6: #e0899f;
-    --s7: #9db6dd;
-    --s8: #a99ddd;
-    --s9: #74bb96;
-    --s10: #d1a17c;
+  ::-webkit-scrollbar-thumb {
+    background: #363d47;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #6b7380;
+    background-clip: content-box;
   }
 }

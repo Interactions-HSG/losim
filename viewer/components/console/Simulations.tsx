@@ -29,6 +29,7 @@
  * load.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import * as stylex from '@stylexjs/stylex';
 
 import { Head, Panel } from './Shell.tsx';
 import { useConsole } from '../../lib/console.tsx';
@@ -42,6 +43,9 @@ import {
 import {
   openSimulation, palette as fetchPalette, saveSimulation, type Palette,
 } from '../../lib/lab.ts';
+import { Aside, Field, form, Hint, Input, Label, Lbl, Select } from './form.tsx';
+import { ui } from '../../lib/ui.stylex.ts';
+import { chrome, font, radius } from '../../lib/tokens.stylex.ts';
 
 export function Simulations() {
   const { nudge, startBuild, go } = useConsole();
@@ -202,7 +206,7 @@ export function Simulations() {
         actions={
           mode === 'list' ? (
             <button
-              className="btn"
+              {...stylex.props(ui.btn)}
               disabled={!canAuthor}
               title={
                 canAuthor
@@ -219,7 +223,7 @@ export function Simulations() {
             </button>
           ) : (
             <button
-              className="btn"
+              {...stylex.props(ui.btn)}
               onClick={() => { setMode('list'); setRefused(null); setEditing(null); }}
             >
               Cancel
@@ -228,12 +232,12 @@ export function Simulations() {
         }
       />
 
-      {busy && <Panel><P className="muted">reading the lab…</P></Panel>}
+      {busy && <Panel><P style={ui.muted}>reading the lab…</P></Panel>}
 
       {mode === 'list' && refused && (
         <Panel title="This one can't open here">
-          <pre className="log bad">{refused}</pre>
-          <P className="note">
+          <pre {...stylex.props(sx.log, sx.logBad)}>{refused}</pre>
+          <P style={sx.note}>
             The loader's own sentence, with the line it was written on. Edit the file directly,
             then open it here again once that's out — this form only ever refuses to open one;
             it never opens one with something quietly missing.
@@ -243,11 +247,11 @@ export function Simulations() {
 
       {mode === 'list' && !busy && palette && !palette.compiled && (
         <Panel title="This lab does not compile">
-          <P className="muted">
+          <P style={ui.muted}>
             Nothing can be placed until it does — the list of services is read off the classes,
             and there are none. This is javac, unedited:
           </P>
-          <pre className="log">{palette.log || '(the lab said nothing)'}</pre>
+          <pre {...stylex.props(sx.log)}>{palette.log || '(the lab said nothing)'}</pre>
         </Panel>
       )}
 
@@ -259,7 +263,7 @@ export function Simulations() {
           is nothing to author. */}
       {mode === 'list' && !busy && palette && palette.compiled && !canAuthor && (
         <Panel title="Nothing to place yet">
-          <P className="muted">
+          <P style={ui.muted}>
             This lab compiles — {palette.other} class{palette.other === 1 ? '' : 'es'} — but none
             of them is a gRPC service a node can be given. A simulation says <em>where the code
             runs</em>, so there has to be code that runs somewhere first.
@@ -271,8 +275,8 @@ export function Simulations() {
           draft it already opened with — the server refused before this ever
           rendered if that draft could not fully represent the file. */}
       {((mode === 'new' && canAuthor) || mode === 'edit') && !busy && palette && draft && (
-        <div className="two">
-          <div className="col">
+        <div {...stylex.props(sx.two)}>
+          <div {...stylex.props(sx.col)}>
             <Nodes draft={draft} palette={palette} nodes={nodes} edit={edit} />
             <Scale draft={draft} edit={edit} />
             <Network draft={draft} palette={palette} edit={edit} />
@@ -281,38 +285,38 @@ export function Simulations() {
             <Retries draft={draft} palette={palette} edit={edit} />
           </div>
 
-          <div className="col sticky">
+          <div {...stylex.props(sx.col, sx.sticky)}>
             <Panel title="Knowable now">
-              <dl className="kv">
-                <div>
-                  <dt>nodes</dt>
-                  <dd>{nodes.length}</dd>
+              <dl {...stylex.props(sx.kv)}>
+                <div {...stylex.props(sx.kvRow)}>
+                  <dt {...stylex.props(sx.dt)}>nodes</dt>
+                  <dd {...stylex.props(sx.dd)}>{nodes.length}</dd>
                 </div>
-                <div>
-                  <dt>zones</dt>
-                  <dd>{new Set(nodes.map((m) => m.zone)).size}</dd>
+                <div {...stylex.props(sx.kvRow, sx.ruled)}>
+                  <dt {...stylex.props(sx.dt)}>zones</dt>
+                  <dd {...stylex.props(sx.dd)}>{new Set(nodes.map((m) => m.zone)).size}</dd>
                 </div>
-                <div>
-                  <dt>on the catalogue’s prices</dt>
-                  <dd>{perHour(draft, palette).toFixed(4)} / hour</dd>
+                <div {...stylex.props(sx.kvRow, sx.ruled)}>
+                  <dt {...stylex.props(sx.dt)}>on the catalogue’s prices</dt>
+                  <dd {...stylex.props(sx.dd)}>{perHour(draft, palette).toFixed(4)} / hour</dd>
                 </div>
               </dl>
               {links && (
                 <>
-                  <h3 className="sub">Distances in this cluster</h3>
-                  <dl className="kv">
+                  <h3 {...stylex.props(sx.sub)}>Distances in this cluster</h3>
+                  <dl {...stylex.props(sx.kv)}>
                     {(Object.keys(links) as (keyof typeof links)[])
                       .filter((k) => links[k] > 0)
-                      .map((k) => (
-                        <div key={k}>
-                          <dt className={k === 'across an ocean' ? 'far' : ''}>{k}</dt>
-                          <dd>{links[k]} pair{links[k] === 1 ? '' : 's'}</dd>
+                      .map((k, i) => (
+                        <div key={k} {...stylex.props(sx.kvRow, i > 0 && sx.ruled)}>
+                          <dt {...stylex.props(sx.dt, k === 'across an ocean' && sx.far)}>{k}</dt>
+                          <dd {...stylex.props(sx.dd)}>{links[k]} pair{links[k] === 1 ? '' : 's'}</dd>
                         </div>
                       ))}
                   </dl>
                 </>
               )}
-              <P className="note">
+              <P style={sx.note}>
                 A rate, not a bill. What the run costs is what <Code>losim bill</Code> says
                 afterwards, against a price list this page has never seen — a second number here
                 that looked like a prediction would be a second accountant.
@@ -321,8 +325,8 @@ export function Simulations() {
 
             {refused && (
               <Panel title="The lab refused it">
-                <pre className="log bad">{refused}</pre>
-                <P className="note">
+                <pre {...stylex.props(sx.log, sx.logBad)}>{refused}</pre>
+                <P style={sx.note}>
                   That is the loader’s own sentence, with the line it was written on — the same
                   one a run would have given you.
                 </P>
@@ -334,31 +338,32 @@ export function Simulations() {
                   another name is how a second design gets written — the first
                   one, changed in one place — and a disabled box made that the one
                   thing the form could not do. */}
-              <div className="field">
-                <label htmlFor="scname">Save as</label>
-                <input
+              <Field style={sx.saveAs}>
+                <Label htmlFor="scname">Save as</Label>
+                <Input
                   id="scname"
+                  style={sx.wideInput}
                   value={draft.name}
                   onChange={(e) => edit((d) => { d.name = e.target.value; })}
                 />
-                <span className="hint">
+                <Hint>
                   Written to <Code>simulations/{draft.name}.yaml</Code>
                   {editing && draft.name !== editing.name.replace(/\.ya?ml$/, '') ? (
                     <> — a new file. <Code>{editing.name}</Code> is left as it was.</>
                   ) : palette.simulations.includes(`${draft.name}.yaml`) ? (
                     <> — <strong>which already exists and will be replaced</strong></>
                   ) : null}
-                </span>
-              </div>
+                </Hint>
+              </Field>
               <button
-                className="btn primary wide"
+                {...stylex.props(ui.btn, ui.primary, sx.wideBtn)}
                 onClick={() => void (editing ? saveEdit() : create())}
                 disabled={!!saying || !entry || !draft.name.trim()}
               >
                 {saying ?? (editing ? 'Save' : 'Create and simulate')}
               </button>
               {!entry && (
-                <P className="note">
+                <P style={sx.note}>
                   No node runs <Code>losim.Job</Code>, so there is nothing to start. It is a
                   gRPC service like any other: a class extending
                   {' '}<Code>losim.pb.JobGrpc.JobImplBase</Code>, placed on a node like
@@ -370,38 +375,6 @@ export function Simulations() {
         </div>
       )}
 
-      <style>{`
-        .two { display: grid; gap: 20px; grid-template-columns: minmax(0, 1.5fr) minmax(0, 380px); align-items: start; }
-        .col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
-        .col.sticky { position: sticky; top: 84px; }
-        @media (max-width: 1180px) { .two { grid-template-columns: 1fr; } .col.sticky { position: static; } }
-
-        .log {
-          margin: 0; padding: 12px 14px; border-radius: var(--r-sm);
-          background: var(--surface-2); font-family: var(--mono); font-size: 12px;
-          white-space: pre-wrap; overflow-x: auto; color: var(--text-2);
-        }
-        .log.bad { color: var(--danger); }
-        .kv { margin: 0; display: flex; flex-direction: column; }
-        .kv div { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; font-size: 13px; }
-        .kv div + div { border-top: 1px solid var(--border); }
-        .kv dt { color: var(--text-2); }
-        .kv dt.far { color: var(--warn); font-weight: 500; }
-        .kv dd { margin: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; }
-        h3.sub { margin: 16px 0 0; font-size: 12px; font-weight: 500; color: var(--text-3); text-transform: none; letter-spacing: 0; }
-        .note { font-size: 11.5px; color: var(--text-3); margin: 12px 0 0; }
-        .btn.wide { width: 100%; justify-content: center; margin-top: 12px; }
-        .field { display: flex; flex-direction: column; gap: 5px; }
-        .field label { font-size: 12.5px; color: var(--text-2); }
-        .field input {
-          height: 32px; padding: 0 10px; font: inherit; font-size: 13px;
-          font-family: var(--mono);
-          color: var(--text); background: var(--surface);
-          border: 1px solid var(--border); border-radius: var(--r-sm);
-        }
-        .hint, .field .hint { font-size: 11.5px; color: var(--text-3); }
-        .check { display: flex; align-items: center; gap: 7px; margin-top: 14px; font-size: 12.5px; }
-      `}</style>
 
       {/* Always mounted, whichever mode the page is in: this is what tells the
           console there is a lab behind the page at all. Hidden while writing or
@@ -442,15 +415,15 @@ function Scale({ draft, edit }: { draft: Draft; edit: (f: (d: Draft) => void) =>
         ? `a model of ${(draft.scale * BASE_UNITS).toLocaleString()} units`
         : 'one run, nothing projected'}
     >
-      <P className="lead">
+      <P style={form.lead}>
         How much bigger is this design than the run you can afford to watch?
       </P>
 
-      <div className="row">
-        <div className="field">
-          <label htmlFor="scale">Scale</label>
-          <div className="mult">
-            <input
+      <div {...stylex.props(form.row, form.wide)}>
+        <Field style={sx.wideField}>
+          <Label htmlFor="scale">Scale</Label>
+          <div {...stylex.props(sx.mult)}>
+            <Input
               id="scale"
               type="number"
               min={1}
@@ -460,19 +433,19 @@ function Scale({ draft, edit }: { draft: Draft; edit: (f: (d: Draft) => void) =>
                 d.scale = Math.max(1, Math.round(Number(e.target.value) || 1));
               })}
             />
-            <span className="x">×</span>
+            <span {...stylex.props(sx.times)}>×</span>
           </div>
-          <span className="hint">
+          <Hint style={sx.sentence}>
             {modelled
               ? `${draft.scale}× the biggest run the engine can measure — ${(draft.scale * BASE_UNITS).toLocaleString()} units.`
               : 'One run of itself. Nothing is projected, so nothing can be projected wrongly.'}
-          </span>
-        </div>
-        <div className="quick">
+          </Hint>
+        </Field>
+        <div {...stylex.props(sx.quick)}>
           {[1, 10, 100, 1000].map((n) => (
             <button
               key={n}
-              className={`chip${draft.scale === n ? ' on' : ''}`}
+              {...stylex.props(form.pill, draft.scale === n && form.pillOn)}
               onClick={() => edit((d) => { d.scale = n; })}
             >
               {n === 1 ? 'just run it' : `${n}×`}
@@ -488,28 +461,6 @@ function Scale({ draft, edit }: { draft: Draft; edit: (f: (d: Draft) => void) =>
           A `mode:` was a second way to say what this number already says, and
           two controls can disagree. */}
 
-      <style>{`
-        .lead { font-size: 13px; margin: 0 0 14px; }
-        .row { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 14px; }
-        .field { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
-        .field label { font-size: 11.5px; color: var(--text-3); }
-        .mult { display: flex; align-items: center; gap: 6px; }
-        .mult .x { font-size: 14px; color: var(--text-3); }
-        .field input, .field select {
-          height: 32px; padding: 0 10px; font: inherit; font-size: 13px;
-          color: var(--text); background: var(--surface);
-          border: 1px solid var(--border); border-radius: var(--r-sm);
-        }
-        .field input { font-family: var(--mono); width: 110px; }
-        .hint { font-size: 11px; color: var(--text-3); max-width: 46ch; }
-        .quick { display: flex; gap: 6px; align-items: center; height: 32px; margin-top: 17px; }
-        .chip {
-          height: 26px; padding: 0 11px; font: inherit; font-size: 11.5px; cursor: pointer;
-          color: var(--text-3); background: var(--surface);
-          border: 1px solid var(--border); border-radius: 999px;
-        }
-        .chip.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
-      `}</style>
     </Panel>
   );
 }
@@ -536,7 +487,7 @@ function Nodes({
       note={`${ms.length} in ${new Set(ms.map((m) => m.zone)).size} zones`}
       actions={
         <button
-          className="btn"
+          {...stylex.props(ui.btn)}
           onClick={() =>
             edit((d) => {
               d.pools.push({
@@ -558,13 +509,13 @@ function Nodes({
         </button>
       }
     >
-      <P className="lead">
+      <P style={form.lead}>
         Each block is a <strong>pool</strong>: nodes that grow and shrink together, dealt
         round-robin over the zones you give it. What it runs, where it sits and what happens to
         it are all on the block, because they are all facts about the same nodes.
       </P>
 
-      <div className="pools">
+      <div {...stylex.props(sx.pools)}>
         {draft.pools.map((p, i) => (
           <PoolCard
             key={i}
@@ -579,7 +530,7 @@ function Nodes({
       </div>
 
       {orphans.length > 0 && (
-        <div className="flag warn">
+        <div {...stylex.props(form.flag, form.flagWarn)}>
           <span>⚠</span>
           <span>
             <strong>
@@ -591,17 +542,6 @@ function Nodes({
         </div>
       )}
 
-      <style>{`
-        .lead { font-size: 13px; margin: 0 0 14px; }
-        .pools { display: flex; flex-direction: column; gap: 12px; }
-        .flag {
-          display: flex; gap: 10px; align-items: flex-start; margin-top: 14px;
-          padding: 11px 14px; border-radius: var(--r-sm);
-          background: var(--accent-soft); color: var(--text-2); font-size: 12.5px;
-        }
-        .flag.warn { background: #fff8e8; color: #6b4d09; }
-        @media (prefers-color-scheme: dark) { .flag.warn { background: #2a2211; color: #e6c684; } }
-      `}</style>
     </Panel>
   );
 }
@@ -624,10 +564,10 @@ function PoolCard({
   const names = Array.from({ length: count }, (_, k) => (numbered ? `${p.prefix}${k}` : p.name));
   const mine = new Set(names);
   return (
-    <div className="pool">
-      <header>
-        <input
-          className="nm"
+    <div {...stylex.props(sx.pool)}>
+      <header {...stylex.props(sx.poolHead)}>
+        <Input
+          style={sx.poolName}
           value={p.name}
           onChange={(e) => edit((d) => {
             // The prefix follows the name while the two are the same, because
@@ -639,15 +579,15 @@ function PoolCard({
           })}
           aria-label="pool name"
         />
-        <span className="chip">
+        <span {...stylex.props(ui.chip)}>
           {p.count === 1 ? '1 node' : `${p.count} nodes`}
         </span>
         {p.runs.some((r) => r.service === 'losim.Job') && (
-          <span className="chip entry">the simulation starts here</span>
+          <span {...stylex.props(ui.chip, sx.entryChip)}>the simulation starts here</span>
         )}
-        <span className="acts">
+        <span {...stylex.props(sx.acts)}>
           <button
-            className="btn"
+            {...stylex.props(ui.btn)}
             disabled={only}
             title={only ? 'a simulation needs at least one node' : 'remove this pool'}
             onClick={() => edit((d) => { d.pools.splice(i, 1); })}
@@ -657,10 +597,10 @@ function PoolCard({
         </span>
       </header>
 
-      <div className="row">
-        <div className="field">
-          <label>How many</label>
-          <input
+      <div {...stylex.props(form.row)}>
+        <Field>
+          <Label>How many</Label>
+          <Input
             type="number"
             min={1}
             max={24}
@@ -669,23 +609,23 @@ function PoolCard({
               d.pools[i].count = Math.max(1, Math.min(24, Number(e.target.value) || 1));
             })}
           />
-        </div>
+        </Field>
         {(p.count > 1 || p.prefix !== p.name) && (
-          <div className="field">
-            <label>Called</label>
-            <input
+          <Field>
+            <Label>Called</Label>
+            <Input
               value={p.prefix}
               onChange={(e) => edit((d) => { d.pools[i].prefix = e.target.value; })}
               aria-label="node name prefix"
             />
-            <span className="hint">
+            <Hint>
               {p.prefix ? `${p.prefix}0, ${p.prefix}1, …` : 'nodes are named prefix0, prefix1'}
-            </span>
-          </div>
+            </Hint>
+          </Field>
         )}
-        <div className="field grow">
-          <label>Instance</label>
-          <select
+        <Field grow>
+          <Label>Instance</Label>
+          <Select
             value={p.instance}
             onChange={(e) => edit((d) => { d.pools[i].instance = e.target.value; })}
           >
@@ -694,33 +634,33 @@ function PoolCard({
                 {x.name} — {x.vcpu} vCPU, {(x.memoryMb / 1024).toFixed(0)} GB
               </option>
             ))}
-          </select>
+          </Select>
           {/* Width is the only thing about an instance that changes how it runs:
               the thread pool is sized by it, and declared work is multiplied by
               2 ÷ vcpu. Said here because it is the one number on this control
               that has a consequence, and one core is easy to pick by accident. */}
           {inst && inst.vcpu < 2 && (
-            <span className="hint warn">
+            <Hint warn>
               One core: half the reference machine. It runs one call at a time, and declared work
               takes twice as long — this is how you make a straggler.
-            </span>
+            </Hint>
           )}
-        </div>
+        </Field>
       </div>
 
       {/* What this pool runs. One control, because there is one kind of thing to
           place: `losim.Job` is a service like any other and is in this list with
           the rest of them. Read off the compiled classes, so nothing here can
           name a file that is not there or a service it does not implement. */}
-      <div className="serves">
-        <span className="lbl">Runs</span>
+      <div {...stylex.props(sx.group)}>
+        <Lbl style={sx.groupLabel}>Runs</Lbl>
         {palette.services.map((sv) => {
           const on = p.runs.some((r) => r.file === sv.file);
           const unsafe = sv.rpcs.filter((m) => !m.idempotent).map((m) => m.name);
           return (
             <button
               key={sv.file}
-              className={`svc${sv.entry ? ' entry' : ''}${on ? ' on' : ''}`}
+              {...stylex.props(form.pill, sx.file, on && form.pillOn, on && sv.entry && form.pillEntry)}
               title={`${sv.file} serves ${sv.service} — ${sv.rpcs.map((m) => m.name).join(', ')}`
                      + (unsafe.length ? `\nnot declared idempotent: ${unsafe.join(', ')}` : '')}
               onClick={() => edit((d) => {
@@ -745,10 +685,10 @@ function PoolCard({
           );
         })}
         {!palette.services.length && (
-          <span className="hint">
+          <Hint>
             Nothing here extends a generated <Code>ImplBase</Code>, so there is nothing a
             node can be given.
-          </span>
+          </Hint>
         )}
       </div>
 
@@ -770,13 +710,14 @@ function PoolCard({
           instance type says, which is what a pool that never mentions these
           gets. A `0` is a node that cannot hold anything — legal, and a
           different simulation — so the two must not be typed by the same gesture. */}
-      <div className="row">
-        <div className="field grow">
-          <label>Memory cap</label>
-          <input
+      <div {...stylex.props(form.row)}>
+        <Field grow>
+          <Label>Memory cap</Label>
+          <Input
             type="number"
             min={0}
             step="any"
+            style={sx.capInput}
             placeholder={inst ? `${inst.memoryMb} — the instance’s own` : 'the instance’s own'}
             value={p.memoryMb ?? ''}
             onChange={(e) => edit((d) => {
@@ -784,19 +725,20 @@ function PoolCard({
               d.pools[i].memoryMb = v === '' ? null : Math.max(0, Number(v) || 0);
             })}
           />
-          <span className="hint">
+          <Hint>
             {p.memoryMb === null
               ? 'MB. Empty is the instance’s own — nothing is written to the file.'
               : `MB, instead of the ${inst?.memoryMb ?? '?'} this instance comes with. Under it, `
                 + 'a node that holds too much fills up and says so.'}
-          </span>
-        </div>
-        <div className="field grow">
-          <label>Disk cap</label>
-          <input
+          </Hint>
+        </Field>
+        <Field grow>
+          <Label>Disk cap</Label>
+          <Input
             type="number"
             min={0}
             step="any"
+            style={sx.capInput}
             placeholder={inst ? `${inst.storageGb * 1024} — the instance’s own` : 'the instance’s own'}
             value={p.diskMb ?? ''}
             onChange={(e) => edit((d) => {
@@ -804,10 +746,10 @@ function PoolCard({
               d.pools[i].diskMb = v === '' ? null : Math.max(0, Number(v) || 0);
             })}
           />
-          <span className="hint">
+          <Hint>
             MB. Only a job that calls <Code>wroteDisk</Code> can ever reach it.
-          </span>
-        </div>
+          </Hint>
+        </Field>
       </div>
 
       {/* One node unlike the rest. A pool of eight where one is half the size
@@ -815,11 +757,11 @@ function PoolCard({
           — that is the whole point of it. Only offered where there is more than
           one node to be the exception to. */}
       {names.length > 1 && (
-        <div className="excs">
-          <div className="exhead">
-            <span className="lbl">Exceptions</span>
+        <div {...stylex.props(sx.excs)}>
+          <div {...stylex.props(sx.excHead)}>
+            <Lbl>Exceptions</Lbl>
             <button
-              className="btn"
+              {...stylex.props(ui.btn, form.short, sx.pushRight)}
               onClick={() => edit((d) => {
                 const taken = new Set(d.pools[i].overrides.map((o) => o.node));
                 const free = names.find((nm) => !taken.has(nm)) ?? names[0];
@@ -834,14 +776,15 @@ function PoolCard({
             </button>
           </div>
           {!p.overrides.length && (
-            <span className="hint">
+            <Hint>
               Every node in this pool is the same. Add one to make a straggler, or a
               node too small for the work it is given.
-            </span>
+            </Hint>
           )}
           {p.overrides.map((o, k) => (
-            <div className="exc" key={k}>
-              <select
+            <div {...stylex.props(sx.exc)} key={k}>
+              <Select
+                small
                 value={o.node}
                 aria-label="which node"
                 onChange={(e) => edit((d) => { d.pools[i].overrides[k].node = e.target.value; })}
@@ -851,8 +794,9 @@ function PoolCard({
                     node in this pool. Kept rather than dropped, and shown as
                     what it is. */}
                 {!names.includes(o.node) && <option value={o.node}>{o.node} — no such node</option>}
-              </select>
-              <select
+              </Select>
+              <Select
+                small
                 value={o.instance}
                 aria-label="instance for this node"
                 onChange={(e) => edit((d) => { d.pools[i].overrides[k].instance = e.target.value; })}
@@ -861,8 +805,9 @@ function PoolCard({
                 {palette.instances.map((x) => (
                   <option key={x.name} value={x.name}>{x.name}</option>
                 ))}
-              </select>
-              <select
+              </Select>
+              <Select
+                small
                 value={o.zone}
                 aria-label="zone for this node"
                 onChange={(e) => edit((d) => { d.pools[i].overrides[k].zone = e.target.value; })}
@@ -871,8 +816,10 @@ function PoolCard({
                 {palette.regions.flatMap((r) => r.zones).map((z) => (
                   <option key={z} value={z}>{z}</option>
                 ))}
-              </select>
-              <input
+              </Select>
+              <Input
+                small
+                style={sx.excInput}
                 type="number" min={0} step="any" placeholder="memory MB"
                 aria-label="memory cap for this node"
                 value={o.memoryMb ?? ''}
@@ -881,7 +828,9 @@ function PoolCard({
                   d.pools[i].overrides[k].memoryMb = v === '' ? null : Math.max(0, Number(v) || 0);
                 })}
               />
-              <input
+              <Input
+                small
+                style={sx.excInput}
                 type="number" min={0} step="any" placeholder="disk MB"
                 aria-label="disk cap for this node"
                 value={o.diskMb ?? ''}
@@ -890,12 +839,17 @@ function PoolCard({
                   d.pools[i].overrides[k].diskMb = v === '' ? null : Math.max(0, Number(v) || 0);
                 })}
               />
-              <button className="btn" onClick={() => edit((d) => { d.pools[i].overrides.splice(k, 1); })}>×</button>
+              <button
+                {...stylex.props(ui.btn, form.mini)}
+                onClick={() => edit((d) => { d.pools[i].overrides.splice(k, 1); })}
+              >
+                ×
+              </button>
               {!names.includes(o.node) && (
-                <span className="hint warn">
+                <Hint warn style={sx.ownLine}>
                   This pool has no node called <Code>{o.node}</Code>, so the run ignores
                   this line. Point it at one, or remove it.
-                </span>
+                </Hint>
               )}
             </div>
           ))}
@@ -905,15 +859,15 @@ function PoolCard({
       {/* Every zone there is, not just the ones near the first. A pool dealt over
           two continents is a legal simulation and an instructive one, and the form
           used to make it unreachable by filtering this list to one region. */}
-      <div className="zones">
-        <span className="lbl">Zones</span>
+      <div {...stylex.props(sx.group)}>
+        <Lbl style={sx.groupLabel}>Zones</Lbl>
         {palette.regions.map((r) => (
-          <span className="reg" key={r.name}>
-            <span className="rn" title={r.where}>{r.name}</span>
+          <span {...stylex.props(sx.region)} key={r.name}>
+            <span {...stylex.props(sx.regionName)} title={r.where}>{r.name}</span>
             {r.zones.map((z) => (
               <button
                 key={z}
-                className={`zone${p.zones.includes(z) ? ' on' : ''}`}
+                {...stylex.props(form.pill, sx.zone, p.zones.includes(z) && form.pillOn)}
                 onClick={() => edit((d) => {
                   const zs = d.pools[i].zones;
                   const at = zs.indexOf(z);
@@ -926,12 +880,12 @@ function PoolCard({
             ))}
           </span>
         ))}
-        <span className="hint">
+        <Hint>
           {p.zones.length > 1
             ? `dealt round-robin over ${p.zones.length} zones — the pool survives one of them `
               + 'going, and every call between two of them is charged as one that crossed'
             : 'all in one zone, where talking is free and a zone failure takes the pool'}
-        </span>
+        </Hint>
       </div>
 
       {/* What happens to these nodes. Each of them, separately: a rate written
@@ -946,59 +900,6 @@ function PoolCard({
         set={(f) => edit((d) => f(d.pools[i].failures))}
       />
 
-      <style>{`
-        .pool {
-          border: 1px solid var(--border); border-radius: var(--r);
-          padding: 14px 16px 16px; background: var(--surface-2);
-          display: flex; flex-direction: column; gap: 12px;
-        }
-        .pool > header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-        .pool .nm {
-          width: 150px; height: 30px; padding: 0 10px;
-          font: inherit; font-family: var(--mono); font-size: 13px; font-weight: 500;
-          color: var(--text); background: var(--surface);
-          border: 1px solid var(--border); border-radius: var(--r-sm);
-        }
-        .pool .acts { margin-left: auto; display: flex; gap: 6px; }
-        .row { display: flex; gap: 12px; flex-wrap: wrap; }
-        .field { display: flex; flex-direction: column; gap: 4px; min-width: 90px; }
-        .field.grow { flex: 1; min-width: 180px; }
-        .field label { font-size: 11.5px; color: var(--text-3); }
-        .field input, .field select {
-          height: 32px; padding: 0 10px; font: inherit; font-size: 13px;
-          color: var(--text); background: var(--surface);
-          border: 1px solid var(--border); border-radius: var(--r-sm);
-        }
-        .hint { font-size: 11px; color: var(--text-3); }
-        .hint.warn { color: var(--warn); }
-        .excs { display: flex; flex-direction: column; gap: 7px;
-                padding-top: 11px; border-top: 1px solid var(--border); }
-        .exhead { display: flex; align-items: center; gap: 10px; }
-        .exhead .lbl { font-size: 11.5px; color: var(--text-3); }
-        .exhead .btn { margin-left: auto; height: 26px; }
-        .exc { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-        .exc select, .exc input {
-          height: 28px; padding: 0 8px; font: inherit; font-size: 12px;
-          color: var(--text); background: var(--surface);
-          border: 1px solid var(--border); border-radius: var(--r-sm);
-        }
-        .exc input { width: 100px; font-family: var(--mono); }
-        .exc .btn { height: 26px; width: 26px; padding: 0; justify-content: center; }
-        .exc .hint { flex-basis: 100%; }
-        .serves, .zones { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        .serves .lbl, .zones .lbl { font-size: 11.5px; color: var(--text-3); min-width: 40px; }
-        .svc, .zone {
-          height: 26px; padding: 0 11px; font: inherit; font-size: 11.5px;
-          font-family: var(--mono); cursor: pointer;
-          color: var(--text-3); background: var(--surface);
-          border: 1px solid var(--border); border-radius: 999px;
-        }
-        .svc.on, .zone.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
-        .svc.job.on { color: var(--ok, #1a7f37); border-color: currentColor; background: transparent; }
-        .reg { display: inline-flex; align-items: center; gap: 4px; }
-        .reg .rn { font-size: 10.5px; color: var(--text-3); font-family: var(--mono); }
-        .reg .zone { padding: 0 8px; }
-      `}</style>
     </div>
   );
 }
@@ -1028,56 +929,56 @@ function Network({
 
   return (
     <Panel title="Network" note={quiet ? 'instant and lossless' : undefined}>
-      <P className="lead">
+      <P style={form.lead}>
         What a gRPC call costs before your code has done anything with it. These are the four
         numbers <Code>network:</Code> is written in, and they apply to every call in the run.
       </P>
 
-      <div className="jobs">
-        <div className="field">
-          <label htmlFor="samezone">Same zone</label>
-          <input id="samezone" type="number" min={0} step="any" value={n.sameZoneRefMs}
+      <div {...stylex.props(sx.jobs)}>
+        <Field style={sx.netField}>
+          <Label htmlFor="samezone">Same zone</Label>
+          <Input id="samezone" type="number" min={0} step="any" value={n.sameZoneRefMs}
                  onChange={(e) => edit((d) => {
                    d.net.sameZoneRefMs = Math.max(0, Number(e.target.value) || 0);
                  })} />
-          <span className="hint">refMs for a call between two nodes in one zone.</span>
-        </div>
-        <div className="field">
-          <label htmlFor="crosszone">Across zones</label>
-          <input id="crosszone" type="number" min={0} step="any" value={n.crossZoneRefMs}
+          <Hint>refMs for a call between two nodes in one zone.</Hint>
+        </Field>
+        <Field style={sx.netField}>
+          <Label htmlFor="crosszone">Across zones</Label>
+          <Input id="crosszone" type="number" min={0} step="any" value={n.crossZoneRefMs}
                  onChange={(e) => edit((d) => {
                    d.net.crossZoneRefMs = Math.max(0, Number(e.target.value) || 0);
                  })} />
-          <span className="hint">
+          <Hint>
             refMs when they are not. The only thing that makes where you put a node matter.
-          </span>
-        </div>
-        <div className="field">
-          <label htmlFor="jitter">Jitter</label>
-          <input id="jitter" type="number" min={0} step="any" value={n.jitterRefMs}
+          </Hint>
+        </Field>
+        <Field style={sx.netField}>
+          <Label htmlFor="jitter">Jitter</Label>
+          <Input id="jitter" type="number" min={0} step="any" value={n.jitterRefMs}
                  onChange={(e) => edit((d) => {
                    d.net.jitterRefMs = Math.max(0, Number(e.target.value) || 0);
                  })} />
-          <span className="hint">
+          <Hint>
             Spread around both, so no two calls take exactly as long and a timeout is a judgement.
-          </span>
-        </div>
-        <div className="field">
-          <label htmlFor="loss">Loss</label>
-          <input id="loss" type="number" min={0} max={1} step="any" value={n.loss}
+          </Hint>
+        </Field>
+        <Field style={sx.netField}>
+          <Label htmlFor="loss">Loss</Label>
+          <Input id="loss" type="number" min={0} max={1} step="any" value={n.loss}
                  onChange={(e) => edit((d) => {
                    d.net.loss = Math.min(1, Math.max(0, Number(e.target.value) || 0));
                  })} />
-          <span className="hint">
+          <Hint>
             0 to 1 — the chance a call never arrives. 0.01 is one in a hundred.
-          </span>
-        </div>
+          </Hint>
+        </Field>
       </div>
 
       {/* The two ways the numbers and the cluster can disagree. Both are legal and
           both are almost always a mistake, so they are said rather than fixed. */}
       {apart > 0 && n.crossZoneRefMs <= n.sameZoneRefMs && (
-        <div className="flag warn">
+        <div {...stylex.props(form.flag, form.flagWarn)}>
           <span>⚠</span>
           <span>
             <strong>
@@ -1091,7 +992,7 @@ function Network({
         </div>
       )}
       {apart === 0 && n.crossZoneRefMs > 0 && (
-        <div className="flag">
+        <div {...stylex.props(form.flag)}>
           <span>·</span>
           <span>
             Every node here is in one zone, so <em>Across zones</em> never applies. Deal a
@@ -1100,7 +1001,7 @@ function Network({
         </div>
       )}
       {n.loss > 0 && (
-        <div className="flag">
+        <div {...stylex.props(form.flag)}>
           <span>·</span>
           <span>
             A call that is dropped looks exactly like one to a node that has died — the caller
@@ -1109,26 +1010,6 @@ function Network({
         </div>
       )}
 
-      <style>{`
-        .lead { font-size: 13px; margin: 0 0 14px; }
-        .jobs { display: flex; gap: 16px; flex-wrap: wrap; }
-        .field { display: flex; flex-direction: column; gap: 4px; min-width: 150px; flex: 1; }
-        .field label { font-size: 11.5px; color: var(--text-3); }
-        .field input {
-          height: 32px; padding: 0 10px; font: inherit; font-size: 13px;
-          font-family: var(--mono);
-          color: var(--text); background: var(--surface);
-          border: 1px solid var(--border); border-radius: var(--r-sm);
-        }
-        .hint { font-size: 11px; color: var(--text-3); }
-        .flag {
-          display: flex; gap: 10px; align-items: flex-start; margin-top: 14px;
-          padding: 11px 14px; border-radius: var(--r-sm); font-size: 12.5px;
-          background: var(--accent-soft); color: var(--text-2);
-        }
-        .flag.warn { background: #fff8e8; color: #6b4d09; }
-        @media (prefers-color-scheme: dark) { .flag.warn { background: #2a2211; color: #e6c684; } }
-      `}</style>
     </Panel>
   );
 }
@@ -1171,28 +1052,28 @@ function Failures({
     });
   });
   return (
-    <div className="wx">
-      <div className="wxhead">
-        <span className="lbl">{title}</span>
-        <button className="btn" onClick={() => add(false)}>+ At a moment</button>
-        <button className="btn" onClick={() => add(true)}>+ At a rate</button>
+    <div {...stylex.props(sx.wx)}>
+      <div {...stylex.props(sx.wxHead)}>
+        <Lbl>{title}</Lbl>
+        <button {...stylex.props(ui.btn, form.short, sx.pushRight)} onClick={() => add(false)}>+ At a moment</button>
+        <button {...stylex.props(ui.btn, form.short)} onClick={() => add(true)}>+ At a rate</button>
       </div>
 
       {!fs.length && (
-        <span className="hint">
+        <Hint>
           Nothing happens to {here}. Every run of this will be the good afternoon.
-        </span>
+        </Hint>
       )}
 
       {fs.map((f, k) => {
         const rate = f.perRefMs > 0;
         const put = (g: (x: Failure) => void) => set((list) => g(list[k]));
         return (
-          <div className="rule" key={k}>
+          <div {...stylex.props(form.rule, k > 0 && form.ruled)} key={k}>
             {/* An instant or a rate, and never both: one is a moment and the
                 other a mean gap drawn exponentially, and an entry with both
                 would be two failures written as one. */}
-            <select
+            <Select small
               value={rate ? 'per' : 'at'}
               aria-label="when"
               onChange={(e) => put((x) => {
@@ -1202,8 +1083,10 @@ function Failures({
             >
               <option value="at">at</option>
               <option value="per">every</option>
-            </select>
-            <input
+            </Select>
+            <Input
+              small
+              style={sx.number}
               type="number"
               value={rate ? f.perRefMs : f.atRefMs}
               onChange={(e) => put((x) => {
@@ -1215,7 +1098,7 @@ function Failures({
             {/* The kind decides which control follows it, because each kind obeys
                 a different one — and the values behind the others are kept, so
                 changing your mind twice does not lose what you typed. */}
-            <select
+            <Select small
               value={f.kind}
               aria-label="what happens"
               onChange={(e) => put((x) => {
@@ -1232,23 +1115,23 @@ function Failures({
               {FAILURE_KINDS
                 .filter((kind) => !rate || RATEABLE.includes(kind))
                 .map((kind) => <option key={kind} value={kind}>{kind}</option>)}
-            </select>
+            </Select>
             {/* The far end, and only these two have one. It is a pair of nodes
                 that stops reaching each other, not a node that stops — so the
                 other end may be anywhere in the system. */}
             {PAIRED.includes(f.kind) && (
               <>
                 <span>{f.kind === 'heal' ? 'and' : 'from'}</span>
-                <select value={f.other} onChange={(e) => put((x) => { x.other = e.target.value; })}>
+                <Select small value={f.other} onChange={(e) => put((x) => { x.other = e.target.value; })}>
                   {others.map((nm) => <option key={nm} value={nm}>{nm}</option>)}
                   {!others.includes(f.other) && <option value={f.other}>{f.other}</option>}
-                </select>
+                </Select>
               </>
             )}
             {f.kind === 'kill' && (
               <>
                 <span>and bring it back after</span>
-                <input type="number" value={f.restartAfterRefMs}
+                <Input small style={sx.number} type="number" value={f.restartAfterRefMs}
                        onChange={(e) => put((x) => {
                          x.restartAfterRefMs = Math.max(0, Number(e.target.value) || 0);
                        })} />
@@ -1258,7 +1141,7 @@ function Failures({
             {f.kind === 'freeze' && (
               <>
                 <span>for</span>
-                <input type="number" value={f.forRefMs}
+                <Input small style={sx.number} type="number" value={f.forRefMs}
                        onChange={(e) => put((x) => {
                          x.forRefMs = Math.max(0, Number(e.target.value) || 0);
                        })} />
@@ -1268,7 +1151,7 @@ function Failures({
             {f.kind === 'degrade' && (
               <>
                 <span>×</span>
-                <input type="number" value={f.factor}
+                <Input small style={sx.number} type="number" value={f.factor}
                        onChange={(e) => put((x) => {
                          x.factor = Math.max(1.01, Number(e.target.value) || 2);
                        })} />
@@ -1278,61 +1161,44 @@ function Failures({
             {f.kind === 'spotReclaim' && (
               <>
                 <span>after warning it for</span>
-                <input type="number" value={f.noticeRefMs}
+                <Input small style={sx.number} type="number" value={f.noticeRefMs}
                        onChange={(e) => put((x) => {
                          x.noticeRefMs = Math.max(0, Number(e.target.value) || 0);
                        })} />
                 <span>refMs</span>
               </>
             )}
-            <button className="btn" onClick={() => set((list) => { list.splice(k, 1); })}>×</button>
+            <button
+              {...stylex.props(ui.btn, form.mini, sx.nudged)}
+              onClick={() => set((list) => { list.splice(k, 1); })}
+            >
+              ×
+            </button>
             {rate && (
-              <span className="aside">
+              <Aside>
                 a rate, not a moment: it keeps happening for as long as the simulation does,
                 and it is drawn separately for each node here — so a sweep of seeds shows the
                 spread rather than one lucky afternoon
-              </span>
+              </Aside>
             )}
             {!rate && f.kind === 'kill' && f.restartAfterRefMs === 0 && (
-              <span className="aside">0 — it never comes back, which is a different exercise</span>
+              <Aside>0 — it never comes back, which is a different exercise</Aside>
             )}
             {f.kind === 'freeze' && (
-              <span className="aside">
+              <Aside>
                 it stops answering and then thaws — the calls that were waiting find out late,
                 which is the whole difference from a kill
-              </span>
+              </Aside>
             )}
             {PAIRED.includes(f.kind) && (
-              <span className="aside">
+              <Aside>
                 both stay alive, both keep serving everybody else, and one caller sees nothing
-              </span>
+              </Aside>
             )}
           </div>
         );
       })}
 
-      <style>{`
-        .wx { display: flex; flex-direction: column; gap: 6px;
-              padding-top: 11px; border-top: 1px solid var(--border); }
-        .wxhead { display: flex; align-items: center; gap: 8px; }
-        .wxhead .lbl { font-size: 11.5px; color: var(--text-3); }
-        .wxhead .btn { height: 26px; }
-        .wxhead .btn:first-of-type { margin-left: auto; }
-        .rule {
-          display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
-          font-size: 12.5px; color: var(--text-2); padding: 6px 0;
-        }
-        .rule + .rule { border-top: 1px solid var(--border); }
-        .rule input, .rule select {
-          height: 28px; padding: 0 8px; font: inherit; font-size: 12.5px;
-          color: var(--text); background: var(--surface);
-          border: 1px solid var(--border); border-radius: var(--r-sm);
-        }
-        .rule input[type=number] { width: 74px; font-family: var(--mono); }
-        .rule .btn { height: 26px; width: 26px; padding: 0; justify-content: center; margin-left: 4px; }
-        .aside { flex-basis: 100%; font-size: 11px; color: var(--text-3); }
-        .hint { font-size: 11px; color: var(--text-3); }
-      `}</style>
     </div>
   );
 }
@@ -1358,13 +1224,13 @@ function RpcFailures({
   const free = rpcs.find((n) => !(r.failures[n] ?? []).length) ?? rpcs[0];
   if (!rpcs.length) return null;
   return (
-    <div className="rpcwx">
-      <div className="wxhead">
-        <span className="lbl">
+    <div {...stylex.props(sx.rpcwx)}>
+      <div {...stylex.props(sx.wxHead)}>
+        <Lbl>
           <Code>{r.service}</Code> here
-        </span>
+        </Lbl>
         <button
-          className="btn"
+          {...stylex.props(ui.btn, form.short, sx.pushRight)}
           onClick={() => set((x) => {
             const list = x.failures[free] ?? (x.failures[free] = []);
             list.push({ kind: 'status', status: 'UNAVAILABLE', factor: 6, perCalls: 20 });
@@ -1381,71 +1247,57 @@ function RpcFailures({
           (x.failures[to] ?? (x.failures[to] = [])).push(was);
         });
         return (
-          <div className="rule" key={`${rpc}${k}`}>
+          <div {...stylex.props(form.rule, k > 0 && form.ruled)} key={`${rpc}${k}`}>
             <span>one call in</span>
-            <input type="number" value={f.perCalls}
+            <Input small style={sx.numberNarrow} type="number" value={f.perCalls}
                    onChange={(e) => put((x) => {
                      x.perCalls = Math.max(1, Math.round(Number(e.target.value) || 1));
                    })} />
             <span>to</span>
-            <select value={rpc} aria-label="which rpc" onChange={(e) => move(e.target.value)}>
+            <Select small value={rpc} aria-label="which rpc" onChange={(e) => move(e.target.value)}>
               {rpcs.map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
-            <select value={f.kind} aria-label="what goes wrong"
+            </Select>
+            <Select small value={f.kind} aria-label="what goes wrong"
                     onChange={(e) => put((x) => { x.kind = e.target.value as RpcFailure['kind']; })}>
               {RPC_FAILURE_KINDS.map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
+            </Select>
             {f.kind === 'status' && (
-              <input value={f.status} aria-label="gRPC status code"
+              <Input small value={f.status} aria-label="gRPC status code"
                      onChange={(e) => put((x) => { x.status = e.target.value.trim().toUpperCase(); })} />
             )}
             {f.kind === 'slow' && (
               <>
                 <span>×</span>
-                <input type="number" value={f.factor}
+                <Input small style={sx.numberNarrow} type="number" value={f.factor}
                        onChange={(e) => put((x) => {
                          x.factor = Math.max(1.01, Number(e.target.value) || 2);
                        })} />
                 <span>its declared duration</span>
               </>
             )}
-            <button className="btn" onClick={() => set((x) => {
-              x.failures[rpc].splice(k, 1);
-              if (!x.failures[rpc].length) delete x.failures[rpc];
-            })}>×</button>
+            <button
+              {...stylex.props(ui.btn, form.mini)}
+              onClick={() => set((x) => {
+                x.failures[rpc].splice(k, 1);
+                if (!x.failures[rpc].length) delete x.failures[rpc];
+              })}
+            >
+              ×
+            </button>
             {f.kind === 'drop' && (
-              <span className="aside">
+              <Aside>
                 the request never arrives, so the caller finds out by running out of time —
                 which is what a lost packet actually looks like from the other end
-              </span>
+              </Aside>
             )}
             {f.kind === 'status' && (
-              <span className="aside">
+              <Aside>
                 the handler is never reached; the caller gets that code and has to handle it
-              </span>
+              </Aside>
             )}
           </div>
         );
       })}
-      <style>{`
-        .rpcwx { display: flex; flex-direction: column; gap: 6px;
-                 padding: 9px 0 0 14px; border-left: 2px solid var(--border); }
-        .rpcwx .wxhead { display: flex; align-items: center; gap: 8px; }
-        .rpcwx .lbl { font-size: 11.5px; color: var(--text-3); }
-        .rpcwx .btn { height: 26px; margin-left: auto; }
-        .rpcwx .rule {
-          display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
-          font-size: 12.5px; color: var(--text-2); padding: 5px 0;
-        }
-        .rpcwx input, .rpcwx select {
-          height: 28px; padding: 0 8px; font: inherit; font-size: 12.5px;
-          color: var(--text); background: var(--surface);
-          border: 1px solid var(--border); border-radius: var(--r-sm);
-        }
-        .rpcwx input[type=number] { width: 66px; font-family: var(--mono); }
-        .rpcwx .btn:last-of-type { height: 26px; width: 26px; padding: 0; justify-content: center; }
-        .rpcwx .aside { flex-basis: 100%; font-size: 11px; color: var(--text-3); }
-      `}</style>
     </div>
   );
 }
@@ -1480,28 +1332,28 @@ function TheInput({
         ? `${draft.input.count.toLocaleString()} ${draft.input.unit}s, modelled`
         : `${draft.input.count.toLocaleString()} ${draft.input.unit}s`}
     >
-      <div className="rule">
+      <div {...stylex.props(form.rule)}>
         <span>losim hands</span>
-        <input type="number" min={1} step={1} value={draft.input.count}
+        <Input small style={sx.numberWide} type="number" min={1} step={1} value={draft.input.count}
                onChange={(e) => set((w) => {
                  w.count = Math.max(1, Math.round(Number(e.target.value) || 1));
                })} />
-        <input className="unit" value={draft.input.unit} aria-label="what one item is called"
+        <Input small style={sx.unit} value={draft.input.unit} aria-label="what one item is called"
                onChange={(e) => set((w) => { w.unit = e.target.value; })} />
         <span>to <Code>Job.Load</Code>, before the clock starts</span>
       </div>
-      <P className="aside">
+      <P style={sx.paraAside}>
         Singular — frame, line, order. It is the same word{' '}
         <Code>Losim.current().units(n)</Code> counts and <Code>perUnit</Code> prices, so a
         blank one leaves three numbers counting something nobody named.
       </P>
-      <div className="rule">
+      <div {...stylex.props(form.rule)}>
         <span>read from</span>
-        <input className="src" value={draft.input.source} placeholder="nothing — generated from the seed"
+        <Input small style={sx.source} value={draft.input.source} placeholder="nothing — generated from the seed"
                aria-label="where the workload is read from"
                onChange={(e) => set((w) => { w.source = e.target.value.trim(); })} />
       </div>
-      <P className="aside">
+      <P style={sx.paraAside}>
         {draft.input.source
           ? 'A file or a folder, from the project root. It has to be there: the loader stats it '
             + 'and refuses a simulation that would spend its setup reading something that is not.'
@@ -1509,27 +1361,12 @@ function TheInput({
             + 'from the seed, different across a sweep, and free, because Load is off the clock.'}
       </P>
       {draft.scale > 1 && (
-        <P className="aside">
+        <P style={sx.paraAside}>
           A model of {draft.scale}× the run: the engine measures a fraction of these and
           projects from what it saw. <Code>Run</Code> is never told which fraction, which is
           the property the whole thing depends on.
         </P>
       )}
-      <style>{`
-        .rule {
-          display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
-          font-size: 12.5px; color: var(--text-2); padding: 5px 0;
-        }
-        .rule input {
-          height: 28px; padding: 0 8px; font: inherit; font-size: 12.5px;
-          color: var(--text); background: var(--surface);
-          border: 1px solid var(--border); border-radius: var(--r-sm);
-        }
-        .rule input[type=number] { width: 96px; font-family: var(--mono); }
-        .rule .unit { width: 92px; font-family: var(--mono); }
-        .rule .src { flex: 1; min-width: 220px; font-family: var(--mono); }
-        .aside { font-size: 11px; color: var(--text-3); margin: 2px 0 10px; }
-      `}</style>
     </Panel>
   );
 }
@@ -1573,20 +1410,20 @@ function Costs({
   return (
     <Panel title="What a call takes" note="reference milliseconds, by the file that serves it">
       {!rows.length && (
-        <P className="none">
+        <P style={sx.none}>
           Nothing is placed yet, so there is nothing to price. Give a pool something to run.
         </P>
       )}
       {rows.map((r) => (
-        <div className="rule" key={`${r.runs}.${r.rpc}`}>
+        <div {...stylex.props(form.rule)} key={`${r.runs}.${r.rpc}`}>
           <span><Code>{r.runs.replace(/^.*\//, '')}</Code>.{r.rpc}</span>
           <span>takes</span>
-          <input type="number" min={0} step="any" value={r.fixedRefMs}
+          <Input small style={sx.numberWide} type="number" min={0} step="any" value={r.fixedRefMs}
                  onChange={(e) => set(r.runs, r.rpc, (c) => {
                    c.fixedRefMs = Math.max(0, Number(e.target.value) || 0);
                  })} />
           <span>refMs, plus</span>
-          <input type="number" min={0} step="any" value={r.perUnitRefNs}
+          <Input small style={sx.numberWide} type="number" min={0} step="any" value={r.perUnitRefNs}
                  onChange={(e) => set(r.runs, r.rpc, (c) => {
                    c.perUnitRefNs = Math.max(0, Number(e.target.value) || 0);
                  })} />
@@ -1594,7 +1431,7 @@ function Costs({
         </div>
       ))}
       {rows.length > 0 && !priced && (
-        <P className="aside warn">
+        <P style={[sx.paraAside, form.warn]}>
           Every call is instant. Nothing queues, nothing contends, and the timeline is empty —
           which is most of what a distributed system is interesting for.
         </P>
@@ -1627,7 +1464,7 @@ function Retries({
       note="every caller, by method"
       actions={
         <button
-          className="btn"
+          {...stylex.props(ui.btn)}
           disabled={!methods.length}
           onClick={() => edit((d) => {
             const safe = methods.find((m) => m.idempotent) ?? methods[0];
@@ -1642,7 +1479,7 @@ function Retries({
       }
     >
       {!draft.retries.length && (
-        <P className="none">
+        <P style={sx.none}>
           Nothing is retried. A call that fails, fails — which is what makes a fault visible in
           the first place.
         </P>
@@ -1650,8 +1487,8 @@ function Retries({
       {draft.retries.map((r, i) => {
         const safe = methods.find((m) => m.method === r.method)?.idempotent ?? false;
         return (
-          <div className="rule" key={i}>
-            <select
+          <div {...stylex.props(form.rule, i > 0 && form.ruled)} key={i}>
+            <Select small
               value={r.method}
               onChange={(e) => edit((d) => {
                 d.retries[i].method = e.target.value;
@@ -1663,57 +1500,205 @@ function Retries({
                   {m.method}{m.idempotent ? '' : ' — not declared idempotent'}
                 </option>
               ))}
-            </select>
+            </Select>
             <span>up to</span>
-            <input type="number" value={r.attempts}
+            <Input small style={sx.number} type="number" value={r.attempts}
                    onChange={(e) => edit((d) => {
                      d.retries[i].attempts = Math.max(1, Number(e.target.value) || 1);
                    })} />
             <span>times, backing off</span>
-            <input type="number" value={r.backoffRefMs}
+            <Input small style={sx.number} type="number" value={r.backoffRefMs}
                    onChange={(e) => edit((d) => {
                      d.retries[i].backoffRefMs = Math.max(0, Number(e.target.value) || 0);
                    })} />
             <span>refMs, ×</span>
-            <input type="number" min={1} step="any" value={r.multiplier}
+            <Input small style={sx.number} type="number" min={1} step="any" value={r.multiplier}
                    onChange={(e) => edit((d) => {
                      d.retries[i].multiplier = Math.max(1, Number(e.target.value) || 1);
                    })} />
             <span>each time</span>
-            <button className="btn" onClick={() => edit((d) => { d.retries.splice(i, 1); })}>×</button>
+            <button
+              {...stylex.props(ui.btn, form.mini, sx.nudged)}
+              onClick={() => edit((d) => { d.retries.splice(i, 1); })}
+            >
+              ×
+            </button>
             {r.multiplier === 1 && r.attempts > 2 && (
-              <span className="aside">
+              <Aside>
                 flat: every attempt waits the same. A cluster that does not ease off a
                 struggling node is how one slow node becomes an outage.
-              </span>
+              </Aside>
             )}
             {!safe && (
-              <span className="aside warn">
+              <Aside warn>
                 its <Code>.proto</Code> declares no <Code>idempotency_level</Code>, so this is
                 written <Code>unsafe: true</Code> — running it twice is not known to be safe
-              </span>
+              </Aside>
             )}
           </div>
         );
       })}
 
-      <style>{`
-        .none { font-size: 12.5px; color: var(--text-3); margin: 0; }
-        .rule {
-          display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
-          font-size: 12.5px; color: var(--text-2); padding: 7px 0;
-        }
-        .rule + .rule { border-top: 1px solid var(--border); }
-        .rule input, .rule select {
-          height: 28px; padding: 0 8px; font: inherit; font-size: 12.5px;
-          color: var(--text); background: var(--surface);
-          border: 1px solid var(--border); border-radius: var(--r-sm);
-        }
-        .rule input[type=number] { width: 74px; font-family: var(--mono); }
-        .rule .btn { height: 26px; width: 26px; padding: 0; justify-content: center; margin-left: 4px; }
-        .aside { flex-basis: 100%; font-size: 11px; color: var(--text-3); }
-        .aside.warn { color: var(--warn); }
-      `}</style>
     </Panel>
   );
 }
+
+/**
+ * What was left after the shared shapes moved to form.tsx: the things only this
+ * page has.
+ *
+ * There were nine `<style>` blocks here, one per section, and because a `<style>`
+ * tag is global rather than scoped to the component that wrote it, they were all
+ * declaring the same handful of names at once — `.rule` four times, `.field`
+ * four times, `.hint` five. Whichever section rendered last won, which is why
+ * the cost rules had a top border they were never given one for and every field
+ * input was 110px wide because the scale section said so. None of that can
+ * happen now: a name here belongs to this file and nothing outside it can see it.
+ */
+const sx = stylex.create({
+  two: {
+    display: 'grid',
+    gap: '20px',
+    gridTemplateColumns: {
+      default: 'minmax(0, 1.5fr) minmax(0, 380px)',
+      '@media (max-width: 1180px)': '1fr',
+    },
+    alignItems: 'start',
+  },
+  col: { display: 'flex', flexDirection: 'column', gap: '20px', minWidth: 0 },
+  /** The summary follows you down the form, until the form is the whole width. */
+  sticky: {
+    position: { default: 'sticky', '@media (max-width: 1180px)': 'static' },
+    top: '84px',
+  },
+
+  /** Whatever the lab said, unedited. `bad` is javac or the loader refusing. */
+  log: {
+    margin: 0,
+    paddingBlock: '12px',
+    paddingInline: '14px',
+    borderRadius: radius.sm,
+    backgroundColor: chrome.surface2,
+    fontFamily: font.mono,
+    fontSize: '12px',
+    whiteSpace: 'pre-wrap',
+    overflowX: 'auto',
+    color: chrome.text2,
+  },
+  logBad: { color: chrome.danger },
+
+  kv: { margin: 0, display: 'flex', flexDirection: 'column' },
+  kvRow: { display: 'flex', justifyContent: 'space-between', gap: '12px', paddingBlock: '7px', fontSize: '13px' },
+  ruled: { borderTopWidth: '1px', borderTopStyle: 'solid', borderTopColor: chrome.border },
+  dt: { color: chrome.text2 },
+  dd: { margin: 0, fontFamily: font.mono, fontVariantNumeric: 'tabular-nums' },
+  /** An ocean between two nodes is the one distance worth reading twice. */
+  far: { color: chrome.warn, fontWeight: 500 },
+  sub: {
+    marginTop: '16px',
+    marginRight: 0,
+    marginBottom: 0,
+    marginLeft: 0,
+    fontSize: '12px',
+    fontWeight: 500,
+    color: chrome.text3,
+    textTransform: 'none',
+    letterSpacing: 0,
+  },
+  note: { fontSize: '11.5px', color: chrome.text3, marginTop: '12px', marginRight: 0, marginBottom: 0, marginLeft: 0 },
+  saveAs: { minWidth: 0 },
+  wideInput: { width: '100%' },
+  wideBtn: { width: '100%', justifyContent: 'center', marginTop: '12px' },
+
+  /* The scale section: one number, and four presets for it. */
+  wideField: { minWidth: '150px' },
+  mult: { display: 'flex', alignItems: 'center', gap: '6px' },
+  times: { fontSize: '14px', color: chrome.text3 },
+  sentence: { maxWidth: '46ch' },
+  quick: { display: 'flex', gap: '6px', alignItems: 'center', height: '32px', marginTop: '17px' },
+
+  pools: { display: 'flex', flexDirection: 'column', gap: '12px' },
+  pool: {
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: chrome.border,
+    borderRadius: radius.base,
+    paddingTop: '14px',
+    paddingInline: '16px',
+    paddingBottom: '16px',
+    backgroundColor: chrome.surface2,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+  },
+  poolHead: { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' },
+  poolName: { width: '150px', height: '30px', fontSize: '13px', fontWeight: 500 },
+  entryChip: { color: '#1a7f37', borderColor: 'currentColor', backgroundColor: 'transparent' },
+  acts: { marginLeft: 'auto', display: 'flex', gap: '6px' },
+  capInput: { width: 'auto' },
+
+  /** A row of toggles with a word in front of it: what this pool runs, and where. */
+  group: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' },
+  groupLabel: { minWidth: '40px' },
+  file: { fontFamily: font.mono },
+  region: { display: 'inline-flex', alignItems: 'center', gap: '4px' },
+  regionName: { fontSize: '10.5px', color: chrome.text3, fontFamily: font.mono },
+  zone: { fontFamily: font.mono, paddingInline: '8px' },
+
+  excs: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '7px',
+    paddingTop: '11px',
+    borderTopWidth: '1px',
+    borderTopStyle: 'solid',
+    borderTopColor: chrome.border,
+  },
+  excHead: { display: 'flex', alignItems: 'center', gap: '10px' },
+  exc: { display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' },
+  excInput: { width: '100px' },
+  /** The sentence about a broken line, under the line rather than beside it. */
+  ownLine: { flexBasis: '100%' },
+  pushRight: { marginLeft: 'auto' },
+
+  jobs: { display: 'flex', gap: '16px', flexWrap: 'wrap' },
+  netField: { minWidth: '150px', flexGrow: 1, flexShrink: 1 },
+
+  wx: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+    paddingTop: '11px',
+    borderTopWidth: '1px',
+    borderTopStyle: 'solid',
+    borderTopColor: chrome.border,
+  },
+  wxHead: { display: 'flex', alignItems: 'center', gap: '8px' },
+  /** The rpc's own failures, indented under the entry that placed the service. */
+  rpcwx: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+    paddingTop: '9px',
+    paddingRight: 0,
+    paddingBottom: 0,
+    paddingLeft: '14px',
+    borderLeftWidth: '2px',
+    borderLeftStyle: 'solid',
+    borderLeftColor: chrome.border,
+  },
+
+  /* The three widths a number in a rule takes. They were three different
+     declarations of `.rule input[type=number]`, and only the last one rendered
+     was ever in effect. */
+  number: { width: '74px' },
+  numberNarrow: { width: '66px' },
+  numberWide: { width: '96px' },
+  unit: { width: '92px' },
+  source: { flexGrow: 1, flexShrink: 1, minWidth: '220px', width: 'auto' },
+  nudged: { marginLeft: '4px' },
+
+  none: { fontSize: '12.5px', color: chrome.text3, margin: 0 },
+  /** `aside` as a paragraph rather than as the tail of a rule. */
+  paraAside: { fontSize: '11px', color: chrome.text3, marginTop: '2px', marginRight: 0, marginBottom: '10px', marginLeft: 0 },
+});

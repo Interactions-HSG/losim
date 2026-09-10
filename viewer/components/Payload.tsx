@@ -17,6 +17,7 @@ import { digest } from '../lib/trace.ts';
 import * as stylex from '@stylexjs/stylex';
 
 import { ui } from '../lib/ui.stylex.ts';
+import { chrome, radius } from '../lib/tokens.stylex.ts';
 
 export function Payload({
   detail,
@@ -58,9 +59,9 @@ function Side({ label, body, open }: { label: string; body: unknown; open: boole
           margin: '4px 0 0',
           padding: 8,
           fontSize: 11,
-          background: 'var(--surface-2)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--r-sm)',
+          background: chrome.surface2,
+          border: `1px solid ${chrome.border}`,
+          borderRadius: radius.sm,
         }}
       >
         {full}

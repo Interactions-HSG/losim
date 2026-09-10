@@ -64,7 +64,7 @@ export function Lab({
     <section {...stylex.props(sty.lab)}>
       <div {...stylex.props(sty.rows)}>
         {lab.simulations.length === 0 && (
-          <div className="row">
+          <div {...stylex.props(sty.row, sty.lastRow)}>
             <span {...stylex.props(sty.empty)}>
               No simulations yet. Write one above and it appears here.
             </span>

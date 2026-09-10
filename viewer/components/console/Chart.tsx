@@ -22,7 +22,7 @@
 
 import * as stylex from '@stylexjs/stylex';
 
-import { chrome, font } from '../../lib/tokens.stylex.ts';
+import { chrome, font, series } from '../../lib/tokens.stylex.ts';
 
 export interface Series {
   name: string;
@@ -36,14 +36,14 @@ export interface Series {
  *
  * Tokens rather than hex, because these are chrome and chrome follows the
  * viewer's theme: the same ten hues that read on white are muddy on near-black,
- * and `globals.css` defines both sets. Every one of them therefore reaches an
- * SVG through `style`, never through a `fill=` or `stroke=` attribute — a
- * presentation attribute is not a CSS declaration, and Safari will not
- * substitute a `var()` inside one.
+ * and `lib/tokens.stylex.ts` declares both sets together. Every one of them
+ * reaches an SVG through `style`, never through a `fill=` or `stroke=`
+ * attribute — a presentation attribute is not a CSS declaration, and Safari
+ * will not substitute a `var()` inside one.
  */
 export const SERIES_COLOURS = [
-  'var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)', 'var(--s5)',
-  'var(--s6)', 'var(--s7)', 'var(--s8)', 'var(--s9)', 'var(--s10)',
+  series.s1, series.s2, series.s3, series.s4, series.s5,
+  series.s6, series.s7, series.s8, series.s9, series.s10,
 ] as const;
 
 export const colourOf = (i: number): string => SERIES_COLOURS[i % SERIES_COLOURS.length];

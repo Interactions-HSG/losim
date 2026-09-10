@@ -98,3 +98,25 @@ export const state = stylex.defineVars({
   frozenBg: { default: '#eaeff4', [DARK]: '#1c2530' },
   frozenInk: { default: '#4d6076', [DARK]: '#7C93A8' },
 });
+
+/**
+ * The console's categorical palette: ten hues that stay apart from each other
+ * and off the four bucket colours, in both schemes.
+ *
+ * Chrome rather than figure — these dress a cost report and a monitoring page,
+ * which are allowed to look like software. They reach an SVG through `style`
+ * and never through a `fill=` attribute: a presentation attribute is not a CSS
+ * declaration, and Safari will not substitute a `var()` inside one.
+ */
+export const series = stylex.defineVars({
+  s1: { default: '#3c6e9f', [DARK]: '#7fb0e0' },
+  s2: { default: '#8e6ba8', [DARK]: '#c3a3dc' },
+  s3: { default: '#3e8e8a', [DARK]: '#6fc6c0' },
+  s4: { default: '#b07d3a', [DARK]: '#e2b06a' },
+  s5: { default: '#4f7a46', [DARK]: '#8cbf7e' },
+  s6: { default: '#a8556b', [DARK]: '#e0899f' },
+  s7: { default: '#5e7ba8', [DARK]: '#9db6dd' },
+  s8: { default: '#7a6ea8', [DARK]: '#a99ddd' },
+  s9: { default: '#3f8360', [DARK]: '#74bb96' },
+  s10: { default: '#9b6b4a', [DARK]: '#d1a17c' },
+});
