@@ -38,10 +38,10 @@ export const COLOUR: Record<Bucket, string> = {
 };
 
 const WHY: Record<Bucket, string> = {
-  build: 'Engineering time to construct this design, carried whether or not the thing it protects against happens.',
-  capacity: 'The cluster you reserved, priced for the whole period. An idle node costs exactly as much as a busy one.',
-  consumption: 'What the work actually burned: storage and egress. This is the line a better algorithm moves.',
-  incidents: 'What failure cost: reruns, lost work, being late. Zero until something breaks, then large.',
+  build: 'Engineering time required for this design. The charge applies even if the protected failure never occurs.',
+  capacity: 'Reserved cluster capacity for the full run. Idle and busy nodes cost the same.',
+  consumption: 'Storage and egress consumed by the run. A different algorithm can change this cost.',
+  incidents: 'Costs caused by failures, such as reruns, lost work, and late delivery.',
 };
 
 export function LedgerStrip({
@@ -65,6 +65,7 @@ export function LedgerStrip({
         {...stylex.props(styles.head, open && styles.headOpen, !!focus && styles.headFocused)}
         onClick={onToggle}
         aria-expanded={open}
+        aria-label={open ? 'Hide cost details' : 'Show cost details'}
       >
         <span {...stylex.props(styles.pl)}>
           <span {...stylex.props(styles.lbl)}>cost</span>
@@ -91,7 +92,7 @@ export function LedgerStrip({
         {/* One stacked bar: what has been spent, against what the whole run comes
             to. The pale remainder is what is still coming, and the bright notch
             inside each segment is the pointed-at node's part of it. */}
-        <span {...stylex.props(styles.bar)} title="cost so far, against the whole run">
+        <span {...stylex.props(styles.bar)} title="Cost accrued so far; total run cost">
           {BUCKETS.map((b) => (
             <span
               key={b}
@@ -107,7 +108,7 @@ export function LedgerStrip({
           <span {...stylex.props(styles.rest)} style={{ width: `${Math.max(0, ((l.finalCost - l.cost) / scale) * 100)}%` }} />
         </span>
 
-        <span {...stylex.props(styles.caret)}>{open ? '▾' : '▸'}</span>
+        <span {...stylex.props(styles.caret)}>{open ? '-' : '+'}</span>
       </button>
 
       {open && (
@@ -138,10 +139,10 @@ export function LedgerStrip({
           <Table>
             <thead>
               <tr>
-                <Th>line</Th>
-                <Th style={cells.right}>quantity</Th>
-                <Th style={cells.right}>so far</Th>
-                <Th style={cells.right}>{focus ? focus.name : 'whole run'}</Th>
+                <Th>Line</Th>
+                <Th style={cells.right}>Quantity</Th>
+                <Th style={cells.right}>So far</Th>
+                <Th style={cells.right}>{focus ? focus.name : 'Whole run'}</Th>
               </tr>
             </thead>
             <tbody>
@@ -157,7 +158,7 @@ export function LedgerStrip({
                     <Td style={styles.cell}>
                       <span {...stylex.props(styles.dot)} style={{ background: COLOUR[line.bucket] }} />
                       {line.what}
-                      {why && <em {...stylex.props(styles.why)}> — {why}</em>}
+                      {why && <em {...stylex.props(styles.why)}>: {why}</em>}
                     </Td>
                     <Td num style={[cells.right, styles.cell]}>
                       {line.quantity.toPrecision(3)} <span {...stylex.props(ui.muted)}>{line.unit}</span>
@@ -169,7 +170,7 @@ export function LedgerStrip({
                       {focus
                         ? mine > 0
                           ? money(mine, l.currency)
-                          : '—'
+                          : '-'
                         : money(line.amount, l.currency)}
                     </Td>
                   </tr>
@@ -178,14 +179,12 @@ export function LedgerStrip({
             </tbody>
           </Table>
           <P style={styles.fine}>
-            Every amount here is a line <Code>dissaly bill</Code> already computed; what is added
-            is only when it arrives, and who it belongs to. The closing total is the
-            bill&rsquo;s, exactly.
+            <Code>dissaly bill</Code> computes each amount. This view places it on the run timeline
+            and attributes it to a node when applicable. The closing total matches the bill.
             {focus && (
               <>
                 {' '}
-                A dash means the line is nobody&rsquo;s in particular — the late-finish
-                penalty belongs to the job, not to a node.
+                A dash identifies a job-level charge, such as a late-finish penalty, with no node allocation.
               </>
             )}
           </P>

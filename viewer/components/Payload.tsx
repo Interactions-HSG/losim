@@ -34,8 +34,8 @@ export function Payload({
   const result = detail['result'];
   return (
     <div style={{ fontSize: 12, display: 'grid', gap: 3 }}>
-      {arg !== undefined && <Side label={label ?? 'in'} body={arg} open={open} />}
-      {result !== undefined && <Side label={label ?? 'out'} body={result} open={open} />}
+      {arg !== undefined && <Side label={label ?? 'Request'} body={arg} open={open} />}
+      {result !== undefined && <Side label={label ?? 'Response'} body={result} open={open} />}
     </div>
   );
 }
@@ -49,7 +49,7 @@ function Side({ label, body, open }: { label: string; body: unknown; open: boole
         <span {...stylex.props(ui.muted)} style={{ marginRight: 6 }}>
           {label}
         </span>
-        {text || <span {...stylex.props(ui.muted)}>empty</span>}
+        {text || <span {...stylex.props(ui.muted)}>Empty</span>}
       </summary>
       <pre
         {...stylex.props(ui.mono)}

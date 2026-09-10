@@ -222,9 +222,8 @@ export function Cost() {
         <Head title="Cost" sub={run.name} />
         <Panel>
           <P style={ui.muted}>
-            There is no bill beside <Code>{run.name}</Code>, so there is nothing to report. Bills
-            are written by <Code>dissaly bill --json</Code> next to the trace, and{' '}
-            <Code>dissaly dev viewer traces</Code> writes one for every run it sweeps.
+            No bill is available for <Code>{run.name}</Code>. <Code>dissaly bill --json</Code> writes
+            a bill beside the trace. <Code>dissaly dev viewer traces</Code> writes bills for its runs.
           </P>
         </Panel>
       </>
@@ -248,8 +247,8 @@ export function Cost() {
         title="Cost"
         sub={
           <>
-            {run.name} as it stood {refTime(now)} in, from <Code>dissaly bill</Code>. Tick another
-            run below and it is drawn at the same instant of its own clock.
+            <Code>dissaly bill</Code> reports {run.name} at {refTime(now)}. Select another run to compare
+            costs at the same time on its own clock.
           </>
         }
       />
@@ -263,7 +262,7 @@ export function Cost() {
         <Tile
           k="Decided before it ran"
           v={money(fixed, l.currency)}
-          n={`${((fixed / Math.max(l.cost, 1e-9)) * 100).toFixed(0)}% of it — build and capacity`}
+          n={`${((fixed / Math.max(l.cost, 1e-9)) * 100).toFixed(0)}%: build and capacity`}
         />
         <Tile
           k="Largest bucket"
@@ -273,7 +272,7 @@ export function Cost() {
         <Tile
           k="Incidents"
           v={money(l.buckets.incidents, l.currency)}
-          n={l.buckets.incidents > 0 ? 'something broke, and this is what it cost' : 'nothing has broken yet'}
+          n={l.buckets.incidents > 0 ? 'Failures have cost this amount.' : 'No failures yet.'}
         />
       </div>
 
@@ -284,7 +283,7 @@ export function Cost() {
           <Panel flush>
             <div {...stylex.props(sx.tools)}>
               <span {...stylex.props(sx.lb)}>Group by</span>
-              <div {...stylex.props(ui.seg)} role="group" aria-label="group by">
+              <div {...stylex.props(ui.seg)} role="group" aria-label="Group by">
                 {(Object.keys(DIMS) as Dim[]).map((d) => (
                   <button
                     key={d}
@@ -296,7 +295,7 @@ export function Cost() {
                   </button>
                 ))}
               </div>
-              {loading.length > 0 && <span {...stylex.props(sx.note)}>opening {loading.join(', ')}…</span>}
+              {loading.length > 0 && <span {...stylex.props(sx.note)}>Loading {loading.join(', ')}...</span>}
             </div>
             <StackedBars
               bars={bars}
@@ -309,17 +308,17 @@ export function Cost() {
             <div {...stylex.props(sx.pad)}>
               <Legend keys={keys} colour={colour} />
               <P style={sx.note}>
-                Grouped by <strong>{DIMS[dim].toLowerCase()}</strong>, cut off at the clock.
+                The chart groups cost by <strong>{DIMS[dim].toLowerCase()}</strong> through the selected time.
                 {dim === 'bucket'
-                  ? ' The four are printed apart rather than summed because they are four different kinds of decision, and one number cannot say that.'
-                  : ` Build belongs to no node — it is what the design cost to write — so it is shown as “${NOBODY}” rather than shared out and making every other figure wrong in the same direction.`}
+                  ? ' Each bucket reflects a different decision, so the chart keeps them separate.'
+                  : ` Build is a design cost. The chart labels it "${NOBODY}" instead of assigning it to a node.`}
               </P>
             </div>
           </Panel>
 
           <Panel
-            title="Every line, so far"
-            note={`${l.lines.length} of ${ledger.at(Number.MAX_SAFE_INTEGER).lines.length} have begun`}
+            title="Cost lines"
+            note={`${l.lines.length} of ${ledger.at(Number.MAX_SAFE_INTEGER).lines.length} accrued`}
             flush
           >
             <div {...stylex.props(sx.scroll)}>
@@ -327,7 +326,7 @@ export function Cost() {
                 <thead>
                   <tr>
                     <Th>Bucket</Th>
-                    <Th>What</Th>
+                    <Th>Item</Th>
                     <Th style={sx.right}>Quantity</Th>
                     <Th style={sx.right}>Unit price</Th>
                     <Th style={sx.right}>So far</Th>
@@ -354,7 +353,7 @@ export function Cost() {
               </Table>
             </div>
             {l.lines.length > 40 && (
-              <P style={[sx.pad, sx.note]}>{l.lines.length - 40} more, the smallest of them.</P>
+              <P style={[sx.pad, sx.note]}>This view omits {l.lines.length - 40} smaller lines.</P>
             )}
           </Panel>
         </div>
@@ -372,13 +371,13 @@ export function Cost() {
             </div>
           </Panel>
 
-          <Panel title="Beside" note="another run, on the same clock">
+          <Panel title="Compare runs" note="At the same clock position">
             <input
               {...stylex.props(sx.find)}
-              placeholder="Filter"
+              placeholder="Filter runs"
               value={find}
               onChange={(e) => setFind(e.target.value)}
-              aria-label="filter runs to compare with"
+              aria-label="Filter runs to compare"
             />
             <div {...stylex.props(sx.beside)}>
               {runs
@@ -405,12 +404,12 @@ export function Cost() {
                 ))}
             </div>
             <P style={sx.note}>
-              Ticking one opens its trace, so it can be accrued rather than only totalled. The
-              totals beside each name are what the whole run cost.
+              Select a run to load its trace and accrue its cost. The value beside each name is the
+              full-run total.
             </P>
           </Panel>
 
-          <Panel title="Open another">
+          <Panel title="Open a run">
             <div {...stylex.props(sx.jump)}>
               {runs.filter((r) => r.from === 'yours' && r.name !== run.name).slice(0, 6).map((r) => (
                 <button key={r.name} {...stylex.props(ui.btn)} onClick={() => void open(r.name, 'cost')}>
@@ -423,8 +422,8 @@ export function Cost() {
       </div>
 
         <Panel
-          title="What each node costs"
-          note={`${mine.filter((r) => r.focus.cost > 0).length} of ${run.trace.nodes.length} carry any of it · ${l.currency}`}
+          title="Cost by node"
+          note={`${mine.filter((r) => r.focus.cost > 0).length} of ${run.trace.nodes.length} have accrued cost; ${l.currency}`}
           flush
         >
           <div {...stylex.props(sx.scroll)}>
@@ -432,7 +431,7 @@ export function Cost() {
               <thead>
                 <tr>
                   <Th>Node</Th>
-                  <Th>Where</Th>
+                  <Th>Location</Th>
                   {BUCKETS.map((b) => (
                     <Th key={b} style={sx.right}>
                       <i {...stylex.props(sx.dot, sx.tight)} style={{ background: COLOUR[b] }} />
@@ -454,15 +453,15 @@ export function Cost() {
                         aria-expanded={open}
                       >
                         <Td style={sx.id}>
-                          <span {...stylex.props(sx.tw)} aria-hidden>{open ? '\u25be' : '\u25b8'}</span>
+                          <span {...stylex.props(sx.tw)} aria-hidden>{open ? '-' : '+'}</span>
                           {r.node.name}
                         </Td>
                         <Td style={[ui.muted, sx.where]}>
-                          {r.node.instance} · {r.node.zone}
+                          {r.node.instance}, {r.node.zone}
                         </Td>
                         {BUCKETS.map((b) => (
                           <Td key={b} num style={sx.right}>
-                            {r.focus.buckets[b] > 1e-9 ? amt(r.focus.buckets[b]) : '\u2014'}
+                            {r.focus.buckets[b] > 1e-9 ? amt(r.focus.buckets[b]) : '-'}
                           </Td>
                         ))}
                         <Td num style={[sx.right, sx.strong]}>{amt(r.focus.cost)}</Td>
@@ -502,8 +501,8 @@ export function Cost() {
                   <tr>
                     <Td style={[sx.rest, sx.nobody]}>{NOBODY}</Td>
                     <Td colSpan={1 + BUCKETS.length} style={[ui.muted, sx.rest]}>
-                      what the design cost to write, and any penalty the job as a whole earned —
-                      splitting these over the nodes would invent a claim nothing supports
+                      Design work and job-level penalties have no node allocation. Dividing these
+                      costs among nodes would create an unsupported allocation.
                     </Td>
                     <Td num style={[sx.right, sx.strong, sx.rest]}>{amt(l.cost - claimed)}</Td>
                     <Td num style={[sx.right, ui.muted, sx.rest]}>
@@ -515,9 +514,8 @@ export function Cost() {
             </Table>
           </div>
           <P style={[sx.pad, sx.note]}>
-            Click a node for its own lines, and why each one is charged to it. Every amount is
-            a line <Code>dissaly bill</Code> already computed — only the claim about who is
-            answerable for it is added here.
+            Select a node to view its cost lines and allocation reasons. <Code>dissaly bill</Code>
+            computes each amount; this view assigns it to a node when the bill supports that assignment.
           </P>
         </Panel>
 
@@ -549,8 +547,8 @@ function AtFullSize({ account, trace }: { account?: Account; trace: Run['trace']
       title="At full size"
       note={
         model
-          ? `the same design over ${model.fullUnits.toLocaleString()} units, at the same rates`
-          : 'at the same rates'
+          ? `Same design over ${model.fullUnits.toLocaleString()} units at the same rates`
+          : 'At the same rates'
       }
       flush
     >
@@ -559,7 +557,7 @@ function AtFullSize({ account, trace }: { account?: Account; trace: Run['trace']
           <thead>
             <tr>
               <Th>Bucket</Th>
-              <Th>What</Th>
+              <Th>Item</Th>
               <Th style={sx.right}>Quantity</Th>
               <Th style={sx.right}>Unit price</Th>
               <Th style={sx.right}>{account.currency}</Th>
@@ -581,7 +579,7 @@ function AtFullSize({ account, trace }: { account?: Account; trace: Run['trace']
                 it is missing is the engine's own words about the ladder. */}
             {missing.map(([what, why]) => (
               <tr key={what}>
-                <Td style={ui.muted}>—</Td>
+                <Td style={ui.muted}>-</Td>
                 <Td colSpan={4} style={sx.note}>
                   <strong>{what}</strong> is not on this bill: {why}
                 </Td>
@@ -596,10 +594,8 @@ function AtFullSize({ account, trace }: { account?: Account; trace: Run['trace']
       </div>
       <div {...stylex.props(sx.pad)}>
         <P style={sx.note}>
-          Priced by <Code>dissaly bill</Code> over the projected quantities, not over what ran.
-          Every quantity in it carries the error bar of the law it came from, so this total is
-          worth what the widest of those bands is worth — the projections themselves, band by
-          band, are on the <strong>Usage</strong> page.
+          <Code>dissaly bill</Code> prices projected quantities at the observed rates. Each quantity
+          retains the error band of its model. The <strong>Usage</strong> page shows the projections and bands.
         </P>
       </div>
     </Panel>

@@ -106,7 +106,7 @@ export function Topology({
 
   return (
     <div {...stylex.props(topo.topo, !plain && ui.card)}>
-      <svg viewBox={`${minX} ${minY} ${w} ${h}`} style={{ display: 'block', background: theme.surface, width: '100%', height: '100%' }}>
+      <svg viewBox={`${minX} ${minY} ${w} ${h}`} style={{ display: 'block', background: theme.surface, width: '100%', height: '100%' }} role="img" aria-label="Network topology">
         <defs>
           <marker id="tip" markerWidth="4" markerHeight="4" refX="3.4" refY="2" orient="auto">
             <path d="M0 0 L4 2 L0 4 z" fill={theme.pencil} />
@@ -153,14 +153,14 @@ export function Topology({
           const bow = Math.min(0.45, Math.abs(x2 - x1) * 0.1) + 0.06;
           const my = Math.max(minY + 0.3, (y1 + y2) / 2 - bow);
           const says = [
-            `${e.from} to ${e.to}`,
+            `${e.from} -> ${e.to}`,
             [...e.methods].join(', '),
-            `${made} calls, ${fmt(bytes)}`,
-            e.crossZone ? 'crossed a zone: billed, and slower' : '',
+            `${made} calls; ${fmt(bytes)}`,
+            e.crossZone ? 'Cross-zone transfer: billed and slower' : '',
             e.failed ? `${e.failed} failed` : '',
           ]
             .filter(Boolean)
-            .join(' — ');
+            .join('; ');
           return (
             <g key={i} opacity={dim ? 0.12 : 1}>
               <path
@@ -216,7 +216,7 @@ export function Topology({
                 {m.name}
               </text>
               <text x={cx} y={-cy + 0.2} fontSize={0.085} textAnchor="middle" fill={theme.pencil}>
-                {m.serves.join(' · ') || 'no service'}
+                {m.serves.join(', ') || 'No service'}
               </text>
             </g>
           );

@@ -23,14 +23,14 @@ import { useConsole } from '../../lib/console.tsx';
 import { BUCKETS, money } from '../../lib/ledger.ts';
 import { refTime } from '../../lib/playback.ts';
 import type { RunRef } from '../../lib/runs.ts';
-import { Code, P } from '../../lib/text.tsx';
+import { P } from '../../lib/text.tsx';
 import { ui } from '../../lib/ui.stylex.ts';
 import { chrome, font, radius, shadow } from '../../lib/tokens.stylex.ts';
 
 const GROUPS = [
-  { key: 'yours', label: 'Your runs', note: 'whatever you have run in this project' },
-  { key: 'suite', label: 'Reference suite', note: 'the runs DISSALy checks itself against' },
-  { key: 'gallery', label: 'Gallery', note: 'worked examples, written to teach with' },
+  { key: 'yours', label: 'Your runs', note: 'Runs in this project' },
+  { key: 'suite', label: 'Reference suite', note: 'Runs used by DISSALy checks' },
+  { key: 'gallery', label: 'Gallery', note: 'Teaching examples' },
 ] as const;
 
 export function Gallery() {
@@ -58,29 +58,27 @@ export function Gallery() {
         title="Runs"
         sub={
           <>
-            Every trace beside this app. Open one and the clock above governs all four views of
-            it — the film, the execution graph, what each node was doing, and what it had
-            cost by then.
+            Open a trace to control every view with its shared clock.
           </>
         }
         actions={
           <input
             {...stylex.props(sx.find)}
-            placeholder="Filter by name, entry or simulation"
+            placeholder="Filter runs"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            aria-label="filter runs"
+            aria-label="Filter runs"
           />
         }
       />
 
-      <div {...stylex.props(ui.seg)} role="group" aria-label="whose runs">
+      <div {...stylex.props(ui.seg)} role="group" aria-label="Run source">
         <button
           {...stylex.props(ui.segButton, only === '' && ui.segOn)}
           aria-pressed={only === ''}
           onClick={() => setOnly('')}
         >
-          all {runs.length}
+          All ({runs.length})
         </button>
         {GROUPS.map((g) => {
           const n = runs.filter((r) => (r.from ?? 'gallery') === g.key).length;
@@ -92,7 +90,7 @@ export function Gallery() {
               aria-pressed={only === g.key}
               onClick={() => setOnly(g.key)}
             >
-              {g.label.toLowerCase()} {n}
+              {g.label} ({n})
             </button>
           );
         })}
@@ -102,7 +100,7 @@ export function Gallery() {
         const some = shown.filter((r) => (r.from ?? 'gallery') === g.key);
         if (!some.length) return null;
         return (
-          <Panel key={g.key} title={g.label} note={`${some.length} · ${g.note}`}>
+          <Panel key={g.key} title={g.label} note={`${some.length}; ${g.note}`}>
             <div {...stylex.props(sx.cards)}>
               {some.map((r) => (
                 <Card
@@ -121,9 +119,7 @@ export function Gallery() {
       {!shown.length && (
         <Panel>
           <P style={ui.muted}>
-            Nothing matches <strong>{q}</strong>. Every result is named for the simulation it
-            came from, so <Code>kill</Code>, <Code>scale</Code> and <Code>deadline</Code> are
-            all worth trying.
+            No runs match the current filters. Search by simulation or entry point.
           </P>
         </Panel>
       )}
@@ -147,43 +143,43 @@ function Card({
   const regions = [...new Set(zones.map((z) => z.replace(/[a-z0-9]$/, '')))];
   return (
     <article {...stylex.props(sx.run, here && sx.here)}>
-      <button {...stylex.props(sx.cover)} onClick={onOpen} aria-label={`open ${r.name}`}>
+      <button {...stylex.props(sx.cover)} onClick={onOpen} aria-label={`Open ${r.name}`}>
         <Cover nodes={r.nodes ?? 1} zones={zones} broke={r.completed === false} />
       </button>
       <div {...stylex.props(sx.in)}>
         <div {...stylex.props(sx.line)}>
           <button {...stylex.props(sx.name)} onClick={onOpen}>{r.name}</button>
-          {here && <span {...stylex.props(ui.chip)}>open</span>}
+          {here && <span {...stylex.props(ui.chip)}>Open</span>}
         </div>
         <P style={sx.of}>
-          {r.simulation ?? 'a simulation'}
-          {r.entry && <span {...stylex.props(ui.muted)}> · entered at {r.entry}</span>}
+          {r.simulation ?? 'Simulation'}
+          {r.entry && <span {...stylex.props(ui.muted)}>, entry: {r.entry}</span>}
         </P>
         <dl {...stylex.props(sx.dl)}>
           <div {...stylex.props(sx.pair)}>
-            <dt {...stylex.props(sx.dt)}>nodes</dt>
-            <dd {...stylex.props(sx.dd)}>{r.nodes ?? '—'}</dd>
+            <dt {...stylex.props(sx.dt)}>Nodes</dt>
+            <dd {...stylex.props(sx.dd)}>{r.nodes ?? '-'}</dd>
           </div>
           <div {...stylex.props(sx.pair)}>
-            <dt {...stylex.props(sx.dt)}>zones</dt>
+            <dt {...stylex.props(sx.dt)}>Zones</dt>
             <dd {...stylex.props(sx.dd)}>
-              {zones.length || '—'}
-              {regions.length > 1 && <span {...stylex.props(sx.far)}> · {regions.length} regions</span>}
+              {zones.length || '-'}
+              {regions.length > 1 && <span {...stylex.props(sx.far)}>, {regions.length} regions</span>}
             </dd>
           </div>
           <div {...stylex.props(sx.pair)}>
-            <dt {...stylex.props(sx.dt)}>took</dt>
-            <dd {...stylex.props(sx.dd)}>{r.durationRefMs === undefined ? '—' : refTime(r.durationRefMs)}</dd>
+            <dt {...stylex.props(sx.dt)}>Duration</dt>
+            <dd {...stylex.props(sx.dd)}>{r.durationRefMs === undefined ? '-' : refTime(r.durationRefMs)}</dd>
           </div>
           <div {...stylex.props(sx.pair)}>
-            <dt {...stylex.props(sx.dt)}>cost</dt>
+            <dt {...stylex.props(sx.dt)}>Cost</dt>
             <dd {...stylex.props(sx.dd, sx.cost)}>
-              {r.cost === undefined ? '—' : money(r.cost, r.currency ?? currency)}
+              {r.cost === undefined ? '-' : money(r.cost, r.currency ?? currency)}
             </dd>
           </div>
         </dl>
         {r.buckets && (
-          <div {...stylex.props(sx.stack)} title="build · capacity · consumption · incidents">
+          <div {...stylex.props(sx.stack)} title="Build, capacity, consumption, incidents">
             {BUCKETS.map((b) => {
               const v = r.buckets?.[b] ?? 0;
               if (v <= 0) return null;
@@ -200,7 +196,7 @@ function Card({
             })}
           </div>
         )}
-        {r.completed === false && <span {...stylex.props(ui.chip, sx.badChip)}>did not finish</span>}
+        {r.completed === false && <span {...stylex.props(ui.chip, sx.badChip)}>Incomplete</span>}
       </div>
 
     </article>
@@ -248,7 +244,7 @@ function Cover({ nodes, zones, broke }: { nodes: number; zones: string[]; broke:
                 opacity={0.82}
               />
             ))}
-            <text x={x + 6} y={H - 6} {...stylex.props(sx.zl)}>{zones[i] ?? 'one zone'}</text>
+            <text x={x + 6} y={H - 6} {...stylex.props(sx.zl)}>{zones[i] ?? 'One zone'}</text>
           </g>
         );
       })}

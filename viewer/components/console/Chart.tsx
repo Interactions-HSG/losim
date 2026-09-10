@@ -137,7 +137,7 @@ export function LineChart({
 
   return (
     <svg {...stylex.props(styles.chart)} viewBox={`0 0 ${W} ${height}`} role="img"
-         aria-label={`${label ?? series.map((s) => s.name).join(', ')}${unit ? ` in ${unit}` : ''}, drawn to ${Math.round(now)} reference milliseconds`}>
+         aria-label={`${label ?? series.map((s) => s.name).join(', ')}${unit ? `; values in ${unit}` : ''}; data through ${Math.round(now)} reference milliseconds`}>
       {ticks.map((tick, i) => {
         const y = P.t + ih - (i / divs) * ih;
         return (
@@ -242,7 +242,7 @@ export function StackedBars({
 
   return (
     <svg {...stylex.props(styles.chart)} viewBox={`0 0 ${W} ${height}`} role="img"
-         aria-label={`cost by ${keys.join(', ')}${currency ? ` in ${currency}` : ''}`}>
+         aria-label={`Cost by ${keys.join(', ')}${currency ? `; ${currency}` : ''}`}>
       {ticks.map((tick, i) => {
         const y = P.t + ih - (i / 4) * ih;
         return (

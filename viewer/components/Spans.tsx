@@ -23,7 +23,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Rollup, BYS, type By } from './spans/Rollup.tsx';
 import { Swimlanes } from './spans/Swimlanes.tsx';
 import { Waterfall } from './spans/Waterfall.tsx';
-import { ms, SpanTree, type SpanNode } from '../lib/spans.ts';
+import { SpanTree, type SpanNode } from '../lib/spans.ts';
 import type { Theme } from '../lib/theme.ts';
 import type { Trace } from '../lib/trace.ts';
 import { P } from '../lib/text.tsx';
@@ -155,7 +155,7 @@ export function Spans({
   return (
     <div {...stylex.props(sp.spans)}>
       <div {...stylex.props(ui.card, sp.bar)}>
-        <div {...stylex.props(ui.seg)} role="group" aria-label="view">
+        <div {...stylex.props(ui.seg)} role="group" aria-label="View">
           {(['waterfall', 'swimlanes', 'rollup'] as View[]).map((v) => (
             <button
               key={v}
@@ -169,7 +169,7 @@ export function Spans({
         </div>
 
         {view === 'rollup' ? (
-          <div {...stylex.props(ui.seg)} role="group" aria-label="gather by">
+          <div {...stylex.props(ui.seg)} role="group" aria-label="Group spans by">
             {BYS.map((b) => (
               <button
                 key={b}
@@ -187,9 +187,9 @@ export function Spans({
               {...stylex.props(ui.picker, sp.picker)}
               value={node}
               onChange={(e) => setNode(e.target.value)}
-              aria-label="node"
+              aria-label="Node"
             >
-              <option value="">every node</option>
+              <option value="">All nodes</option>
               {trace.nodes.map((m) => (
                 <option key={m.name} value={m.name}>
                   {m.name}
@@ -200,8 +200,8 @@ export function Spans({
               {...stylex.props(sp.text)}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="method"
-              aria-label="method"
+              placeholder="Method"
+              aria-label="Method"
               size={10}
             />
             <button
@@ -209,17 +209,17 @@ export function Spans({
               aria-pressed={failing}
               onClick={() => setFailing(!failing)}
             >
-              failed only
+              Failures
             </button>
             <button
               {...stylex.props(ui.btn, critOnly && ui.btnOn)}
               aria-pressed={critOnly}
               onClick={() => setCritOnly(!critOnly)}
             >
-              critical path
+              Critical path
             </button>
             <label {...stylex.props(sp.slow)}>
-              slower than
+              Minimum duration
               <input
                 {...stylex.props(sp.text, sp.slowInput)}
                 type="number"
@@ -238,7 +238,7 @@ export function Spans({
         </span>
         {zoomed && (
           <button {...stylex.props(ui.btn)} onClick={() => setWin([0, trace.duration])}>
-            {ms(w1 - w0)} shown — reset
+            Show full duration
           </button>
         )}
       </div>
@@ -284,9 +284,8 @@ export function Spans({
       </div>
 
       <P style={[sp.hint, ui.muted]}>
-        Click a span to seek the film to it. ⌘-scroll to zoom the axis, shift-scroll to pan.
-        The outlined chain is the critical path — at every level, the child that finished last,
-        which is what the makespan is actually made of.
+        Select a span to move the film to that call. Cmd-scroll zooms the time axis; Shift-scroll pans it.
+        The outlined path follows the child that completes last at each nesting level and determines the total run time.
       </P>
 
     </div>

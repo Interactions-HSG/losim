@@ -1,13 +1,10 @@
 'use client';
 
 /**
- * The console.
+ * Console shell and active view.
  *
- * One shell, one clock, and five views of the same run. Which view is on is
- * state rather than a route — `lib/console.tsx` says why, and the short version
- * is that this app is a static export served from whatever directory it lands
- * in, and that a real navigation would unmount the clock every time you changed
- * tab.
+ * The static export keeps the active view in state because route navigation
+ * would unmount the clock.
  */
 import * as stylex from '@stylexjs/stylex';
 
@@ -34,10 +31,7 @@ function View() {
   const { view, run } = useConsole();
   return (
     <>
-      {/* Mounted whatever else is on screen, so the console finds out whether
-          there is a lab behind this page at all — and hidden rather than
-          unmounted, so a run started here goes on being followed while you look
-          at something else. */}
+      {/* Keep Simulations mounted so it can detect a lab and follow active runs. */}
       <div {...stylex.props(sx.host, view !== 'simulations' && sx.away)} hidden={view !== 'simulations'}>
         <Simulations />
       </div>
@@ -54,10 +48,8 @@ function View() {
 const sx = stylex.create({
   host: { display: 'flex', flexDirection: 'column', gap: '20px' },
   /**
-   * `hidden` is still on the element, for anything reading the page rather than
-   * looking at it. The display rule is written beside it rather than as
-   * `.host[hidden]`, because StyleX has no attribute selectors — and a component
-   * that already knows why it is hidden does not need one to find out.
+   * `hidden` remains on the element for document readers. StyleX has no
+   * attribute selectors, so this display rule stays beside the condition.
    */
   away: { display: 'none' },
 });

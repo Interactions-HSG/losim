@@ -69,16 +69,16 @@ export function Transport({ run, clock }: { run: Run; clock: Clock }) {
       <button
         {...stylex.props(ui.btn, ui.icon, ui.primary)}
         onClick={() => clock.toggle()}
-        title={playing ? 'pause (space)' : 'play (space)'}
-        aria-label={playing ? 'pause' : 'play'}
+        title={playing ? 'Pause (Space)' : 'Play (Space)'}
+        aria-label={playing ? 'Pause' : 'Play'}
       >
         {playing ? <Pause /> : <Play />}
       </button>
-      <button {...stylex.props(ui.btn, ui.icon)} onClick={() => clock.step(-1)} title="back one frame (←)">
-        ◀
+      <button {...stylex.props(ui.btn, ui.icon)} onClick={() => clock.step(-1)} title="Previous frame (Left Arrow)" aria-label="Previous frame">
+        &lt;
       </button>
-      <button {...stylex.props(ui.btn, ui.icon)} onClick={() => clock.step(1)} title="on one frame (→)">
-        ▶
+      <button {...stylex.props(ui.btn, ui.icon)} onClick={() => clock.step(1)} title="Next frame (Right Arrow)" aria-label="Next frame">
+        &gt;
       </button>
 
       <span {...stylex.props(sx.at, ui.mono)}>
@@ -96,7 +96,7 @@ export function Transport({ run, clock }: { run: Run; clock: Clock }) {
         }}
       />
 
-      <div {...stylex.props(ui.seg)} role="group" aria-label="speed">
+      <div {...stylex.props(ui.seg)} role="group" aria-label="Playback speed">
         {RATES.map((r) => (
           <button
             key={r}
@@ -112,14 +112,14 @@ export function Transport({ run, clock }: { run: Run; clock: Clock }) {
           {...stylex.props(ui.segButton, rateLabel === 'fit' && ui.segOn)}
           aria-pressed={rateLabel === 'fit'}
           onClick={() => clock.fit()}
-          title={`the whole run in ${FIT_SECONDS} seconds, whatever it took.`}
+          title={`Play the full run in ${FIT_SECONDS} seconds.`}
         >
-          fit
+          Fit
         </button>
       </div>
 
       <span {...stylex.props(ui.muted, sx.scope)}>
-        every panel below is drawn from the events up to here
+        Panels below show events up to this time.
       </span>
     </div>
   );

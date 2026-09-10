@@ -90,7 +90,7 @@ export function Swimlanes({
 
   return (
     <div {...stylex.props(sx.box)} style={{ height: '100%' }}>
-      <svg width={width} height={Math.max(h, height)}>
+      <svg width={width} height={Math.max(h, height)} role="img" aria-label="Calls by node">
         <defs>
           <pattern id="fray" width="4" height="4" patternUnits="userSpaceOnUse">
             <path d="M0 4 L4 0" stroke={theme.pencil} strokeWidth="1" />

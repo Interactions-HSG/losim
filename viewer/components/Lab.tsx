@@ -66,7 +66,7 @@ export function Lab({
         {lab.simulations.length === 0 && (
           <div {...stylex.props(sty.row, sty.lastRow)}>
             <span {...stylex.props(sty.empty)}>
-              No simulations yet. Write one above and it appears here.
+              No simulations yet. Create a simulation to list it here.
             </span>
           </div>
         )}
@@ -80,14 +80,14 @@ export function Lab({
                 onClick={() => press(sc.name)}
                 title={
                   !lab.started
-                    ? 'there is no code in this lab yet — that is the exercise'
+                    ? 'This lab has no runnable code yet.'
                     : building != null
                       ? `${building.simulation} is running`
-                      : `run ${sc.name}`
+                      : `Run ${sc.name}`
                 }
-                aria-label={`run ${sc.name}`}
+                aria-label={`Run ${sc.name}`}
               >
-                {running ? '…' : '▶'}
+                {running ? '...' : '>'}
               </button>
 
               <span {...stylex.props(sty.id)}>{sc.name}</span>
@@ -98,7 +98,7 @@ export function Lab({
                 disabled={building != null}
                 onClick={() => onEdit(sc.name)}
               >
-                edit
+                Edit
               </button>
 
               {sc.trace && (
@@ -113,7 +113,7 @@ export function Lab({
                     )
                   }
                 >
-                  last run
+                  Last run
                 </button>
               )}
             </div>

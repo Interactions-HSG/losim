@@ -86,6 +86,8 @@ export function Waterfall({
         <svg
           width={width}
           height={rows.length * ROW}
+          role="img"
+          aria-label="Call timeline"
           {...stylex.props(sx.bars)}
           onDoubleClick={(e) => {
             const rect = box.current?.getBoundingClientRect();
@@ -157,9 +159,9 @@ export function Waterfall({
                     e.stopPropagation();
                     onToggle(n.id);
                   }}
-                  aria-label={collapsed.has(n.id) ? 'expand' : 'collapse'}
+                  aria-label={collapsed.has(n.id) ? 'Expand' : 'Collapse'}
                 >
-                  {collapsed.has(n.id) ? '▸' : '▾'}
+                  {collapsed.has(n.id) ? '>' : 'v'}
                 </button>
                 {n.task !== null && (
                   <span {...stylex.props(sx.tk)} style={{ background: taskColour(theme, n.task) }} />
@@ -168,9 +170,9 @@ export function Waterfall({
                     a rule under a whole row of a table of rows reads as a border. */}
                 <span {...stylex.props(sx.nm, crit && sx.critical)}>{n.method}</span>
                 <span {...stylex.props(sx.vm)}>{n.span.vm}</span>
-                {n.to && <span {...stylex.props(sx.vm)}>→ {n.to}</span>}
+                {n.to && <span {...stylex.props(sx.vm)}>{'->'} {n.to}</span>}
                 {n.crossZone && (
-                  <span {...stylex.props(sx.xz)} title="crossed a zone: billed, and slower">⇄</span>
+                  <span {...stylex.props(sx.xz)} title="Cross-zone transfer: billed and slower">cross-zone</span>
                 )}
                 {!n.ok && <span {...stylex.props(sx.bad)}>{String(n.span.status)}</span>}
                 {collapsed.has(n.id) && n.hidden > 0 && (
@@ -197,9 +199,9 @@ function Detail({ n, theme }: { n: SpanNode | undefined; theme: Theme }) {
       <div {...stylex.props(sx.dh)}>
         <strong>{n.method}</strong>
         <span {...stylex.props(ui.muted)}>{n.span.vm}</span>
-        {n.to && <span {...stylex.props(ui.muted)}>→ {n.to}</span>}
+        {n.to && <span {...stylex.props(ui.muted)}>{'->'} {n.to}</span>}
         <span {...stylex.props(ui.muted, ui.mono)}>
-          {ms(n.t1 - n.t0)} total · {ms(n.selfMs)} its own
+          {ms(n.t1 - n.t0)} total; {ms(n.selfMs)} self time
         </span>
         {!n.ok && <span {...stylex.props(sx.danger)}>{String(n.span.status)}</span>}
       </div>
@@ -207,12 +209,12 @@ function Detail({ n, theme }: { n: SpanNode | undefined; theme: Theme }) {
       <div {...stylex.props(sx.sides)}>
         {d['arg'] !== undefined && (
           <div>
-            <span {...stylex.props(ui.muted)}>in</span> {digest(d['arg'], 8) || <em>empty</em>}
+            <span {...stylex.props(ui.muted)}>Request</span> {digest(d['arg'], 8) || <em>Empty</em>}
           </div>
         )}
         {d['result'] !== undefined && (
           <div>
-            <span {...stylex.props(ui.muted)}>out</span> {digest(d['result'], 8) || <em>empty</em>}
+            <span {...stylex.props(ui.muted)}>Response</span> {digest(d['result'], 8) || <em>Empty</em>}
           </div>
         )}
       </div>

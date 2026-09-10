@@ -7,25 +7,22 @@ import { hsg, hsgBar, hsgType } from '../lib/themes.stylex.ts';
 
 export const metadata = {
   title: 'DISSALy',
-  description: 'A decentralized system, on one clock.',
+  description: 'Distributed System Simulation Analysis.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" {...stylex.props(sx.page)}>
-      {/* The theme goes on before the styles that read it, so every token in
-          the tree below resolves to the university's value. */}
+      {/* Apply the theme before styles resolve its tokens. */}
       <body {...stylex.props(hsg, hsgBar, hsgType, sx.page, sx.body)}>{children}</body>
     </html>
   );
 }
 
 /**
- * What `html, body` used to say in globals.css, from the same tokens as the
- * rest of the app rather than from a second copy of them.
+ * Root page styles formerly defined in globals.css.
  *
- * `color-scheme` is on the root so the browser's own furniture — form controls,
- * the scrollbar's gutter — follows the theme the tokens are switching on.
+ * `color-scheme` lets native controls and the scrollbar follow the active theme.
  */
 const sx = stylex.create({
   page: { backgroundColor: chrome.bg, colorScheme: 'light dark' },

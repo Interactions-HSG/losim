@@ -112,7 +112,7 @@ export function Scrubber({ t, duration, events, onSeek }: ScrubberProps) {
         onPointerUp={up}
         onPointerLeave={() => setHoverAt(null)}
         role="slider"
-        aria-label="position in the run"
+        aria-label="Run position"
         aria-valuemin={0}
         aria-valuemax={Math.round(duration)}
         aria-valuenow={Math.round(t)}
@@ -132,7 +132,8 @@ export function Scrubber({ t, duration, events, onSeek }: ScrubberProps) {
               styles.at(`${(Number(e.t ?? 0) / duration) * 100}%`),
               styles.paint(MARKER[String(e.kind)] ?? D.PENCIL),
             )}
-            title={`${e.kind} \u00b7 ${e.vm ?? ''} \u00b7 ${refTime(Number(e.t ?? 0))}`}
+            title={`${String(e.kind).replaceAll('_', ' ')} on ${e.vm ?? 'the cluster'} at ${refTime(Number(e.t ?? 0))}`}
+            aria-label={`${String(e.kind).replaceAll('_', ' ')} on ${e.vm ?? 'the cluster'} at ${refTime(Number(e.t ?? 0))}`}
             onPointerDown={(ev) => {
               ev.stopPropagation();
               onSeek(Number(e.t ?? 0));

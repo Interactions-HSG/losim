@@ -54,9 +54,9 @@ export function Rollup({
       case 'node':
         return n.span.vm;
       case 'zone':
-        return zoneOf.get(n.span.vm) ?? '—';
+        return zoneOf.get(n.span.vm) ?? 'Unknown zone';
       case 'task':
-        return n.task === null ? 'no task' : `task ${n.task}`;
+        return n.task === null ? 'No task' : `Task ${n.task}`;
     }
   };
   const rows = tree.rollup(key);
@@ -68,14 +68,14 @@ export function Rollup({
       <Table style={sx.table}>
         <thead>
           <tr>
-            <Th>{by}</Th>
-            <Th style={sx.right}>its own time</Th>
-            <Th style={sx.right}>share</Th>
+            <Th>{by[0].toUpperCase() + by.slice(1)}</Th>
+            <Th style={sx.right}>Self time</Th>
+            <Th style={sx.right}>Share</Th>
             <Th></Th>
-            <Th style={sx.right}>total</Th>
-            <Th style={sx.right}>calls</Th>
-            <Th style={sx.right}>failed</Th>
-            <Th style={sx.right}>bytes</Th>
+            <Th style={sx.right}>Total time</Th>
+            <Th style={sx.right}>Calls</Th>
+            <Th style={sx.right}>Failed</Th>
+            <Th style={sx.right}>Bytes</Th>
           </tr>
         </thead>
         <tbody>
@@ -87,10 +87,10 @@ export function Rollup({
               onMouseLeave={() => by === 'node' && onHoverNode(null)}
             >
               <Td style={sx.cell}>
-                {by === 'task' && r.key !== 'no task' && (
+                {by === 'task' && r.key !== 'No task' && (
                   <span
                     {...stylex.props(sx.tk)}
-                    style={{ background: taskColour(theme, Number(r.key.replace('task ', ''))) }}
+                    style={{ background: taskColour(theme, Number(r.key.replace('Task ', ''))) }}
                   />
                 )}
                 {r.key}
@@ -102,8 +102,8 @@ export function Rollup({
               </Td>
               <Td num style={[sx.right, sx.cell, ui.muted]}>{ms(r.total)}</Td>
               <Td num style={[sx.right, sx.cell]}>{r.calls}</Td>
-              <Td num style={[sx.right, sx.cell]}>{r.failed > 0 ? <b {...stylex.props(sx.bad)}>{r.failed}</b> : <span {...stylex.props(ui.muted)}>—</span>}</Td>
-              <Td num style={[sx.right, sx.cell, ui.muted]}>{r.bytes ? `${(r.bytes / 1024).toFixed(1)} KB` : '—'}</Td>
+              <Td num style={[sx.right, sx.cell]}>{r.failed > 0 ? <b {...stylex.props(sx.bad)}>{r.failed}</b> : <span {...stylex.props(ui.muted)}>-</span>}</Td>
+              <Td num style={[sx.right, sx.cell, ui.muted]}>{r.bytes ? `${(r.bytes / 1024).toFixed(1)} KB` : '-'}</Td>
             </tr>
           ))}
         </tbody>

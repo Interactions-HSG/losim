@@ -22,10 +22,10 @@ import type { Theme } from '../../lib/theme.ts';
 import { taskColour } from '../../lib/theme.ts';
 
 const PART: Record<Part, { fill: string; label: string }> = {
-  out: { fill: '#8FA6BC', label: 'on the wire, outbound' },
-  queue: { fill: '#E8A33D', label: 'landed, waiting for a core' },
-  working: { fill: '', label: 'the handler, working' },
-  back: { fill: '#8FA6BC', label: 'the answer, coming back' },
+  out: { fill: '#8FA6BC', label: 'Outbound transfer' },
+  queue: { fill: '#E8A33D', label: 'Waiting for a core' },
+  working: { fill: '', label: 'Handler execution' },
+  back: { fill: '#8FA6BC', label: 'Return transfer' },
 };
 
 export const SpanBar = memo(function SpanBar({
@@ -76,7 +76,7 @@ export const SpanBar = memo(function SpanBar({
           return (
             <g key={i}>
               <rect x={a} y={y} width={b - a} height={h} rx={1.5} fill={fill} opacity={s.part === 'working' ? 1 : 0.85}>
-                <title>{`${PART[s.part].label} — ${(s.t1 - s.t0).toFixed(1)}ms`}</title>
+                <title>{`${PART[s.part].label}; ${(s.t1 - s.t0).toFixed(1)} ms`}</title>
               </rect>
               {/* What the callee was itself waiting on, inside its own block. */}
               {s.part === 'working' && n.children.length > 0 && (
@@ -94,7 +94,7 @@ export const SpanBar = memo(function SpanBar({
         })
       ) : (
         <rect x={x0} y={y} width={x1 - x0} height={h} rx={1.5} fill={colour}>
-          <title>{`${n.method} — ${(n.t1 - n.t0).toFixed(1)}ms`}</title>
+          <title>{`${n.method}; ${(n.t1 - n.t0).toFixed(1)} ms`}</title>
         </rect>
       )}
 

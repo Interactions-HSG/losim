@@ -121,20 +121,20 @@ export function Shell({ children }: { children: ReactNode }) {
           onClick={toggleRail}
           aria-expanded={!tight}
           aria-controls="console-rail"
-          title={tight ? 'show the menu' : 'hide the menu'}
+          title={tight ? 'Show menu' : 'Hide menu'}
         >
           <span aria-hidden>☰</span>
-          <span {...stylex.props(styles.away)}>{tight ? 'show the menu' : 'hide the menu'}</span>
+          <span {...stylex.props(styles.away)}>{tight ? 'Show menu' : 'Hide menu'}</span>
         </button>
         <span {...stylex.props(styles.brand)}>DISSALy</span>
-        <span {...stylex.props(styles.svc)}>Distributed Systems Simulation Analysis Lab</span>
+        <span {...stylex.props(styles.svc)}>Distributed System Simulation Analysis</span>
         <span {...stylex.props(styles.grow)} />
         {/* The one chip that belongs here: a build is true globally, not of one
             page — pressing ▶ on Simulations moves you to Runs before it finishes,
             so this is the only place left that says it is still going. */}
         {building && (
           <span {...stylex.props(ui.chip, styles.chipDark, styles.building)}>
-            <i {...stylex.props(styles.dot)} aria-hidden /> building {building.simulation}
+            <i {...stylex.props(styles.dot)} aria-hidden /> Building {building.simulation}
           </span>
         )}
       </header>
@@ -143,7 +143,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <nav
           id="console-rail"
           {...stylex.props(styles.rail, tight && styles.railTight)}
-          aria-label="console"
+          aria-label="Console navigation"
         >
           {tight
             ? <hr {...stylex.props(styles.rule, styles.ruleFirst)} />
@@ -158,7 +158,7 @@ export function Shell({ children }: { children: ReactNode }) {
                   title={tight ? n.label : undefined}
                   onClick={() => pick(n.id)}
                 >
-                  <i {...stylex.props(styles.icon)}>{n.icon}</i>
+                  <i {...stylex.props(styles.icon)} aria-hidden>{n.icon}</i>
                   {!tight && n.label}
                   {!tight && n.tag && <span {...stylex.props(styles.tag)}>{n.tag}</span>}
                 </button>
@@ -170,7 +170,7 @@ export function Shell({ children }: { children: ReactNode }) {
             ? <hr {...stylex.props(styles.rule)} />
             : (
               <h2 {...stylex.props(styles.grp)}>
-                The open run
+                Open run
                 {run && <span {...stylex.props(styles.of)}>{run.name}</span>}
               </h2>
             )}
@@ -190,7 +190,7 @@ export function Shell({ children }: { children: ReactNode }) {
                   disabled={!run}
                   onClick={() => pick(n.id)}
                 >
-                  <i {...stylex.props(styles.icon)}>{n.icon}</i>
+                  <i {...stylex.props(styles.icon)} aria-hidden>{n.icon}</i>
                   {!tight && n.label}
                 </button>
               </li>
@@ -199,8 +199,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
           {!tight && (
             <p {...stylex.props(styles.fine)}>
-              Drop a trace anywhere on this window to open it — a run from anybody, on any
-              node, reads the same way.
+              Drop a trace anywhere in this window to open it. DISSALy reads traces from any source or node.
             </p>
           )}
         </nav>
@@ -214,10 +213,10 @@ export function Shell({ children }: { children: ReactNode }) {
             {error && (
               <div {...stylex.props(styles.err)} role="alert">
                 <span>{error}</span>
-                <button {...stylex.props(ui.btn)} onClick={() => setError(null)}>dismiss</button>
+                <button {...stylex.props(ui.btn)} onClick={() => setError(null)}>Dismiss</button>
               </div>
             )}
-            {busy && !run ? <div {...stylex.props(styles.wait)}>opening…</div> : children}
+            {busy && !run ? <div {...stylex.props(styles.wait)}>Loading...</div> : children}
           </main>
         </div>
       </div>

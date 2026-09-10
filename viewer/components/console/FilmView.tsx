@@ -68,9 +68,8 @@ export function FilmView() {
         title="Film"
         sub={
           <>
-            {run.trace.nodes.length} nodes over {refTime(run.trace.duration)}. Press play on
-            the bar under the picture, or drag it. This film keeps its own clock — Overview,
-            Usage and Cost have theirs, and moving one does not move the other.
+            {run.trace.nodes.length} nodes over {refTime(run.trace.duration)}. Use the controls below
+            the picture to play or seek. The film clock is independent of Overview, Usage, and Cost.
           </>
         }
         actions={
@@ -78,10 +77,10 @@ export function FilmView() {
             {...stylex.props(ui.picker)}
             value={against?.name ?? ''}
             onChange={(e) => void compare(e.target.value)}
-            aria-label="compare with"
-            title="watch a second run on the same clock"
+            aria-label="Compare runs"
+            title="Compare a run at the same clock position"
           >
-            <option value="">compare with…</option>
+            <option value="">Compare runs</option>
             {runs
               .filter((r) => r.name !== run.name)
               .map((r) => (
@@ -95,7 +94,7 @@ export function FilmView() {
 
       <Panel flush>
         <div {...stylex.props(sx.stage)}>
-          {busy && <div {...stylex.props(sx.over)}>opening…</div>}
+          {busy && <div {...stylex.props(sx.over)}>Loading...</div>}
           <Film key={run.name + (against?.name ?? '')} run={run} against={against} transport />
         </div>
       </Panel>

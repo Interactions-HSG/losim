@@ -48,11 +48,11 @@ interface Metric {
 }
 
 const METRICS: Metric[] = [
-  { id: 'busyPct', label: 'CPU', unit: '%', max: 100, dp: 0, note: 'of the node’s cores, at this instant' },
-  { id: 'bytesOutMb', label: 'Bytes out', unit: 'MB', dp: 2, size: true, note: 'cumulative — the line the egress bill is drawn from' },
-  { id: 'inflight', label: 'Calls in flight', unit: '', divs: 2, dp: 0, note: 'handlers running on it right now' },
-  { id: 'queued', label: 'Queued', unit: '', divs: 2, dp: 0, note: 'calls waiting for a core. A queue that never empties is a node too small' },
-  { id: 'diskPct', label: 'Disk', unit: '%', max: 100, dp: 0, note: 'of its disk cap' },
+  { id: 'busyPct', label: 'CPU', unit: '%', max: 100, dp: 0, note: 'Node core utilization at the selected time.' },
+  { id: 'bytesOutMb', label: 'Bytes out', unit: 'MB', dp: 2, size: true, note: 'Cumulative egress volume.' },
+  { id: 'inflight', label: 'Calls in flight', unit: '', divs: 2, dp: 0, note: 'Handlers active at the selected time.' },
+  { id: 'queued', label: 'Queued', unit: '', divs: 2, dp: 0, note: 'Calls waiting for a core.' },
+  { id: 'diskPct', label: 'Disk', unit: '%', max: 100, dp: 0, note: 'Share of the disk cap in use.' },
 ];
 
 /** At most this many points per series: a path with a segment per pixel is a solid line. */
@@ -147,11 +147,11 @@ export function Usage() {
   if (!metric) {
     return (
       <>
-        <Head title="Usage" sub="what each node was doing" />
+        <Head title="Usage" sub="Node activity" />
         <Panel>
           <P style={ui.muted}>
-            This trace carries no channels — it was recorded with telemetry off. Run it again
-            without <Code>--quiet</Code> and every node gets a line here.
+            This trace has no telemetry channels. Run the simulation without <Code>--quiet</Code> to
+            record node activity.
           </P>
         </Panel>
         {/* A model still has its answers, and they do not come from the channels.
@@ -188,15 +188,12 @@ export function Usage() {
         title="Usage"
         sub={
           <>
-            {trace.nodes.length} nodes, drawn to {refTime(now)} of{' '}
-            {refTime(trace.duration)}. The axis is fixed to the whole run, so dragging the clock
-            moves the drawing and never the ruler under it.
+            {trace.nodes.length} nodes through {refTime(now)} of {refTime(trace.duration)}. The axis
+            spans the full run; moving the clock changes the displayed data.
             {trace.scaled && (
               <>
-                {' '}Every line below is the run that <em>executed</em> —{' '}
-                {trace.scaled.units.toLocaleString()} units, small enough to fit on this machine.
-                What the model says about the {trace.scaled.fullUnits.toLocaleString()} it stands
-                for is in the panel directly below, and nowhere else on this page.
+                {' '}This trace executed {trace.scaled.units.toLocaleString()} units. The panel below
+                reports the model for {trace.scaled.fullUnits.toLocaleString()} units.
               </>
             )}
           </>
@@ -208,7 +205,7 @@ export function Usage() {
       <Panel flush>
         <div {...stylex.props(sx.tools)}>
           <span {...stylex.props(sx.lb)}>Metric</span>
-          <div {...stylex.props(ui.seg)} role="group" aria-label="metric">
+          <div {...stylex.props(ui.seg)} role="group" aria-label="Metric">
             {have.map((m) => (
               <button
                 key={m.id}
@@ -259,7 +256,7 @@ export function Usage() {
           ))}
       </div>
 
-      <Panel title="Per node, up to the clock" note={`everything below counts only what has happened by ${refTime(now)}`} flush>
+      <Panel title="Per-node usage" note={`Metrics through ${refTime(now)}`} flush>
         <div {...stylex.props(sx.scroll)}>
           <Table>
             <thead>
@@ -267,9 +264,9 @@ export function Usage() {
                 <Th>Node</Th>
                 <Th>Instance</Th>
                 <Th>Zone</Th>
-                <Th style={sx.right}>{metric.label} now</Th>
-                <Th style={sx.right}>Peak so far</Th>
-                <Th>Shape so far</Th>
+                <Th style={sx.right}>{metric.label} at selected time</Th>
+                <Th style={sx.right}>Peak</Th>
+                <Th>Trend</Th>
               </tr>
             </thead>
             <tbody>

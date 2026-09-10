@@ -67,45 +67,45 @@ export function MessagePanel({
       {...stylex.props(msg.msg, pinned && msg.pinned)}
       style={{ left, top, width: W }}
       role="dialog"
-      aria-label="this message"
+      aria-label="Message details"
       onClick={(e) => e.stopPropagation()}
     >
       <div {...stylex.props(msg.head)}>
         <strong {...stylex.props(msg.method)}>{f.method}</strong>
         <span {...stylex.props(ui.muted, ui.mono)}>
-          {from} → {to}
+          {from} {'->'} {to}
         </span>
         {pinned && (
-          <button {...stylex.props(msg.close)} onClick={onClose} aria-label="close">
-            ×
+          <button {...stylex.props(msg.close)} onClick={onClose} aria-label="Close">
+            x
           </button>
         )}
       </div>
       <div {...stylex.props(msg.sub, ui.muted)}>
-        {f.returning ? 'the answer, coming back' : 'the request, going out'}
+        {f.returning ? 'Returning response' : 'Outbound request'}
       </div>
 
       <dl {...stylex.props(msg.dl)}>
-        <dt {...stylex.props(msg.dt)}>carries</dt>
+        <dt {...stylex.props(msg.dt)}>Carries</dt>
         <dd {...stylex.props(msg.dd)} {...stylex.props(ui.mono)}>
-          {f.bytes.toLocaleString()} bytes{total > 0 && ` · ${total.toLocaleString()} entries`}
+          {f.bytes.toLocaleString()} bytes{total > 0 && `; ${total.toLocaleString()} entries`}
         </dd>
-        <dt {...stylex.props(msg.dt)}>on the wire</dt>
+        <dt {...stylex.props(msg.dt)}>On the wire</dt>
         <dd {...stylex.props(msg.dd)} {...stylex.props(ui.mono)}>{refTime(f.netRefMs)}</dd>
-        <dt {...stylex.props(msg.dt)}>the whole call</dt>
+        <dt {...stylex.props(msg.dt)}>Call duration</dt>
         <dd {...stylex.props(msg.dd)} {...stylex.props(ui.mono)}>
-          {refTime(f.t0)} → {refTime(f.t1)} · {refTime(f.t1 - f.t0)}
+          {refTime(f.t0)} to {refTime(f.t1)}; {refTime(f.t1 - f.t0)}
         </dd>
         {f.crossZone && (
           <>
-            <dt {...stylex.props(msg.dt)}>zone</dt>
-            <dd {...stylex.props(msg.dd)} {...stylex.props(msg.warn)}>crossed one: billed, and slower</dd>
+            <dt {...stylex.props(msg.dt)}>Cross-zone</dt>
+            <dd {...stylex.props(msg.dd)} {...stylex.props(msg.warn)}>Transfer is billed and slower.</dd>
           </>
         )}
         {f.failed && (
           <>
-            <dt {...stylex.props(msg.dt)}>failed</dt>
-            <dd {...stylex.props(msg.dd)} {...stylex.props(msg.bad)}>{f.status || 'no status recorded'}</dd>
+            <dt {...stylex.props(msg.dt)}>Failure</dt>
+            <dd {...stylex.props(msg.dd)} {...stylex.props(msg.bad)}>{f.status || 'No status recorded'}</dd>
           </>
         )}
       </dl>
@@ -113,13 +113,13 @@ export function MessagePanel({
       <div {...stylex.props(msg.body)}>
         {f.body === undefined || f.body === null ? (
           <span {...stylex.props(ui.muted)}>
-            {f.failed ? 'nothing came back' : 'no payload recorded on this leg'}
+            {f.failed ? 'No response payload.' : 'No payload recorded for this leg.'}
           </span>
         ) : (
           <Payload
             detail={f.returning ? { result: f.body } : { arg: f.body }}
             open
-            label={f.returning ? 'what came back' : 'what was sent'}
+            label={f.returning ? 'Response payload' : 'Request payload'}
           />
         )}
       </div>
@@ -129,8 +129,7 @@ export function MessagePanel({
         // the marker it appends. Saying so is the difference between a reader
         // believing a reducer folded thirteen keys and knowing it folded 1,118.
         <div {...stylex.props(ui.muted, msg.note)}>
-          Showing the first entries of {total.toLocaleString()} — the trace keeps a bounded sample
-          and the true count, never the whole of a large collection.
+          This view samples a collection with {total.toLocaleString()} entries. The trace retains the full count.
         </div>
       )}
 
