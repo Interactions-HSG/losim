@@ -15,7 +15,7 @@ Topology, Spans, and the Ledger also appear in Overview or Cost.
 | what is true *right now*? | **Film** | the Film page |
 | what is the *shape* of this system? | **Topology** | Overview, section 1 |
 | why did it take that long, and who was waiting on whom? | **Spans** | Overview, section 2 |
-| what did it cost, while it was being spent? | **Ledger** | the Cost page, Overview section 5, and over the film with `ledger=1` |
+| what did it cost, while it was being spent? | **Ledger** | the Cost page and Overview section 5 |
 
 The top rail contains the pages. **Runs** is the gallery, and **Simulations** is where
 labs are written, edited, and run. **Overview**, **Film**, **Usage**, and **Cost** read
@@ -32,7 +32,7 @@ position, so scrubbing moves them together.
 | 2 | what did it actually do? | the **Spans** call tree |
 | 3 | how hard is each node working? | the system, at this instant |
 | 4 | what has gone wrong? | every accident, each one a button that seeks to it |
-| 5 | what did it cost? | the four buckets, as they arrive |
+| 5 | what did it cost? | the three buckets, as they arrive |
 
 ---
 
@@ -245,20 +245,21 @@ one is a total rather than a curve, because there is no clock to accrue it over.
 <div id="the-ledger" />
 
 *The Cost page gives the ledger more room for each line, the buckets at the current
-time, and a second run. The same accrual is available as a panel over the film with
-`ledger=1`.*
+time, and a second run.*
 
 The buckets accrue **while the film plays**:
 
 | | |
 |---|---|
-| `capacity` | flat from the first frame: you bought a minute of every node before a single call was made |
+| `capacity` | flat from the first frame: you bought the period before a single call was made |
 | `build` | creeps |
 | `consumption` | follows the work. **Algorithm changes affect this bucket.** |
-| `incidents` | steps, at the instants things broke |
 
-`dissaly bill` reports the final cost. The ledger shows the incidents bucket filling as
-the run proceeds.
+`dissaly bill` reports the final cost. The ledger shows it arriving.
+
+Under the money sits **counted, and not priced**: timeouts, lost nodes and how late
+the run finished, arriving in steps at the instants things broke. They carry a
+quantity and no amount, and nothing puts them in the total.
 
 ### Node cost attribution
 
@@ -271,8 +272,7 @@ responsible for each line:
 | **its own** | a capacity line names one node and belongs to it entirely |
 | **its share** | a system total split by a quantity the trace already holds, such as cross-zone egress by the bytes that node sent |
 | **the worst node's** | storage belongs wholly to it, because that is what the bill charges for |
-| **the event's node** | incidents go to the node the event names |
-| **nobody's** | the late-finish penalty belongs to the *job*. Spreading it over nine nodes would invent a claim nothing supports, so it shows as a dash |
+| **nobody's** | build belongs to the *design*. Spreading a design cost over nine nodes would invent a claim nothing supports, so it shows against the design itself |
 
 <Warning>
 **Prices come from the CLI.** The viewer distributes each amount over time using the
@@ -361,7 +361,6 @@ the film plays.
 | `sv=waterfall \| swimlanes \| rollup` | which sub-view of Spans, on Overview |
 | `m=<node>` | pins the panel on it |
 | `show=<key>` | writes one revealed key on every node's face |
-| `ledger=1` | opens the ledger |
 | `fail=1` | failed spans only |
 | `method=<text>` | filter by method |
 

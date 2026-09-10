@@ -15,8 +15,14 @@
  * Shares that sum past 1 charge the cluster more than it was billed; shares that
  * silently sum to less lose money down a crack. Neither is visible by looking at
  * a picture — both are one line of arithmetic here. A line attributed to nobody
- * is fine and expected (the late-finish penalty), so what is checked is
- * that every line is *either* fully attributed or attributed not at all.
+ * is fine and expected, so what is checked is that every line is *either* fully
+ * attributed or attributed not at all.
+ *
+ * **And does the counting close?** What broke is carried and not charged, which
+ * makes it the one part of this page with no total to be wrong against — so it
+ * is held to the bill's own quantities the same way the money is. A count that
+ * ends above what the bill counted is a step drawn twice; one that ends below it
+ * is an event the film never reached.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -101,6 +107,31 @@ for (const name of names) {
     if (share > 0.0001 && Math.abs(share - 1) > 0.0001) {
       problems.push(`"${line.what}" attributed ${(share * 100).toFixed(2)}% of itself`);
     }
+  }
+
+  // What broke, held to the bill's own counting: every line arrives in full by
+  // the end, none of it arrives before the run starts, and none of it overshoots.
+  for (const c of close.counted) {
+    const want = (bill.observed.counted ?? []).find((x) => x.what === c.what);
+    if (!want) {
+      problems.push(`counted "${c.what}" is not on the bill`);
+    } else if (Math.abs(c.quantity - want.quantity) > 0.01) {
+      problems.push(`counted "${c.what}" closes at ${c.quantity.toFixed(3)} of ${want.quantity}`);
+    }
+  }
+  for (const c of opening.counted) {
+    if (c.quantity > 0.01) problems.push(`counted "${c.what}" has ${c.quantity.toFixed(3)} before t=0`);
+  }
+  for (let i = 0; i <= 20; i++) {
+    for (const c of model.at((trace.duration * i) / 20).counted) {
+      if (c.quantity > c.total + 0.01) {
+        problems.push(`counted "${c.what}" passes its own total partway through`);
+        break;
+      }
+    }
+  }
+  if ((bill.observed.counted ?? []).length !== close.counted.length) {
+    problems.push(`bill counts ${(bill.observed.counted ?? []).length} things and the page shows ${close.counted.length}`);
   }
 
   // And the cluster's shares of the total must not exceed the total.

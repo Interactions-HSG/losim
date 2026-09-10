@@ -43,7 +43,7 @@ import { createElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import { RunIndex, revealText } from '../lib/frame.ts';
-import { LedgerModel, type BillJson } from '../lib/ledger.ts';
+import { LedgerModel, money, type BillJson } from '../lib/ledger.ts';
 import { Clock } from '../lib/playback.ts';
 import type { Run, RunRef } from '../lib/runs.ts';
 import { Trace } from '../lib/trace.ts';
@@ -314,6 +314,34 @@ const say = (m: string) => {
   }
 }
 
+/*
+ * Is money written the way money is written?
+ *
+ * Two decimals, because the smallest thing anybody can be charged is a rappen,
+ * and grouped above a thousand, because 4234 is read as 423 or as 42,340 by
+ * whoever is scanning the column quickly. Both were wrong on the same page: a
+ * fourth decimal on every amount under ten, and no separator on any of them.
+ *
+ * The `<0.01` case is the one worth pinning. Rounded to two decimals a line that
+ * cost a fifth of a rappen prints `0.00`, which is the same four characters as
+ * free — and a per-node column of them loses the reading it was there to give.
+ */
+{
+  const cases: [number, string][] = [
+    [0, 'CHF 0.00'],
+    [0.0049, 'CHF <0.01'],
+    [0.005, 'CHF 0.01'],
+    [4.878, 'CHF 4.88'],
+    [4234, 'CHF 4,234.00'],
+    [1234567.891, 'CHF 1,234,567.89'],
+    [-4234.5, 'CHF -4,234.50'],
+  ];
+  for (const [v, want] of cases) {
+    const got = money(v, 'CHF');
+    if (got !== want) say(`money(${v}) is "${got}" and should be "${want}"`);
+  }
+}
+
 const OWNED = new Set(['view']);
 for (const f of ['components/Film.tsx', 'components/console/FilmView.tsx']) {
   const src = readFileSync(join(ROOT, f), 'utf8');
@@ -568,7 +596,14 @@ for (const f of ['components/Film.tsx', 'components/console/FilmView.tsx']) {
     }
 
     if (run.bill?.projected) {
-      const cost = draw('cost', Cost).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+      // Thousands separators come out before the search, so this stays a check
+      // that the number is on the page rather than a check that it is grouped
+      // the way this line happens to expect. How money is written is the
+      // formatter's business and has its own check.
+      const cost = draw('cost', Cost)
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/,(?=\d{3}(\D|$))/g, '')
+        .replace(/\s+/g, ' ');
       if (!cost.includes(String(run.bill.projected.cost.toFixed(2)))
           && !cost.includes(String(run.bill.projected.cost.toFixed(4)))) {
         say(`${run.name}/cost: the bill carries a projected total and the page does not show it`);

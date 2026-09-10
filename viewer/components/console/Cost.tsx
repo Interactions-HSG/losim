@@ -5,9 +5,14 @@
  *
  * The bill on the command line is a total. A total cannot say *when* the money
  * was decided, and when is the whole lesson: build and capacity are settled by
- * drawing the nodes, before a single byte moves, while consumption arrives
- * with the work and incidents land at the instant something breaks. Drag the
- * clock and watch which of the four actually moves.
+ * drawing the nodes, before a single byte moves, while consumption arrives with
+ * the work. Drag the clock and watch which of the three actually moves.
+ *
+ * What broke is on this page and outside the money, counted rather than charged.
+ * There used to be a fourth bucket for it, priced at a franc a second for being
+ * late and two rappen a timeout, and on a run where everything failed those
+ * invented rates were 99% of the total — so the page answered "what does this
+ * design cost" with a number about the rates.
  *
  * Every number here comes from `dissaly bill`, accrued over the run by
  * `lib/ledger.ts`. Nothing is priced in this app. A viewer with prices of its
@@ -18,10 +23,11 @@ import * as stylex from '@stylexjs/stylex';
 
 import { colourOf, Donut, Legend, short, StackedBars, type Bar } from './Chart.tsx';
 import { Head, Panel, Tile } from './Shell.tsx';
-import { COLOUR } from '../Ledger.tsx';
 import { useConsole, useNow } from '../../lib/console.tsx';
-import { BUCKETS, LedgerModel, money, type Account, type Bucket } from '../../lib/ledger.ts';
+import { amount, BUCKETS, COLOUR, COUNTED_COLOUR, counting, LedgerModel, money,
+  type Account, type Bucket, type CountedNow } from '../../lib/ledger.ts';
 import { refTime } from '../../lib/playback.ts';
+import { group } from '../../lib/trace.ts';
 import { openUrl, type Run } from '../../lib/runs.ts';
 import { A, Code, P, Table, Td, Th } from '../../lib/text.tsx';
 import { ui } from '../../lib/ui.stylex.ts';
@@ -44,17 +50,6 @@ type Dim = keyof typeof DIMS;
  * shown as what it is.
  */
 const NOBODY = 'the design itself';
-
-/**
- * An amount with the currency left off.
- *
- * `money()` is right where a number stands alone. In a grid of forty of them the
- * repeated `CHF` is forty times the same word, and it is what makes the columns
- * wrap — so the currency is said once in the heading and the cells are numbers.
- */
-function amt(v: number): string {
-  return v < 10 ? v.toFixed(4) : v.toFixed(2);
-}
 
 /**
  * Whether the reason a line is somebody's just says the line's label again.
@@ -232,6 +227,13 @@ export function Cost() {
 
   const fixed = l.buckets.build + l.buckets.capacity;
   const biggest = BUCKETS.reduce((a, b) => (l.buckets[b] > l.buckets[a] ? b : a), BUCKETS[0]);
+  // What broke, as against what merely happened: traffic carried is counted on
+  // the same list and is not a failure, and neither is finishing late — that one
+  // is a consequence, and it has its own line right under this.
+  const failures = l.counted.filter(
+    (c) => c.quantity > 0 && ['timeouts', 'lost', 'filled'].includes(counting(c.what)),
+  );
+  const broke = Math.round(failures.reduce((a, c) => a + c.quantity, 0));
 
   return (
     <>
@@ -270,9 +272,13 @@ export function Cost() {
           n={money(l.buckets[biggest], l.currency)}
         />
         <Tile
-          k="Incidents"
-          v={money(l.buckets.incidents, l.currency)}
-          n={l.buckets.incidents > 0 ? 'Failures have cost this amount.' : 'No failures yet.'}
+          k="What broke"
+          v={broke > 0 ? group(broke) : 'nothing'}
+          n={
+            broke > 0
+              ? `${failures.map((c) => `${short(c.quantity)} ${c.unit}`).join(', ')}. Counted, not priced.`
+              : 'Nothing has failed yet.'
+          }
         />
       </div>
 
@@ -356,6 +362,8 @@ export function Cost() {
               <P style={[sx.pad, sx.note]}>This view omits {l.lines.length - 40} smaller lines.</P>
             )}
           </Panel>
+
+          <Counted lines={l.counted} note="so far, against the whole run" />
         </div>
 
         <div {...stylex.props(sx.col)}>
@@ -461,10 +469,10 @@ export function Cost() {
                         </Td>
                         {BUCKETS.map((b) => (
                           <Td key={b} num style={sx.right}>
-                            {r.focus.buckets[b] > 1e-9 ? amt(r.focus.buckets[b]) : '-'}
+                            {r.focus.buckets[b] > 1e-9 ? amount(r.focus.buckets[b]) : '-'}
                           </Td>
                         ))}
-                        <Td num style={[sx.right, sx.strong]}>{amt(r.focus.cost)}</Td>
+                        <Td num style={[sx.right, sx.strong]}>{amount(r.focus.cost)}</Td>
                         <Td num style={[sx.right, ui.muted]}>
                           {((r.focus.cost / Math.max(l.cost, 1e-9)) * 100).toFixed(0)}%
                         </Td>
@@ -481,8 +489,8 @@ export function Cost() {
                                     {!echoes(row.line.what, row.why) && (
                                       <span {...stylex.props(sx.cause)}>{row.why}</span>
                                     )}
-                                    <span {...stylex.props(sx.amt, ui.mono)}>{amt(row.mine)}</span>
-                                    <span {...stylex.props(sx.of, ui.mono)}>of {amt(row.sofar)}</span>
+                                    <span {...stylex.props(sx.amt, ui.mono)}>{amount(row.mine)}</span>
+                                    <span {...stylex.props(sx.of, ui.mono)}>of {amount(row.sofar)}</span>
                                   </li>
                                 ))}
                               </ul>
@@ -504,7 +512,7 @@ export function Cost() {
                       Design work and job-level penalties have no node allocation. Dividing these
                       costs among nodes would create an unsupported allocation.
                     </Td>
-                    <Td num style={[sx.right, sx.strong, sx.rest]}>{amt(l.cost - claimed)}</Td>
+                    <Td num style={[sx.right, sx.strong, sx.rest]}>{amount(l.cost - claimed)}</Td>
                     <Td num style={[sx.right, ui.muted, sx.rest]}>
                       {(((l.cost - claimed) / Math.max(l.cost, 1e-9)) * 100).toFixed(0)}%
                     </Td>
@@ -538,6 +546,57 @@ export function Cost() {
  * total drawn against the probe's timeline would be a curve nothing measured. It
  * is a total, stated as one.
  */
+/**
+ * What happened, counted and not charged.
+ *
+ * Deliberately its own panel and deliberately not in the money. A timeout and a
+ * dead machine are facts; what they cost an organisation is a number this course
+ * does not have. The bill used to invent one — a franc a second for being late —
+ * and on a run where everything failed that invention was 99% of the total, so
+ * the page said more about the made-up rate than about the design. The
+ * quantities are the honest half, and they are the half worth arguing with.
+ */
+function Counted({ lines, note }: { lines: CountedNow[]; note: string }) {
+  const shown = lines.filter((c) => c.total > 0);
+  if (!shown.length) return null;
+  return (
+    <Panel title="Counted, not priced" note={note} flush>
+      <div {...stylex.props(sx.scroll)}>
+        <Table>
+          <thead>
+            <tr>
+              <Th>What</Th>
+              <Th style={sx.right}>So far</Th>
+              <Th style={sx.right}>Whole run</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map((c) => (
+              <tr key={c.what} data-counted={c.what}>
+                <Td>
+                  <i {...stylex.props(sx.dot)} style={{ background: COUNTED_COLOUR }} />
+                  {c.what}
+                </Td>
+                <Td num style={[sx.right, sx.strong]}>
+                  {short(c.quantity)} <span {...stylex.props(ui.muted)}>{c.unit}</span>
+                </Td>
+                <Td num style={[sx.right, ui.muted]}>
+                  {short(c.total)} {c.unit}
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </div>
+      <P style={[sx.pad, sx.note]}>
+        These carry no price. What a timeout or a dead machine costs an organisation
+        is a number this course does not have, and the one it used to invent decided
+        most of the bill.
+      </P>
+    </Panel>
+  );
+}
+
 function AtFullSize({ account, trace }: { account?: Account; trace: Run['trace'] }) {
   if (!account) return null;
   const model = trace.scaled;
@@ -569,8 +628,8 @@ function AtFullSize({ account, trace }: { account?: Account; trace: Run['trace']
                 <Td>{line.bucket}</Td>
                 <Td>{line.what}</Td>
                 <Td num style={sx.right}>{short(line.quantity)} {line.unit}</Td>
-                <Td num style={sx.right}>{amt(line.unitPrice)}</Td>
-                <Td num style={sx.right}>{amt(line.amount)}</Td>
+                <Td num style={sx.right}>{short(line.unitPrice)}</Td>
+                <Td num style={sx.right}>{amount(line.amount)}</Td>
               </tr>
             ))}
             {/* A line the second account could not be written. Kept on the bill
@@ -589,6 +648,17 @@ function AtFullSize({ account, trace }: { account?: Account; trace: Run['trace']
               <Td colSpan={4}><strong>Total at full size</strong></Td>
               <Td num style={sx.right}><strong>{money(account.cost, account.currency)}</strong></Td>
             </tr>
+            {/* Counted at this scale and priced at none: the makespan is
+                projected, so how late it finishes is too, and no amount of
+                projecting says what that is worth. */}
+            {(account.counted ?? []).map((c) => (
+              <tr key={c.what} data-counted={c.what}>
+                <Td style={ui.muted}>-</Td>
+                <Td>{c.what}</Td>
+                <Td num style={sx.right}>{short(c.quantity)} {c.unit}</Td>
+                <Td colSpan={2} style={sx.note}>counted, not priced</Td>
+              </tr>
+            ))}
           </tbody>
         </Table>
       </div>

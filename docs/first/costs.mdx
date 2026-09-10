@@ -1,6 +1,6 @@
 ---
 title: "9. Costs"
-description: "Four cost buckets, reported separately because they represent different decisions."
+description: "Three cost buckets reported separately, and what broke counted beside them."
 icon: "receipt"
 ---
 
@@ -22,69 +22,72 @@ and the rows that appear rather than expecting identical event counts.
 build/thumbs.json
 
 what happened
-  build       services carried                      1.000 services       CHF    0.2500
-  capacity    master (m5.large)              0.01670 node-hours  CHF    0.0019
-  capacity    w0 (c5.large)                       0.01670 node-hours  CHF    0.0017
-  capacity    w1 (c5.large)                       0.01670 node-hours  CHF    0.0017
-  capacity    w2 (c5.large)                       0.01670 node-hours  CHF    0.0017
-  capacity    w3 (a1.medium)                      0.01670 node-hours  CHF    0.0004
-  consumption cross-zone egress                   0.02300 GB             CHF    0.0002
-  incidents   calls that did not answer in time     40.00 reruns         CHF    0.8000
-  incidents   nodes lost                         1.000 failures       CHF    0.2000
+  build       services carried                     0.0700 service-months CHF       17.50
+  capacity    master (m5.large)                     50.40 node-hours     CHF        5.80
+  capacity    w0 (c5.large)                         50.40 node-hours     CHF        5.14
+  capacity    w1 (c5.large)                         50.40 node-hours     CHF        5.14
+  capacity    w2 (c5.large)                         50.40 node-hours     CHF        5.14
+  capacity    w3 (a1.medium)                        50.40 node-hours     CHF        1.29
+  consumption cross-zone egress                     1,987 GB             CHF       19.87
+  consumption same-zone egress                      3,542 GB             CHF       17.71
   ------------------------------------------------------------------------------------
-  build        CHF       0.2500
-  capacity     CHF       0.0074
-  consumption  CHF       0.0002
-  incidents    CHF       1.0000
-  TOTAL COST   CHF       1.2576
+  counted, and not priced
+              calls that did not answer in time     40.00 calls          not priced
+              nodes lost                            1.000 nodes          not priced
+              late finish                           2.100 seconds        not priced
+  ------------------------------------------------------------------------------------
+  build        CHF       17.50
+  capacity     CHF       22.51
+  consumption  CHF       37.58
+  TOTAL COST   CHF       77.59
 ```
 
 Read these three details before looking at the bucket definitions.
 
-**Incidents are 135 times capacity.** The bill shows `CHF 1.0000` for incidents
-and `CHF 0.0074` for capacity. The failure scenario costs more than the running
-system. Check which bucket dominates before tuning the design.
+**A run of 2.1 seconds is billed as 2.1 days.** Every node shows `50.40`
+node-hours, which is `2.1 x 24`. One second of the simulated clock stands for a
+day of operation ([`billed_days_per_second`](/ref/prices)), because a cluster of
+five priced at two seconds comes to four centimes and nobody argues with four
+centimes. Traffic is scaled the same way — it is a flow, and it flowed for the
+whole period.
 
 **Capacity is one line per node, with the instance type shown.** `w3` is the
 `a1.medium` configured in the simulation. It costs a quarter of its neighbours
 for the same reserved period. This row connects the instance choice to the bill.
 
-**Every node shows the same `0.01670` node-hours.** That is the **billing
-minimum**, not the run duration. The minimum is 60 seconds, so every node is
-billed 60 seconds: `60 ÷ 3600 = 0.01667` hours.
+**The kill and the timeouts have no price.** They are counted under the rule, and
+the total above them does not include them. What forty unanswered calls cost an
+organisation is not a number this course has; how many there were is.
 
 <Warning>
-Until the run exceeds one minute of reference time, capacity remains a flat
-charge. Making the job faster will not change it because the cloud price has a
-one-minute floor. Increase `units`, or use the `consumption` line, which responds
-immediately.
+Two of the three buckets are decided before the work starts. Capacity is the
+period you reserved and build is the design you carry, so making the job *faster*
+moves neither — only `consumption` responds to a better algorithm, which is why
+it is the line worth tuning against.
 </Warning>
 
 <Tip>
-**Comment out the `failures:` blocks and bill the run again.** The system and work
-stay the same, while the total changes from `1.2576` to `0.2579`. The difference
-is the cost of the kill and the slowdown. A fault-tolerance mechanism must save
-more than that difference to justify its cost.
+**Comment out the `failures:` blocks and bill the run again.** The money barely
+moves: the kill and the slowdown cost you time, and time here is capacity, so the
+difference is whatever the run's duration changed by. What *does* move is the
+counted list, which empties. Read the two together — a fault-tolerance mechanism
+is bought with build and capacity, and what it buys is the empty list.
 </Tip>
 
 
 
 
-## Four separate buckets
+## Three separate buckets
 
-<Columns cols={2}>
+<Columns cols={3}>
   <Card title="capacity" icon="server">
     The system for the reserved period. **An idle node costs exactly as much as a
     busy one.** Capacity is priced in reference time, not in the wall-clock
     seconds used to run the simulation.
   </Card>
   <Card title="consumption" icon="gauge">
-    Resources consumed by the work: cross-zone egress and storage. Traffic
-    **between** availability zones is billed; traffic within one zone is free.
-  </Card>
-  <Card title="incidents" icon="triangle-exclamation">
-    Costs caused by failures: timeouts, lost nodes, full nodes, and penalties for
-    exceeding the service level.
+    Resources consumed by the work: egress and storage. Traffic inside one zone is
+    cheaper than traffic between two, and neither is free.
   </Card>
   <Card title="build" icon="hammer">
     Engineering time to build and maintain the design, spread over its life and
@@ -94,15 +97,22 @@ more than that difference to justify its cost.
 </Columns>
 
 <Note>
+**What broke is counted beside the money and never in it.** There used to be a
+fourth bucket that priced it — a franc a second for finishing late, two rappen a
+timeout — and on a run where every worker died those invented rates were 99% of
+the bill. The total then said more about the rates than about the design.
+</Note>
+
+<Note>
 There is no storage line because this system does not write to disk. A line
 appears when the run records a quantity for that resource. After adding
 `Dissaly.current().wroteDisk(bytes)`, the consumption bucket gains a `GB-month`
 row.
 </Note>
 
-Adding the buckets hides design trade-offs. Replication can increase capacity and
-build costs while reducing incidents. The printed total includes only quantities
-that the run could price.
+Adding the buckets hides design trade-offs. Replication triples capacity and adds
+to build, and what it buys is on the counted list rather than in the total. The
+printed total includes only quantities that the run could price.
 
 ## Price data
 
@@ -146,9 +156,10 @@ storage while refusing to price nodes because the job duration is not reliable.
 The refusal identifies which part of the cost remains uncertain.
 
 <Note>
-**Incidents are never projected.** A node either failed or did not. Extrapolating
-an incident bucket from one run would create a forecast rather than an
-observation.
+**Counts are never projected.** A node either failed or did not. Extrapolating a
+failure count from one run would create a forecast rather than an observation, so
+the projected bill carries none of them — only its own makespan, and therefore how
+late that finishes.
 </Note>
 
 ## Continue

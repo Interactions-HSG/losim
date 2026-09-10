@@ -28,6 +28,20 @@ egress_per_gb: 0.0088                   # between zones, inside this region
 egress_cross_region_per_gb: 0.0176      # to another region on this continent
 egress_intercontinental_per_gb: 0.0792  # across an ocean
 
+# Bytes between two machines in one zone: half what it costs to cross one. Not
+# free, and that is a deliberate departure from the sticker price — a cloud
+# carries two instances in one zone for nothing only over a private address, with
+# nothing in the path, and a real cluster's traffic goes through a load balancer,
+# a gateway or a mesh often enough that free is the exception rather than the
+# rule. Cheaper than the zone next door, so the distance still teaches something.
+egress_same_zone_per_gb: 0.0044
+
+# A toll on every byte the cluster carried, whatever distance it went. Zero, and
+# not a distance at all: it is whatever stands in the path. A NAT gateway takes
+# about 0.045 a gigabyte processed on top of transfer, and a load balancer or a
+# mesh's sidecar takes its own cut. Set it and every byte on the wire pays twice.
+nat_per_gb: 0.00
+
 storage_per_gb_month: 0.0880
 
 # You pay for a machine from the moment you ask for it, with a floor. A design that
@@ -40,9 +54,16 @@ billing_minimum_seconds: 60
 # which is why it does not follow the index above.
 build_per_service_month: 300
 
-# What being late costs, and what failure costs. Zero until something breaks.
-# Course policy rather than regional price, so these are the same everywhere.
+# How late is late. Course policy rather than a regional price, so it is the same
+# everywhere. What being late *costs* is not here and is not anywhere: the bill
+# counts what broke and refuses to invent a price for it.
 sla_seconds: 10
-late_penalty_per_second: 0.50
-incident_per_rerun: 0.02
-incident_per_lost_machine: 0.20
+
+# One second of the simulated clock is billed as one day of operation.
+#
+# A run is two minutes of an afternoon standing in for a system that runs
+# continuously, and billed at its own length the whole cluster comes to four
+# centimes — a bill nobody can read is a bill nobody argues with. The rates above
+# are left alone so they stay checkable against a cloud's own price page; it is
+# the clock that is scaled, and only where time is what is being paid for.
+billed_days_per_second: 1

@@ -18,9 +18,8 @@ import { useMemo, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
 
 import { Head, Panel } from './Shell.tsx';
-import { COLOUR } from '../Ledger.tsx';
 import { useConsole } from '../../lib/console.tsx';
-import { BUCKETS, money } from '../../lib/ledger.ts';
+import { BUCKETS, COLOUR, money } from '../../lib/ledger.ts';
 import { refTime } from '../../lib/playback.ts';
 import type { RunRef } from '../../lib/runs.ts';
 import { P } from '../../lib/text.tsx';
@@ -179,7 +178,7 @@ function Card({
           </div>
         </dl>
         {r.buckets && (
-          <div {...stylex.props(sx.stack)} title="Build, capacity, consumption, incidents">
+          <div {...stylex.props(sx.stack)} title="Build, capacity, consumption">
             {BUCKETS.map((b) => {
               const v = r.buckets?.[b] ?? 0;
               if (v <= 0) return null;

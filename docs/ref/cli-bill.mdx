@@ -1,6 +1,6 @@
 ---
 title: "dissaly bill"
-description: "Reports observed and projected costs in four buckets."
+description: "Reports observed and projected costs in three buckets, and counts what broke."
 icon: "receipt"
 ---
 
@@ -14,22 +14,25 @@ java -cp build/dissaly.jar dissaly.cli.Main bill <trace.json> [--prices <file>] 
 </ParamField>
 
 <ParamField path="--json" type="flag">
-  The four buckets as data, plus the **rates** used to compute them.
+  The three buckets as data, the **counted** lines beside them, and the **rates** used
+  to compute the first.
 
   ```json
   {
     "trace": "build/results/mine.json",
     "rates": {
       "currency": "CHF", "spotDiscount": 0.7, "egressPerGb": 0.01,
+      "egressSameZonePerGb": 0.005, "natPerGb": 0.0,
       "storagePerGbMonth": 0.1, "billingMinimumSeconds": 60,
       "buildPerServiceMonth": 250.0, "slaSeconds": 10.0,
-      "latePenaltyPerSecond": 0.5, "incidentPerRerun": 0.02,
-      "incidentPerLostMachine": 0.2
+      "billedDaysPerSecond": 1.0
     },
-    "observed":  { "lines": [ … ] },
-    "projected": { "lines": [ … ] }
+    "observed":  { "lines": [ … ], "counted": [ … ] },
+    "projected": { "lines": [ … ], "counted": [ … ] }
   }
   ```
+
+  A `counted` entry has a `what`, a `quantity` and a `unit`, and no price of any kind.
 
   `projected` is present only for a scaled run. Notes go to **stderr**, so the
   document on stdout is clean and pipeable.
@@ -56,17 +59,18 @@ re-run.
 |---|---|
 | `capacity` | the system, for the period. An idle node costs exactly as much as a busy one. |
 | `consumption` | what the work burned: egress at the distance it went, and storage |
-| `incidents` | zero until something breaks, then large |
 | `build` | engineering time to construct and carry this design, per distinct service |
 
 <Note>
 They are printed **apart rather than summed** because each bucket informs a
-different decision. Replication can increase capacity and build cost while
-reducing incidents.
+different decision. Replication triples capacity and adds to build.
 
 A line appears only when there is a quantity to report. A refused bucket is not
 treated as zero cost.
 </Note>
+
+Under the buckets, and outside the total, comes **counted, and not priced**: what
+broke, with a quantity and no amount.
 
 ## Output lines
 
@@ -74,17 +78,25 @@ Each row identifies the quantity that produced it.
 
 | bucket | line | unit |
 |---|---|---|
-| `build` | `services carried` | services |
+| `build` | `services carried` | service-months |
 | `capacity` | `<node> (<instance>)`, or `(<instance>, spot)` | node-hours |
 | `capacity` | `the system, for the period` — **projected side only** | node-hours |
+| `consumption` | `same-zone egress` | GB |
 | `consumption` | `cross-zone egress` | GB |
 | `consumption` | `egress to another region` | GB |
 | `consumption` | `egress across an ocean` | GB |
+| `consumption` | `gateway processing` — only where `nat_per_gb` is set | GB |
 | `consumption` | `spilled data on disk` | GB-month |
-| `incidents` | `calls that did not answer in time` | reruns |
-| `incidents` | `nodes lost` | failures |
-| `incidents` | `nodes that filled up` | failures |
-| `incidents` | `late finish` | seconds |
+
+And the counted lines, which have a quantity and no price:
+
+| line | unit | counted from |
+|---|---|---|
+| `calls that did not answer in time` | calls | `rpc_timeout` |
+| `machines lost` | machines | `kill`, `spot_notice` |
+| `machines that filled up` | machines | `oom`, `disk_full` |
+| `late finish` | seconds | the makespan past `sla_seconds` |
+| `traffic carried` | MB | the wire, where no rate charged for it |
 
 <Note>
 **Capacity differs between the two sides.** The observed side has one named line per
@@ -97,8 +109,12 @@ projected.
 
 <AccordionGroup>
   <Accordion title="capacity">
-    One line per node: `durationRefMs` converted to hours and multiplied by the
-    instance's on-demand rate, with a billing minimum of 60 seconds by default.
+    One line per node: the period converted to hours and multiplied by the instance's
+    on-demand rate, with a billing minimum of 60 seconds by default.
+
+    The period is `durationRefMs` scaled by `billed_days_per_second`, which stands one
+    second of the simulated clock in for a day of operation. At that scale the
+    60-second minimum only bites a run shorter than a millisecond.
 
     A node that received a `spot_notice` is billed at the spot rate, 70% off by
     default, and its line says `(c5.large, spot)`.
@@ -107,35 +123,45 @@ projected.
     job takes the duration shown by the simulated clock.
   </Accordion>
   <Accordion title="consumption">
-    **Egress has three distances.** Traffic inside one zone is free. Traffic leaving
-    the zone uses a rate based on its destination:
+    **Egress has four distances and none of them is free.** The rate follows where the
+    bytes went:
 
     | line | rate | when |
     |---|---|---|
+    | `same-zone egress` | `egress_same_zone_per_gb` | both nodes in one zone |
     | `cross-zone egress` | `egress_per_gb` | another zone in the same region |
     | `egress to another region` | `egress_cross_region_per_gb` | another region on the same continent |
     | `egress across an ocean` | `egress_intercontinental_per_gb` | anything further |
 
     Read each node's `egressMb`, recorded by destination region as calls happen. A
-    trace without that split is billed at the in-region rate.
+    trace without that split is billed at the in-region rate. Traffic is a **flow**, so
+    it carries the same scaling the period does.
+
+    `nat_per_gb`, zero by default, adds `gateway processing` over every gigabyte
+    whatever its distance — what a NAT gateway, a load balancer or a mesh takes for
+    standing in the path.
 
     **Storage** is the worst node's `diskMb`, converted to GB-months for the period.
+    The gigabytes are a level and do not scale; the months do.
   </Accordion>
-  <Accordion title="incidents">
-    Counted from events: `rpc_timeout` as reruns, `kill` plus `spot_notice` as nodes
-    lost, `oom` plus `disk_full` as nodes that filled up, and a per-second penalty
-    past the service level.
+  <Accordion title="counted, and not priced">
+    Timeouts, lost nodes, nodes that filled up, how late the run finished, and the
+    traffic nothing charged for. Each carries a quantity and no amount, and none of
+    them reaches the total.
 
-    **Never scaled.** Projected incident lines use the observed counts. Three nodes
-    lost in the run remains three nodes lost in the projected model.
+    There were rates for these once — `late_penalty_per_second`, `incident_per_rerun`,
+    `incident_per_lost_machine` — and on a run where every worker died they were 99% of
+    the bill. How many calls went unanswered is a fact about the run; what that costs an
+    organisation is not a number this course has.
 
-    Treat projected incidents as *what this run cost*, not as a forecast of failures
-    for the larger job.
-
+    **Never projected.** A node either failed or did not, so the projected account
+    carries no counts at all — only its own makespan, and therefore how late that
+    finishes.
   </Accordion>
   <Accordion title="build">
     The number of **distinct services** the system carries, multiplied by the monthly
-    cost per service. The charge applies whether or not a service handles a call.
+    cost per service and by the months the design is up for. The charge applies whether
+    or not a service handles a call.
   </Accordion>
 </AccordionGroup>
 
@@ -143,40 +169,43 @@ projected.
 
 ```
 what happened
-  build       services carried                      1.000 services       CHF    0.2500
-  capacity    master (m5.2xlarge)                 0.01670 node-hours  CHF    0.0077
-  capacity    w0 (r5.large)                       0.01670 node-hours  CHF    0.0025
+  build       services carried                    0.08470 service-months CHF       21.17
+  capacity    master (m5.2xlarge)                   30.48 node-hours     CHF       14.02
+  capacity    r0 (r5.large)                         30.48 node-hours     CHF        4.63
   …
-  consumption spilled data on disk              0.0001000 GB-month       CHF    0.0000
+  consumption same-zone egress                      12.11 GB             CHF        0.06
+  consumption spilled data on disk              0.0001000 GB-month       CHF        0.00
   ------------------------------------------------------------------------------------
-  build        CHF       0.2500
-  capacity     CHF       0.0177
-  consumption  CHF       0.0000
-  incidents    CHF       0.0000
-  TOTAL COST   CHF       0.2677
+  counted, and not priced
+              calls that did not answer in time     3.000 calls          not priced
+  ------------------------------------------------------------------------------------
+  build        CHF       21.17
+  capacity     CHF       32.55
+  consumption  CHF        0.06
+  TOTAL COST   CHF       53.78
 
 what it is a model of
-  build       services carried                      1.000 services       CHF    0.2500
+  build       services carried                     0.1180 service-months CHF       29.50
   capacity    the system, for the period                 -                CHF   refused
       the ladder bends: over the lower half it grows as units^-0.20 and over the
       upper half as units^0.40, a difference of 0.60. Something behaves differently
       small than large, and no extrapolation across that means anything
-  consumption spilled data on disk              0.0004000 GB-month       CHF    0.0000
+  consumption same-zone egress                      67.81 GB             CHF        0.34
+  consumption spilled data on disk              0.0006000 GB-month       CHF        0.00
   ------------------------------------------------------------------------------------
-  build        CHF       0.2500
-  capacity     CHF       0.0000
-  consumption  CHF       0.0000
-  incidents    CHF       0.0000
-  TOTAL COST   CHF       0.2500   (of what could be priced)
+  build        CHF       29.50
+  capacity     CHF        0.00
+  consumption  CHF        0.34
+  TOTAL COST   CHF       29.84   (of what could be priced)
 ```
 
 Compare the two halves:
 
 - `capacity` is per node on the left and one line on the right. The projected
   system size is not a list of observed nodes.
-- `consumption` grew from 0.0001 to 0.0004 GB-month because storage has a fitted law.
-- `incidents` did not move; the observed failures are carried across.
-- `capacity` contributed `0.0000` because its projection was refused, so the total
+- `consumption` grew from 12.11 to 67.81 GB because the wire has a fitted law.
+- the counted list is on the left only; a failure count is not a forecast.
+- `capacity` contributed `0.00` because its projection was refused, so the total
   is labeled *of what could be priced*.
 
 A refused line has no projected value. Capacity often depends on the measured

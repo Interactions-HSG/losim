@@ -2,9 +2,9 @@
  * What the run has cost *so far*, and whose fault it is.
  *
  * `dissaly bill` says what a run cost. That is the wrong tense for a film: the
- * whole point of watching `mr-cascade` is seeing the incidents bucket fill up
- * partway through, while it is still happening, and a total at the end cannot
- * show that.
+ * whole point of watching `mr-cascade` is seeing capacity commit before anything
+ * happens and the failures land while it is still happening, and a total at the
+ * end cannot show that.
  *
  * So this accrues. It does **not** re-price anything — every amount here is a
  * line the CLI already computed, from the rates it already used, and all that is
@@ -35,11 +35,29 @@
  * writes. That coupling is on purpose and it is checked: an unrecognised line is
  * `unknown`, attributed to nobody rather than guessed at.
  */
-import type { Trace } from './trace.ts';
+import { ALARM } from './design.ts';
+import { groupText, type Trace } from './trace.ts';
 
 /** What a design costs, computed from what actually happened. */
-export const BUCKETS = ['build', 'capacity', 'consumption', 'incidents'] as const;
+export const BUCKETS = ['build', 'capacity', 'consumption'] as const;
 export type Bucket = (typeof BUCKETS)[number];
+
+const IS_BUCKET = new Set<string>(BUCKETS);
+
+/**
+ * One palette for the buckets, wherever they are drawn.
+ *
+ * Beside the list it colours rather than in a view, so that two pages showing
+ * the same bucket cannot disagree about which colour it is.
+ */
+export const COLOUR: Record<Bucket, string> = {
+  build: '#8E6BA8',
+  capacity: '#3C6E9F',
+  consumption: '#3E8E8A',
+};
+
+/** What broke is not a bucket, but it is drawn, and it is drawn in the alarm colour. */
+export const COUNTED_COLOUR = ALARM;
 
 export interface BillLine {
   bucket: Bucket;
@@ -51,12 +69,29 @@ export interface BillLine {
   why?: string;
 }
 
+/**
+ * Something that happened, counted and not charged.
+ *
+ * A timeout, a lost machine, a late finish, the bytes a single-zone cluster
+ * carried for nothing. The bill used to put a franc a second on being late and
+ * two rappen on a timeout, and on a run where everything failed that invention
+ * was 99% of the total — so the quantities are carried and the prices are not.
+ */
+export interface CountedLine {
+  what: string;
+  quantity: number;
+  unit: string;
+  why?: string;
+}
+
 /** One account: what a set of quantities came to, at the rates in force. */
 export interface Account {
   currency: string;
   buckets: Record<Bucket, number>;
   cost: number;
   lines: BillLine[];
+  /** What happened, counted. Absent on a run where nothing did. */
+  counted?: CountedLine[];
   /**
    * Lines the second account could not be written at all, and why.
    *
@@ -103,8 +138,21 @@ export interface Ledger {
   finalCost: number;
   /** Which lines have started arriving, largest first. */
   lines: LedgerLine[];
+  /** What had happened by now, counted rather than charged. */
+  counted: CountedNow[];
   /** The node being pointed at, and what it is answerable for. */
   focus: Focus | null;
+}
+
+/** One counted line, as it stood at this instant. */
+export interface CountedNow {
+  what: string;
+  unit: string;
+  /** How many by now. */
+  quantity: number;
+  /** How many by the end of the run. */
+  total: number;
+  why?: string;
 }
 
 export interface Focus {
@@ -121,10 +169,6 @@ type Kind =
   | { k: 'capacity'; node: string }
   | { k: 'egress' }
   | { k: 'storage' }
-  | { k: 'timeouts' }
-  | { k: 'lost' }
-  | { k: 'filled' }
-  | { k: 'late' }
   | { k: 'build' }
   | { k: 'unknown' };
 
@@ -146,23 +190,32 @@ function classify(line: BillLine): Kind {
     }
     case 'consumption':
       return /storage|disk|spill/i.test(what) ? { k: 'storage' } : { k: 'egress' };
-    case 'incidents':
-      if (/in time|deadline|rerun|retr/i.test(what)) return { k: 'timeouts' };
-      if (/lost/i.test(what)) return { k: 'lost' };
-      if (/filled|full|memory/i.test(what)) return { k: 'filled' };
-      if (/late|sla|service level/i.test(what)) return { k: 'late' };
-      return { k: 'unknown' };
     case 'build':
       return { k: 'build' };
+    default:
+      // A bucket this viewer does not know — a bill written by an older engine,
+      // most likely, which had a fourth one. Drawn as a straight line rather
+      // than dropped, because a total quietly missing a line is worse.
+      return { k: 'unknown' };
   }
 }
 
-/** Which events each incident line is counting, matching `Bill.java` exactly. */
+/** Which events each counted line is counting, matching `Bill.java` exactly. */
 const COUNTS: Record<string, string[]> = {
   timeouts: ['rpc_timeout'],
   lost: ['kill', 'spot_notice'],
   filled: ['oom', 'disk_full'],
 };
+
+/** Which of those a counted line is, read off the label the bill carries. */
+export function counting(what: string): keyof typeof COUNTS | 'late' | 'traffic' | 'unknown' {
+  if (/in time|deadline|answer/i.test(what)) return 'timeouts';
+  if (/lost/i.test(what)) return 'lost';
+  if (/filled|full|memory/i.test(what)) return 'filled';
+  if (/late|sla|service level/i.test(what)) return 'late';
+  if (/traffic|egress|bytes/i.test(what)) return 'traffic';
+  return 'unknown';
+}
 
 export class LedgerModel {
   readonly currency: string;
@@ -173,6 +226,9 @@ export class LedgerModel {
   private readonly blame: Map<string, number>[];
   /** Per line, why — in words, for the node it is being shown to. */
   private readonly why: string[];
+  /** What happened, and how much of each had happened by `t`. */
+  private readonly counted: CountedLine[];
+  private readonly countShapes: ((t: number) => number)[];
 
   constructor(trace: Trace, bill: BillJson) {
     const account = bill.observed;
@@ -188,7 +244,14 @@ export class LedgerModel {
     const minSeconds = Number(bill.rates['billingMinimumSeconds'] ?? 60);
     const slaSeconds = Number(bill.rates['slaSeconds'] ?? 0);
     const done = doneAt(trace) ?? duration;
-    const egress = cumulative(trace, 'bytesOutMb');
+    const bytes = cumulative(trace, 'bytesOutMb');
+    // The channel where there is one, a straight line where there is not.
+    // `t13-off` runs with telemetry turned off: the bill still knows what the
+    // cluster carried, because that is a counter on the machine rather than a
+    // series, but there is nothing to follow it with. Followed anyway, the line
+    // arrives at nothing and the page shows a quantity that never turns up —
+    // which is how the counted traffic on that run closed at zero of 0.85 MB.
+    const egress = bytes(duration) > 0 ? bytes : (t: number) => clamp(t / duration);
     const storage = integral(trace, 'diskMb');
     const when = new Map<string, number[]>();
     for (const e of trace.events) {
@@ -226,32 +289,36 @@ export class LedgerModel {
         case 'storage':
           return (t: number) => storage(t);
 
-        case 'late': {
-          // A penalty per second past the service level, so it starts at nothing,
-          // begins at the instant the deadline passes, and climbs from there. As a
-          // step at the end it would say the job was late all along, which is the
-          // opposite of what it is for.
-          const over = job / 1000 - slaSeconds;
-          if (over <= 0) return () => 1;
-          return (t: number) => clamp((t / 1000 - slaSeconds) / over);
-        }
-
-        case 'timeouts':
-        case 'lost':
-        case 'filled': {
-          // Arrives in steps, at the instants things actually broke — and counting
-          // exactly the events the bill counted, so the number of steps is the
-          // number on the line.
-          const times = COUNTS[kind.k].flatMap((k) => when.get(k) ?? []).sort((a, b) => a - b);
-          if (!times.length) return () => 1;
-          return (t: number) => times.filter((x) => x <= t).length / times.length;
-        }
-
         case 'unknown':
           // Something the bill grew that this does not know the shape of. Straight
           // line: wrong about *when*, right about the total, and visibly neither
           // invented nor dropped.
           return (t: number) => clamp(t / duration);
+      }
+    });
+
+    // ------------------------------------------------------- what happened, so far
+    //
+    // The same idea as the shapes above and none of the money: a count is a step
+    // at the instant the thing happened, lateness climbs from the moment the
+    // service level passes, and traffic follows the bytes.
+    this.counted = account.counted ?? [];
+    this.countShapes = this.counted.map((c) => {
+      switch (counting(c.what)) {
+        case 'late': {
+          const over = job / 1000 - slaSeconds;
+          if (over <= 0) return () => 1;
+          return (t: number) => clamp((t / 1000 - slaSeconds) / over);
+        }
+        case 'traffic':
+          return (t: number) => egress(t);
+        case 'unknown':
+          return (t: number) => clamp(t / duration);
+        default: {
+          const times = COUNTS[counting(c.what)].flatMap((k) => when.get(k) ?? []).sort((a, b) => a - b);
+          if (!times.length) return () => 1;
+          return (t: number) => times.filter((x) => x <= t).length / times.length;
+        }
       }
     });
 
@@ -315,17 +382,6 @@ export class LedgerModel {
           return share((n) => raw(n, 'crossZoneMb'));
         case 'storage':
           return worst ? new Map([[worst, 1]]) : new Map();
-        case 'timeouts':
-          // The callee is the one that did not answer, and the bill's words are
-          // "a node did not answer inside its deadline". The event is written
-          // by the caller, so the node to charge is the one it was calling.
-          return byEvent(COUNTS.timeouts, (e) =>
-            String((e.detail as Record<string, unknown>)?.['to'] ?? e['vm'] ?? ''),
-          );
-        case 'lost':
-          return byEvent(COUNTS.lost, (e) => String(e['vm'] ?? ''));
-        case 'filled':
-          return byEvent(COUNTS.filled, (e) => String(e['vm'] ?? ''));
         case 'build': {
           const out = new Map<string, number>();
           for (const [, holders] of offeredBy) {
@@ -336,7 +392,6 @@ export class LedgerModel {
           return out;
         }
         // The job's, not any node's. Left empty on purpose.
-        case 'late':
         case 'unknown':
           return new Map<string, number>();
       }
@@ -350,15 +405,8 @@ export class LedgerModel {
           return 'its share of the bytes that crossed a zone';
         case 'storage':
           return 'the whole line — this is the worst node’s spill, and it is the worst node';
-        case 'timeouts':
-          return 'calls it did not answer in time';
-        case 'lost':
-          return 'it went away mid-job';
-        case 'filled':
-          return 'it ran out of what it was given';
         case 'build':
           return 'its share of carrying the services it offers';
-        case 'late':
         case 'unknown':
           return '';
       }
@@ -380,6 +428,10 @@ export class LedgerModel {
 
     for (let i = 0; i < this.lines.length; i++) {
       const line = this.lines[i];
+      // A bill from an engine with a bucket this one does not have. Its money is
+      // left out of a total that has no column for it, rather than added into
+      // one of the columns that does.
+      if (!IS_BUCKET.has(line.bucket)) continue;
       const sofar = line.amount * this.shapes[i](t);
       buckets[line.bucket] += sofar;
       const cut = focus ? (this.blame[i].get(focus) ?? 0) : 0;
@@ -392,21 +444,25 @@ export class LedgerModel {
     // Theirs first, then by size: pointing at a node should bring its own
     // money to the top rather than leave it to be hunted for down the table.
     lines.sort((a, b) => b.mine - a.mine || b.sofar - a.sofar);
-    const cost = buckets.build + buckets.capacity + buckets.consumption + buckets.incidents;
+    const cost = buckets.build + buckets.capacity + buckets.consumption;
+    const counted: CountedNow[] = this.counted.map((c, i) => ({
+      what: c.what,
+      unit: c.unit,
+      quantity: c.quantity * this.countShapes[i](t),
+      total: c.quantity,
+      why: c.why,
+    }));
     return {
       currency: this.currency,
       buckets,
       cost,
       finalCost: this.finalCost,
       lines,
+      counted,
       focus: focus
         ? {
             name: focus,
-            cost:
-              mineBuckets.build +
-              mineBuckets.capacity +
-              mineBuckets.consumption +
-              mineBuckets.incidents,
+            cost: mineBuckets.build + mineBuckets.capacity + mineBuckets.consumption,
             finalCost: mineFinal,
             buckets: mineBuckets,
           }
@@ -416,7 +472,7 @@ export class LedgerModel {
 }
 
 function zero(): Record<Bucket, number> {
-  return { build: 0, capacity: 0, consumption: 0, incidents: 0 };
+  return { build: 0, capacity: 0, consumption: 0 };
 }
 
 function clamp(v: number): number {
@@ -492,8 +548,27 @@ export async function loadBill(href: string): Promise<BillJson | null> {
   }
 }
 
-export function money(v: number, currency: string): string {
+/**
+ * An amount of money, written the way money is written.
+ *
+ * Two decimals, because the smallest thing anyone can be charged is a rappen
+ * and a fourth decimal is a fraction of one — the bill closes to the rappen and
+ * this is that same unit on the face. Grouped above a thousand, so 4234 is not
+ * read as 423 or 42,340 by anybody scanning a column.
+ *
+ * A line that costs something but rounds to nothing says so rather than
+ * printing `0.00`: at a fifth of a rappen, `0.00` and "free" are the same four
+ * characters, and a per-node column of them loses the one reading it was there
+ * to give.
+ */
+export function amount(v: number): string {
   const sign = v < 0 ? '-' : '';
   const a = Math.abs(v);
-  return `${sign}${currency} ${a < 10 ? a.toFixed(4) : a.toFixed(2)}`;
+  if (a > 0 && a < 0.005) return `${sign}<0.01`;
+  const [whole, frac] = a.toFixed(2).split('.');
+  return `${sign}${groupText(whole)}.${frac}`;
+}
+
+export function money(v: number, currency: string): string {
+  return `${currency} ${amount(v)}`;
 }

@@ -12,21 +12,38 @@ system-specific billing code.
 | | modeled quantity |
 |---|---|
 | `capacity` | the system, for the period. An idle node costs as much as a busy one. |
-| `consumption` | what the work burned: cross-zone egress, storage |
-| `incidents` | zero until something breaks, then large |
+| `consumption` | what the work burned: egress at four distances, storage |
 | `build` | engineering time to construct and carry this design, per distinct service |
 
 <Note>
-Combining the buckets would obscure design trade-offs. Replication can increase
-capacity and build costs while reducing incidents.
+Combining the buckets would obscure design trade-offs. Replication triples capacity
+and adds to build.
 
 The bill omits unavailable quantities. It does not report them as zero.
 </Note>
 
-## Capacity uses reference time
+## What broke is counted, never charged
+
+Timeouts, lost nodes and a late finish are listed under **counted, and not priced**,
+with a quantity and no amount. They are outside the total.
+
+There used to be a fourth bucket that priced them, at a franc a second for finishing
+late and two rappen a timeout. On a run where every worker died, those three invented
+rates were 99% of the bill — so the total answered "what does this design cost" with
+a number about the rates. How many calls went unanswered is a fact about the run;
+what that costs an organisation is not a number this course has.
+
+## Capacity uses reference time, scaled
 
 The wall-clock duration of the run is not the billed duration. The modeled job uses
-the simulated clock, and **that** duration is billed.
+the simulated clock, and **that** duration is billed — multiplied by
+`billed_days_per_second`, which stands one second of the run in for a day of
+operation. Billed at its own length, a cluster of five for two minutes comes to four
+centimes, and a bill nobody can read is a bill nobody argues with.
+
+The scaling applies to time and to what flows with it: machine-hours, the months a
+spill is held, and the traffic carried over the period. What a node is *holding* does
+not scale — that is a level, not a flow.
 
 A node that received a `spot_notice` is billed at the spot rate, which is 70% off by
 default. Reclaimable capacity therefore costs less while it remains available for
@@ -60,10 +77,12 @@ determines which calls cross a zone, so the share stays fixed while the total gr
 If the wire law is refused, the bill omits the egress line instead of presenting an
 observed quantity as a full-scale value.
 
-## Incident costs
+## Counts are never projected
 
 A node either failed or remained available. A single run cannot provide an observed
-incident rate for a larger run, so the incident bucket is not extrapolated.
+failure rate for a larger run, so the counts belong to the run that had them and the
+projected account carries none of them. What it does carry is its own makespan, and
+therefore how late *that* finishes — projected, and still not priced.
 
 ## Price data
 

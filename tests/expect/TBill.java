@@ -5,11 +5,12 @@ import dissaly.price.Account;
 import dissaly.price.PriceList;
 
 /**
- * bill — the five-bucket account, over the metrics a run actually produces.
+ * bill — the three-bucket account and the counting beside it, over the metrics a
+ * run actually produces.
  *
  * <p><b>Catches:</b> the bill drifting away from the trace. It is the one consumer
  * that reads almost every channel — the machines and what they were, the events that
- * are incidents, the duration, and in scaled mode the projections — so a quantity
+ * are failures, the duration, and in scaled mode the projections — so a quantity
  * that stops being written stops being billed, silently and plausibly.
  *
  * <p>It also holds the line that matters most about money: <b>a bucket nobody could
@@ -36,9 +37,16 @@ public final class TBill {
         var observed = direct.observed();
         e.check(observed.items().stream().map(i -> i.bucket()).distinct().count() >= 3
                 && observed.byBucket().keySet().equals(new java.util.LinkedHashSet<>(Account.BUCKETS)),
-                "a direct run bills into the five buckets, reported apart rather than summed — "
-                + "replication triples capacity and adds to build in order to empty incidents, "
-                + "and one number cannot say that");
+                "a direct run bills into the three buckets, reported apart rather than summed — "
+                + "replication triples capacity and adds to build, and one number cannot say that");
+
+        e.check(observed.items().stream().noneMatch(i -> i.bucket().equals("incidents"))
+                        && !observed.counted().isEmpty(),
+                "and what happened is counted beside the money rather than priced into it: "
+                + "a timeout and a dead machine are facts, what they cost an organisation is "
+                + "not a number this course has, and the one it used to invent — a franc a "
+                + "second for finishing late — was 99% of the bill on a run where everything "
+                + "failed (" + observed.counted().size() + " counted, none of them charged)");
 
         double capacity = observed.byBucket().get("capacity");
         long machines = read(args[1]).get("nodes") instanceof List<?> l ? l.size() : 0;

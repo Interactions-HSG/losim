@@ -324,7 +324,7 @@ export function g(v: number): string {
   return frac ? `${groupText(whole)}.${frac}` : groupText(whole);
 }
 
-function groupText(whole: string): string {
+export function groupText(whole: string): string {
   const neg = whole.startsWith('-');
   const digits = neg ? whole.slice(1) : whole;
   const out = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');

@@ -209,17 +209,23 @@ unattributed, and the trace records that fact.
 
 ## Cost
 
-The bill prints four buckets separately because each describes a different cost.
-Replication can increase capacity and build cost while reducing incidents.
+The bill prints three buckets separately because each describes a different cost.
+Replication triples capacity and adds to build. What broke is counted under them and
+never priced: how many calls went unanswered is a fact about the run, what that costs
+an organisation is not a number this course has.
 
 ```text
 model quantity
-  build       services carried                 1.000 services       CHF    0.2500
-  capacity    the nodes, for the period            -                CHF   refused
+  build       services carried               0.1180 service-months CHF       29.50
+  capacity    the nodes, for the period           -                CHF   refused
       its exponent moves by 0.793 between independent seed sets of the same workload.
       Over a factor of 6, the error bar is x4.1.
-  consumption intermediate data on disk    0.0004000 GB-month       CHF    0.0000
+  consumption same-zone egress                67.81 GB             CHF        0.34
+  consumption intermediate data on disk   0.0006000 GB-month       CHF        0.00
 ```
+
+One second of the simulated clock is billed as a day of operation, so a two-minute run
+prices as four months of a system rather than as four centimes of one.
 
 A run above `scale: 1` produces an observed bill and a bill for the modeled size.
 The engine refuses quantities whose measurements cannot support projection. Capacity
@@ -271,7 +277,7 @@ reference suite of gRPC systems in CI.
 | two scales, per measurement | what happened, and what it is a model of, with an error bar or with a reason it is absent |
 | **dissaly's own cost, excluded** | everything dissaly does on a node's threads is metered and subtracted, so what is reported is the program's |
 | trust markers | real clocks, real files, real sockets, shared statics and unattributed threads, found in the compiled classes at the line they were written on, flagged, never refused |
-| a bill, at both scales | five buckets over the quantities the run produced, and at full scale a capacity line absent with a reason, because it depends on the one thing the engine would not project |
+| a bill, at both scales | three buckets over the quantities the run produced, what broke counted beside them and never priced, and at full scale a capacity line absent with a reason, because it depends on the one thing the engine would not project |
 
 The `reveal` calls do affect the raw measurement. A thousand
 calls per handler move the *unsubtracted* memory exponent by 0.026, while

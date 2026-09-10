@@ -25,9 +25,8 @@ import { LineChart } from './Chart.tsx';
 import { Head, Panel, Tile } from './Shell.tsx';
 import { Spans } from '../Spans.tsx';
 import { Topology } from '../Topology.tsx';
-import { COLOUR } from '../Ledger.tsx';
 import { useConsole, useNow } from '../../lib/console.tsx';
-import { BUCKETS, money } from '../../lib/ledger.ts';
+import { BUCKETS, COLOUR, money } from '../../lib/ledger.ts';
 import { refTime } from '../../lib/playback.ts';
 import { useTheme } from '../../lib/theme.ts';
 import { A, Code, H2, Kbd, P, Table, Td, Th } from '../../lib/text.tsx';
@@ -380,7 +379,7 @@ export function Overview() {
               Money arrives at different times for different reasons, and that is the whole
               lesson: <strong>build</strong> and <strong>capacity</strong> are settled by drawing
               the nodes, before a byte moves; <strong>consumption</strong> arrives with the
-              work; <strong>incidents</strong> land at the instant something breaks.
+              work. What broke is counted on the full bill and never priced.
             </>
           ) : (
             <>There is no bill beside this trace, so there is no money to show.</>

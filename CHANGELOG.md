@@ -8,10 +8,97 @@ rather than about a branch. Every release is cut from a tag whose name and
 
 ## 4.0.1
 
-**The viewer, and nothing else.** No type changed, no simulation produces a
-different trace, and every number this touches was already right in the trace it
-was read from. What was wrong is the picture drawn over it, which on a run with
-failures in it showed two things that never happened.
+**The bill stopped making prices up, and the film stopped answering for the
+dead.** No simulation produces a different trace: every number here was already
+in the trace, and what changed is what was done with it. Two things a lab has to
+know about — **a price list carrying `late_penalty_per_second`,
+`incident_per_rerun` or `incident_per_lost_machine` is now refused** (unknown
+keys always were), and **`bill.json` has three buckets and a new `counted`
+array**. Anything reading either needs a line changed.
+
+### What broke is counted, and never priced
+
+The bill had a fourth bucket that put a franc a second on finishing late, two
+rappen on a timeout and twenty on a lost machine. On `t11-chaos`, where all four
+workers die in the first twelve seconds, those three invented rates came to
+CHF 65.68 of a CHF 66.22 bill — 99.2% of it, and 94% from the late-finish
+penalty alone. The total answered "what does this design cost" with a number
+about the rates.
+
+Worse, the rule the code stated for itself had a hole in it. `Bill.java` says
+events are never projected, *because an incident bucket extrapolated from one
+afternoon would be a forecast dressed as an observation* — and then computed
+`late finish` from the **projected** makespan and charged it into the same
+bucket, where it was 365.88 of the projected 369.46. Meanwhile the two honestly
+observed lines stayed at 139 timeouts and 4 machines: six times the work, six
+times as long, the same four machines lost.
+
+They are counted now. `dissaly bill` prints them under **counted, and not
+priced** with a quantity, a unit and no amount, outside the total, and the
+viewer's Cost page carries the same list on the same clock. How many calls went
+unanswered is a fact about the run; what that costs an organisation is not a
+number this course has.
+
+One line was also counting something that never happened: 139 `rpc_timeout`
+events were billed as 139 *reruns*, on a run that made 164 calls, had 25
+answered and re-sent none of them.
+
+### A second of the run is billed as a day of operation
+
+Priced at its own length, a cluster of five for two minutes came to four
+centimes, and a bill nobody can read is a bill nobody argues with. So
+`billed_days_per_second` scales the clock rather than the rates — an m5.2xlarge
+still costs what an m5.2xlarge costs per hour, which is the one figure a student
+can check against a cloud's own price page.
+
+It scales time and what flows with it: machine-hours, the months a design is
+carried and a spill is held, and the traffic carried over the period. A cluster
+billed for a hundred days of machine time that moved a third of a megabyte in
+those hundred days is not a system anybody could build. What a node is *holding*
+does not scale — that is a level, not a flow.
+
+`build` follows from the same idea: it was `build_per_service_month / 1000`, a
+divisor with no time in it, and is now service-months over the period the design
+is up. At this scale the 60-second billing minimum only bites a run shorter than
+a millisecond.
+
+### Traffic inside a zone is no longer free
+
+`egress_same_zone_per_gb`, at half the cross-zone rate, and `nat_per_gb` at zero.
+
+A cloud carries two instances in one zone for nothing only over a *private*
+address with nothing in the path. The same two over a public or elastic address
+are billed at the cross-zone rate in both directions, and a real cluster's
+traffic passes a load balancer, a gateway or a mesh often enough that free is the
+exception. Cheaper than the zone next door, so the distance a design puts between
+its nodes still costs it something to get wrong; `nat_per_gb` is the explicit
+toll for whatever stands in the path, and a course that wants the sticker price
+sets both to zero.
+
+### A bill was never re-priced when the prices changed
+
+`dev viewer traces` re-billed only when the *trace* was newer than the bill. A
+price list edited this morning and an engine that stopped charging for incidents
+both leave the trace untouched, so every bill in `build/served` stayed frozen at
+the old model with nothing saying so — the viewer went on quoting a number the
+command line no longer computed. It now compares against the jar and `prices/`
+as well.
+
+### CHF is written the way money is written
+
+Two decimals, because the smallest thing anybody can be charged is a rappen, and
+grouped above a thousand, because `4234` is read as `423` as often as `4,234`.
+Both were wrong: a fourth decimal on every amount under ten and no separator on
+any of them, in the viewer and in the terminal. A line that costs something but
+rounds to nothing says `<0.01` rather than `0.00`, which is the same four
+characters as free.
+
+### The film's cost strip is gone
+
+The panel over the film, and the `ledger=1` that opened it. The Cost page and
+Overview section 5 are where the money lives.
+
+### A call that never arrived came back with an answer
 
 ### A call that never arrived came back with an answer
 
@@ -44,6 +131,12 @@ from the trace's `delivered: false` rather than from the film's account of
 itself, so a film that forgets how to lose a message cannot answer its way to
 green; and the memo comparator is now asked about position as well as
 appearance.
+
+`viewer/checks/ledger.ts` holds the counting to the bill the same way it holds
+the money, and found the first thing it looked at: `t13-off` records no
+telemetry, so a line whose shape follows the wire arrived at nothing — its
+counted traffic closed at zero of 0.85 MB. A shape with no series to follow now
+degrades to a straight line rather than to nothing.
 
 ## 4.0.0
 

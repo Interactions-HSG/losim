@@ -408,6 +408,10 @@ public final class Dev {
         if (suite)   sources.add(new String[]{"suite", "build/tests/traces"});
         if (gallery) sources.add(new String[]{"gallery", "build/gallery/traces"});
 
+        // The newest of everything a bill is a function of besides the trace: the
+        // engine that prices it and the list it prices from.
+        Path pricedBy = newest(root.resolve("build/dissaly.jar"), root.resolve("prices"));
+
         StringBuilder origins = new StringBuilder();
         List<String> seen = new ArrayList<>();
         int mine = 0;
@@ -444,8 +448,14 @@ public final class Dev {
                 // would make this feel broken. Missing, the film still plays and
                 // the money is simply absent, which is the right failure: a viewer
                 // that invented its own prices would be a second accountant.
+                //
+                // Out of date means the trace *or* what prices it. Keyed on the
+                // trace alone, a price list edited this morning and an engine that
+                // stopped charging for incidents both left every bill in
+                // build/served frozen at the old model, and nothing said so — the
+                // page went on quoting a number the CLI no longer computed.
                 Path billed = into.resolve(name + ".bill.json");
-                if (newer(f, billed)) bill(f, billed);
+                if (newer(f, billed) || newer(pricedBy, billed)) bill(f, billed);
             }
         }
         Files.writeString(into.resolve(".origins"), origins.toString());
@@ -498,6 +508,24 @@ public final class Dev {
             if (n.endsWith(".json") && !n.endsWith(".bill.json") && !n.equals("index.json")) out.add(p);
         }
         return out;
+    }
+
+    /** Whichever of these was touched last, files and directories alike. */
+    private static Path newest(Path... of) throws IOException {
+        Path best = null;
+        for (Path p : of) {
+            if (!Files.exists(p)) continue;
+            if (Files.isDirectory(p)) {
+                for (Path c : children(p)) {
+                    if (best == null || Files.getLastModifiedTime(c)
+                            .compareTo(Files.getLastModifiedTime(best)) > 0) best = c;
+                }
+            } else if (best == null || Files.getLastModifiedTime(p)
+                    .compareTo(Files.getLastModifiedTime(best)) > 0) {
+                best = p;
+            }
+        }
+        return best == null ? of[0] : best;
     }
 
     private static boolean newer(Path source, Path than) throws IOException {

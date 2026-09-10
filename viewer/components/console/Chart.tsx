@@ -23,6 +23,7 @@
 import * as stylex from '@stylexjs/stylex';
 
 import { chrome, font, series } from '../../lib/tokens.stylex.ts';
+import { groupText } from '../../lib/trace.ts';
 
 export interface Series {
   name: string;
@@ -81,10 +82,11 @@ export function axisTicks(max: number, divs: number): string[] {
 export function short(v: number): string {
   if (v === 0) return '0';
   const a = Math.abs(v);
-  if (a >= 1000) return v.toFixed(0);
-  if (a >= 100) return v.toFixed(1);
-  if (a >= 1) return v.toFixed(2);
-  return v.toFixed(4);
+  const places = a >= 1000 ? 0 : a >= 100 ? 1 : a >= 1 ? 2 : 4;
+  const [whole, frac] = v.toFixed(places).split('.');
+  // Grouped above a thousand for the same reason every other number in the
+  // viewer is: 48000 read at a glance is 4800 as often as it is 48,000.
+  return frac ? `${groupText(whole)}.${frac}` : groupText(whole);
 }
 
 /* ---------------------------------------------------------------- the charts */

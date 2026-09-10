@@ -17,7 +17,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { flushSync } from 'react-dom';
 
 import { Dataflow } from './Dataflow.tsx';
-import { LedgerStrip } from './Ledger.tsx';
 import { NodePanel } from './NodePanel.tsx';
 import { MessagePanel } from './MessagePanel.tsx';
 import { Scrubber } from './Scrubber.tsx';
@@ -102,7 +101,6 @@ export function Film({
   const [pinned, setPinned] = useState<string | null>(null);
   const [recording, setRecording] = useState<string | null>(null);
   const [made, setMade] = useState<Recording | null>(null);
-  const [showLedger, setShowLedger] = useState(false);
   const [zone, setZone] = useState('');
   const [role, setRole] = useState('');
   const [task, setTask] = useState<number | null>(null);
@@ -149,7 +147,6 @@ export function Film({
     // than held, so the picker cannot sit on a selection the film cannot draw.
     const k = q.get('show');
     if (k && index.revealedKeys().includes(k)) setShow(k);
-    if (q.get('ledger') === '1') setShowLedger(true);
   }, [clock, trace, index]);
 
   useEffect(() => {
@@ -159,12 +156,10 @@ export function Film({
     url.searchParams.set('t', String(Math.round(t)));
     if (pinned) url.searchParams.set('m', pinned);
     else url.searchParams.delete('m');
-    if (showLedger) url.searchParams.set('ledger', '1');
-    else url.searchParams.delete('ledger');
     if (against) url.searchParams.set('vs', against.name);
     else url.searchParams.delete('vs');
     window.history.replaceState(null, '', url);
-  }, [playing, t, run.name, pinned, showLedger, against]);
+  }, [playing, t, run.name, pinned, against]);
 
   // Its own effect, and deliberately not gated on `playing` like the one above.
   // That gate is there because `t` moves sixty times a second and the address
@@ -535,15 +530,6 @@ export function Film({
             {money2(Math.abs(money.cost - vsMoney.cost), money.currency)}
           </span>
         </div>
-      )}
-
-      {money && (
-        <LedgerStrip
-          l={money}
-          open={showLedger}
-          onToggle={() => setShowLedger(!showLedger)}
-          onHover={(name) => !pinned && setHovered(name)}
-        />
       )}
 
       {transport ? (
