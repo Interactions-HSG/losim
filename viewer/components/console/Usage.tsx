@@ -22,8 +22,10 @@ import { useConsole, useNow } from '../../lib/console.tsx';
 import { refTime } from '../../lib/playback.ts';
 import type { Trace } from '../../lib/trace.ts';
 import { A, Code, P, Table, Td, Th } from '../../lib/text.tsx';
+import { MB, reading, sizeUnit, type Unit } from '../../lib/units.ts';
 import { ui } from '../../lib/ui.stylex.ts';
 import { chrome, font } from '../../lib/tokens.stylex.ts';
+import { Projected } from './Projected.tsx';
 
 interface Metric {
   id: string;
@@ -34,22 +36,24 @@ interface Metric {
   divs?: number;
   /** How many decimals this metric is worth reading to. A percentage has none. */
   dp: number;
+  /**
+   * A size in megabytes, so it is written in whatever unit it has grown into.
+   *
+   * A percentage is a percentage at any magnitude and a queue of 4,000 is a
+   * queue of 4,000. Bytes are the one thing here that changes its name as it
+   * grows, and a scaled run is exactly where it does.
+   */
+  size?: boolean;
   note: string;
 }
 
 const METRICS: Metric[] = [
   { id: 'busyPct', label: 'CPU', unit: '%', max: 100, dp: 0, note: 'of the node’s cores, at this instant' },
-  { id: 'bytesOutMb', label: 'Bytes out', unit: 'MB', dp: 2, note: 'cumulative — the line the egress bill is drawn from' },
+  { id: 'bytesOutMb', label: 'Bytes out', unit: 'MB', dp: 2, size: true, note: 'cumulative — the line the egress bill is drawn from' },
   { id: 'inflight', label: 'Calls in flight', unit: '', divs: 2, dp: 0, note: 'handlers running on it right now' },
   { id: 'queued', label: 'Queued', unit: '', divs: 2, dp: 0, note: 'calls waiting for a core. A queue that never empties is a node too small' },
   { id: 'diskPct', label: 'Disk', unit: '%', max: 100, dp: 0, note: 'of its disk cap' },
 ];
-
-/** A reading, with the unit attached the way that unit is written. */
-function reading(v: number, m: Metric): string {
-  const n = v.toFixed(m.dp);
-  return m.unit === '%' ? `${n}%` : m.unit ? `${n} ${m.unit}` : n;
-}
 
 /** At most this many points per series: a path with a segment per pixel is a solid line. */
 const CAP = 240;
@@ -124,6 +128,20 @@ export function Usage() {
     return out;
   }, [have, all]);
 
+  /**
+   * The unit each metric is written in, decided once from the whole run.
+   *
+   * From the top of the axis rather than per value, so that the ruler, the
+   * readings under it and the peaks in the table are all in one unit and can be
+   * compared with each other. Deciding per cell would put `4.00 MB` in the row
+   * above `1.24 GB` and leave the reader to notice.
+   */
+  const units = useMemo(() => {
+    const out = new Map<string, Unit>();
+    for (const m of have) out.set(m.id, m.size ? sizeUnit(tops.get(m.id) ?? 0) : { unit: m.unit, per: 1 });
+    return out;
+  }, [have, tops]);
+
   if (!run || !trace) return null;
   const metric = have.find((m) => m.id === pick) ?? have[0];
   if (!metric) {
@@ -136,6 +154,10 @@ export function Usage() {
             without <Code>--quiet</Code> and every node gets a line here.
           </P>
         </Panel>
+        {/* A model still has its answers, and they do not come from the channels.
+            Leaving them out here made turning telemetry off delete the only figures
+            on the page that were not going to be drawn anyway. */}
+        <Projected trace={trace} />
       </>
     );
   }
@@ -146,6 +168,11 @@ export function Usage() {
       color: colourOf(i),
       pts: upTo(s.pts, now),
     }));
+
+  /** A reading of the metric on show, in the unit its axis is written in. */
+  const shown = units.get(metric.id) ?? MB;
+  const say = (v: number) =>
+    reading(v / shown.per, shown.unit, shown.per === 1 ? metric.dp : 2);
 
   return (
     <>
@@ -164,9 +191,19 @@ export function Usage() {
             {trace.nodes.length} nodes, drawn to {refTime(now)} of{' '}
             {refTime(trace.duration)}. The axis is fixed to the whole run, so dragging the clock
             moves the drawing and never the ruler under it.
+            {trace.scaled && (
+              <>
+                {' '}Every line below is the run that <em>executed</em> —{' '}
+                {trace.scaled.units.toLocaleString()} units, small enough to fit on this machine.
+                What the model says about the {trace.scaled.fullUnits.toLocaleString()} it stands
+                for is in the panel directly below, and nowhere else on this page.
+              </>
+            )}
           </>
         }
       />
+
+      <Projected trace={trace} />
 
       <Panel flush>
         <div {...stylex.props(sx.tools)}>
@@ -192,7 +229,8 @@ export function Usage() {
           yMax={tops.get(metric.id) ?? 1}
           height={280}
           divs={metric.divs ?? 4}
-          unit={metric.unit}
+          unit={(units.get(metric.id) ?? MB).unit}
+          per={(units.get(metric.id) ?? MB).per}
           label={metric.label}
         />
         <div {...stylex.props(sx.pad)}>
@@ -204,7 +242,7 @@ export function Usage() {
         {have
           .filter((m) => m.id !== metric.id)
           .map((m) => (
-            <Panel key={m.id} title={m.label} note={m.unit || 'count'} flush
+            <Panel key={m.id} title={m.label} note={(units.get(m.id) ?? MB).unit || 'count'} flush
                    actions={<button {...stylex.props(ui.btn)} onClick={() => setPick(m.id)}>Expand</button>}>
               <LineChart
                 series={series(m)}
@@ -213,7 +251,8 @@ export function Usage() {
                 yMax={tops.get(m.id) ?? 1}
                 height={150}
                 divs={m.divs ?? 4}
-                unit={m.unit}
+                unit={(units.get(m.id) ?? MB).unit}
+                per={(units.get(m.id) ?? MB).per}
                 label={m.label}
               />
             </Panel>
@@ -243,8 +282,8 @@ export function Usage() {
                     <Td style={sx.id}>{mc.name}</Td>
                     <Td>{mc.instance}</Td>
                     <Td style={ui.muted}>{mc.zone}</Td>
-                    <Td num style={sx.right}>{reading(value, metric)}</Td>
-                    <Td num style={sx.right}>{reading(peak, metric)}</Td>
+                    <Td num style={sx.right}>{say(value)}</Td>
+                    <Td num style={sx.right}>{say(peak)}</Td>
                     <Td style={sx.sp}>
                       <Spark pts={pts} colour={colourOf(i)} max={tops.get(metric.id) ?? 1} />
                     </Td>

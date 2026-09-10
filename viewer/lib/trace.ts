@@ -303,6 +303,101 @@ function groupText(whole: string): string {
   return neg ? `-${out}` : out;
 }
 
+// -------------------------------------------------------------------- scaled
+//
+// A scaled run executes a workload small enough to fit on the machine in front
+// of you and reports the one it stands for. So *every* figure a reader wants
+// from it — bytes out, memory held, how long it takes — is a projection, and
+// none of it is on the charts, which draw what the probe actually did.
+//
+// Everything below is read, never derived. The laws are fitted, evaluated,
+// aggregated across machines and error-barred in `dissaly.scale`, and arrive
+// here as answers. This once had a sibling that recomputed a projection from
+// the coefficients, agreed with the engine to three digits, and disagreed on
+// the fourth — two programs with an opinion about one number, which is one
+// program too many (D9).
+
+/** One resource, at the size that ran and at the size it stands for. */
+export interface Projection {
+  resource: string;
+  /** What the probe run measured, in the resource's own unit. */
+  observed: number;
+  /** What the law says at full size. `null` where the engine would not say. */
+  projected: number | null;
+  /** Multiplicative: the band is `projected / errorBar` to `projected * errorBar`. */
+  errorBar: number;
+  /** What the law is a function of — `units`, `calls`, or something revealed. */
+  of: string;
+  /** `machines` where the cluster figure was assembled per node, else `law`. */
+  from: string;
+  /** The condition the number was produced under, where there was one. */
+  assumed: string | null;
+  /** Why there is no number, on the one shape of ladder that admits of none. */
+  refused: string | null;
+}
+
+/** What a scaled run is a model of. */
+export interface Scaled {
+  /** The workload that actually executed. */
+  units: number;
+  /** The workload it stands for. */
+  fullUnits: number;
+  factor: number;
+  /** How many probe runs the laws were fitted from. */
+  gridRuns: number;
+  /** What the engine wants said about this plan, in its own words. */
+  notes: string[];
+  /** Per node: the memory and disk the probe was given, in MB. */
+  caps: Record<string, number[]>;
+  /** Per node: the memory and disk it would really have, in MB. */
+  fullCaps: Record<string, number[]>;
+  /** The cluster, resource by resource. */
+  projections: Projection[];
+  /** The same question asked of one node at a time. */
+  perNode: Map<string, Projection[]>;
+}
+
+function readProjection(p: Record<string, unknown>): Projection {
+  return {
+    resource: String(p['resource'] ?? ''),
+    observed: Number(p['observed'] ?? 0),
+    // Distinguished from zero on purpose: a resource the engine declined to
+    // project and a resource it projects at nothing are different claims, and
+    // rendering the first as `0.00` would put a number in a reader's hands that
+    // nothing in the run supports.
+    projected: p['projected'] === undefined ? null : Number(p['projected']),
+    errorBar: Number(p['errorBar'] ?? 1),
+    of: String(p['of'] ?? ''),
+    from: String(p['from'] ?? 'law'),
+    assumed: p['assumed'] === undefined ? null : String(p['assumed']),
+    refused: p['refused'] === undefined ? null : String(p['refused']),
+  };
+}
+
+function readScaled(meta: Record<string, unknown>): Scaled | null {
+  const s = meta['scale'] as Record<string, unknown> | undefined;
+  if (!s) return null;
+  const list = (v: unknown): Projection[] =>
+    ((v as Record<string, unknown>[]) ?? []).map(readProjection);
+  const perNode = new Map<string, Projection[]>();
+  for (const [name, ps] of Object.entries(
+    (meta['nodeProjections'] as Record<string, unknown>) ?? {},
+  )) {
+    perNode.set(name, list(ps));
+  }
+  return {
+    units: Number(s['units'] ?? 0),
+    fullUnits: Number(s['fullUnits'] ?? 0),
+    factor: Number(s['factor'] ?? 1),
+    gridRuns: Number(s['gridRuns'] ?? 0),
+    notes: (s['notes'] as string[]) ?? [],
+    caps: (s['caps'] as Record<string, number[]>) ?? {},
+    fullCaps: (s['fullCaps'] as Record<string, number[]>) ?? {},
+    projections: list(meta['projections']),
+    perNode,
+  };
+}
+
 // --------------------------------------------------------------------- trace
 
 export class Trace {
@@ -394,6 +489,19 @@ export class Trace {
   get entry(): string {
     return (this.meta['entry'] as string) ?? '';
   }
+
+  /**
+   * The model, where the run was one — and `null` where the run was itself.
+   *
+   * Cached, because every panel that shows a projection asks for this and
+   * rebuilding the per-node map on each of sixty frames a second would cost a
+   * cluster large enough to matter.
+   */
+  get scaled(): Scaled | null {
+    if (this.model === undefined) this.model = readScaled(this.meta);
+    return this.model;
+  }
+  private model: Scaled | null | undefined = undefined;
 
   /**
    * The span the whole simulation is.

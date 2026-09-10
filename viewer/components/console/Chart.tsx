@@ -97,6 +97,7 @@ export function LineChart({
   height = 190,
   divs = 4,
   unit = '',
+  per = 1,
   area = false,
   label,
 }: {
@@ -108,17 +109,30 @@ export function LineChart({
   height?: number;
   divs?: number;
   unit?: string;
+  /**
+   * How many of the data's own units go into one of `unit`.
+   *
+   * The trace records sizes in megabytes and a chart of a scaled run is drawn in
+   * gigabytes, so the axis is divided once, here, and the ticks come out round
+   * in the unit they are labelled with. A rescale of one axis, not a second
+   * opinion about a value: `per` never changes which number is plotted, only
+   * which unit the ruler beside it is written in.
+   */
+  per?: number;
   area?: boolean;
   label?: string;
 }) {
   const W = 640;
-  const P = { l: 54, r: 12, t: 12, b: 24 };
+  // Room above the plot for the unit, where there is one. Nothing is drawn up
+  // there otherwise, and a chart with a fixed head would sit a percentage's
+  // grid line lower than an identical chart beside it.
+  const P = { l: 54, r: 12, t: unit ? 22 : 12, b: 24 };
   const iw = W - P.l - P.r;
   const ih = height - P.t - P.b;
-  const max = niceTop(Math.max(yMax, 1e-9), divs);
+  const max = niceTop(Math.max(yMax / per, 1e-9), divs);
   const ticks = axisTicks(max, divs);
   const X = (t: number) => P.l + (t / Math.max(duration, 1)) * iw;
-  const Y = (v: number) => P.t + ih - (v / max) * ih;
+  const Y = (v: number) => P.t + ih - (v / per / max) * ih;
   const cursor = X(Math.min(now, duration));
 
   return (
@@ -143,6 +157,15 @@ export function LineChart({
           </g>
         );
       })}
+      {/* What the numbers up the side are counted in. It reached only the
+          `aria-label` for a release, so the answer to "0.04 of what?" was
+          available to a screen reader and to nobody else. Deliberately without
+          `data-ruler`: it is a heading for the ruler, not a mark on it. */}
+      {unit && (
+        <text {...stylex.props(styles.axisUnit)} x={P.l - 8} y={P.t - 8} textAnchor="end">
+          {unit}
+        </text>
+      )}
       {[0, 1, 2, 3, 4].map((i) => {
         const t = (duration * i) / 4;
         return (
@@ -369,6 +392,8 @@ const styles = stylex.create({
     font: `400 10.5px ${font.mono}`,
     fontVariantNumeric: 'tabular-nums',
   },
+  /** The unit at the head of the y axis: the same ink as a tick, said once. */
+  axisUnit: { fill: chrome.text3, font: `500 10.5px ${font.sans}` },
   bl: { fill: chrome.text2, font: `400 11px ${font.sans}` },
   total: { fill: chrome.text, font: `500 11.5px ${font.sans}`, fontVariantNumeric: 'tabular-nums' },
   ln: { fill: 'none', strokeWidth: 2, strokeLinejoin: 'round', strokeLinecap: 'round' },
