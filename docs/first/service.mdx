@@ -72,14 +72,14 @@ package lab;
 
 import com.google.protobuf.ByteString;
 import lab.pb.*;
-import losim.api.Losim;
+import dissaly.api.Dissaly;
 public final class Shrinker extends ThumbnailerBase {
 
     /** Longest edge of a thumbnail, in pixels. */
     private static final int EDGE = 128;
 
     @Override protected Thumbs thumbnail(Split request) {
-        var here = Losim.current();
+        var here = Dissaly.current();
 
         // Declare the number of input units processed by this call.
         here.units(request.getFramesCount());
@@ -101,7 +101,7 @@ public final class Shrinker extends ThumbnailerBase {
 
     @Override protected Health capacity(Empty request) {
         // Report this node's limits, not a peer's.
-        var spec = Losim.current().here();
+        var spec = Dissaly.current().here();
         return Health.newBuilder()
                 .setMachine(spec.node())
                 .setInstance(spec.instance())
@@ -131,15 +131,15 @@ public final class Shrinker extends ThumbnailerBase {
 }
 ```
 
-## losim calls
+## dissaly calls
 
 <Columns cols={2}>
   <Card title="Plain service signature" icon="check">
-    `Thumbs thumbnail(Split)` contains no losim type. You can construct a
+    `Thumbs thumbnail(Split)` contains no dissaly type. You can construct a
     `Shrinker`, call `thumbnail(…)`, and assert on the result without a simulation.
     The adapter provides this method.
   </Card>
-  <Card title="Optional losim calls" icon="circle-info">
+  <Card title="Optional dissaly calls" icon="circle-info">
     The handler can call `units(…)` once and `reveal(…)` twice. Each call has a
     separate purpose.
   </Card>
@@ -192,7 +192,7 @@ values from the computation.
 
 <Tip>
 **Prefer the primitive overloads.** `reveal(String, Object)` boxes an `int` at the
-call site before losim's accounting opens. The box is charged to your program even
+call site before dissaly's accounting opens. The box is charged to your program even
 though it exists only because the parameter is an `Object`. One call per handler is
 usually invisible; a thousand calls bend the fitted memory exponent by 0.04.
 </Tip>
@@ -218,12 +218,12 @@ Before running a simulation:
 The test needs no system, simulation, interceptor, or clock. The handler is ordinary
 Java and can be debugged directly.
 
-losim is on the classpath so `Losim.current()` resolves. It has no runtime effect in
+dissaly is on the classpath so `Dissaly.current()` resolves. It has no runtime effect in
 this test: recording calls are silent and state calls throw.
 [Handler testing ->](/write/handler-testing)
 
 Removing the two `reveal` lines and the `units` line leaves a plain gRPC handler.
-It compiles without losim on the classpath and can be unit-tested independently.
+It compiles without dissaly on the classpath and can be unit-tested independently.
 
 <Card title="Next: the job" icon="arrow-right" href="/first/job">
   Peer discovery, capacity queries, and work dispatch.

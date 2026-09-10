@@ -43,13 +43,13 @@ Before 3.0, the trace also had `job`, `phase`, and `compute` spans. They represe
 work started by a Java object outside an RPC.
 
 The entry point is now a gRPC service. Its handler span **is** the root, labeled
-`losim.Job.Run`, and other spans nest beneath it through the same parent metadata as
+`dissaly.Job.Run`, and other spans nest beneath it through the same parent metadata as
 all other calls.
 </Note>
 
 ## Root span
 
-The span with `parent: 0` is the entry node's `handler`, labeled `losim.Job.Run`.
+The span with `parent: 0` is the entry node's `handler`, labeled `dissaly.Job.Run`.
 Its `t0` is zero and its `t1` is the simulation end.
 
 A run that ends while a node is being killed can leave a handler at the root after
@@ -63,7 +63,7 @@ header when it opens its handler span.
 
 Using ambient context instead would attach every server span to the root and lose the
 distributed call stack. A span unexpectedly attached to `0` indicates a channel
-without losim's transport.
+without dissaly's transport.
 </Note>
 
 ## Print the tree
@@ -85,7 +85,7 @@ show(0)
 ```
 
 ```
-master  handler  losim.Job.Run                       0.0 ->   2416.0  OK
+master  handler  dissaly.Job.Run                       0.0 ->   2416.0  OK
   master  rpc    render.Thumbnailer.Capacity         2.4 ->      9.1  OK
     w0         handler render.Thumbnailer.Capacity        3.0 ->      8.6  OK
   master  rpc    render.Thumbnailer.Thumbnail       61.4 ->     79.9  OK
@@ -99,7 +99,7 @@ master  handler  losim.Job.Run                       0.0 ->   2416.0  OK
 | | |
 |---|---|
 | **gross** | `t1 - t0`, open to close |
-| **program** | gross minus whatever losim spent inside that window, on that thread |
+| **program** | gross minus whatever dissaly spent inside that window, on that thread |
 
 `handler_end` events carry both as `grossMs` and `ms`. The scale engine fits the
 **program** duration so instrumentation cost does not affect the projection.
@@ -114,5 +114,5 @@ A run can end with work still in flight, such as a handler whose caller gave up 
 node killed mid-call. The span is closed explicitly so it is distinguishable from a
 recorder that lost track.
 
-This includes the root. If the entry node is killed, `losim.Job.Run` closes
+This includes the root. If the entry node is killed, `dissaly.Job.Run` closes
 `CANCELLED` and a `failed` event names the node.

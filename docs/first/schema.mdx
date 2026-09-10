@@ -67,7 +67,7 @@ service Thumbnailer {
   </Accordion>
 
   <Accordion title="`idempotency_level`" icon="rotate">
-    A simulation can declare a retry policy. losim **refuses** to retry a method
+    A simulation can declare a retry policy. dissaly **refuses** to retry a method
     whose `.proto` does not declare it safe to run twice:
 
     ```
@@ -76,7 +76,7 @@ service Thumbnailer {
     ```
 
     Retrying is an operational setting in the simulation. Safety is a method property
-    in the schema. losim checks both before the first call.
+    in the schema. dissaly checks both before the first call.
 
     `NO_SIDE_EFFECTS` describes a read. `IDEMPOTENT` means repeated calls produce the
     same final state. Either satisfies the check. [More ->](/write/retries)
@@ -99,7 +99,7 @@ plugin for the platform.
 Generated code lands in **`<system>/gen/`**, beside the system rather than under
 `build/`. It is gitignored and should not be edited.
 
-losim's trust verifier recognizes it by protobuf's superclass and grpc-java's
+dissaly's trust verifier recognizes it by protobuf's superclass and grpc-java's
 `@GrpcGenerated` annotation.
 
 <Accordion title="The generated code, if you want to see it">

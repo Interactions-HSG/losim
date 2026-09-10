@@ -26,7 +26,7 @@ input:
 # What each rpc costs on the reference machine, under the class that serves it.
 # The handlers declare nothing: a duration is a claim about the machine a design
 # would run on, so it belongs to the scenario — and a system stays plain gRPC
-# with no losim in it.
+# with no dissaly in it.
 simulatedDuration:
   tests/systems/Combiner.java:
     Map: { fixed: 2 refMs, perUnit: 360000 refNs }

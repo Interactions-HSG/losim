@@ -1,6 +1,6 @@
 ---
 title: "On a laptop"
-description: "Requirements for running losim on a laptop."
+description: "Requirements for running dissaly on a laptop."
 icon: "laptop"
 ---
 
@@ -8,7 +8,7 @@ icon: "laptop"
 
 | | |
 |---|---|
-| **A JDK, 21 or newer** | losim compiles at `--release 21`. The container ships 25. |
+| **A JDK, 21 or newer** | dissaly compiles at `--release 21`. The container ships 25. |
 | **git** | for the vendored jars, which are committed. |
 
 Gradle is not in that list. `./gradlew` is committed, and `bin/dissaly` runs it, so the
@@ -19,11 +19,11 @@ sha256; nothing else is fetched to build or to run.
 ## Build and check
 
 ```bash
-bin/dissaly dev test    # losim's own acceptance criteria, plus one plain JUnit test
+bin/dissaly dev test    # dissaly's own acceptance criteria, plus one plain JUnit test
 bin/dissaly dev suite   # the reference suite
 ```
 
-Both commands build `build/losim.jar` first. `bin/dissaly` runs `./gradlew jar` and then
+Both commands build `build/dissaly.jar` first. `bin/dissaly` runs `./gradlew jar` and then
 starts the JVM.
 
 ## Supported platforms for `protoc`

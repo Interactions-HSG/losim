@@ -15,7 +15,7 @@ network:
 All four fields are optional. The default network has no latency, jitter, or loss.
 
 <ParamField path="sameZone" type="duration" default="0 refMs">
-  One-way latency between nodes in the same zone. losim charges the **round trip**,
+  One-way latency between nodes in the same zone. dissaly charges the **round trip**,
   so the configured value is doubled.
 </ParamField>
 
@@ -79,7 +79,7 @@ The trace records the cause in `why`:
 
 ## Byte accounting
 
-losim marshals each message explicitly. gRPC's in-process transport passes objects
+dissaly marshals each message explicitly. gRPC's in-process transport passes objects
 by reference, so the transport cannot provide a byte count. The counted size is the
 serialized message plus **five bytes** of gRPC framing per message.
 

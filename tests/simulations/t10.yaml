@@ -1,5 +1,5 @@
 # The core claim, stated as a scenario: this is a forty-thousand-record job, and
-# losim is to tell you what it does without ever running one that size.
+# dissaly is to tell you what it does without ever running one that size.
 #
 # The engine climbs a ladder of four small runs, fits a law per resource against
 # whatever that resource is actually a function of, and projects. What it is being
@@ -26,7 +26,7 @@ input:
 # What each rpc costs on the reference machine, under the class that serves it.
 # The handlers declare nothing: a duration is a claim about the machine a design
 # would run on, so it belongs to the scenario — and a system stays plain gRPC
-# with no losim in it.
+# with no dissaly in it.
 simulatedDuration:
   tests/systems/Combiner.java:
     Map: { fixed: 2 refMs, perUnit: 360000 refNs }

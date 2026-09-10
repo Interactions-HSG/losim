@@ -1,0 +1,163 @@
+---
+title: "Dissaly.current()"
+description: "The handler-facing API and its available operations."
+icon: "code"
+---
+
+```java
+import dissaly.api.Dissaly;
+
+var here = Dissaly.current();
+```
+
+Returns one of **two singletons**, so the lookup allocates nothing. Repeated calls
+therefore do not add objects to the node's measured allocation.
+
+| | inside a run | outside one |
+|---|---|---|
+| recording calls | reach the node serving this call | **silent** |
+| state calls | reach the node serving this call | **throw** |
+
+<Note>
+The asymmetry supports direct unit tests. Recording calls can be silent without a
+simulation; state calls need a real node and throw when none exists.
+</Note>
+
+## isRunning
+
+```java
+boolean isRunning()
+```
+
+Returns false in a bare unit test. Use it to guard state calls that require a node.
+
+## Recording calls
+
+<ResponseField name="reveal(String key, int value)" type="void">
+  Also `long`, `double`, `boolean`, `String`, and an `Object` fallback.
+
+  Records a named value from a handler. The value appears as a `state` event inside
+  the handler's span.
+
+  <Warning>
+  **Prefer the primitive overloads.** `reveal(String, Object)` boxes an `int` at the
+  call site, before dissaly's accounting starts. That allocation is charged to the
+  program. Repeated calls can affect the fitted memory exponent.
+  </Warning>
+</ResponseField>
+
+<ResponseField name="log(String message)" type="void">
+  Records a message as a `log` event.
+</ResponseField>
+
+<ResponseField name="units(long n)" type="void">
+  How many units **this call** processed.
+
+  The simulation's `perUnit:` cost uses this value, and the scale engine uses it as
+  the independent variable for the cost site. A handler without a count is charged
+  only the fixed part.
+</ResponseField>
+
+<ResponseField name="wroteDisk(long bytes)" type="void — but throws">
+  Records that this call wrote bytes to the node's disk.
+
+  **This call enforces the disk cap.** A node whose disk is full cannot take the
+  write, so the call throws `IllegalStateException` when the cap is exceeded and the
+  handler fails. Recording the write and continuing would hide a disk-capacity
+  failure.
+
+  Silent outside a run — a unit test has no disk to fill.
+</ResponseField>
+
+## Time
+
+<ResponseField name="sleep(double refMs)" type="void">
+  Waits for a duration written in reference-node time. `sleep(200)` advances the
+  simulated clock by 200 milliseconds, regardless of compression.
+
+  **Waiting is not work.** It does not stretch on a degraded node, and it does not
+  mark the node busy because a backoff occupies no vCPU.
+
+  Use it for durations known only at runtime, such as an attempt backoff, poll
+  interval, or lease. It returns immediately outside a run.
+</ResponseField>
+
+## State calls
+
+<ResponseField name="node()" type="String">
+  The name of the node serving this call.
+</ResponseField>
+
+<ResponseField name="here()" type="Spec">
+  The instance type, zone, vCPUs, and caps for this node. It does not describe peers.
+  The call is free.
+  [Spec ->](/ref/api-spec)
+</ResponseField>
+
+<ResponseField name="peers()" type="List<String>">
+  Every **other** node in the system, by name.
+</ResponseField>
+
+<ResponseField name="peersServing(String service)" type="List<String>">
+  The nodes serving a gRPC service, by name. Use the service name from the `.proto`,
+  either bare (`Thumbnailer`) or qualified (`lab.Thumbnailer`).
+
+  This node is never included: a blocking call to itself would occupy one of its
+  pool threads. Dead nodes are not listed.
+</ResponseField>
+
+<ResponseField name="channelTo(String node)" type="io.grpc.Channel">
+  A channel to another node with dissaly's transport attached. The node creates and
+  owns it, so handlers do not manage its lifetime.
+
+  The result is an ordinary `io.grpc.Channel`; pass it to a generated stub. Do not
+  replace it with a hand-built channel, because that channel lacks dissaly's gRPC
+  interceptors.
+</ResponseField>
+
+<ResponseField name="clockMs()" type="double">
+  Simulated milliseconds since the run began. This is the simulation clock, not the
+  wall clock.
+</ResponseField>
+
+<ResponseField name="seed()" type="long">
+  The simulation's seed. A `Job.Load` that generates its own workload should use the
+  same seed as the rest of the simulation.
+
+  Use this value rather than a private constant. Otherwise a seed sweep changes the
+  simulation conditions without changing generated data.
+</ResponseField>
+
+<ResponseField name="local()" type="ConcurrentMap<String, Object>">
+  A map owned by **this node**. All services on the node share it; other nodes cannot
+  access it. It is **emptied when the node restarts**.
+
+  Use it for node-local state such as an index shared by two services, a pool, or a
+  cache. Services on one node otherwise share only a thread pool; `runs:` creates
+  one instance per file.
+
+  **Free in time, charged in memory.** Operations do not add to `programMs`. Retained
+  values are included in the heap measurement and count against `memoryMb`.
+
+  ```java
+  @SuppressWarnings("unchecked")
+  var index = (Map<String, Long>) Dissaly.current().local()
+          .computeIfAbsent("index", k -> new ConcurrentHashMap<String, Long>());
+  ```
+</ResponseField>
+
+## Outside a run
+
+```
+no simulation is running, so Dissaly.current().peers() has no answer here.
+Recording calls (reveal, log, units) are silent outside a run; state calls are
+not, because a fabricated system would make a passing test meaningless.
+```
+
+## Accounting for API calls
+
+These methods run inside the handler on the node's thread, between the measurement
+marks. Their cost is charged to dissaly rather than to program time.
+
+The boundary is exact: in `reveal("keys", map.size())`, `size()` is **your** cost.
+Work after argument evaluation belongs to dissaly. [Self-accounting ->](/engine/self-accounting)

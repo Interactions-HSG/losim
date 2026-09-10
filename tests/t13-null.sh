@@ -47,9 +47,9 @@ rm -rf "$OUT"; mkdir -p "$OUT/gen" "$OUT/classes" "$OUT/traces"
 vendor/bin/protoc-$P --plugin=protoc-gen-grpc-java=vendor/bin/protoc-gen-grpc-java-$P \
   --java_out="$OUT/gen" --grpc-java_out="$OUT/gen" -I tests/proto tests/proto/*.proto
 CP=$(ls vendor/jars/*.jar | tr '\n' ':')
-javac -nowarn --release 21 -cp "${CP}build/losim.jar" -d "$OUT/classes" \
+javac -nowarn --release 21 -cp "${CP}build/dissaly.jar" -d "$OUT/classes" \
       $(find "$OUT/gen" tests/systems tests/expect -name '*.java')
-LAB="${CP}build/losim.jar:$OUT/classes"
+LAB="${CP}build/dissaly.jar:$OUT/classes"
 
 # Echoed as parsed, not as passed: a run whose group count is not the one asked
 # for is a run whose numbers mean something other than the caller thinks.
@@ -62,12 +62,12 @@ for g in $(seq 1 "$ROUNDS"); do
   betas=()
   for r in 1 2 3 4; do
     # Forced refit. Without this the key is identical and the fit is reused.
-    rm -rf build/.losim-plans
+    rm -rf build/.dissaly-plans
     # Timed and announced as it goes. A long job whose only output arrives at the
     # end is a job nobody can tell apart from a hung one — which is exactly how the
     # first run of this was watched for half an hour before being abandoned blind.
     started=$(date +%s)
-    java -Xmx3g -cp "$LAB" losim.cli.Main simulate --no-view tests/simulations/t13.yaml \
+    java -Xmx3g -cp "$LAB" dissaly.cli.Main simulate --no-view tests/simulations/t13.yaml \
          --cp "$OUT/classes" --out "$OUT/traces/g$g-r$r.json" --telemetry "$LEVEL" \
          > "$OUT/traces/g$g-r$r.out" 2>&1 || true
     printf '    g%s r%s  %ss\n' "$g" "$r" "$(( $(date +%s) - started ))"

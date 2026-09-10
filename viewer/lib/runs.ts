@@ -6,7 +6,7 @@
  * the page loads. And a **file** the viewer drops on the page opens the same way,
  * because the case this whole viewer exists for is a student pointing it at
  * their own result — which is also why nothing is baked: what is read here is a
- * raw losim trace, exactly as `dissaly simulate` wrote it.
+ * raw dissaly trace, exactly as `dissaly simulate` wrote it.
  */
 import { RunIndex } from './frame.ts';
 import { loadBill, type BillJson } from './ledger.ts';

@@ -13,7 +13,7 @@ import dissaly.api.Dissaly;
  * <p>What must hold is not that these calls are cheap — they are not, and the
  * ledger this machine carries in the trace says so — but that they are
  * <b>metered and taken back off</b>, so the law fitted here is the same law as the
- * one fitted next door. A program that leans on losim heavily is simply excluded
+ * one fitted next door. A program that leans on dissaly heavily is simply excluded
  * more.
  */
 public final class Chatty extends Combiner {

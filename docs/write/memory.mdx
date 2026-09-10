@@ -8,7 +8,7 @@ icon: "memory"
 
 | | |
 |---|---|
-| **`allocMb`** | what your program allocated, from `getThreadAllocatedBytes` on this node's own pool threads. losim's allocation on those threads is subtracted. |
+| **`allocMb`** | what your program allocated, from `getThreadAllocatedBytes` on this node's own pool threads. dissaly's allocation on those threads is subtracted. |
 | **`memoryMb`** | the **most it was ever seen holding**, measured by a retained-heap walk from the node's own service instances. |
 
 An accumulating and a streaming design can allocate similar totals. The cap checks
@@ -55,7 +55,7 @@ owned by that node and stops at shared runtime infrastructure:
 If a node needs to hold data that does not hang off a service:
 
 ```java
-Losim.current();                      // …no. There is no API for this from a handler.
+Dissaly.current();                      // …no. There is no API for this from a handler.
 ```
 
 it must be reachable from a service instance. A static cache is shared across nodes
@@ -100,7 +100,7 @@ tick rather than every tick. `retainMb` changes at that sampling cadence.
 
 <Note>
 **`allocMb` only ever rises.** The meter reads the node's own threads, including
-losim bookkeeping; the series subtracts that bookkeeping.
+dissaly bookkeeping; the series subtracts that bookkeeping.
 
 The underlying counter is not monotonic when sampled from another thread. A buffer
 swap can make the observed value fall by up to a TLAB's size. The series therefore
@@ -109,7 +109,7 @@ reports a high-water mark rather than a decreasing allocation counter.
 A thread reading its own counter cannot be mid-swap while it asks, so measurements
 inside a handler are not affected by this issue.
 
-A killed node can no longer be metered. losim reports a `meter_lost` event and keeps
+A killed node can no longer be metered. dissaly reports a `meter_lost` event and keeps
 the last readable value instead of reporting zero.
 </Note>
 
@@ -145,7 +145,7 @@ nodes:
   master:
     instance: m5.large
     zone: eu-central-1a
-    runs: { losim.Job: src/lab/AccumulateJob.java }
+    runs: { dissaly.Job: src/lab/AccumulateJob.java }
   workers:
     count: 3
     prefix: w

@@ -14,12 +14,12 @@ size.
 
 ## Running a scaled simulation
 
-Use the same command; losim reads `scale` from the simulation:
+Use the same command; dissaly reads `scale` from the simulation:
 
 ```bash
-java -Xmx3g -cp "${CP}build/losim.jar:build/losim/classes" \
-     losim.cli.Main simulate thumbs-scaled.yaml \
-     --cp build/losim/classes --out build/scaled.json
+java -Xmx3g -cp "${CP}build/dissaly.jar:build/dissaly/classes" \
+     dissaly.cli.Main simulate thumbs-scaled.yaml \
+     --cp build/dissaly/classes --out build/scaled.json
 ```
 
 The first scaled run includes the fitting work:
@@ -31,7 +31,7 @@ thumbs-scaled.yaml  seed 5  scaled 8,000 -> 40,000,000 frames (x5,000)
   laws below are fitted in
 ```
 
-losim runs thirty probes before the scaled run: four data sizes at six seeds, two
+dissaly runs thirty probes before the scaled run: four data sizes at six seeds, two
 system shapes, and a weather column. Later runs can use the cached plan:
 
 ```
@@ -39,7 +39,7 @@ system shapes, and a weather column. Later runs can use the cached plan:
 ```
 
 <Note>
-**The plan cache** lives in `build/.losim-plans/` and is keyed by the simulation, the
+**The plan cache** lives in `build/.dissaly-plans/` and is keyed by the simulation, the
 profiled code, **and the telemetry level**. Changing any of these triggers a refit;
 an unchanged configuration reuses the plan.
 
@@ -47,7 +47,7 @@ The telemetry level is part of the key because fitted laws must be checked again
 the instrumentation level that produced them.
 
 ```bash
-rm -rf build/.losim-plans      # force a refit
+rm -rf build/.dissaly-plans      # force a refit
 ```
 </Note>
 
@@ -73,7 +73,7 @@ rm -rf build/.losim-plans      # force a refit
     grows with the selected input.
 
     `R2` measures how well the line fits its points. `wobble` measures how far the
-    exponent moves when fitted again on independent seeds; losim uses it to decide
+    exponent moves when fitted again on independent seeds; dissaly uses it to decide
     whether to keep the law.
   </Accordion>
   <Accordion title="The variable" icon="magnifying-glass">
@@ -106,7 +106,7 @@ rm -rf build/.losim-plans      # force a refit
 ## Two bills
 
 ```bash
-java -cp "$CP" losim.cli.Main bill build/scaled.json
+java -cp "$CP" dissaly.cli.Main bill build/scaled.json
 ```
 
 A scaled run has two billing views: what happened and the full-size model. The

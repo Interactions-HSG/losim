@@ -5,7 +5,7 @@ icon: "plug"
 ---
 
 ```java
-var here = Losim.current();
+var here = Dissaly.current();
 Channel to = here.channelTo(here.peersServing("Thumbnailer").get(0));
 Thumbs thumbs = ThumbnailerGrpc.newBlockingStub(to).thumbnail(split);
 ```
@@ -15,7 +15,7 @@ protoc-generated stub with your request and response messages.
 
 ## Node channel
 
-Every call through a losim channel passes through interceptors that provide:
+Every call through a dissaly channel passes through interceptors that provide:
 
 | | |
 |---|---|
@@ -43,7 +43,7 @@ the node owns its lifetime.
 var ch = ManagedChannelBuilder.forAddress("w1", 50051).usePlaintext().build();
 ```
 
-No losim interceptor is attached. The call bypasses latency, byte counts, spans,
+No dissaly interceptor is attached. The call bypasses latency, byte counts, spans,
 partitions, and node liveness checks.
 
 The run can still produce plausible but incomplete figures. The verifier therefore
@@ -92,7 +92,7 @@ Use the same API from a handler:
 ```java
 @Override protected Thumbs thumbnail(Split request) {
     if (tooBigForMe(request)) {
-        var here = Losim.current();
+        var here = Dissaly.current();
         var bigger = here.peersServing("Thumbnailer").get(0);
         return ThumbnailerGrpc.newBlockingStub(here.channelTo(bigger)).thumbnail(request);
     }

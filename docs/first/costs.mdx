@@ -5,13 +5,13 @@ icon: "receipt"
 ---
 
 ```bash
-java -cp build/losim.jar losim.cli.Main bill build/thumbs.json
+java -cp build/dissaly.jar dissaly.cli.Main bill build/thumbs.json
 ```
 
 This example includes one killed node and one slowed node.
 
 <Note>
-**Your figures will not match these exactly.** losim runs your code on real
+**Your figures will not match these exactly.** dissaly runs your code on real
 threads, so event-level results vary between runs ([system boundary](/engine/system-boundary)).
 Timeout counts are especially sensitive to the host. Compare the large buckets
 and the rows that appear rather than expecting identical event counts.
@@ -96,7 +96,7 @@ more than that difference to justify its cost.
 <Note>
 There is no storage line because this system does not write to disk. A line
 appears when the run records a quantity for that resource. After adding
-`Losim.current().wroteDisk(bytes)`, the consumption bucket gains a `GB-month`
+`Dissaly.current().wroteDisk(bytes)`, the consumption bucket gains a `GB-month`
 row.
 </Note>
 
@@ -116,7 +116,7 @@ egress_per_gb: 4.00        # instead of 0.01
 
 
 ```bash
-java -cp build/losim.jar losim.cli.Main bill build/thumbs.json \
+java -cp build/dissaly.jar dissaly.cli.Main bill build/thumbs.json \
      --prices prices/expensive-egress.yaml
 ```
 
@@ -128,7 +128,7 @@ node. Keeping one value in two places would allow the definitions to diverge.
 
 ## When capacity is refused
 
-Run a scaled simulation and losim can produce **two** bills: one for the observed
+Run a scaled simulation and dissaly can produce **two** bills: one for the observed
 run and one for the workload it represents. The projected bill is conditional:
 the engine refuses to extrapolate quantities it cannot estimate reliably.
 
@@ -139,7 +139,7 @@ the engine refuses to extrapolate quantities it cannot estimate reliably.
       anything it would be asked to distinguish
 ```
 
-Capacity depends on the timeline, which is the noisiest quantity losim measures.
+Capacity depends on the timeline, which is the noisiest quantity dissaly measures.
 It is also often the largest bill line. The result may therefore price bytes and
 storage while refusing to price nodes because the job duration is not reliable.
 

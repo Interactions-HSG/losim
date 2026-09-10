@@ -1,0 +1,34 @@
+# A word count across six workers, one of which is reclaimed mid-run and one of
+# which is far too small for the bucket it is given. Both are deliberate: a
+# scenario where nothing goes wrong tests nothing worth testing.
+
+seed: 7
+
+nodes:
+  master:
+    runs: { dissaly.Job: dissaly/test/src/WordCountJob.java }
+    instance: m5.large
+    zone: eu-central-1a
+
+  workers:
+    count: 6
+    prefix: w
+    instance: m5.large
+    zone: [eu-central-1a, eu-central-1b]
+    runs: { Worker: dissaly/test/src/Counter.java }
+    overrides:
+      w2: { memoryMb: 4 }      # cannot hold its bucket, and will say so
+      w5:
+        # After every mapper has answered and before the last reducer is asked, so
+        # the master has to notice a node that is simply not there any more.
+        failures:
+          - { kill: true, at: 400 refMs }
+
+# What each rpc costs on the reference machine, under the class that serves it.
+# The handlers declare nothing: a duration is a claim about the machine a design
+# would run on, so it belongs to the scenario — and a system stays plain gRPC
+# with no dissaly in it.
+simulatedDuration:
+  dissaly/test/src/Counter.java:
+    Map: { fixed: 15 refMs }
+    Reduce: { fixed: 100 refMs }

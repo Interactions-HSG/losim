@@ -1,0 +1,196 @@
+---
+title: "dissaly.Job"
+description: "The built-in Job service and its Input and Workload messages."
+icon: "play"
+---
+
+dissaly starts a simulation by calling a gRPC RPC. Implement the generated service
+on one node; no driver object or Java interface is required.
+
+```proto
+syntax = "proto3";
+package dissaly;
+option java_package = "dissaly.pb";
+option java_multiple_files = true;
+
+message Input {
+  string source = 1;
+  string unit   = 2;
+  int64  count  = 3;
+}
+
+message Workload {
+  int64  count   = 1;
+  string type    = 2;
+  bytes  payload = 3;
+}
+
+message Result {
+  map<string, string> answer = 1;
+}
+
+service Job {
+  rpc Load (Input)    returns (Workload) { option idempotency_level = NO_SIDE_EFFECTS; }
+  rpc Run  (Workload) returns (Result);
+}
+```
+
+`dissaly/job.proto` ships inside `dissaly.jar` and is already on protoc's include path.
+Import it; do not regenerate it:
+
+```proto
+import "dissaly/job.proto";
+```
+
+<Warning>
+**Do not pass `dissaly/job.proto` to protoc as an input file.** The import resolves
+`dissaly.pb.*` to the classes in `dissaly.jar`. Compiling the file yourself creates a
+second copy in `gen/`, which can cause a `ClassCastException` when the in-process
+transport passes an `Input` between classloaders. `dissaly build` sets the include
+path for you.
+</Warning>
+
+## The RPCs
+
+<Steps>
+  <Step title="Load runs off the clock">
+    dissaly calls it with the clock stopped and without sampling, spans, or events.
+    It resets each node's ledger before the simulation starts, so file reading and
+    parsing do not enter the measured design or node bill.
+
+    It reads `source:` or, when no source is configured, generates the workload from
+    `Dissaly.current().seed()`. The seed keeps the generated workload reproducible and
+    changes it across a sweep.
+  </Step>
+  <Step title="Run is the simulation">
+    Work performed by `Run` is measured. It is the only RPC dissaly calls itself;
+    other trace events come from application code.
+
+    The simulation ends when `Run` returns. The `Result` becomes the `done` event.
+  </Step>
+</Steps>
+
+The two RPCs share one service because the same class prepares and uses the input.
+There is no separate service or configuration key connecting them.
+
+## Input and workload
+
+`Input` is the simulation's **declaration**. `Workload` is the **data** that `Load`
+actually built.
+
+Keeping them separate protects the scale model. `Run` receives only a `Workload`, so
+it cannot read `input:`, inspect `source:`, or identify the scale rung. The Job
+therefore uses the same behavior for probe and full-size runs.
+
+The RPC signature enforces this boundary.
+
+<ResponseField name="Input.source" type="string">
+  A file or directory relative to the project root. It is **empty** when the
+  simulation should generate data from the seed.
+</ResponseField>
+
+<ResponseField name="Input.unit" type="string">
+  The singular name for one item, such as `frame`, `line`, or `order`. The same word
+  names the units counted by `Dissaly.current().units(n)` and priced by `perUnit:`.
+</ResponseField>
+
+<ResponseField name="Input.count" type="int64">
+  How many items this run should process: the simulation's `count:` multiplied by
+  the fraction selected for the current scale rung. At `scale: 1`, the fraction is
+  1.
+</ResponseField>
+
+<ResponseField name="Workload.count" type="int64">
+  How many units `Load` produced. The value can be lower than `Input.count` when a
+  Job folds duplicates or drops malformed rows. The trace stores it as `meta.loaded`
+  beside `meta.count`.
+
+  `meta.count` is the full-size value from the input file, so the two are directly
+  comparable only at `scale: 1`. See [input](/ref/input).
+</ResponseField>
+
+<ResponseField name="Workload.type / Workload.payload" type="string / bytes">
+  The work as one of your own messages: its full name and serialized bytes. `Load`
+  packs it off the clock; `Run` parses it on the clock. dissaly accounts for loading,
+  while the design accounts for unpacking.
+</ResponseField>
+
+<ResponseField name="Result.answer" type="map<string, string>">
+  The answer, recorded as a map so two simulations can be compared without parsing
+  prose.
+</ResponseField>
+
+## Implementation
+
+```java
+package lab;
+
+import com.google.protobuf.InvalidProtocolBufferException;
+import io.grpc.stub.StreamObserver;
+import dissaly.api.Dissaly;
+import dissaly.pb.*;
+
+public class RenderJob extends JobGrpc.JobImplBase {
+
+    @Override
+    public void load(Input in, StreamObserver<Workload> out) {
+        var frames = Frames.newBuilder();
+        for (long i = 0; i < in.getCount(); i++)
+            frames.addFrame(Frame.newBuilder().setId(i).setSeed(Dissaly.current().seed()));
+        var built = frames.build();
+        out.onNext(Workload.newBuilder()
+                .setCount(built.getFrameCount())
+                .setType(Frames.getDescriptor().getFullName())
+                .setPayload(built.toByteString())
+                .build());
+        out.onCompleted();
+    }
+
+    @Override
+    public void run(Workload work, StreamObserver<Result> out) {
+        Frames frames;
+        try {
+            frames = Frames.parseFrom(work.getPayload());
+        } catch (InvalidProtocolBufferException e) {
+            out.onError(e);
+            return;
+        }
+        long done = shrinkAll(frames);          // call your peers, do the work
+        out.onNext(Result.newBuilder().putAnswer("thumbnails", String.valueOf(done)).build());
+        out.onCompleted();
+    }
+}
+```
+
+`Frames` and `Frame` are messages from your `.proto`. `Workload.type` records their
+full name so the trace identifies the payload.
+
+## Placement
+
+```yaml
+nodes:
+  master:
+    instance: m5.large
+    runs: { dissaly.Job: src/RenderJob.java }
+```
+
+**Exactly one node**, using the service name gRPC puts on the wire: `dissaly.Job`,
+dotted, not `Job`. Zero nodes is refused in the `nodes:` block, as is a second node.
+Use separate simulation files for separate designs, and compare them with
+[`dissaly compare`](/ref/cli-compare).
+
+The node is otherwise ordinary. `Run` occupies one of its pool threads and queues
+behind other work, so leave capacity for it. If the node fails, the call closes
+`CANCELLED` and the simulation ends with a `failed` event naming the node.
+
+## Earlier API
+
+<Note>
+Before 3.0 this used the Java interface `dissaly.api.Job`, with `Scalable`, `Cluster`,
+and `Input.Shape` around it. Those types formed a separate API beside YAML and
+protobuf.
+
+An assignment now consists of the simulation file and the `.proto` plus its Java
+implementation. `dissaly check` refuses `implements Job` by name and tells you what
+to write instead.
+</Note>

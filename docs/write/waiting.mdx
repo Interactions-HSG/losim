@@ -5,7 +5,7 @@ icon: "hourglass-half"
 ---
 
 ```java
-Losim.current().sleep(200);      // 200 reference milliseconds
+Dissaly.current().sleep(200);      // 200 reference milliseconds
 ```
 
 The value uses reference milliseconds and is divided by `k_time`. At 40x, this
@@ -20,7 +20,7 @@ runtime**, such as an attempt-dependent backoff, poll interval, or lease.
 
 `k_time` does not affect `Thread.sleep(200)`. It waits 200 wall-clock milliseconds
 rather than 200 reference milliseconds, so the verifier flags it. Use
-`Losim.current().sleep` instead.
+`Dissaly.current().sleep` instead.
 
 ## Waiting and work
 
@@ -49,22 +49,22 @@ while (true) {
     try { return call(); }
     catch (StatusRuntimeException e) {
         if (++attempt >= 4) throw e;
-        Losim.current().sleep(50 * Math.pow(2, attempt));   // 100, 200, 400 refMs
+        Dissaly.current().sleep(50 * Math.pow(2, attempt));   // 100, 200, 400 refMs
     }
 }
 ```
 
 ```java a poll interval
 while (!done()) {
-    Losim.current().sleep(100);
+    Dissaly.current().sleep(100);
 }
 ```
 
 ```java a load generator
-var here = Losim.current();
+var here = Dissaly.current();
 while (here.clockMs() < 20_000) {
     fireOneRequest();
-    Losim.current().sleep(1000.0 / requestsPerSecond);
+    Dissaly.current().sleep(1000.0 / requestsPerSecond);
 }
 ```
 </CodeGroup>
@@ -83,14 +83,14 @@ Its duration is determined by the other operation's progress.
 ```java
 Thumbs thumbs = future.get();        // fine: waiting for a call that is in flight
 latch.await();                        // fine
-Losim.current().sleep(200);           // fine: a declared wait
+Dissaly.current().sleep(200);           // fine: a declared wait
 Thread.sleep(200);                    // flagged: your afternoon, not the run's
 ```
 
 <Note>
 Timeouts such as `future.get(2, SECONDS)` and `latch.await(1, SECONDS)` use real
 duration and are not changed by `k_time`. If a timeout is part of the design, prefer
-a gRPC deadline, which losim rewrites into reference time.
+a gRPC deadline, which dissaly rewrites into reference time.
 </Note>
 
 ## Outside a run

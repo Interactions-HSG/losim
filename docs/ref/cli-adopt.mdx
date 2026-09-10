@@ -1,11 +1,11 @@
 ---
 title: "dissaly adopt / check"
-description: "Put losim under a project that already works, and ask what is left."
+description: "Put dissaly under a project that already works, and ask what is left."
 icon: "arrow-right-to-bracket"
 ---
 
 ```bash
-java -jar losim.jar adopt [<dir>] [--force] [--dirty]
+java -jar dissaly.jar adopt [<dir>] [--force] [--dirty]
 ./dissaly check [--root .]
 ```
 
@@ -64,7 +64,7 @@ work; they are not command failures.
 
 ## What it reads
 
-`adopt` reads source text rather than bytecode. It runs from `java -jar losim.jar`
+`adopt` reads source text rather than bytecode. It runs from `java -jar dissaly.jar`
 without the project on the classpath. It reads the `.proto` for services, RPCs,
 `stream`, and `idempotency_level`; each `.java` for implementations, nesting,
 servers, channels, and dead code; and the build file for gRPC and protobuf

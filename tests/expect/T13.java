@@ -6,11 +6,11 @@ import java.util.Map;
  * t13-transparent — does how closely it is watched change what it says?
  *
  * <p><b>Catches:</b> the observer effect creeping back in. It regresses silently and
- * invisibly: every number stays plausible and only the projection is wrong. losim
+ * invisibly: every number stays plausible and only the projection is wrong. dissaly
  * runs on the machine's own threads, so opening a span, rendering an argument and
  * accounting a cost all allocate and all take wall clock on exactly the threads
  * whose allocation and duration are the measurement — and the thread counter cannot
- * tell losim's bytes from the program's.
+ * tell dissaly's bytes from the program's.
  *
  * <p>What is asserted is the <b>fitted laws</b>, not the numbers. Recording costs
  * what it costs; the law is what ships, and the law has to be the same.
@@ -83,18 +83,18 @@ public final class T13 {
         double watched = beta(runs.get("full"), "memoryMb");
         e.check(Math.abs(bare - watched) < 0.02, String.format(
                 "and the memory exponent is %.4f without payloads against %.4f with them — "
-                + "rendering an argument and a result is the most expensive thing losim does, "
+                + "rendering an argument and a result is the most expensive thing dissaly does, "
                 + "about three times everything else, and it lands on exactly the threads being "
                 + "measured", bare, watched));
 
         // Proof that the exclusion is doing work rather than there being nothing to
         // exclude. If the ledger were empty the assertions above would be vacuous.
-        double ledgerOff = runs.get("off").sum("losimMb");
-        double ledgerFull = runs.get("full").sum("losimMb");
-        double ledgerChatty = runs.get("full, 1000 reveals").sum("losimMb");
-        long regionsFull = (long) runs.get("full").sum("losimStops");
-        long regionsChatty = (long) runs.get("full, 1000 reveals").sum("losimStops");
-        e.note(String.format("losim charged itself %.2f MB off, %.2f MB watched, %.2f MB chatty; "
+        double ledgerOff = runs.get("off").sum("dissalyMb");
+        double ledgerFull = runs.get("full").sum("dissalyMb");
+        double ledgerChatty = runs.get("full, 1000 reveals").sum("dissalyMb");
+        long regionsFull = (long) runs.get("full").sum("dissalyStops");
+        long regionsChatty = (long) runs.get("full, 1000 reveals").sum("dissalyStops");
+        e.note(String.format("dissaly charged itself %.2f MB off, %.2f MB watched, %.2f MB chatty; "
                 + "%,d metered regions against %,d", ledgerOff, ledgerFull, ledgerChatty,
                 regionsFull, regionsChatty));
         e.check(ledgerFull > ledgerOff * 1.5 && regionsChatty > regionsFull * 5,
@@ -104,7 +104,7 @@ public final class T13 {
                 + "gone wrong");
 
         // Metered, not modelled. Nothing assumes a call count or a per-call constant,
-        // which is why a program that leans on losim heavily is simply excluded more.
+        // which is why a program that leans on dissaly heavily is simply excluded more.
         double reportedFull = runs.get("full").sum("allocMb");
         double reportedChatty = runs.get("full, 1000 reveals").sum("allocMb");
         double rawFull = reportedFull + ledgerFull;

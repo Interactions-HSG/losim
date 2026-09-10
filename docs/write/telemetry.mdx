@@ -12,10 +12,10 @@ The API provides calls for different kinds of information.
 ## `reveal(key, value)`
 
 ```java
-Losim.current().reveal("frames", request.getFramesCount());
-Losim.current().reveal("jpegKb", bytes / 1024.0);
-Losim.current().reveal("cacheHit", hit);
-Losim.current().reveal("strategy", "forwarded");
+Dissaly.current().reveal("frames", request.getFramesCount());
+Dissaly.current().reveal("jpegKb", bytes / 1024.0);
+Dissaly.current().reveal("cacheHit", hit);
+Dissaly.current().reveal("strategy", "forwarded");
 ```
 
 Without it, the trace records that a handler ran. With it, the trace records selected
@@ -32,15 +32,15 @@ Lands as a `state` event on the node, inside the handler's span:
 **Use the primitive overloads.** They cover `int`, `long`, `double`, `boolean`, and
 `String`; `Object` is the fallback.
 
-`reveal(String, Object)` boxes an `int` at the **call site**, before losim's
+`reveal(String, Object)` boxes an `int` at the **call site**, before dissaly's
 accounting starts, so that allocation is charged to the program. Use a primitive
-overload to keep the boxing inside losim's accounting.
+overload to keep the boxing inside dissaly's accounting.
 </Warning>
 
 ## `units(n)`: Independent variable
 
 ```java
-Losim.current().units(request.getFramesCount());
+Dissaly.current().units(request.getFramesCount());
 ```
 
 The simulation charges `perUnit:` against it; without it, only the fixed part is
@@ -49,7 +49,7 @@ slept. The scale engine also uses it as the independent variable for a cost site
 ## `log(message)`: Text
 
 ```java
-Losim.current().log("forwarding to a node with more memory");
+Dissaly.current().log("forwarding to a node with more memory");
 here.log(workers.size() + " nodes can make thumbnails");
 ```
 
@@ -63,7 +63,7 @@ a job ->](/write/jobs)
 
 ## Automatic measurements
 
-losim records these automatically:
+dissaly records these automatically:
 
 <Columns cols={2}>
   <Card title="Every call, both ends" icon="right-left">
@@ -92,9 +92,9 @@ Payload rendering is the most expensive part. Use `FULL` for inspection and
 `NO_PAYLOAD` for measurement runs.
 
 <Note>
-Recording runs on node threads, so losim meters **its own work** and subtracts it from
-the application counters. The `nodes` channel publishes the correction as `losimMb`
-and `losimStops`.
+Recording runs on node threads, so dissaly meters **its own work** and subtracts it from
+the application counters. The `nodes` channel publishes the correction as `dissalyMb`
+and `dissalyStops`.
 
 The correction keeps fitted laws independent of the amount of instrumentation.
 [How that works ->](/engine/self-accounting)

@@ -30,12 +30,12 @@ import type { Palette } from '../lib/lab.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
-const JAR = join(ROOT, 'build/losim.jar');
+const JAR = join(ROOT, 'build/dissaly.jar');
 
 /** Where a `runs:` value can point without the loader having to find a class. */
-const ENTRY_FILE = 'losim/test/src/WordCountJob.java';
-const WORKER_FILE = 'losim/test/src/Counter.java';
-const SHUFFLER_FILE = 'losim/test/src/Accumulator.java';
+const ENTRY_FILE = 'dissaly/test/src/WordCountJob.java';
+const WORKER_FILE = 'dissaly/test/src/Counter.java';
+const SHUFFLER_FILE = 'dissaly/test/src/Accumulator.java';
 
 /**
  * A lab with nothing in it but a name.
@@ -50,7 +50,7 @@ function lab(): string {
   mkdirSync(join(dir, 'build'), { recursive: true });
   mkdirSync(join(dir, 'simulations'), { recursive: true });
   // What a lab's build writes, and all DISSALy reads to know it is one.
-  writeFileSync(join(dir, 'build/losim-toolchain.properties'), `classpath=${JAR}\n`);
+  writeFileSync(join(dir, 'build/dissaly-toolchain.properties'), `classpath=${JAR}\n`);
   return dir;
 }
 
@@ -220,7 +220,7 @@ const DRAFTS: [string, Draft][] = [
   ['a model of ten times the run', { ...base, name: 'tenfold', scale: 10 }],
   ['a workload read from a folder rather than generated from the seed', {
     ...base, name: 'sourced',
-    input: { source: 'losim/test/proto', unit: 'line', count: 240 },
+    input: { source: 'dissaly/test/proto', unit: 'line', count: 240 },
   }],
   ['retries, safe and deliberately not', {
     ...base, name: 'retried',
@@ -459,7 +459,7 @@ try {
     }
   }
   if (!up) {
-    console.error(`no lab on ${port} — is build/losim.jar built?`);
+    console.error(`no lab on ${port} — is build/dissaly.jar built?`);
     process.exit(1);
   }
 
@@ -655,7 +655,7 @@ try {
   // the console cannot have a stop that answers "the form has no control for
   // this".
   console.log('\nand every simulation this repo ships, opened and saved again\n');
-  const SHIPPED = ['tests/simulations', 'tests/gallery/simulations', 'losim/test/simulations'];
+  const SHIPPED = ['tests/simulations', 'tests/gallery/simulations', 'dissaly/test/simulations'];
   let opened = 0;
   for (const from of SHIPPED) {
     const where = join(ROOT, from);

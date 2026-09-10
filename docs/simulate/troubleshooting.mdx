@@ -15,7 +15,7 @@ error before the simulation starts.
     `2 refSeconds`. [Durations ->](/ref/durations)
   </Accordion>
   <Accordion title="unknown key 'zones'; expected one of instance, zone, runs, …">
-    The key is not accepted in that block. losim checks keys while loading.
+    The key is not accepted in that block. dissaly checks keys while loading.
   </Accordion>
   <Accordion title="unknown instance type 'c5.medium'">
     The message lists the whole catalogue. [Instances ->](/ref/instances)
@@ -33,8 +33,8 @@ error before the simulation starts.
     gRPC services.
   </Accordion>
   <Accordion title="'lab.Shrinker' needs a no-argument constructor">
-    losim creates a fresh instance when a node restarts. Read runtime state through
-    `Losim.current()`.
+    dissaly creates a fresh instance when a node restarts. Read runtime state through
+    `Dissaly.current()`.
   </Accordion>
   <Accordion title="retrying lab.Volley.Hit is refused">
     The `.proto` declares no `idempotency_level`. Declare it, or write
@@ -61,11 +61,11 @@ error before the simulation starts.
   </Accordion>
   <Accordion title="could not start node w0: IllegalStateException">
     Another server still owns the node name. If this appears with
-    `losim: w0 did not release its name in time`, the previous system's shutdown
+    `dissaly: w0 did not release its name in time`, the previous system's shutdown
     timed out.
 
   </Accordion>
-  <Accordion title="losim.Job/Run was still running after 120 seconds of real time">
+  <Accordion title="dissaly.Job/Run was still running after 120 seconds of real time">
     This is a backstop, not an RPC deadline. Check for a call without a deadline, a
     master waiting on a killed node, or a loop that ignores `Input`.
   </Accordion>
@@ -110,6 +110,6 @@ error before the simulation starts.
     any named class invalidates it.
   </Accordion>
   <Accordion title="exit code 3">
-    An internal losim failure. `LOSIM_DEBUG=1` prints the stack behind the message.
+    An internal dissaly failure. `DISSALY_DEBUG=1` prints the stack behind the message.
   </Accordion>
 </AccordionGroup>

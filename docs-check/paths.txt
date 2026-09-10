@@ -5,10 +5,10 @@
 # Same format as leaks.txt and matched the same way, but applied to docs/ only.
 #
 # These two live apart from leaks.txt because they are about what the manual
-# *points at* rather than what any text may say. losim's own source refers to
+# *points at* rather than what any text may say. dissaly's own source refers to
 # build/gallery/traces because that is where it writes them — Dev.java saying so
 # is the simulator doing its job, not a page handing over an answer. Scanning
-# losim/src with these rules would fail on the tool that runs the check.
+# dissaly/src with these rules would fail on the tool that runs the check.
 
 gallery/:::the gallery is the worked solution to the batch assignment
 tests/systems/:::the reference suite implements it too

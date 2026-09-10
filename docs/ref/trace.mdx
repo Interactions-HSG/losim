@@ -58,7 +58,7 @@ shapes. `dissaly compare` reports schema differences before field-level differen
 |---|---|
 | `schemaVersion`, `clockedAt`, `telemetry` | written by the recorder |
 | `simulation`, `seed` | what was asked for |
-| `entry` | the node running `losim.Job` |
+| `entry` | the node running `dissaly.Job` |
 | `unit`, `count` | what one item is and how many exist at **full** size, the file's own number |
 | `loaded` | how many `Load` produced at the size this run measured. At `scale: 1` that is `count`; above it, `count` times the rung |
 | `completed` | whether `Job.Run` returned normally |
@@ -96,7 +96,7 @@ places would round a value below a kilobyte to zero.
 
 <Warning>
 **`method` is dotted.** gRPC writes `render.Thumbnailer/Thumbnail`; the trace
-writes `render.Thumbnailer.Thumbnail`, including `losim.Job.Run`, so downstream
+writes `render.Thumbnailer.Thumbnail`, including `dissaly.Job.Run`, so downstream
 readers can split on a dot.
 
 **Payload collections are truncated at 12 entries**, with a `"+1106 more"` marker.

@@ -10,7 +10,7 @@ At the root of the project is an ordinary Java file with an ordinary `main`, and
 your editor provides a run button above it:
 
 ```java RunExperiments.java
-import losim.cli.Experiments;
+import dissaly.cli.Experiments;
 
 public final class RunExperiments {
 
@@ -49,7 +49,7 @@ simulation in the project in sequence.
 
 ## Build and run
 
-For each system, losim runs `protoc` with the gRPC plugin, compiles with `javac`,
+For each system, dissaly runs `protoc` with the gRPC plugin, compiles with `javac`,
 runs the system in its own JVM, and writes the bill.
 
 Generated code lands in `<system>/gen/`, where the editor can resolve it. The
@@ -61,8 +61,8 @@ tooling or another run.
 </Warning>
 
 <Accordion title="The two classpaths, if you ever do drive it by hand">
-`-cp` is what the **JVM** loads: losim, the vendored gRPC, and your classes.
-`--cp` is where **losim** looks for the classes named by the simulation's `runs:` paths
+`-cp` is what the **JVM** loads: dissaly, the vendored gRPC, and your classes.
+`--cp` is where **dissaly** looks for the classes named by the simulation's `runs:` paths
 resolve to, and it is also what the trust verifier reads class files from.
 
 Point `--cp` at a **directory**. A jar is not walked, and the run will tell you so:
@@ -108,7 +108,7 @@ Overrides the simulation's seed for one run. A sweep loops over
   renders nothing. `OFF` keeps nothing.
 
   Recording runs on the nodes' own threads, so its cost appears in the measured
-  counters. [What losim charges itself ->](/engine/self-accounting)
+  counters. [What dissaly charges itself ->](/engine/self-accounting)
 </ParamField>
 
 ## Exit codes
@@ -118,7 +118,7 @@ Overrides the simulation's seed for one run. A sweep loops over
 | `0` | `Job.Run` completed |
 | `1` | it did not: it threw, or it was still running after two minutes of real time |
 | `2` | the simulation is invalid; nothing ran |
-| `3` | something went wrong inside losim |
+| `3` | something went wrong inside dissaly |
 
 <Note>
 A failed run still produces a **result**. The trace contains

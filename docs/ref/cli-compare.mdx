@@ -5,7 +5,7 @@ icon: "code-compare"
 ---
 
 ```bash
-java -cp build/losim.jar losim.cli.Main compare <a.json> <b.json>
+java -cp build/dissaly.jar dissaly.cli.Main compare <a.json> <b.json>
 ```
 
 <Warning>
@@ -100,5 +100,5 @@ Exit code is non-zero when a **structural** aspect differs.
 ```
 
 Everything below it is read against a shape both files are assumed to share. A
-Traces written by losim 2 and losim 3 use different channel and span names, so the
+Traces written by dissaly 2 and dissaly 3 use different channel and span names, so the
 command stops after reporting the schema difference.

@@ -18,7 +18,7 @@ icon: "magnifying-glass-chart"
     { "name": "w0", "instance": "c5.large", "zone": "eu-central-1a", "vcpu": 2,
       "serves": ["Thumbnailer"], "memoryMb": 41.2, "allocMb": 388.4,
       "diskMb": 0.0, "wireMb": 6.31, "inMb": 24.9, "crossZoneMb": 0.0,
-      "calls": 41, "losimMb": 0.44, "losimStops": 1284,
+      "calls": 41, "dissalyMb": 0.44, "dissalyStops": 1284,
       "memCapMb": 4096.0, "alive": true }
   ],
   "events": [
@@ -157,8 +157,8 @@ having very different retained-memory peaks.
 Everything on this page is a question you can also answer by watching the run:
 
 ```bash
-java -cp "$CP" losim.cli.Main simulate thumbs.yaml \
-     --cp build/losim/classes --out build/results/thumbs.json
+java -cp "$CP" dissaly.cli.Main simulate thumbs.yaml \
+     --cp build/dissaly/classes --out build/results/thumbs.json
 ```
 
 The viewer makes the same three checks visual: overlapping work, work assigned

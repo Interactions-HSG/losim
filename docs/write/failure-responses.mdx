@@ -4,7 +4,7 @@ description: "Design responses to node failures, slow nodes, and partitions."
 icon: "cloud-bolt"
 ---
 
-losim can model these failure types. Each tests a different assumption, so handling
+dissaly can model these failure types. Each tests a different assumption, so handling
 one does not imply handling the others.
 
 ## Failure assumptions
@@ -243,7 +243,7 @@ nodes:
   master:
     instance: m5.large
     zone: eu-central-1a
-    runs: { losim.Job: src/lab/RenderJob.java }
+    runs: { dissaly.Job: src/lab/RenderJob.java }
   workers:
     count: 4
     prefix: w

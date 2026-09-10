@@ -184,6 +184,14 @@ export function Overview() {
             {zones > 1 ? ` in ${zones} zones` : ' in one zone'}, over {refTime(trace.duration)}.
             {' '}Everything below is drawn at whatever instant the bar above is showing — drag it,
             and all five sections move together.
+            {trace.scaled && (
+              <>
+                {' '}This one is a <strong>model</strong>: it ran{' '}
+                {trace.scaled.units.toLocaleString()} units and stands for{' '}
+                {trace.scaled.fullUnits.toLocaleString()}, so every figure on this page is the
+                run that executed. What it says about the full size is on Usage and on Cost.
+              </>
+            )}
           </>
         }
         actions={<button {...stylex.props(ui.btn, ui.primary)} onClick={() => go('film')}>▶ Watch it</button>}

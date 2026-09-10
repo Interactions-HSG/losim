@@ -21,10 +21,10 @@ incident_per_lost_machine: 0.20
 ```
 
 ```bash
-java -cp "$CP" losim.cli.Main bill build/thumbs.json --prices prices/eu-central-1.yaml
+java -cp "$CP" dissaly.cli.Main bill build/thumbs.json --prices prices/eu-central-1.yaml
 ```
 
-If the file is missing, losim uses the defaults above and reports that fact. Any key
+If the file is missing, dissaly uses the defaults above and reports that fact. Any key
 not in this list is refused.
 
 ## Regions
@@ -69,7 +69,7 @@ Traffic uses three paid distances and one free distance:
 | same continent | `egress_cross_region_per_gb` | `eu-central-1a` -> `eu-west-1a` |
 | across an ocean | `egress_intercontinental_per_gb` | `eu-central-1a` -> `ap-northeast-1a` |
 
-The node's `zone` determines the distance, and losim reads the **region from the
+The node's `zone` determines the distance, and dissaly reads the **region from the
 zone name**. For example, `eu-central-1a` belongs to `eu-central-1`, while
 `switzerlandnorth-1` belongs to `switzerlandnorth`.
 
@@ -78,11 +78,11 @@ The run records `egressMb` on each node by destination region
 lines instead of folding all traffic into one total.
 
 <Note>
-A zone losim does not recognize, such as `rack-3` or `left`, is treated as its own
+A zone dissaly does not recognize, such as `rack-3` or `left`, is treated as its own
 region on an unknown continent. Traffic to it uses the **cross-region** rate rather
 than an inferred ocean crossing.
 
-losim does not validate zone names. Simulations may use any zone string.
+dissaly does not validate zone names. Simulations may use any zone string.
 </Note>
 
 ## Fields
@@ -160,8 +160,8 @@ egress_per_gb: 4.00
 ```
 
 ```bash
-java -cp "$CP" losim.cli.Main bill build/a.json --prices prices/expensive-egress.yaml
-java -cp "$CP" losim.cli.Main bill build/b.json --prices prices/expensive-egress.yaml
+java -cp "$CP" dissaly.cli.Main bill build/a.json --prices prices/expensive-egress.yaml
+java -cp "$CP" dissaly.cli.Main bill build/b.json --prices prices/expensive-egress.yaml
 ```
 
 This tests whether moving data across zones for convenience is cheaper.

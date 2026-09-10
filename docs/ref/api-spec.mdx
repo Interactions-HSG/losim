@@ -5,7 +5,7 @@ icon: "id-card"
 ---
 
 ```java
-losim.api.Spec spec = Losim.current().here();
+dissaly.api.Spec spec = Dissaly.current().here();
 ```
 
 ```java
@@ -47,7 +47,7 @@ A service can report its own capacity through an RPC:
 
 ```java
 @Override protected Health capacity(Empty request) {
-    var spec = Losim.current().here();
+    var spec = Dissaly.current().here();
     return Health.newBuilder()
             .setMachine(spec.node())
             .setInstance(spec.instance())
@@ -75,5 +75,5 @@ or charged.
 Throws, like every other state call:
 
 ```java
-assertThrows(IllegalStateException.class, () -> Losim.current().here());
+assertThrows(IllegalStateException.class, () -> Dissaly.current().here());
 ```

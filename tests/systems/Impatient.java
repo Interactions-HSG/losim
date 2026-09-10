@@ -13,7 +13,7 @@ import dissaly.pb.Workload;
  * Asks for something that takes 500 refMs and waits 200 for it.
  *
  * <p>The deadline is written in reference milliseconds like everything else, so
- * losim rescales it before gRPC ever sees it: at k_time 20 the client really waits
+ * dissaly rescales it before gRPC ever sees it: at k_time 20 the client really waits
  * 10 ms and the handler really sleeps 25. Both sides compressed by the same factor
  * means the lesson — this deadline is too short — survives the compression.
  */

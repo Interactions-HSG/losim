@@ -6,7 +6,7 @@ import dissaly.trace.JsonReader;
 /**
  * What a case asserts against: the trace, as anything downstream would read it.
  *
- * <p>Deliberately not losim's own objects. The trace is the interchange format
+ * <p>Deliberately not dissaly's own objects. The trace is the interchange format
  * (D9), so the reference suite reads it the way the viewer, the bill and an
  * invariant check read it — parsed back out of JSON, off disk, written by the
  * command line a student types. A suite that reached into {@code Simulate.Result}

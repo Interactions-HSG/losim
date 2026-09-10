@@ -56,7 +56,7 @@ public final class T11 {
          * How many calls of a method the busiest machine handled.
          *
          * <p>The counting sibling of {@link #busiestIn}, and the reason it exists
-         * is that the durations that one sums include work losim does not
+         * is that the durations that one sums include work dissaly does not
          * simulate — protobuf, gRPC, the trace — so on a host short of cores they
          * say more about the host than about the cluster. A count of handled calls
          * cannot be distorted by a slow machine: it is how the work was divided,

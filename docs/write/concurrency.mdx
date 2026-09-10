@@ -58,7 +58,7 @@ These calls do not necessarily throw. They produce measurements that omit work, 
 the verifier reports the file and line.
 </Warning>
 
-A handler that reaches for `Losim.current()` from such a thread gets told directly:
+A handler that reaches for `Dissaly.current()` from such a thread gets told directly:
 
 ```
 this thread has no node: work started on a thread the node did not create
@@ -123,7 +123,7 @@ nodes:
   master:
     instance: m5.large
     zone: eu-central-1a
-    runs: { losim.Job: src/lab/FanOutJob.java }   # 8 calls with newFutureStub, then collects
+    runs: { dissaly.Job: src/lab/FanOutJob.java }   # 8 calls with newFutureStub, then collects
   small:       { instance: c5.large, zone: eu-central-1a, runs: { Slow: src/lab/Slow.java } }
 ```
 

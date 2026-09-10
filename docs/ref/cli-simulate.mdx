@@ -12,8 +12,8 @@ The wrapper written by `dissaly adopt` resolves the simulator. Without the wrapp
 run the command directly:
 
 ```bash
-java -cp "$(cat build/losim/classpath)" \
-     losim.cli.Main simulate thumbs.yaml --out build/thumbs.json
+java -cp "$(cat build/dissaly/classpath)" \
+     dissaly.cli.Main simulate thumbs.yaml --out build/thumbs.json
 ```
 
 <Note>
@@ -23,8 +23,8 @@ one **result**. Compare two designs with [`dissaly compare`](/ref/cli-compare).
 
 ## Options
 
-<ParamField path="--cp <paths>" type="path list" default="build/losim/classes">
-  Colon-separated **directories** where your services are compiled to. losim loads
+<ParamField path="--cp <paths>" type="path list" default="build/dissaly/classes">
+  Colon-separated **directories** where your services are compiled to. dissaly loads
   the classes the `runs:` paths resolve to from here, and the trust verifier reads
   their bytecode from here.
 
@@ -33,7 +33,7 @@ one **result**. Compare two designs with [`dissaly compare`](/ref/cli-compare).
   deliberately not your own output, so the JVM running this has never heard of the
   class a `runs:` path names.
 
-  losim does not walk a jar. If you point this option at one, the run records that
+  dissaly does not walk a jar. If you point this option at one, the run records that
   no classes were checked:
   *"A jar is not walked; point --cp at the directory the project compiles to."*
 </ParamField>
@@ -85,7 +85,7 @@ one **result**. Compare two designs with [`dissaly compare`](/ref/cli-compare).
 
 ## Environment
 
-<ParamField path="LOSIM_DEBUG" type="set / unset">
+<ParamField path="DISSALY_DEBUG" type="set / unset">
   When set, an exit-code-3 failure prints its stack trace as well as its message.
   This switch keeps stack traces out of ordinary command output.
 </ParamField>
@@ -112,7 +112,7 @@ for every measurement. [Above scale 1 ->](/simulate/scaled)
 | `0` | `Job.Run` completed |
 | `1` | it did not complete, threw, exceeded two minutes of real time, or had no feasible size |
 | `2` | the simulation is invalid; nothing ran |
-| `3` | something went wrong inside losim |
+| `3` | something went wrong inside dissaly |
 
 <Note>
 An incomplete run still writes a trace with `meta.completed: false` and

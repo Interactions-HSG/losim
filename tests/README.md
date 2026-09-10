@@ -12,11 +12,11 @@ bin/dissaly dev suite t10        # the engine against ground truth
 The system cases take under a minute. The engine cases take longer because each
 scaled run fits a plan from about thirty small runs.
 
-`dissaly dev suite` is separate from `dissaly dev test`. The latter tests losim's own
+`dissaly dev suite` is separate from `dissaly dev test`. The latter tests dissaly's own
 classes; the suite tests the student-facing workflow:
 
-- the systems compile against `build/losim.jar` and the vendored gRPC only, never
-  against `losim/src`, matching the lab classpath;
+- the systems compile against `build/dissaly.jar` and the vendored gRPC only, never
+  against `dissaly/src`, matching the lab classpath;
 - every case runs through `dissaly run <scenario.yaml> --cp ...`, so the scenario
   grammar, class loading, and exit codes are exercised;
 - every assertion reads the **trace JSON off disk**. The trace is the interchange
@@ -25,7 +25,7 @@ classes; the suite tests the student-facing workflow:
 
 | | the system | asserts | catches |
 |---|---|---|---|
-| **t1** handler-alone | a gRPC handler called straight from a test, **no simulation running** | returns the right `Counts`; `reveal` and `sleep` are silent; `peers()` and `channelTo()` **throw** | losim leaking into a signature — the case stops compiling — and an absent context inventing state that makes a green test meaningless |
+| **t1** handler-alone | a gRPC handler called straight from a test, **no simulation running** | returns the right `Counts`; `reveal` and `sleep` are silent; `peers()` and `channelTo()` **throw** | dissaly leaking into a signature — the case stops compiling — and an absent context inventing state that makes a green test meaningless |
 | **t2** one-call | one client, one server, one unary call, and one message with an enum and a `oneof` | dotted `method`; bytes = `getSerializedSize()` + framing; map entries rendered sorted; enum by name | codegen and marshaling wiring; the `Worker/Map` trap; a renderer that drifts, so two traces of one run stop diffing |
 | **t3** deadline | 500 refMs of work, 200 refMs of patience | `DEADLINE_EXCEEDED`; an `rpc_timeout`; the wait was ~200 refMs of *simulated* time; the server was cut off mid-work | a declared duration never applied, or applied after the response; a deadline not divided by `k_time`, which makes every timing lesson depend on the laptop |
 | **t4** pingpong | two machines volleying an `Empty`-returning async call | both directions in the trace; the caller dispatched ten 200 refMs calls in ~1 ms | that fire-and-forget really is gRPC, with no second messaging path to exempt it from costs, faults and byte counts |
@@ -48,7 +48,7 @@ exponent of 1 for everything and every case below would pass vacuously.
 | **t10** groundtruth | one scaled run projecting to 48,000 records from a ladder topping out at 8,000, and one direct run **at** 48,000 | every projected resource within 25% of what actually happened, and never worse than multiplying the small run by the size ratio; memory attributed to distinct keys; the makespan **absent with a reason**; the plan recomputable from the trace | the engine silently degrading. This is the core projection test; the other cases check projection shape, which can be correct even when the result is wrong |
 | **t11** scale-wordcount | five cells: 2, 4 and 8 workers clean, plus one kill and standing chaos at four | the attribution never moves with the cluster, and the memory exponent moves by <0.05 across the row — while disk *per machine* halves when the cluster doubles; four times the cluster shortens the phase that fans out and not the phase that merges; the weathered cells carry a fault amplification the clean one does not | the engine folding the cluster dimension into the data dimension — the failure mode that makes every projection plausible and wrong, because nothing looks broken |
 | **t12** refusal | a reducer that spills above a key count, and a cluster whose fixed 64 MB index dwarfs what the probe scale varies | the split-ladder test catches the bend and **R² over the whole ladder is still 0.88**; no projection is emitted for that resource while the others still are; the second run names its resource and does not happen at all | extrapolating past a discontinuity, and anyone later "simplifying" the check back to R². The second half is the reason that number is quoted in the refusal itself |
-| **t13** transparent | the same ladder four times: telemetry off, no payloads, everything rendered, and a thousand `reveal` calls per handler | the **fitted laws**, not the numbers: the allocation exponent moves by 0.0001 across all four, while losim charges itself 0.31 -> 4.45 -> 54.19 MB and meters 2,132 regions against 162,132 | the observer effect creeping back in. It regresses silently: every number stays plausible and only the projection is wrong. **The extreme case is mandatory** — at one reveal per handler a leak that halves an exponent is undetectable |
+| **t13** transparent | the same ladder four times: telemetry off, no payloads, everything rendered, and a thousand `reveal` calls per handler | the **fitted laws**, not the numbers: the allocation exponent moves by 0.0001 across all four, while dissaly charges itself 0.31 -> 4.45 -> 54.19 MB and meters 2,132 regions against 162,132 | the observer effect creeping back in. It regresses silently: every number stays plausible and only the projection is wrong. **The extreme case is mandatory** — at one reveal per handler a leak that halves an exponent is undetectable |
 
 The plan cache is keyed on telemetry level so t13 does not reuse a plan fitted with a
 different level.
@@ -131,7 +131,7 @@ vendor/bin/protoc-$PLATFORM \
   -I tests/gallery/proto tests/gallery/proto/thumbs.proto
 
 javac --release 21 -d $OUT/classes \
-  -cp "$(ls vendor/jars/*.jar | tr '\n' ':')build/losim.jar" \
+  -cp "$(ls vendor/jars/*.jar | tr '\n' ':')build/dissaly.jar" \
   $(find $OUT/gen tests/gallery/systems -name '*.java')
 
 for s in tests/gallery/simulations/*.yaml; do

@@ -1,0 +1,38 @@
+# The same word count, declared at a size no laptop can hold.
+#
+# dissaly shrinks the workload and the machines by the same factor, runs what fits,
+# and projects the full-scale numbers from what it actually observed. Nothing here
+# names a shrink factor: a factor somebody guessed would be a third mode whose
+# numbers nobody could account for. Nor does anything say "scaled" — a scale above
+# 1 is a model of something bigger and there is nothing else it could be.
+
+seed: 5
+scale: 5000
+
+nodes:
+  master:
+    instance: m5.2xlarge
+    zone: eu-central-1a
+    runs: { dissaly.Job: dissaly/test/src/ScalableWordCount.java }
+
+  workers:
+    count: 4
+    prefix: w
+    instance: r5.large         # memory-shaped, because the buckets are what fill up
+    zone: [eu-central-1a, eu-central-1b]
+    runs: { Worker: dissaly/test/src/Accumulator.java }
+
+# The corpus, at full size. One number, because there is one number the engine
+# varies: what a line is made of is the Job's business, declared in its own code.
+input:
+  unit:  line
+  count: 40000000
+
+# What each rpc costs on the reference machine, under the class that serves it.
+# The handlers declare nothing: a duration is a claim about the machine a design
+# would run on, so it belongs to the scenario — and a system stays plain gRPC
+# with no dissaly in it.
+simulatedDuration:
+  dissaly/test/src/Accumulator.java:
+    Map: { fixed: 2 refMs, perUnit: 20000 refNs }
+    Reduce: { fixed: 5 refMs }

@@ -21,14 +21,14 @@ simulatedDuration: { ... }
 ```
 
 These are the accepted top-level keys. Other keys are refused with their source
-line. The node running `losim.Job` starts the work, so there is no `job:` key.
+line. The node running `dissaly.Job` starts the work, so there is no `job:` key.
 `scale` selects direct or modeled execution, and `failures:` is nested under its
 target instead of using `faults:` or `chaos:`.
 
 <ParamField path="seed" type="long" default="1">
   Everything random draws from it: when failures fire, network jitter, packet
   loss, which calls an rpc failure hits, and your own workload through
-  `Losim.current().seed()`. `--seed` overrides it.
+  `Dissaly.current().seed()`. `--seed` overrides it.
 </ParamField>
 
 <ParamField path="scale" type="number" default="1">
@@ -39,7 +39,7 @@ target instead of using `faults:` or `chaos:`.
 
 <ParamField path="nodes" type="map" required>
   The system. One entry is one node or, with `count:`, a pool. Exactly
-  one node in the file must run `losim.Job`. See [nodes](/ref/nodes).
+  one node in the file must run `dissaly.Job`. See [nodes](/ref/nodes).
 </ParamField>
 
 <ParamField path="input" type="map">
@@ -106,7 +106,7 @@ nodes:
   master:
     instance: m5.large
     zone: eu-central-1a
-    runs: { losim.Job: src/RenderJob.java }
+    runs: { dissaly.Job: src/RenderJob.java }
 
   workers:
     count: 4

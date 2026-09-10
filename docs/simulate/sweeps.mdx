@@ -5,7 +5,7 @@ icon: "dice"
 ---
 
 <Warning>
-**Runs are not reproducible.** losim uses real threads and the wall clock rather than
+**Runs are not reproducible.** dissaly uses real threads and the wall clock rather than
 simulating a scheduler, so repeated runs can have different durations and byte
 counts.
 
@@ -14,16 +14,16 @@ A sweep is therefore the unit of evidence, not an individual run.
 
 ## Sweep Structure
 
-**losim is a library, so a sweep is a Java program.** `Simulate.of` returns a result
+**dissaly is a library, so a sweep is a Java program.** `Simulate.of` returns a result
 object, which a sweep can process directly.
 
 ```java src/lab/Sweep.java
 package lab;
 
 import java.nio.file.Path;
-import losim.runtime.Simulate;
-import losim.sim.Loader;
-import losim.trace.Telemetry;
+import dissaly.runtime.Simulate;
+import dissaly.sim.Loader;
+import dissaly.trace.Telemetry;
 
 public final class Sweep {
 
@@ -113,7 +113,7 @@ These values draw from the seed:
 | an rpc failure's `per: N calls` | which calls it hits |
 | network jitter | how each round trip falls |
 | packet loss | which messages vanish |
-| **your workload** | if your `Load` took `Losim.current().seed()`, which is why it should |
+| **your workload** | if your `Load` took `Dissaly.current().seed()`, which is why it should |
 
 A failure written with `at:` does **not** vary. A kill at 900 refMs occurs at that
 time for every seed. Use `at:` for fixed scenarios and `per:` for repeated failure

@@ -1,16 +1,16 @@
 ---
 title: "Adopting a gRPC system you already have"
-description: "Adopt losim into a project and make the required edits."
+description: "Adopt dissaly into a project and make the required edits."
 icon: "arrow-right-to-bracket"
 ---
 
 You have a working gRPC Java system: a `.proto`, handlers, a server, and a client.
-losim runs **those handlers** unchanged on simulated nodes and network links, then
+dissaly runs **those handlers** unchanged on simulated nodes and network links, then
 reports the design's cost.
 
 ```bash
-curl -sSLo losim.jar https://github.com/Interactions-HSG/losim/releases/latest/download/losim.jar
-java -jar losim.jar adopt .
+curl -sSLo dissaly.jar https://github.com/Interactions-HSG/losim/releases/latest/download/dissaly.jar
+java -jar dissaly.jar adopt .
 ```
 
 <Note>
@@ -28,7 +28,7 @@ you pass `--dirty`.
 | print every Java edit still needed, with a line number | make one |
 
 **The command does not write Java.** Extracting a nested handler can change
-initialization, and turning a client into `losim.Job` requires deciding which lines
+initialization, and turning a client into `dissaly.Job` requires deciding which lines
 are design logic and which are transport setup.
 
 It records the required work and its findings in `AGENTS.md`.
@@ -62,12 +62,12 @@ reports is marked. [Trust rules ->](/ref/trust-rules)
 </Warning>
 
 Make the handler top-level, give it a no-argument constructor, and put it in a file
-named after the class. `runs:` names the file, and losim creates a fresh instance on
+named after the class. `runs:` names the file, and dissaly creates a fresh instance on
 node restart.
 
-### The client becomes `losim.Job`
+### The client becomes `dissaly.Job`
 
-The client drives calls, which is the role of `losim.Job`.
+The client drives calls, which is the role of `dissaly.Job`.
 
 <CodeGroup>
 ```java before
@@ -91,7 +91,7 @@ public final class Greeting extends JobGrpc.JobImplBase {
     }
 
     @Override public void run(Workload work, StreamObserver<Result> out) {
-        var here = Losim.current();
+        var here = Dissaly.current();
         String peer = here.peersServing("Greeter").get(0);
         var stub = GreeterGrpc.newBlockingStub(here.channelTo(peer));
         var reply = stub.sayHello(HelloRequest.newBuilder().setName("world").build());
@@ -108,7 +108,7 @@ service they serve, not by an address.**
 
 `Load` has no data to build here, so it returns the count it received. A real
 workload should read its input there, outside the simulated clock.
-[losim.Job ->](/ref/losim-proto)
+[dissaly.Job ->](/ref/dissaly-proto)
 
 ## Declare call costs
 
@@ -121,7 +121,7 @@ simulatedDuration:
     SayHello: { fixed: 3 refMs }
 ```
 
-losim cannot measure this reliably at probe size: the workload is reduced while the
+dissaly cannot measure this reliably at probe size: the workload is reduced while the
 host CPU still runs at full speed.
 [Duration declarations ->](/write/duration-declarations)
 
@@ -132,8 +132,8 @@ proto/            your schema, moved
 src/              your Java, moved and otherwise untouched
 gen/              what protoc writes, beside the schema. Generated; gitignored
 simulations/        1-one-call.yaml, and every one you write after it
-build.gradle.kts  losim, protoc, and the toolchain task
-losim             the launcher: `./dissaly build`, `./dissaly simulate`, `./dissaly serve`
+build.gradle.kts  dissaly, protoc, and the toolchain task
+dissaly             the launcher: `./dissaly build`, `./dissaly simulate`, `./dissaly serve`
 AGENTS.md         findings from the classes below
 build.gradle.bak  what your build used to be
 ```
@@ -165,7 +165,7 @@ different classes of result.
     pool, a logger, `grpc-netty-shaded`, or the `application` plugin.
 
     These do not affect a measured value, so the verifier stays silent. Check `main`
-    carefully: without an explicit simulation, losim can select the first class with
+    carefully: without an explicit simulation, dissaly can select the first class with
     one and attempt to bind a port.
   </Accordion>
 </AccordionGroup>

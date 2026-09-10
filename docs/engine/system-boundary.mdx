@@ -1,12 +1,12 @@
 ---
 title: "System boundary"
-description: "The boundary between the program and losim's simulation model."
+description: "The boundary between the program and dissaly's simulation model."
 icon: "layer-group"
 ---
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  losim                                                       │
+│  dissaly                                                       │
 │    ClientSide + ServerSide interceptors on every call        │
 │    a node model that caps memory and disk                 │
 │    a compressed clock                                        │
@@ -21,7 +21,7 @@ icon: "layer-group"
 
 <Note>
 The simulation uses no ports, containers, simulated scheduler, or virtual clock.
-Nodes run on real threads against a real wall clock. losim shapes the run through
+Nodes run on real threads against a real wall clock. dissaly shapes the run through
 **gRPC's own extension points** with an in-process server and executor for each
 node, sized to its vCPUs, plus an interceptor on each side of every call.
 </Note>
@@ -34,31 +34,31 @@ node, sized to its vCPUs, plus an interceptor on each side of every call.
     capacity, and application code exceeded it.
   </Card>
   <Card title="Portable service code" icon="box-open">
-    No losim type appears in a service signature. The handler remains an ordinary
+    No dissaly type appears in a service signature. The handler remains an ordinary
     object with an ordinary method.
   </Card>
 </Columns>
 
 ## The public package
 
-`losim.api` is the public package. It depends on no runtime type:
+`dissaly.api` is the public package. It depends on no runtime type:
 
 | | |
 |---|---|
-| `Losim` | the static entry point |
-| `LosimCtx` | what you may say to losim from inside a handler |
+| `Dissaly` | the static entry point |
+| `DissalyCtx` | what you may say to dissaly from inside a handler |
 | `Spec` | what **this** node is made of |
 
-The public surface is limited to these types. `losim.pb` is protoc's generated
-output for `losim/job.proto`, not part of the API. `Job` is therefore not listed
+The public surface is limited to these types. `dissaly.pb` is protoc's generated
+output for `dissaly/job.proto`, not part of the API. `Job` is therefore not listed
 here.
 
-`losim.runtime`, `losim.trace`, `losim.scale`, `losim.verify`, and the remaining
+`dissaly.runtime`, `dissaly.trace`, `dissaly.scale`, `dissaly.verify`, and the remaining
 packages are internal. Code that depends on them is tied to the simulator.
 
 ## Two implementations
 
-`Losim.current()` returns one of two singletons:
+`Dissaly.current()` returns one of two singletons:
 
 | | inside a run | outside one |
 |---|---|---|
@@ -88,7 +88,7 @@ codes, deadlines, and metadata. The transport uses no real *sockets*.
 <Note>
 **The in-process transport passes object references.** It hands the receiver the
 same object reference. Protobuf messages are immutable, so passing by reference is
-safe. The transport cannot provide a byte count, so losim marshals the message
+safe. The transport cannot provide a byte count, so dissaly marshals the message
 explicitly and adds the five bytes of framing that gRPC would have used.
 </Note>
 
@@ -96,13 +96,13 @@ explicitly and adds the five bytes of framing that gRPC would have used.
 
 | | |
 |---|---|
-| `losim.api` | the public facade available to a program |
-| `losim.runtime` | the system, nodes, and interceptors |
-| `losim.trace` | the three-channel recorder and the trace it writes |
-| `losim.time` | the compressed clock and fault placement |
-| `losim.res` | instance types, heap walks, and losim's own meter |
-| `losim.scale` | the probe grid, fitted laws, solves, and refusals |
-| `losim.sim` | a system and its failure conditions as data |
-| `losim.verify` | checks for measurements that lose their meaning |
-| `losim.price` | billing buckets and excluded quantities |
-| `losim.cli` | `simulate`, `bill`, `compare` |
+| `dissaly.api` | the public facade available to a program |
+| `dissaly.runtime` | the system, nodes, and interceptors |
+| `dissaly.trace` | the three-channel recorder and the trace it writes |
+| `dissaly.time` | the compressed clock and fault placement |
+| `dissaly.res` | instance types, heap walks, and dissaly's own meter |
+| `dissaly.scale` | the probe grid, fitted laws, solves, and refusals |
+| `dissaly.sim` | a system and its failure conditions as data |
+| `dissaly.verify` | checks for measurements that lose their meaning |
+| `dissaly.price` | billing buckets and excluded quantities |
+| `dissaly.cli` | `simulate`, `bill`, `compare` |

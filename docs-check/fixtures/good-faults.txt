@@ -1,4 +1,4 @@
-# The weather page. "partition" is losim's own vocabulary and has to survive.
+# The weather page. "partition" is dissaly's own vocabulary and has to survive.
 A scenario can cut the link between two machines with a partition, and put it
 back with heal. Both partitions carry on serving whoever they can still reach,
 which is what makes a deadline interesting. A machine can also be killed,

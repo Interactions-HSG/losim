@@ -8,7 +8,7 @@ import java.util.Map;
  * and a payload renderer that drifts, which would make two traces of the same run
  * fail to diff.
  *
- * <p>Read out of the trace on disk rather than out of losim's own objects, because
+ * <p>Read out of the trace on disk rather than out of dissaly's own objects, because
  * the trace is the interchange format and everything downstream sees only this.
  */
 public final class T2 {
@@ -20,7 +20,7 @@ public final class T2 {
         var ends = e.of("handler_end");
         // Two calls the system made, and three handlers: dissaly.Job/Run is the third,
         // because the thing that starts the work is a service like any other. It
-        // opens no rpc_call, because nobody in the system called it — losim did,
+        // opens no rpc_call, because nobody in the system called it — dissaly did,
         // from outside, and charged the call to nobody.
         e.check(calls.size() == 2 && starts.size() == 3 && ends.size() == 3,
                 "two calls, each one rpc_call -> handler_start -> handler_end, plus the "

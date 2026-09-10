@@ -10,7 +10,7 @@ The adapter exposes a plain method, so test the handler as an ordinary object:
 import static org.junit.jupiter.api.Assertions.*;
 
 import lab.pb.*;
-import losim.api.Losim;
+import dissaly.api.Dissaly;
 import org.junit.jupiter.api.Test;
 
 class ShrinkerTest {
@@ -37,36 +37,36 @@ class ShrinkerTest {
 
 The test runs without a system, interceptor, or simulation clock.
 
-## losim on the classpath
+## dissaly on the classpath
 
-`Losim.current()` must resolve. Outside a run, recording calls are no-ops and state
+`Dissaly.current()` must resolve. Outside a run, recording calls are no-ops and state
 calls fail.
 
 <Columns cols={2}>
   <Card title="Recording calls are silent" icon="volume-xmark">
     ```java
-    Losim.current().reveal("frames", 3);   // returns
-    Losim.current().log("counted");        // returns
-    Losim.current().units(1);            // returns
-    Losim.current().wroteDisk(4096);       // returns
-    Losim.current().sleep(5_000);          // returns immediately
+    Dissaly.current().reveal("frames", 3);   // returns
+    Dissaly.current().log("counted");        // returns
+    Dissaly.current().units(1);            // returns
+    Dissaly.current().wroteDisk(4096);       // returns
+    Dissaly.current().sleep(5_000);          // returns immediately
     ```
     A handler can therefore be called without a simulation.
   </Card>
   <Card title="State calls throw" icon="triangle-exclamation">
     ```java
-    Losim.current().node();        // throws
-    Losim.current().here();           // throws
-    Losim.current().peers();          // throws
-    Losim.current().peersServing(…);  // throws
-    Losim.current().clockMs();        // throws
-    Losim.current().channelTo(…);     // throws
+    Dissaly.current().node();        // throws
+    Dissaly.current().here();           // throws
+    Dissaly.current().peers();          // throws
+    Dissaly.current().peersServing(…);  // throws
+    Dissaly.current().clockMs();        // throws
+    Dissaly.current().channelTo(…);     // throws
     ```
   </Card>
 </Columns>
 
 ```
-no simulation is running, so Losim.current().peers() has no answer here.
+no simulation is running, so Dissaly.current().peers() has no answer here.
 Recording calls (reveal, log, units) are silent outside a run; state calls are
 not, because a fabricated system would make a passing test meaningless.
 ```
@@ -83,15 +83,15 @@ not incur simulated waiting.
 
 ```java
 @Test void isRunningIsFalseInATest() {
-    assertFalse(Losim.current().isRunning());
+    assertFalse(Dissaly.current().isRunning());
 }
 
 @Test void recordingDoesNotThrow() {
-    assertDoesNotThrow(() -> Losim.current().reveal("frames", 3));
+    assertDoesNotThrow(() -> Dissaly.current().reveal("frames", 3));
 }
 
 @Test void askingAboutASystemThatIsNotThereFails() {
-    var e = assertThrows(IllegalStateException.class, () -> Losim.current().node());
+    var e = assertThrows(IllegalStateException.class, () -> Dissaly.current().node());
     assertTrue(e.getMessage().contains("no simulation is running"));
 }
 ```
@@ -100,14 +100,14 @@ If a handler needs the node's identity, guard the state call:
 
 ```java
 @Override protected Thumbs thumbnail(Split request) {
-    var here = Losim.current();
+    var here = Dissaly.current();
     if (here.isRunning()) here.reveal("on", here.node());
     return work(request);
 }
 ```
 
 <Tip>
-Keep losim-dependent calls out of the core logic when possible. A private method that
+Keep dissaly-dependent calls out of the core logic when possible. A private method that
 accepts its own arguments does not need a simulation-state branch.
 </Tip>
 
@@ -120,11 +120,11 @@ under `vendor/test-jars/` and runs them separately:
 CP=$(ls vendor/jars/*.jar | tr '\n' ':')
 TCP=$(ls vendor/test-jars/*.jar | tr '\n' ':')
 
-javac -nowarn --release 21 -cp "${CP}${TCP}build/losim.jar:build/losim/classes" \
+javac -nowarn --release 21 -cp "${CP}${TCP}build/dissaly.jar:build/dissaly/classes" \
       -d build/test-classes $(find test -name '*.java')
 
 java -jar vendor/test-jars/junit-platform-console-standalone-*.jar execute \
-     --class-path "${CP}build/losim.jar:build/losim/classes:build/test-classes" \
+     --class-path "${CP}build/dissaly.jar:build/dissaly/classes:build/test-classes" \
      --scan-class-path build/test-classes --details=tree
 ```
 

@@ -1,5 +1,5 @@
 ---
-title: "Debugging gRPC without losim"
+title: "Debugging gRPC without dissaly"
 description: "Debug from a handler test through a full run."
 icon: "bug"
 ---
@@ -41,7 +41,7 @@ Step into `thumbnail`: it is your code called directly on the test thread.
 | anything about how nodes behave together | **no** |
 
 <Note>
-`Losim.current()` still resolves here and does nothing: recording calls are silent,
+`Dissaly.current()` still resolves here and does nothing: recording calls are silent,
 state calls throw. So a handler that reveals and records is testable as it stands.
 [Handler testing ->](/write/handler-testing)
 </Note>
@@ -128,7 +128,7 @@ This level checks transport behavior directly:
   assertTrue(ThumbnailerGrpc.getThumbnailMethod().isIdempotent()
           || ThumbnailerGrpc.getThumbnailMethod().isSafe());
   ```
-      which is what losim's [retry gate](/write/retries) checks later and is easier
+      which is what dissaly's [retry gate](/write/retries) checks later and is easier
       to diagnose here than as a simulation refusal.
 
 <Warning>
@@ -169,7 +169,7 @@ channels in this order:
       master:
         instance: m5.large
         zone: eu-central-1a
-        runs: { losim.Job: src/lab/RenderJob.java }
+        runs: { dissaly.Job: src/lab/RenderJob.java }
       w0:
         instance: m5.large
         zone: eu-central-1a
@@ -211,7 +211,7 @@ channels in this order:
     ```
 
     A call attached to the **root** instead of its caller usually means the parent
-    header was lost, often because the channel was built outside losim.
+    header was lost, often because the channel was built outside dissaly.
   </Step>
 
   <Step title="Turn payloads on and read what actually crossed">
@@ -219,12 +219,12 @@ channels in this order:
     produced the wrong answer, inspect its span's `detail.arg`.
   </Step>
 
-  <Step title="Ask losim for its own stack">
+  <Step title="Ask dissaly for its own stack">
     ```bash
-    LOSIM_DEBUG=1 java -cp "$CP" losim.cli.Main simulate mine.yaml --cp build/losim/classes
+    DISSALY_DEBUG=1 java -cp "$CP" dissaly.cli.Main simulate mine.yaml --cp build/dissaly/classes
     ```
 
-    Exit code 3 means something went wrong **inside losim**; this prints its stack.
+    Exit code 3 means something went wrong **inside dissaly**; this prints its stack.
     Exit code 2 is a simulation configuration error.
   </Step>
 
@@ -243,7 +243,7 @@ channels in this order:
     four waves, and the fourth wave's caller may have given up before its turn.
   </Accordion>
   <Accordion title="The run takes ten times as long as it should, and ends in timeouts">
-    A stub with **no deadline** waits five reference seconds before losim gives up
+    A stub with **no deadline** waits five reference seconds before dissaly gives up
     on your behalf. Set deadlines.
   </Accordion>
   <Accordion title="One node does all the work; the others show zero calls">
@@ -256,7 +256,7 @@ channels in this order:
     A blocking stub inside the dispatch loop. Use `newFutureStub`, dispatch
     everything, then collect. [Calling peers ->](/write/calling-peers)
   </Accordion>
-  <Accordion title="`Losim.current()` throws inside a handler">
+  <Accordion title="`Dissaly.current()` throws inside a handler">
     ```
     this thread has no node: work started on a thread the node did not create…
     ```

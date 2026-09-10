@@ -128,15 +128,15 @@ The gaps are drawn exponentially from the seed.
 A rate has no end: each firing schedules the next one for the duration of the run.
 </Note>
 
-**One seed provides limited evidence.** A sweep uses the losim library, so write it
+**One seed provides limited evidence.** A sweep uses the dissaly library, so write it
 in the language you are already using:
 
 ```java src/lab/Sweep.java
 package lab;
 
 import java.nio.file.Path;
-import losim.runtime.Simulate;
-import losim.sim.Loader;
+import dissaly.runtime.Simulate;
+import dissaly.sim.Loader;
 
 /** Run the simulation for twenty seeds. */
 public final class Sweep {
@@ -173,7 +173,7 @@ slow part.
 
 ## Add a retry
 
-A shorter deadline can be combined with a retry. losim validates the retry policy:
+A shorter deadline can be combined with a retry. dissaly validates the retry policy:
 
 ```yaml
 retries:

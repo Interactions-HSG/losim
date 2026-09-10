@@ -20,7 +20,7 @@ import { colourOf, Donut, Legend, short, StackedBars, type Bar } from './Chart.t
 import { Head, Panel, Tile } from './Shell.tsx';
 import { COLOUR } from '../Ledger.tsx';
 import { useConsole, useNow } from '../../lib/console.tsx';
-import { BUCKETS, LedgerModel, money, type Bucket } from '../../lib/ledger.ts';
+import { BUCKETS, LedgerModel, money, type Account, type Bucket } from '../../lib/ledger.ts';
 import { refTime } from '../../lib/playback.ts';
 import { openUrl, type Run } from '../../lib/runs.ts';
 import { A, Code, P, Table, Td, Th } from '../../lib/text.tsx';
@@ -277,6 +277,8 @@ export function Cost() {
         />
       </div>
 
+      <AtFullSize account={run.bill?.projected} trace={run.trace} />
+
       <div {...stylex.props(sx.two)}>
         <div {...stylex.props(sx.col)}>
           <Panel flush>
@@ -520,6 +522,87 @@ export function Cost() {
         </Panel>
 
     </>
+  );
+}
+
+/**
+ * What the design costs at the size the run was a model of.
+ *
+ * `dissaly bill` writes two accounts for a scaled run: the observed one, priced
+ * over what executed, and this one, priced over the projected quantities at the
+ * same rates. Everything above this panel is the first, and for a scaled run the
+ * first is a bill for a rehearsal — the only reason to read it is to check the
+ * arithmetic against the run you can see.
+ *
+ * **Not accrued, and it must not be.** The ledger spreads the observed bill over
+ * the run's clock so that money arrives while you watch. There is no clock to
+ * spread this over: the run that happened is the small one, and a projected
+ * total drawn against the probe's timeline would be a curve nothing measured. It
+ * is a total, stated as one.
+ */
+function AtFullSize({ account, trace }: { account?: Account; trace: Run['trace'] }) {
+  if (!account) return null;
+  const model = trace.scaled;
+  const missing = Object.entries(account.unpriceable ?? {});
+  return (
+    <Panel
+      title="At full size"
+      note={
+        model
+          ? `the same design over ${model.fullUnits.toLocaleString()} units, at the same rates`
+          : 'at the same rates'
+      }
+      flush
+    >
+      <div {...stylex.props(sx.scroll)}>
+        <Table>
+          <thead>
+            <tr>
+              <Th>Bucket</Th>
+              <Th>What</Th>
+              <Th style={sx.right}>Quantity</Th>
+              <Th style={sx.right}>Unit price</Th>
+              <Th style={sx.right}>{account.currency}</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {account.lines.map((line) => (
+              <tr key={line.bucket + line.what}>
+                <Td>{line.bucket}</Td>
+                <Td>{line.what}</Td>
+                <Td num style={sx.right}>{short(line.quantity)} {line.unit}</Td>
+                <Td num style={sx.right}>{amt(line.unitPrice)}</Td>
+                <Td num style={sx.right}>{amt(line.amount)}</Td>
+              </tr>
+            ))}
+            {/* A line the second account could not be written. Kept on the bill
+                rather than dropped from it: a total missing its largest line is
+                a smaller number that reads as a cheaper design, and the reason
+                it is missing is the engine's own words about the ladder. */}
+            {missing.map(([what, why]) => (
+              <tr key={what}>
+                <Td style={ui.muted}>—</Td>
+                <Td colSpan={4} style={sx.note}>
+                  <strong>{what}</strong> is not on this bill: {why}
+                </Td>
+              </tr>
+            ))}
+            <tr>
+              <Td colSpan={4}><strong>Total at full size</strong></Td>
+              <Td num style={sx.right}><strong>{money(account.cost, account.currency)}</strong></Td>
+            </tr>
+          </tbody>
+        </Table>
+      </div>
+      <div {...stylex.props(sx.pad)}>
+        <P style={sx.note}>
+          Priced by <Code>dissaly bill</Code> over the projected quantities, not over what ran.
+          Every quantity in it carries the error bar of the law it came from, so this total is
+          worth what the widest of those bands is worth — the projections themselves, band by
+          band, are on the <strong>Usage</strong> page.
+        </P>
+      </div>
+    </Panel>
   );
 }
 

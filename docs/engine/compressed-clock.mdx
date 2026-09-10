@@ -4,7 +4,7 @@ description: "A host-calibrated wall clock for simulated durations."
 icon: "gauge-high"
 ---
 
-losim schedules simulated work on the host wall clock. Before sleeping, it divides
+dissaly schedules simulated work on the host wall clock. Before sleeping, it divides
 each declared duration by `k_time`.
 
 ```
@@ -16,7 +16,7 @@ what gets slept  =  refMs x (2 / vcpu) x degradeFactor / k_time
 It is 20x at scale 1 and rises to a ceiling of 40x.
 
 The value is global because all nodes share one wall clock. The probe grid and the
-run it fits use the same value. losim sets it before execution and checks it after
+run it fits use the same value. dissaly sets it before execution and checks it after
 calibration.
 </Note>
 
@@ -25,7 +25,7 @@ calibration.
 <AccordionGroup>
   <Accordion title="parkNanos has a stable overshoot ratio" icon="chart-line" defaultOpen>
     On a reference laptop, `parkNanos` overshoots by about **1.28**. The ratio
-    remains stable across three orders of magnitude, so losim measures it at
+    remains stable across three orders of magnitude, so dissaly measures it at
     startup for each host and corrects later sleeps.
 
     Calibration reduces mean error across the usable range from about **27% to
@@ -38,7 +38,7 @@ calibration.
   </Accordion>
 
   <Accordion title="Below about 0.05 ms, measurement overhead dominates" icon="ruler-horizontal">
-    The measurement overhead is larger than the interval. losim records such a
+    The measurement overhead is larger than the interval. dissaly records such a
     cost as **owed** and settles it later.
 
     Timer resolution does not cap `k_time`. A sub-floor cost remains part of aggregate
@@ -53,7 +53,7 @@ calibration.
 Building six in-process servers costs real milliseconds. At 20x, that setup time
 would consume hundreds of reference milliseconds.
 
-Without an offset, faults scheduled near the start could fire during setup. losim
+Without an offset, faults scheduled near the start could fire during setup. dissaly
 starts the simulation clock after system construction so trace times match simulation
 times.
 
@@ -65,7 +65,7 @@ simulation timestamp.
 | | divided by `k_time`? |
 |---|---|
 | `simulatedDuration:`, both terms | yes |
-| `Losim.current().sleep(refMs)` | yes |
+| `Dissaly.current().sleep(refMs)` | yes |
 | network latency and jitter | yes |
 | `withDeadlineAfter(…)` | yes |
 | when a drawn failure fires | yes |
@@ -101,6 +101,6 @@ The run uses real threads and a real clock without a simulated scheduler. Repeat
 the same simulation on one host changes durations and many byte counts.
 
 <Note>
-Use a **sweep** to measure variation across seeds. losim does not require deterministic
+Use a **sweep** to measure variation across seeds. dissaly does not require deterministic
 thread scheduling, unseeded `Random`, or identity-hash iteration order.
 </Note>

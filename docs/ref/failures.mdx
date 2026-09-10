@@ -98,7 +98,7 @@ these fields take no target.
 
 <ParamField path="restart: true" type="node failure">
   Brings a node back with **fresh service instances** and an empty
-  `Losim.current().local()`, so whatever it was holding is gone.
+  `Dissaly.current().local()`, so whatever it was holding is gone.
 
   ```json
   { "kind": "restart", "vm": "w1",
@@ -199,7 +199,7 @@ serves no rpc of that name. It serves Thumbnail, Pull. A failure with no matchin
 RPC never fires, so the loader refuses it instead of issuing a warning.
 ```
 
-[`dissaly check`](/ref/cli-losim) reads the `.proto` text before compilation. The loader
+[`dissaly check`](/ref/cli-dissaly) reads the `.proto` text before compilation. The loader
 preserves the line number and loads no classes. Before any call, the run asks the
 bound gRPC server to validate the RPC.
 

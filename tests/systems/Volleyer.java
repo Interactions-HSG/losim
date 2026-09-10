@@ -9,7 +9,7 @@ import dissaly.api.Dissaly;
  *
  * <p>It is an {@code Empty}-returning method called on an async stub: the caller
  * does not block, and costs, faults, telemetry and byte counts apply to it exactly
- * as to a unary call, because it <i>is</i> one. losim supports the shape and ships
+ * as to a unary call, because it <i>is</i> one. dissaly supports the shape and ships
  * no lesson that uses it; a course can.
  */
 public final class Volleyer extends VolleyGrpc.VolleyImplBase {

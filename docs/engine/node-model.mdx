@@ -10,14 +10,14 @@ Each node owns a prestarted `ThreadPoolExecutor`. Its core and maximum sizes bot
 equal the instance's vCPU count, and it uses platform threads.
 
 The executor is the accounting boundary. It limits concurrent handlers and gives
-losim a fixed set of thread ids for allocation measurements.
+dissaly a fixed set of thread ids for allocation measurements.
 
 <Steps>
   <Step title="Concurrency">
     A two-vCPU node can run two calls at once. A fourth call waits in the pool.
   </Step>
   <Step title="Attribution">
-    losim assigns every pool thread to its node. It can therefore query
+    dissaly assigns every pool thread to its node. It can therefore query
     `getThreadAllocatedBytes` for those thread ids and attribute the result to the
     right node.
   </Step>
@@ -54,9 +54,9 @@ The retained set determines whether the node reaches its memory limit.
 The heap walk starts at the node's service instances and follows reachable
 references until it reaches the node boundary.
 
-- losim reflects into application objects. They live in the unnamed module, so
+- dissaly reflects into application objects. They live in the unnamed module, so
   their fields are accessible without opening a package.
-- losim models JDK containers. `java.util` is not open, and
+- dissaly models JDK containers. `java.util` is not open, and
   `setAccessible` on `HashMap.table` would throw. The model avoids requiring
   `--add-opens` launcher flags.
 
@@ -71,7 +71,7 @@ Object sizes assume compressed oops, which is on by default below a 32 GiB heap.
 | | gRPC's transport, which everyone shares |
 | | servers, channels, executors, threads |
 
-The implementation enforces the boundary. losim's own structures remain outside
+The implementation enforces the boundary. dissaly's own structures remain outside
 each node's retained heap.
 
 ### Cadence and the final walk
@@ -80,7 +80,7 @@ A walk costs about 0.06 microseconds per object. To limit its overhead, a busy n
 is walked every eighth sampler tick, so `retainMb` changes in steps.
 
 <Note>
-losim performs another walk after the job ends. That final measurement catches a
+dissaly performs another walk after the job ends. That final measurement catches a
 node that exceeded its cap after the last scheduled walk.
 </Note>
 

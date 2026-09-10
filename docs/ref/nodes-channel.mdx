@@ -12,7 +12,7 @@ icon: "server"
     "wireMb": 6.31, "inMb": 24.9, "crossZoneMb": 3.4,
     "egressMb": { "eu-central-1": 1.1, "ap-northeast-1": 2.3 },
     "calls": 41,
-    "losimMb": 0.44, "losimStops": 1284,
+    "dissalyMb": 0.44, "dissalyStops": 1284,
     "memCapMb": 4096.0, "alive": true }
 ]
 ```
@@ -23,7 +23,7 @@ icon: "server"
 These are **closing measurements**, not samples. Billing, comparisons, and the
 viewer use them directly instead of reconstructing peaks from sampled data.
 
-losim performs a final heap walk after `Job.Run` returns, so the result includes
+dissaly performs a final heap walk after `Job.Run` returns, so the result includes
 a node that filled up during the last tick.
 </Note>
 
@@ -44,7 +44,7 @@ a node that filled up during the last tick.
 | field | |
 |---|---|
 | `memoryMb` | **peak retained heap**, the largest retained value measured |
-| `allocMb` | everything it allocated, losim's own subtracted |
+| `allocMb` | everything it allocated, dissaly's own subtracted |
 | `diskMb` | bytes declared through `wroteDisk` |
 | `wireMb` | bytes out |
 | `inMb` | bytes in |
@@ -58,14 +58,14 @@ produce similar allocation totals, but only retained memory counts toward an
 out-of-memory failure.
 </Warning>
 
-## losim overhead
+## dissaly overhead
 
 | field | |
 |---|---|
-| `losimMb` | bytes losim itself allocated on this node's threads, and took back off `allocMb` |
-| `losimStops` | how many times it stopped to meter |
+| `dissalyMb` | bytes dissaly itself allocated on this node's threads, and took back off `allocMb` |
+| `dissalyStops` | how many times it stopped to meter |
 
-These values show how much losim removed from `allocMb`.
+These values show how much dissaly removed from `allocMb`.
 [Self-accounting](/engine/self-accounting)
 
 ## Units

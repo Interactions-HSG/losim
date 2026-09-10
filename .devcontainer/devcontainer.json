@@ -1,17 +1,17 @@
 {
-  "name": "losim — decentralized systems lab",
+  "name": "dissaly — decentralized systems lab",
   "image": "mcr.microsoft.com/devcontainers/java:25-bookworm",
 
   // Node is here for one thing that is not the simulator: developing the viewer.
-  // Neither losim nor the manual needs it any more — both are served by the JDK
-  // that is already here — and the toolchain losim builds and runs with is
+  // Neither dissaly nor the manual needs it any more — both are served by the JDK
+  // that is already here — and the toolchain dissaly builds and runs with is
   // vendored, so a number never depends on what a package manager resolved.
   "features": {
     "ghcr.io/devcontainers/features/node:1": { "version": "22" }
   },
 
 
-  // Build losim so a fresh Codespace is ready to run, and say what to type.
+  // Build dissaly so a fresh Codespace is ready to run, and say what to type.
   //
   // `./gradlew`, not `gradle`. The image above shipped a Gradle on sdkman's path
   // until it was rebuilt with an empty candidates directory, which left the PATH
@@ -44,7 +44,7 @@
       "settings": {
         "java.configuration.updateBuildConfiguration": "automatic",
         "java.project.referencedLibraries": ["vendor/jars/*.jar"],
-        "files.exclude": { "**/build/losim/classes": true }
+        "files.exclude": { "**/build/dissaly/classes": true }
       }
     }
   }

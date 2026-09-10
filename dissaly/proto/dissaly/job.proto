@@ -1,0 +1,83 @@
+// What dissaly itself is, as a contract between the simulator and a system.
+//
+// A simulation starts when dissaly calls Job.Run on the one node that runs this
+// service. There is no driver object, no interface to implement, no class named
+// in a simulation key: the thing that starts the work is a gRPC service, like
+// everything else a node offers.
+//
+// Two rpcs, and the split between them is the whole scale model:
+//
+//   Load  is off the clock. It reads the source, or generates from the seed, and
+//         builds the data. Reading a file is not part of the design being
+//         measured, so nothing it spends is charged to anybody.
+//   Run   is the simulation. Everything it does is measured, and it is the only
+//         rpc dissaly calls itself.
+
+syntax = "proto3";
+
+package dissaly;
+
+option java_package = "dissaly.pb";
+option java_multiple_files = true;
+
+// What the simulation declared, already shrunk to the size this run is doing.
+//
+// `count` is the simulation's count times the fraction of it this run is measuring
+// — 1 for a direct run, and whichever rung the engine picked otherwise. Nothing
+// here says which: a Job that could tell a probe run from the full one could
+// behave differently at the two sizes, and then the projection would be a
+// projection of nothing.
+message Input {
+  // A file or a directory, relative to the project root. Empty when the
+  // simulation named none, which means Load generates from the seed instead.
+  string source = 1;
+
+  // What one item is, singular — "frame", "line", "order". The same word
+  // Dissaly.current().units(n) counts and simulatedDuration's perUnit prices.
+  string unit = 2;
+
+  // How many of them this run is to process.
+  int64 count = 3;
+}
+
+// What Load made of it: the data Run will actually process.
+//
+// A different type from Input on purpose. Input is a declaration and Workload is
+// the data, so Run cannot read the simulation, cannot see the source, and cannot
+// know what size it is doing — which is the property the two-scale model is
+// built on, stated in the signature rather than asked for in the manual.
+message Workload {
+  // How many units Load actually produced. Not necessarily Input.count: a Job
+  // that drops malformed rows or folds duplicates produces fewer, and the trace
+  // records both, because a Load that quietly returns a tenth of what it was
+  // asked for is how a fitted exponent goes wrong for a reason nobody finds.
+  int64 count = 1;
+
+  // The work, as one of the system's own messages: its full name, and its bytes.
+  //
+  // Spelled out rather than google.protobuf.Any, which is the same two fields
+  // under a name that promises more than dissaly can deliver. Unpacking an Any for
+  // the trace needs a TypeRegistry, which lives in protobuf-java-util, which is
+  // not vendored — so an Any would render as opaque bytes exactly like this does,
+  // while making every assignment's protoc need the well-known types on an
+  // include path. Two fields, no dependency, same capability.
+  //
+  // Load packs (off the clock) and Run parses (on it), which is the honest split:
+  // reading your input is dissaly's cost, and unpacking it is your design's.
+  string type = 2;
+  bytes payload = 3;
+}
+
+// The answer, recorded structurally so one simulation can be compared with
+// another without parsing English.
+message Result {
+  map<string, string> answer = 1;
+}
+
+service Job {
+  // Off the clock, before anything is measured.
+  rpc Load (Input) returns (Workload) { option idempotency_level = NO_SIDE_EFFECTS; }
+
+  // The simulation. It ends when this returns.
+  rpc Run (Workload) returns (Result);
+}

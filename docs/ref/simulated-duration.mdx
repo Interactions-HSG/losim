@@ -16,13 +16,13 @@ by the file's class. Both values default to `0`; an RPC with no entry takes **no
 time**.
 
 <ParamField path="fixed" type="duration" default="0">
-  What one call takes **regardless of its contents**. losim applies it before the
+  What one call takes **regardless of its contents**. dissaly applies it before the
   handler runs.
 </ParamField>
 
 <ParamField path="perUnit" type="duration" default="0">
   What each processed unit adds. The handler declares the count with
-  `Losim.current().units(n)`. losim sleeps this part **after the body returns** and
+  `Dissaly.current().units(n)`. dissaly sleeps this part **after the body returns** and
   before the response leaves, when the handler has reported the processed amount.
 
   Use `refNs` for small per-unit costs; milliseconds per unit can be too large.
@@ -43,9 +43,9 @@ entries.
 ## Keep declarations in the simulation
 
 The duration is declared in the simulation rather than in the handler. Handlers
-remain plain gRPC classes that compile and unit-test without losim on the classpath.
+remain plain gRPC classes that compile and unit-test without dissaly on the classpath.
 
-The table can drift from the implementation, so losim checks it against the services
+The table can drift from the implementation, so dissaly checks it against the services
 the nodes actually serve before a run:
 
 ```
@@ -71,7 +71,7 @@ whole run is compressed by `k_time`.
 
 ## Purpose of duration declarations
 
-losim shrinks the workload **and** the nodes by the same factor, so memory and bytes
+dissaly shrinks the workload **and** the nodes by the same factor, so memory and bytes
 remain comparable. Host CPU time does not scale with the modeled workload, so
 handlers can appear instant without declared durations. Without a duration there is
 no queueing, contention, deadline pressure, or critical path.
@@ -81,7 +81,7 @@ handler time.
 
 ## Work and waiting
 
-| | `simulatedDuration:` | `Losim.current().sleep(refMs)` |
+| | `simulatedDuration:` | `Dissaly.current().sleep(refMs)` |
 |---|---|---|
 | meaning | declared **work** | a declared **wait** |
 | fixed per rpc? | yes, it is a table | no, the program decides |

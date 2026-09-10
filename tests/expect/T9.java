@@ -19,7 +19,7 @@ public final class T9 {
         // Every server span opened under the client span of the call that reached it,
         // and that client span belongs to a different machine. Both halves matter: the
         // first is causality, the second is that it crossed a boundary to get there.
-        // dissaly.Job/Run apart: it is the root, because losim called it from outside
+        // dissaly.Job/Run apart: it is the root, because dissaly called it from outside
         // the system and there is no client span above it. Everything else in the
         // trace hangs beneath it.
         var roots = e.spansOf("handler").stream()

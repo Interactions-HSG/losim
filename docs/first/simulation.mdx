@@ -13,7 +13,7 @@ nodes:
   master:
     instance: m5.large
     zone: eu-central-1a
-    runs: { losim.Job: src/lab/RenderJob.java }
+    runs: { dissaly.Job: src/lab/RenderJob.java }
 
   workers:
     count: 4
@@ -46,7 +46,7 @@ This file is complete. The next page runs it; a later page adds failures.
 <ParamField path="seed" type="long" default="1">
   Everything random in the run is drawn from this: when a drawn failure fires, how
   jitter falls, and a workload your `Load` generates through
-  `Losim.current().seed()`. One seed shows one run; multiple seeds show how the
+  `Dissaly.current().seed()`. One seed shows one run; multiple seeds show how the
   design behaves across runs.
 </ParamField>
 
@@ -68,7 +68,7 @@ This file is complete. The next page runs it; a later page adds failures.
 
 <ParamField path="nodes.*.runs" type="map of service to .java path">
   The **service name** is on the left and the implementing **file** is on the right.
-  Exactly one node runs `losim.Job`; that node starts the work.
+  Exactly one node runs `dissaly.Job`; that node starts the work.
 
   A node with no `runs:` still exists and still listens; it just offers nothing.
 </ParamField>
@@ -80,7 +80,7 @@ This file is complete. The next page runs it; a later page adds failures.
 </ParamField>
 
 <ParamField path="network" type="object">
-  `sameZone` and `crossZone` are one-way latencies; losim charges the round trip.
+  `sameZone` and `crossZone` are one-way latencies; dissaly charges the round trip.
   `jitter` spreads uniformly either side. `loss` is a probability from 0 to 1.
 </ParamField>
 
@@ -99,7 +99,7 @@ This file is complete. The next page runs it; a later page adds failures.
 | `peersServing(...)` | the service again | `Thumbnailer` |
 | `simulatedDuration:` | the file again | `src/lab/Shrinker.java` |
 
-The service key is what peers use to find a node. The file value is what losim
+The service key is what peers use to find a node. The file value is what dissaly
 compiles and loads. The loader refuses a key that disagrees with the service the
 class provides.
 </Note>

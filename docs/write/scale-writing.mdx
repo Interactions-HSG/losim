@@ -4,9 +4,9 @@ description: "Requirements for projecting a system to full scale."
 icon: "up-right-and-down-left-from-center"
 ---
 
-With `scale` above 1, losim measures a reduced workload on reduced nodes and projects
+With `scale` above 1, dissaly measures a reduced workload on reduced nodes and projects
 the declared full-size system. The job must respond to the input and system size that
-losim supplies during the probe runs.
+dissaly supplies during the probe runs.
 
 The job must expose the input and system variation that the probe grid measures.
 
@@ -14,7 +14,7 @@ The job must expose the input and system variation that the probe grid measures.
 
 ```java
 @Override public void load(Input in, StreamObserver<Workload> out) {
-    Album album = Albums.of(in.getCount(), Losim.current().seed());
+    Album album = Albums.of(in.getCount(), Dissaly.current().seed());
     out.onNext(Workload.newBuilder()
             .setCount(album.getFrameCount())
             .setType(Album.getDescriptor().getFullName())
@@ -32,7 +32,7 @@ input:
 
 The count is part of the simulation file, so sweeps can vary it. `Input.count` already
 contains the count for the measured rung.
-See [`losim.Job`](/ref/losim-proto) and [`input:`](/ref/input).
+See [`dissaly.Job`](/ref/dissaly-proto) and [`input:`](/ref/input).
 
 <Warning>
 **A `Load` that ignores `Input.count` cannot be projected.** Every probe then performs
@@ -47,7 +47,7 @@ generated workload in every run.
 ## 2. Declare Processed Units
 
 ```java
-Losim.current().units(request.getFramesCount());
+Dissaly.current().units(request.getFramesCount());
 ```
 
 Without it, `perUnit:` has no count to charge and the engine has no per-call variable.
@@ -57,8 +57,8 @@ Without it, `perUnit:` has no count to charge and the engine has no per-call var
 These values give the engine possible variables for fitting.
 
 ```java
-Losim.current().reveal("distinctItems", index.size());
-Losim.current().reveal("payloadKb", bytes / 1024.0);
+Dissaly.current().reveal("distinctItems", index.size());
+Dissaly.current().reveal("payloadKb", bytes / 1024.0);
 ```
 
 Peak memory on an accumulating node can depend on the number of *distinct* items it
@@ -102,7 +102,7 @@ nodes:
   master:
     instance: m5.2xlarge
     zone: eu-central-1a
-    runs: { losim.Job: src/lab/RenderJob.java }
+    runs: { dissaly.Job: src/lab/RenderJob.java }
   workers:
     count: 4
     prefix: w

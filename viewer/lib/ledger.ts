@@ -51,15 +51,36 @@ export interface BillLine {
   why?: string;
 }
 
+/** One account: what a set of quantities came to, at the rates in force. */
+export interface Account {
+  currency: string;
+  buckets: Record<Bucket, number>;
+  cost: number;
+  lines: BillLine[];
+  /**
+   * Lines the second account could not be written at all, and why.
+   *
+   * A projected bill is the observed one re-priced over projected quantities, so
+   * a resource the engine would not project takes its line off the bill with it.
+   * The line is named and the engine's reason is carried verbatim — a total that
+   * quietly dropped its largest line would be a smaller number that looked like
+   * a cheaper design.
+   */
+  unpriceable?: Record<string, string>;
+}
+
 export interface BillJson {
   rates: Record<string, number | string>;
-  observed: {
-    currency: string;
-    buckets: Record<Bucket, number>;
-    cost: number;
-    lines: BillLine[];
-  };
-  projected?: BillJson['observed'];
+  observed: Account;
+  /**
+   * The same design at the size it was a model of. Absent where the run was
+   * itself rather than a model of anything.
+   *
+   * Not accrued, and it must not be: there is no *when* to accrue it over. The
+   * run that happened is the small one, and drawing a projected total against
+   * the probe's clock would put a curve on the screen that nothing measured.
+   */
+  projected?: Account;
 }
 
 /** One line of the bill, as it stands at this instant. */

@@ -1,13 +1,13 @@
-# losim
+# dissaly
 
-losim runs a real gRPC system on one host while applying simulated latency,
+dissaly runs a real gRPC system on one host while applying simulated latency,
 failures, resource caps, and scale reduction. It uses the reduced run to project
 the system at full size.
 
 The repository contains:
 
 - the student's code, running with real gRPC, real allocation, and real threads
-- losim, which sits around it and models nodes, time, failures, and scaling
+- dissaly, which sits around it and models nodes, time, failures, and scaling
 
 An assignment uses **YAML** for the system and **protobuf plus Java** for the
 implementation. A gRPC service starts the work.
@@ -18,10 +18,10 @@ The node is made small, so a design that would fail at 16 GiB can fail here at
 ## Run it
 
 ```bash
-bin/dissaly dev test    # losim's own checks: every phase's acceptance criteria
+bin/dissaly dev test    # dissaly's own checks: every phase's acceptance criteria
 bin/dissaly dev suite   # the reference suite: gRPC systems, run the way a student runs them
 
-bin/dissaly simulate losim/test/simulations/wordcount.yaml \
+bin/dissaly simulate dissaly/test/simulations/wordcount.yaml \
                    --cp build/test-classes --out build/wordcount.json
 bin/dissaly bill build/wordcount.json
 bin/dissaly compare build/a.json build/b.json
@@ -32,7 +32,7 @@ devcontainer, and in a Codespace without downloading dependencies during the bui
 
 ## Service code
 
-An ordinary gRPC service starts from a `.proto` with no losim types in its API. An
+An ordinary gRPC service starts from a `.proto` with no dissaly types in its API. An
 adapter converts grpc-java's `void map(Chunk, StreamObserver<Counts>)` into a
 value-returning method that a unit test can call directly.
 
@@ -40,20 +40,20 @@ value-returning method that a unit test can call directly.
 public final class Mapper extends WorkerBase {
     @Override protected Counts map(Chunk request) {
         var counts = count(request.getText());
-        Losim.current().reveal("emitted", counts.size());   // silent in a bare test
+        Dissaly.current().reveal("emitted", counts.size());   // silent in a bare test
         return Counts.newBuilder().putAllCounts(counts).build();
     }
 }
 ```
 
-The signature contains no losim type. Remove the optional `reveal` call and the
-service source still compiles without losim on its classpath.
+The signature contains no dissaly type. Remove the optional `reveal` call and the
+service source still compiles without dissaly on its classpath.
 
 What the call costs is declared in the simulation, under the file that runs it:
 
 ```yaml
 simulatedDuration:
-  losim/test/src/Mapper.java: { Map: { fixed: 2 refMs } }
+  dissaly/test/src/Mapper.java: { Map: { fixed: 2 refMs } }
 ```
 
 The unit is reference-node time. The interceptor sleeps
@@ -61,24 +61,24 @@ The unit is reference-node time. The interceptor sleeps
 the class serves the named RPC.
 
 Some durations only the running program knows, such as a backoff or a poll interval.
-For those cases there is `Losim.current().sleep(refMs)`. It uses the same unit and
+For those cases there is `Dissaly.current().sleep(refMs)`. It uses the same unit and
 the same `k_time` scaling. Waiting is not work, so it does not make a node busy.
 `Thread.sleep` is different, and the verifier flags it.
 
 Nodes communicate through gRPC. Fire-and-forget uses an `Empty`-returning method on
-an async stub, so losim records its costs, failures, telemetry, and bytes like any
+an async stub, so dissaly records its costs, failures, telemetry, and bytes like any
 other call.
 
 A handler calls a peer the same way the job does, by what it serves rather than by
-hostname, over a channel losim made:
+hostname, over a channel dissaly made:
 
 ```java
-var here = Losim.current();
+var here = Dissaly.current();
 Channel to = here.channelTo(here.peersServing("Worker").get(0));
 return WorkerGrpc.newBlockingStub(to).map(request);
 ```
 
-The result is an `io.grpc.Channel`, and the call site remains plain gRPC. losim adds
+The result is an `io.grpc.Channel`, and the call site remains plain gRPC. dissaly adds
 the interceptor that records latency, byte counts, spans, failures, and retries.
 
 ## Simulation data
@@ -93,13 +93,13 @@ nodes:
   master:
     instance: m5.large
     zone: eu-central-1a
-    runs: { losim.Job: losim/test/src/WordCountJob.java }
+    runs: { dissaly.Job: dissaly/test/src/WordCountJob.java }
   workers:
     count: 6
     prefix: w
     instance: m5.large
     zone: [eu-central-1a, eu-central-1b]
-    runs: { Counter: losim/test/src/Counter.java }
+    runs: { Counter: dissaly/test/src/Counter.java }
     overrides:
       w2: { memoryMb: 4 }
       w5:
@@ -111,7 +111,7 @@ input:
   count: 8000
 ```
 
-Exactly one node runs `losim.Job`, which starts the work. Failures are nested under
+Exactly one node runs `dissaly.Job`, which starts the work. Failures are nested under
 the node or RPC they affect, so the loader can validate their targets.
 
 Every duration is reference-node time and has to say so. A bare `900` is refused,
@@ -122,7 +122,7 @@ The loader reports other errors with the source line: an unknown instance type, 
 missing `runs:` path, a partition naming an absent node, or a misspelled key.
 
 ```text
-wordcount.yaml:14: retrying losim.t.Volley.Hit is refused — its .proto declares no
+wordcount.yaml:14: retrying dissaly.t.Volley.Hit is refused — its .proto declares no
 idempotency_level, so running it twice is not known to be safe. Declare 'option
 idempotency_level = IDEMPOTENT;' on the rpc if it is, or write 'unsafe: true' here
 if you mean to retry it anyway.
@@ -131,7 +131,7 @@ if you mean to retry it anyway.
 ## Scale above 1
 
 The simulation above runs its declared input. The following simulation declares a
-larger input, so losim shrinks the workload and nodes by the same factor:
+larger input, so dissaly shrinks the workload and nodes by the same factor:
 
 ```yaml
 scale: 5000
@@ -171,7 +171,7 @@ whoever reads it, and is cached against the simulation and the code it profiles.
 
 ## Trust markers
 
-losim's numbers mean something only if the code stays inside the simulated world.
+dissaly's numbers mean something only if the code stays inside the simulated world.
 A handler that reads `System.nanoTime` gets the host's time rather than the
 compressed clock; one that writes a real file bypasses the disk model; one that
 hands its work to the common pool is charged to nobody.
@@ -223,7 +223,7 @@ model quantity
 
 A run above `scale: 1` produces an observed bill and a bill for the modeled size.
 The engine refuses quantities whose measurements cannot support projection. Capacity
-depends on the timeline, which is the noisiest quantity losim measures.
+depends on the timeline, which is the noisiest quantity dissaly measures.
 
 The result lists byte and storage costs directly. Capacity remains absent when the
 timeline is too uncertain to project.
@@ -236,7 +236,7 @@ catalogue, beside its vCPUs and its memory.
 
 The suite contains gRPC systems run through
 the command line a student types and asserted against the trace it wrote. The
-systems compile against `build/losim.jar` and the vendored gRPC alone, and every
+systems compile against `build/dissaly.jar` and the vendored gRPC alone, and every
 assertion reads the trace JSON off disk.
 
 Nine of them are systems. Four test the engine rather than the systems: a projection
@@ -269,7 +269,7 @@ reference suite of gRPC systems in CI.
 | failures | kill, freeze, degrade, spot reclaim with notice, partition, restart, and per-RPC status, slowdown, or dropped request |
 | retries | refused unless the `.proto` declares the method idempotent or the simulation sets `unsafe: true` |
 | two scales, per measurement | what happened, and what it is a model of, with an error bar or with a reason it is absent |
-| **losim's own cost, excluded** | everything losim does on a node's threads is metered and subtracted, so what is reported is the program's |
+| **dissaly's own cost, excluded** | everything dissaly does on a node's threads is metered and subtracted, so what is reported is the program's |
 | trust markers | real clocks, real files, real sockets, shared statics and unattributed threads, found in the compiled classes at the line they were written on, flagged, never refused |
 | a bill, at both scales | five buckets over the quantities the run produced, and at full scale a capacity line absent with a reason, because it depends on the one thing the engine would not project |
 
@@ -281,29 +281,29 @@ depend on how much they instrumented it.
 ## Repository layout
 
 ```text
-  losim/src/losim/api/       what a handler may say to losim and all it can reach
-losim/src/losim/runtime/   the nodes, the servers, the two interceptors
-losim/src/losim/trace/     the three-channel recorder and the trace it writes
-  losim/src/losim/time/      the compressed clock and failure timing
-losim/src/losim/res/       instance types, the heap walk, losim's own meter
-  losim/src/losim/scale/     the probe grid, fitted laws, solves, and refusals
-  losim/src/losim/sim/       a system and its failure conditions as data
-losim/proto/losim/         losim.Job — the one service losim ships
-losim/src/losim/verify/    what makes a number stop meaning what it says
-  losim/src/losim/price/     cost buckets and excluded quantities
-losim/src/losim/cli/       dissaly simulate | bill | compare
-losim/test/                every phase's acceptance criteria, run by `dissaly dev test`
+  dissaly/src/dissaly/api/       what a handler may say to dissaly and all it can reach
+dissaly/src/dissaly/runtime/   the nodes, the servers, the two interceptors
+dissaly/src/dissaly/trace/     the three-channel recorder and the trace it writes
+  dissaly/src/dissaly/time/      the compressed clock and failure timing
+dissaly/src/dissaly/res/       instance types, the heap walk, dissaly's own meter
+  dissaly/src/dissaly/scale/     the probe grid, fitted laws, solves, and refusals
+  dissaly/src/dissaly/sim/       a system and its failure conditions as data
+dissaly/proto/dissaly/         dissaly.Job — the one service dissaly ships
+dissaly/src/dissaly/verify/    what makes a number stop meaning what it says
+  dissaly/src/dissaly/price/     cost buckets and excluded quantities
+dissaly/src/dissaly/cli/       dissaly simulate | bill | compare
+dissaly/test/                every phase's acceptance criteria, run by `dissaly dev test`
 tests/                     the reference suite: gRPC systems, run by `dissaly dev suite`
 bin/dissaly                  the CLI: build the simulator, then run it
 prices/                    course data — what egress costs, what being late costs
 vendor/                    grpc 1.83.1, protobuf 4.36.0, protoc for two platforms
 ```
 
-An assignment compiles against `build/losim.jar` and the vendored jars alone, never
+An assignment compiles against `build/dissaly.jar` and the vendored jars alone, never
 against these sources.
 
 A handler is debugged on its own, in plain JUnit, with nothing simulating anything.
-See [losim/test/junit/HandlerTest.java](losim/test/junit/HandlerTest.java).
+See [dissaly/test/junit/HandlerTest.java](dissaly/test/junit/HandlerTest.java).
 
 ## Documentation
 

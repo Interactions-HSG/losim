@@ -1,6 +1,6 @@
 ---
-title: "losim"
-sidebarTitle: "What losim is"
+title: "dissaly"
+sidebarTitle: "What dissaly is"
 description: "Write a gRPC system, simulate it locally, and inspect its cost at full size."
 icon: "circle-nodes"
 ---
@@ -12,7 +12,7 @@ icon: "circle-nodes"
     Ordinary Java, ordinary `.proto` files, ordinary generated stubs. Real
     transport, real marshaling, real allocation, real threads.
   </Card>
-  <Card title="losim" icon="layer-group">
+  <Card title="dissaly" icon="layer-group">
     gRPC interceptors that slow calls or drop them, a node model that caps
     memory and disk, and a scale engine that shrinks the world and projects the
     result back.
@@ -24,7 +24,7 @@ the implementation. Your program calls peers over `io.grpc.Channel` and receives
 the messages declared by your schema. The simulation defines call costs, nodes,
 and failures.
 
-The service losim asks you to implement is `losim.Job`. It uses losim's schema and
+The service dissaly asks you to implement is `dissaly.Job`. It uses dissaly's schema and
 has one node that runs it.
 
 The measurements describe the program under test. An out-of-memory report means
@@ -42,9 +42,9 @@ dependencies.
   <Step title="Write a schema">
     A `.proto` with your services and messages. Nodes communicate through gRPC.
   </Step>
-  <Step title="Write services, one of them losim's">
+  <Step title="Write services, one of them dissaly's">
     Handlers are plain methods that can be called from a unit test. The entry service
-    implements `losim.Job`, which losim defines in its own schema.
+    implements `dissaly.Job`, which dissaly defines in its own schema.
   </Step>
   <Step title="Write a simulation">
     A YAML file describing the nodes, their Java files, zones, and failures.

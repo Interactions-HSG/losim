@@ -33,7 +33,7 @@ import thumbs.pb.ThumbnailerGrpc;
  * finds it holding, so a node too small for its catalogue fails for the reason a
  * real one would rather than by an accounting fiction.
  *
- * <p>An ordinary gRPC service from an ordinary {@code .proto}. The two losim calls
+ * <p>An ordinary gRPC service from an ordinary {@code .proto}. The two dissaly calls
  * are in the body and not in a signature, so this same class can be constructed
  * and called from a plain unit test with nothing simulating anything.
  */
@@ -95,7 +95,7 @@ public final class Shrinker extends ThumbnailerGrpc.ThumbnailerImplBase {
      * A second hop, when there is a peer to make it to.
      *
      * <p>The peer is found by what it offers, never by hostname, and the channel
-     * comes from losim rather than being built here. A simulation that places no
+     * comes from dissaly rather than being built here. A simulation that places no
      * store has no second hop, and the same class is a one-tier design there — the
      * topology decides, not the code.
      */

@@ -8,7 +8,7 @@ icon: "server"
 
 <Steps>
   <Step title="Extend the ImplBase protoc generated">
-    losim registers the class with an in-process gRPC server. The class must be a
+    dissaly registers the class with an in-process gRPC server. The class must be a
     `BindableService`; otherwise loading is refused:
 
     ```
@@ -17,21 +17,21 @@ icon: "server"
     ```
   </Step>
   <Step title="Give it a no-argument constructor">
-    losim builds a fresh instance when a node restarts, so it must be constructible.
-    Read runtime state through `Losim.current()`.
+    dissaly builds a fresh instance when a node restarts, so it must be constructible.
+    Read runtime state through `Dissaly.current()`.
 
     ```
-    thumbs.yaml:14: 'lab.Shrinker' needs a no-argument constructor, because losim
+    thumbs.yaml:14: 'lab.Shrinker' needs a no-argument constructor, because dissaly
     builds a fresh one when a node restarts.
     ```
 
-    It may be `private`; losim calls `setAccessible`.
+    It may be `private`; dissaly calls `setAccessible`.
   </Step>
   <Step title="Turn the callback shape back into a function">
     Write one adapter per service so the handler can be called from a unit test.
   </Step>
-  <Step title="Keep every losim type out of every signature">
-    `Thumbs thumbnail(Split)` does not depend on losim. The handler remains an
+  <Step title="Keep every dissaly type out of every signature">
+    `Thumbs thumbnail(Split)` does not depend on dissaly. The handler remains an
     ordinary object.
   </Step>
 </Steps>
@@ -63,14 +63,14 @@ public abstract class ServiceBase extends FooGrpc.FooImplBase {
 
 ## Instance lifetime and restart
 
-losim builds one instance per node when the node starts serving. Fields held by the
+dissaly builds one instance per node when the node starts serving. Fields held by the
 service are node data and are included in the retained-heap walk.
 
 The declaration determines what a restart does:
 
 | how the simulation declares it | what a restart does |
 |---|---|
-| `runs: { Thumbnailer: src/lab/Shrinker.java }` | losim builds a **fresh instance**. Whatever it was holding is gone — which is what a restart is. |
+| `runs: { Thumbnailer: src/lab/Shrinker.java }` | dissaly builds a **fresh instance**. Whatever it was holding is gone — which is what a restart is. |
 
 The trace says which happened:
 
@@ -97,7 +97,7 @@ uses the service name declared by each `.proto`.
 ## Node information
 
 ```java
-var spec = Losim.current().here();
+var spec = Dissaly.current().here();
 spec.node();       // "w3"
 spec.instance();      // "a1.medium"
 spec.zone();          // "eu-central-1b"
@@ -118,7 +118,7 @@ The caps are the **scaled** caps: what this node is allowed on *this* run, not t
 instance type's full-scale values. Comparing them supports consistent placement
 across scales.
 
-`cores()` is a simple relative capacity value, not a ranking computed by losim.
+`cores()` is a simple relative capacity value, not a ranking computed by dissaly.
 Use it as an input to placement decisions.
 </Note>
 

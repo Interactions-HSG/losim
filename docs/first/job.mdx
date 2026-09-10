@@ -7,7 +7,7 @@ icon: "diagram-project"
 A simulation declares nodes and failures. Code runs as gRPC services, including the
 service that starts the workload.
 
-losim provides that service in its own schema: [`losim.Job`](/ref/losim-proto),
+dissaly provides that service in its own schema: [`dissaly.Job`](/ref/dissaly-proto),
 with two RPCs. `Load` builds the workload outside the clock; `Run` is the measured
 simulation. Implement it like `Thumbnailer`: extend the generated `ImplBase` and
 run it on a node.
@@ -16,7 +16,7 @@ run it on a node.
 nodes:
   master:
     instance: m5.large
-    runs: { losim.Job: src/lab/RenderJob.java }
+    runs: { dissaly.Job: src/lab/RenderJob.java }
 ```
 
 ## The complete job
@@ -31,11 +31,11 @@ import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import lab.pb.*;
-import losim.api.Losim;
-import losim.pb.Input;
-import losim.pb.JobGrpc;
-import losim.pb.Result;
-import losim.pb.Workload;
+import dissaly.api.Dissaly;
+import dissaly.pb.Input;
+import dissaly.pb.JobGrpc;
+import dissaly.pb.Result;
+import dissaly.pb.Workload;
 
 public final class RenderJob extends JobGrpc.JobImplBase {
 
@@ -43,7 +43,7 @@ public final class RenderJob extends JobGrpc.JobImplBase {
 
     /** Builds the workload outside the measured run. */
     @Override public void load(Input in, StreamObserver<Workload> out) {
-        Album album = Albums.of(in.getCount(), Losim.current().seed());
+        Album album = Albums.of(in.getCount(), Dissaly.current().seed());
         out.onNext(Workload.newBuilder()
                 .setCount(album.getFrameCount())
                 .setType(Album.getDescriptor().getFullName())
@@ -54,7 +54,7 @@ public final class RenderJob extends JobGrpc.JobImplBase {
 
     /** Runs the measured simulation. */
     @Override public void run(Workload work, StreamObserver<Result> out) {
-        var here = Losim.current();
+        var here = Dissaly.current();
         Album album;
         try {
             album = Album.parseFrom(work.getPayload());     // your cost, on the clock
@@ -121,7 +121,7 @@ public final class RenderJob extends JobGrpc.JobImplBase {
 ```
 
 `Album` is an application message in your `.proto`; it contains repeated `Frame`
-values. Building it does not require losim-specific code:
+values. Building it does not require dissaly-specific code:
 
 ```java src/lab/Albums.java
 package lab;
@@ -151,10 +151,10 @@ final class Albums {
 
 <Note>
 **`Load` runs outside the measured design.** Reading a folder of frames or generating
-an album from the seed happens with the clock stopped. losim resets each node's ledger
+an album from the seed happens with the clock stopped. dissaly resets each node's ledger
 before `Run` starts, so `Load` contributes nothing to the bill or trace.
 
-Parsing the payload in `Run` **is** measured. Reading the input is losim's cost;
+Parsing the payload in `Run` **is** measured. Reading the input is dissaly's cost;
 unpacking it is part of the design.
 </Note>
 
@@ -168,7 +168,7 @@ it could behave differently at the probe and full sizes, leaving no stable
 behavior to project.
 </Warning>
 
-## `Losim.current()` calls
+## `Dissaly.current()` calls
 
 <AccordionGroup>
   <Accordion title="peersServing(…) discovers services" icon="magnifying-glass" defaultOpen>
@@ -187,7 +187,7 @@ behavior to project.
     The result is an ordinary `io.grpc.Channel`, and the call site uses plain
     gRPC. The node creates and owns the channel, including its lifetime.
 
-    A channel built with `ManagedChannelBuilder` lacks losim's interceptors. Its
+    A channel built with `ManagedChannelBuilder` lacks dissaly's interceptors. Its
     calls bypass simulated speed, byte counts, latency, partitions, and trace
     recording. The verifier flags that channel.
   </Accordion>
@@ -228,7 +228,7 @@ the work. The trace, bill, and critical path can then account for it directly.
 ## Patterns to reuse
 
 **Every outbound call has a deadline.** `withDeadlineAfter(2_000, MILLISECONDS)`
-means 2000 *reference* milliseconds. losim rewrites it into real time using
+means 2000 *reference* milliseconds. dissaly rewrites it into real time using
 `k_time`. A call without a deadline waits five seconds before giving up, and the
 trace records that timeout.
 

@@ -5,13 +5,13 @@ import dissaly.api.Dissaly;
 /**
  * t1-handler-alone — a gRPC service's handler, called straight from a test.
  *
- * <p><b>Catches:</b> losim leaking into a signature, and an absent context inventing
+ * <p><b>Catches:</b> dissaly leaking into a signature, and an absent context inventing
  * state that makes a green test meaningless.
  *
  * <p>No cluster, no simulation, no interceptor and no clock: a class, constructed, with
  * a method called on it. Set a breakpoint in {@code map} and stepping into it stops
  * nothing else, because nothing else is running. If this case ever stops compiling,
- * a losim type has appeared in a signature and the shape has been lost.
+ * a dissaly type has appeared in a signature and the shape has been lost.
  */
 public final class T1 {
     public static void main(String[] args) {

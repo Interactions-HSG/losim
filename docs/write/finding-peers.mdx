@@ -8,13 +8,13 @@ icon: "magnifying-glass"
 
 <CodeGroup>
 ```java inside a handler
-var here = Losim.current();
+var here = Dissaly.current();
 List<String> workers = here.peersServing("Thumbnailer");   // never includes itself
 List<String> everyone = here.peers();                      // every other node
 ```
 
 ```java inside Job.Run
-var here = Losim.current();
+var here = Dissaly.current();
 List<String> workers = here.peersServing("Thumbnailer");   // never includes itself
 List<String> everyone = here.peers();
 ```
@@ -25,7 +25,7 @@ List<String> everyone = here.peers();
 thread while waiting for another thread on the same node.
 
 `Job.Run` is a handler like any other, so the same rule applies. The node running
-`losim.Job` is usually the master and serves no other service.
+`dissaly.Job` is usually the master and serves no other service.
 </Warning>
 
 ## Use the `.proto` service name
@@ -47,7 +47,7 @@ Both forms are registered. Use the same service string as the `runs:` **key**:
 runs: { lab.Thumbnailer: src/lab/Shrinker.java }
 ```
 
-The key is the service and the value is the file. losim refuses a mismatch between
+The key is the service and the value is the file. dissaly refuses a mismatch between
 the key and the class's implemented service.
 
 ## Peer discovery and liveness
@@ -57,7 +57,7 @@ here.peersServing("Thumbnailer")   // ["w0", "w2", "w3"] — w1 was killed
 ```
 
 <Note>
-That is **discovery**, not a health API. losim does not provide an authoritative
+That is **discovery**, not a health API. dissaly does not provide an authoritative
 `isAlive` query because a network cannot guarantee one.
 
 A stopped node is detected when a call fails or reaches its deadline. It can leave
@@ -101,9 +101,9 @@ service Registry {
 ```java
 // On a worker, the first time it is asked to do anything:
 if (announced.compareAndSet(false, true)) {
-    var spec = Losim.current().here();
-    var desk = Losim.current().peersServing("Registry").get(0);
-    RegistryGrpc.newBlockingStub(Losim.current().channelTo(desk))
+    var spec = Dissaly.current().here();
+    var desk = Dissaly.current().peersServing("Registry").get(0);
+    RegistryGrpc.newBlockingStub(Dissaly.current().channelTo(desk))
         .announce(Health.newBuilder()
             .setMachine(spec.node()).setVcpu(spec.vcpu())
             .setMemoryCapMb(spec.memoryCapMb()).build());
@@ -115,7 +115,7 @@ The table can become stale, so placement must account for its age.
 ## Zones
 
 ```java
-Losim.current().here().zone()      // "eu-central-1b"
+Dissaly.current().here().zone()      // "eu-central-1b"
 ```
 
 Only your own zone is available locally; a peer can report its zone. Traffic

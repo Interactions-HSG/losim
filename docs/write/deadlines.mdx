@@ -9,7 +9,7 @@ var stub = ThumbnailerGrpc.newBlockingStub(channel)
         .withDeadlineAfter(2_000, TimeUnit.MILLISECONDS);   // 2000 refMs
 ```
 
-You write milliseconds because that is gRPC's API. losim interprets them as
+You write milliseconds because that is gRPC's API. dissaly interprets them as
 **reference** milliseconds and converts the remaining time by `k_time` before
 passing it to gRPC.
 
@@ -50,7 +50,7 @@ the caller gives up.
 
 ## A call with no deadline
 
-losim waits **five seconds** and then gives up on your behalf, so a simulation without
+dissaly waits **five seconds** and then gives up on your behalf, so a simulation without
 an explicit deadline still terminates.
 
 Five seconds of reference time can exceed a short run's horizon. If a run takes much
@@ -96,7 +96,7 @@ nodes:
   master:
     instance: m5.large
     zone: eu-central-1a
-    runs: { losim.Job: src/lab/RenderJob.java }
+    runs: { dissaly.Job: src/lab/RenderJob.java }
   workers:
     count: 2
     prefix: w

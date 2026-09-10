@@ -67,7 +67,7 @@ actual wall time  =  refMs x (2 / vcpu) x degradeFactor / k_time
 The multiplication applies to **work**, which is what `simulatedDuration:`
 declares. It does not apply to waiting. A slower node computes for longer, but a
 scheduled wait does not stretch, so
-`Losim.current().sleep(refMs)` is divided by `k_time` and nothing else.
+`Dissaly.current().sleep(refMs)` is divided by `k_time` and nothing else.
 </Warning>
 
 ## Java durations
@@ -75,11 +75,11 @@ scheduled wait does not stretch, so
 Two places, and both are reference time as well:
 
 ```java
-Losim.current().sleep(200);                                   // 200 refMs
+Dissaly.current().sleep(200);                                   // 200 refMs
 stub.withDeadlineAfter(2_000, TimeUnit.MILLISECONDS);         // 2000 refMs
 ```
 
-The deadline uses milliseconds because that is gRPC's API. losim divides the
+The deadline uses milliseconds because that is gRPC's API. dissaly divides the
 remaining time by `k_time` in the client interceptor, where the deadline's intent
 is still available.
 

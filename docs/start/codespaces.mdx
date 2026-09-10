@@ -11,7 +11,7 @@ icon: "cloud"
     From the repository page: **Code -> Codespaces -> Create codespace**.
 
     The container builds and runs `./gradlew jar`; when the terminal appears,
-    `build/losim.jar` already exists.
+    `build/dissaly.jar` already exists.
   </Tab>
   <Tab title="VS Code, locally">
     With Docker running and the **Dev Containers** extension installed, open the
@@ -25,10 +25,10 @@ icon: "cloud"
 
 | | |
 |---|---|
-| **Java 25** | from the base image `mcr.microsoft.com/devcontainers/java:25-bookworm`. losim compiles at `--release 21`, so anything from 21 up works. |
+| **Java 25** | from the base image `mcr.microsoft.com/devcontainers/java:25-bookworm`. dissaly compiles at `--release 21`, so anything from 21 up works. |
 | **The vendored toolchain** | gRPC 1.83.1, protobuf 4.36.0 and `protoc` for two platforms, committed under `vendor/`. Nothing is fetched to compile or to run. |
 | **Gradle 9.2.0** | from the committed `./gradlew`, not from the image. The image carried one until it was rebuilt without it, and a build that depends on what the image ships this month is a build that stops working without anybody touching it. The wrapper fetches that one version on create and checks its sha256. |
-| **Node 22** | only for developing the viewer. Neither losim nor this manual needs it. |
+| **Node 22** | only for developing the viewer. Neither dissaly nor this manual needs it. |
 | **Port 8000** | **the lab**, including the viewer, runs, and system controls. |
 | **Port 3000** | **the manual**, running as a separate process. |
 
@@ -62,8 +62,8 @@ through npm.
 ## Commands
 
 <CodeGroup>
-```bash losim
-bin/dissaly dev test        # losim's own acceptance criteria
+```bash dissaly
+bin/dissaly dev test        # dissaly's own acceptance criteria
 bin/dissaly dev suite       # the reference suite: gRPC systems, end to end
 bin/dissaly dev docs check  # that this manual gives no assignment away
 ```
@@ -72,7 +72,7 @@ Each command builds the simulator first. `bin/dissaly` runs `./gradlew jar` and 
 JVM command.
 
 ```bash your work
-./dissaly simulate  mine.yaml --cp build/losim/classes --out build/results/mine.json
+./dissaly simulate  mine.yaml --cp build/dissaly/classes --out build/results/mine.json
 ./dissaly bill build/results/mine.json
 ./dissaly compare build/results/a.json build/results/b.json
 ```
@@ -91,7 +91,7 @@ JVM command.
 
 <Note>
 Node 22 is in the image only for previewing the manual and **developing** the viewer.
-losim and run inspection use the committed viewer export and the JDK.
+dissaly and run inspection use the committed viewer export and the JDK.
 
 </Note>
 

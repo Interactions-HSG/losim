@@ -78,14 +78,14 @@ discontinuity. Three sizes do not provide that comparison.
 
 ## Plan cache
 
-losim performs the probe runs once and caches the fitted plan:
+dissaly performs the probe runs once and caches the fitted plan:
 
 ```
 [plan fitted from 30 probe runs in 41.2s]
 [plan cached]
 ```
 
-Plans are cached in `build/.losim-plans/`, keyed by **the simulation, the profiled
+Plans are cached in `build/.dissaly-plans/`, keyed by **the simulation, the profiled
 code, and the telemetry level**.
 
 <Note>
@@ -94,7 +94,7 @@ instrumentation. Omitting it would allow runs at different levels to reuse a pla
 </Note>
 
 ```bash
-rm -rf build/.losim-plans      # force a refit
+rm -rf build/.dissaly-plans      # force a refit
 ```
 
 ## Choose sizes

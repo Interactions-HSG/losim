@@ -38,7 +38,7 @@ affected result:
     statics, and a hard gate would have to argue with every one.
   </Card>
   <Card title="A gate teaches the wrong thing" icon="lock">
-    losim measures rather than restricts what your code does. The useful output is a
+    dissaly measures rather than restricts what your code does. The useful output is a
     lower bound attached to the affected node and resource, not a verdict about the
     code.
   </Card>
@@ -52,7 +52,7 @@ classpath.
 
 - The JDK is not walked.
 - gRPC is not walked.
-- losim's own packages are named explicitly and skipped. They would otherwise light
+- dissaly's own packages are named explicitly and skipped. They would otherwise light
   up, since the clock reads `nanoTime` and the dispatcher parks threads.
 - Generated code is recognised and skipped by protobuf's superclass and grpc-java's
   `@GrpcGenerated`, not by a guess about the name.

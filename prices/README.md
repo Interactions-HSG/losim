@@ -4,7 +4,7 @@ These files hold course billing data outside the simulator. Choose a region with
 `--prices`:
 
 ```bash
-java -cp "$CP" losim.cli.Main bill build/runs/mine.json --prices prices/ap-northeast-1.yaml
+java -cp "$CP" dissaly.cli.Main bill build/runs/mine.json --prices prices/ap-northeast-1.yaml
 ```
 
 Billing is a pure function of the trace, so changing the region does not rerun the
@@ -43,7 +43,7 @@ intercontinental gigabyte costs nine times an in-region one in this data, and tu
 does not change which traffic crosses that boundary.
 
 Real prices change over time and by contract. To use them, update these files;
-nothing in `losim/` needs to change.
+nothing in `dissaly/` needs to change.
 
 ## Egress rates by distance
 
@@ -56,7 +56,7 @@ The rates distinguish same-zone, regional, continental, and intercontinental tra
 | same continent | `egress_cross_region_per_gb` | `eu-central-1a` -> `eu-west-1a` |
 | across an ocean | `egress_intercontinental_per_gb` | `eu-central-1a` -> `ap-northeast-1a` |
 
-A machine's zone determines the rate. losim reads the region from the zone name:
+A machine's zone determines the rate. dissaly reads the region from the zone name:
 `eu-central-1a` is in `eu-central-1`, and `switzerlandnorth-1` is in
 `switzerlandnorth`. No additional declaration is needed.
 
@@ -64,9 +64,9 @@ The trace records the split (`egressMb`, per machine, by destination region) as
 the calls happen because only the caller knows both ends. The bill prints separate
 egress lines by destination region, so intercontinental traffic remains visible.
 
-A zone that losim does not recognise, such as `rack-3` or `left`, becomes its own
+A zone that dissaly does not recognise, such as `rack-3` or `left`, becomes its own
 region on an unknown continent. Traffic to it uses the **cross-region** rate;
-losim does not infer intercontinental distance from an unknown name.
+dissaly does not infer intercontinental distance from an unknown name.
 
 ## Field reference
 

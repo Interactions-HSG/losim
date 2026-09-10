@@ -11,7 +11,7 @@ public final class MyJob extends JobGrpc.JobImplBase {
 }
 ```
 
-This is an ordinary gRPC service implementing losim's schema. [`losim.Job`](/ref/losim-proto)
+This is an ordinary gRPC service implementing dissaly's schema. [`dissaly.Job`](/ref/dissaly-proto)
 defines both methods.
 
 Returning from `Run` ends the simulation. Throwing also ends it, with the failure
@@ -23,10 +23,10 @@ recorded in the trace.
 nodes:
   master:
     instance: m5.large
-    runs: { losim.Job: src/lab/MyJob.java }
+    runs: { dissaly.Job: src/lab/MyJob.java }
 ```
 
-**A single node** must run `losim.Job`, using the same `runs:` key as other services.
+**A single node** must run `dissaly.Job`, using the same `runs:` key as other services.
 `Run` behaves like any handler: it occupies a pool thread, queues behind other work,
 and its allocations are charged.
 
@@ -36,7 +36,7 @@ and its allocations are charged.
   <Card title="Load: outside the clock" icon="inbox">
     ```java
     @Override public void load(Input in, StreamObserver<Workload> out) {
-        var album = Albums.of(in.getCount(), Losim.current().seed());
+        var album = Albums.of(in.getCount(), Dissaly.current().seed());
         out.onNext(Workload.newBuilder()
                 .setCount(album.getFrameCount())
                 .setType(Album.getDescriptor().getFullName())
@@ -67,7 +67,7 @@ also hides `input:`, `source:`, and the scale rung, enforcing the same behavior 
 every rung.
 </Warning>
 
-## `Losim.current()` API
+## `Dissaly.current()` API
 
 <AccordionGroup>
   <Accordion title="peers() and peersServing(service)" icon="magnifying-glass">
@@ -75,7 +75,7 @@ every rung.
     [Finding peers ->](/write/finding-peers)
   </Accordion>
   <Accordion title="channelTo(node)" icon="plug">
-    A channel with losim's interceptors attached. Build the generated stub on top.
+    A channel with dissaly's interceptors attached. Build the generated stub on top.
   </Accordion>
   <Accordion title="seed()" icon="dice">
     The simulation's seed. A generated workload should use it so seed sweeps vary
@@ -96,7 +96,7 @@ every rung.
     because the run measures how long the work takes.
 
     ```java
-    var here = Losim.current();
+    var here = Dissaly.current();
     while (here.clockMs() < 20_000) {
         fireOneRequest();
         here.sleep(50);
@@ -160,11 +160,11 @@ print([e['detail']['value'] for e in t['events'] if e['kind'] == 'done'])
 
 ## Run timeout
 
-If `Run` has not returned after **two minutes of real time**, losim cancels it:
+If `Run` has not returned after **two minutes of real time**, dissaly cancels it:
 
 ```
 thumbs.yaml  seed 7  did not complete in 61042 refMs
-  losim.Job/Run was still running after 120 seconds of real time, so the run was
+  dissaly.Job/Run was still running after 120 seconds of real time, so the run was
   cancelled as stuck
 ```
 
@@ -175,7 +175,7 @@ backstop uses real time so a stopped simulated clock cannot prevent termination.
 
 ```yaml
 master:
-  runs: { losim.Job: src/lab/MyJob.java }
+  runs: { dissaly.Job: src/lab/MyJob.java }
   failures:
     - { kill: true, at: 400 refMs }
 ```

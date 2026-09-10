@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "losim: build",
+      "label": "dissaly: build",
       "type": "shell",
       "command": "gradle -q jar",
       "group": "build",
@@ -11,7 +11,7 @@
       ]
     },
     {
-      "label": "losim: check",
+      "label": "dissaly: check",
       "type": "shell",
       "command": "bin/dissaly dev test",
       "group": {
@@ -21,7 +21,7 @@
       "problemMatcher": []
     },
     {
-      "label": "losim: reference suite",
+      "label": "dissaly: reference suite",
       "type": "shell",
       "command": "bin/dissaly dev suite",
       "group": "test",
@@ -36,7 +36,7 @@
       "presentation": { "reveal": "silent" }
     },
     {
-      "label": "losim: the lab (localhost:8000)",
+      "label": "dissaly: the lab (localhost:8000)",
       "type": "shell",
       "command": "bin/dissaly serve",
       "isBackground": true,

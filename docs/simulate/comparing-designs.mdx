@@ -31,8 +31,8 @@ in the simulation file.
 ## Runtime comparison
 
 ```bash
-java -cp "$CP" losim.cli.Main simulate design-a.yaml --cp build/losim/classes --out build/results/a.json
-java -cp "$CP" losim.cli.Main simulate design-b.yaml --cp build/losim/classes --out build/results/b.json
+java -cp "$CP" dissaly.cli.Main simulate design-a.yaml --cp build/dissaly/classes --out build/results/a.json
+java -cp "$CP" dissaly.cli.Main simulate design-b.yaml --cp build/dissaly/classes --out build/results/b.json
 ```
 
 Open `a`, then pick `b` from **`compare with…`**. Both runs use
@@ -46,8 +46,8 @@ caused the cost.
 
 
 ```bash
-java -cp "$CP" losim.cli.Main bill build/design-a.json > build/a.bill
-java -cp "$CP" losim.cli.Main bill build/design-b.json > build/b.bill
+java -cp "$CP" dissaly.cli.Main bill build/design-a.json > build/a.bill
+java -cp "$CP" dissaly.cli.Main bill build/design-b.json > build/b.bill
 diff -y --width=160 build/a.bill build/b.bill
 ```
 
@@ -63,7 +63,7 @@ egress_per_gb: 4.00
 ```
 
 ```bash
-java -cp "$CP" losim.cli.Main bill build/design-a.json --prices prices/expensive-egress.yaml
+java -cp "$CP" dissaly.cli.Main bill build/design-a.json --prices prices/expensive-egress.yaml
 ```
 
 Billing is a pure function of the trace, so this needs no re-run. If the ranking
@@ -73,7 +73,7 @@ changes, the original advantage depended on the price assumption.
 ## Checks performed by `dissaly compare`
 
 ```bash
-java -cp "$CP" losim.cli.Main compare build/a.json build/b.json
+java -cp "$CP" dissaly.cli.Main compare build/a.json build/b.json
 ```
 
 <Warning>

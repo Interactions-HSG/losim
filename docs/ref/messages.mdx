@@ -4,7 +4,7 @@ description: "Diagnostic messages, their meanings, and suggested fixes."
 icon: "message"
 ---
 
-The tables group messages by when losim emits them. Load and configuration errors
+The tables group messages by when dissaly emits them. Load and configuration errors
 stop the simulation before execution. Runtime messages describe an active run or
 its result.
 
@@ -30,8 +30,8 @@ its result.
 | `unit: is what one item is called, singular — frame, line, order …` | |
 | `there is nothing at 'data/frames/'` | `source:` is stat'ed at load |
 | `a call cannot take negative time` | in `simulatedDuration:` |
-| `lab.Router.Watch is a server-streaming rpc, and losim prices a call as one request and one response …` | make it unary; see below |
-| `lab.Thing.Say carries a marshaller of its own rather than a protobuf one …` | losim weighs a call by its serialized protobuf size |
+| `lab.Router.Watch is a server-streaming rpc, and dissaly prices a call as one request and one response …` | make it unary; see below |
+| `lab.Thing.Say carries a marshaller of its own rather than a protobuf one …` | dissaly weighs a call by its serialized protobuf size |
 | `no such simulation: thumbs.yaml` | |
 
 ## Invalid `runs:` entries
@@ -43,8 +43,8 @@ its result.
 | `there is no file at 'src/Shrinkr.java'` | paths are relative to the project root |
 | `'src/Shrinker.java' declares no type called Shrinker` | a file and the class in it have to agree |
 | `this node runs 'Thumbnailer' twice` | |
-| `no node in this simulation runs losim.Job, so there is nothing to start` | one node's `runs:` says `{ losim.Job: <path>.java }` |
-| `'b' runs losim.Job, and so does 'a' at thumbs.yaml:6` | two designs are two files, compared with `dissaly compare` |
+| `no node in this simulation runs dissaly.Job, so there is nothing to start` | one node's `runs:` says `{ dissaly.Job: <path>.java }` |
+| `'b' runs dissaly.Job, and so does 'a' at thumbs.yaml:6` | two designs are two files, compared with `dissaly compare` |
 
 ## Invalid `failures:` entries
 
@@ -71,7 +71,7 @@ its result.
 
 <Warning>
 Both shapes are **refused**. The trust verifier can flag an unreliable measurement,
-while these RPC shapes prevent losim from producing a valid price.
+while these RPC shapes prevent dissaly from producing a valid price.
 </Warning>
 
 <ParamField path="a streaming rpc" type="refused">
@@ -84,11 +84,11 @@ while these RPC shapes prevent losim from producing a valid price.
 </ParamField>
 
 <ParamField path="a marshaller that is not protobuf" type="refused">
-  losim measures the serialized size of protobuf messages. A JSON or byte-array
+  dissaly measures the serialized size of protobuf messages. A JSON or byte-array
   marshaller, including grpc-java's `advanced` and `preserialized` examples, does
   not provide that size, so the call would contribute no wire cost.
 
-  losim checks the **marshaller**, not the schema descriptor. Its warm-up descriptor
+  dissaly checks the **marshaller**, not the schema descriptor. Its warm-up descriptor
   is built by hand and has no schema while still using ordinary protobuf messages.
 </ParamField>
 
@@ -98,7 +98,7 @@ while these RPC shapes prevent losim from producing a valid price.
 |---|---|
 | `no class called 'lab.Shrinker' is on the classpath` | the file exists but was not compiled; run `./dissaly build` and check `--cp` |
 | `'lab.Shrinker' is not a gRPC service` | it must extend the `ImplBase` protoc generated |
-| `'lab.Shrinker' needs a no-argument constructor` | losim builds a fresh one when a node restarts |
+| `'lab.Shrinker' needs a no-argument constructor` | dissaly builds a fresh one when a node restarts |
 | `this node runs 'Volley' under 'Thumbnailer', and the class in it serves Volley` | the `runs:` key is what peers find this node by; `peersServing` would find nobody |
 | `simulatedDuration names 'src/Shrinker.java Thumbnial', and src/Shrinker.java serves no rpc of that name. It serves Capacity, Thumbnail.` | a cost that belongs to nothing is a method that quietly takes no time |
 | `failures names 'src/Shrinker.java Thumbnil' …` | the same typo, in a `failures:` block; a failure that belongs to nothing never fires |
@@ -112,13 +112,13 @@ while these RPC shapes prevent losim from producing a valid price.
 | `w3 has no disk left: 33.4 MB written against a 32.0 MB volume` | working as intended — `wroteDisk` throws past the cap |
 | `w2 ran out of memory: 11.83 MB against a 4.0 MB cap` | the retained-heap walk found it over. The node is killed. |
 | `this thread has no node: work started on a thread the node did not create …` | [concurrency](/write/concurrency) |
-| `no simulation is running, so Losim.current().peers() has no answer here` | a state call in a unit test |
+| `no simulation is running, so Dissaly.current().peers() has no answer here` | a state call in a unit test |
 | `there is no node called 'w9'; this system has …` | `channelTo` with a name that is not in the system |
 | `DEADLINE_EXCEEDED: w1 did not answer (unreachable)` | dead, partitioned or lost — `why` says which |
 | `DEADLINE_EXCEEDED: the network outlasted the deadline` | the callee answered, but the round trip took too long |
-| `losim.Job/Run was still running after 120 seconds of real time` | a backstop, not a deadline — the line between slow and stuck |
-| `losim.Job/Load failed on master: …` | `Load` runs before anything is measured, so a simulation whose input cannot be built has not started |
-| `… — master runs losim.Job and was restarted` | shutting a node down cancels its calls in flight, and `Run` was one |
+| `dissaly.Job/Run was still running after 120 seconds of real time` | a backstop, not a deadline — the line between slow and stuck |
+| `dissaly.Job/Load failed on master: …` | `Load` runs before anything is measured, so a simulation whose input cannot be built has not started |
+| `… — master runs dissaly.Job and was restarted` | shutting a node down cancels its calls in flight, and `Run` was one |
 
 ## Completion messages
 
@@ -127,7 +127,7 @@ while these RPC shapes prevent losim from producing a valid price.
 | `trust: 4 nodes report figures that do not mean what they say` | [trust rules](/ref/trust-rules). Nothing was stopped. |
 | `none of the classes this simulation names are on the classpath it was given …` | point `--cp` at a **directory**; a jar is not walked |
 | `ABANDONED — the run ended while this was in flight` | a span that was still open when the run ended. Normal. |
-| `losim: w0 did not release its name in time` | shutting the node down took longer than two seconds. Harmless for the trace, which is already written — but if you run several systems in one JVM, the next one may fail to bind that name. |
+| `dissaly: w0 did not release its name in time` | shutting the node down took longer than two seconds. Harmless for the trace, which is already written — but if you run several systems in one JVM, the next one may fail to bind that name. |
 
 
 ## Scale messages
@@ -152,4 +152,4 @@ while these RPC shapes prevent losim from producing a valid price.
 | `0` | `Job.Run` completed |
 | `1` | it did not, or the engine found no feasible size |
 | `2` | the simulation is wrong. Nothing ran. |
-| `3` | something inside losim. `LOSIM_DEBUG=1` prints the stack. |
+| `3` | something inside dissaly. `DISSALY_DEBUG=1` prints the stack. |

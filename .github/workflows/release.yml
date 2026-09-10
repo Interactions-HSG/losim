@@ -9,13 +9,13 @@
 #
 # What it publishes, and who reads it:
 #
-#   losim.jar       one asset, and the only one. A lab resolves losim from Maven
+#   dissaly.jar       one asset, and the only one. A lab resolves dissaly from Maven
 #                   and never touches this; it is what somebody with no ./dissaly
-#                   yet downloads to run `java -jar losim.jar adopt .` once. The
+#                   yet downloads to run `java -jar dissaly.jar adopt .` once. The
 #                   viewer and the manual are inside it, so there is nothing
 #                   beside it to keep in step.
 #   the Maven tree  what a lab actually resolves, pushed to the maven-repo branch
-#                   and attached here as losim-maven-repo.zip.
+#                   and attached here as dissaly-maven-repo.zip.
 #
 # The tag itself is the version check: `dissaly version --check` does one HEAD on
 # /releases/latest and reads the tag out of the Location header. Nothing has to
@@ -30,7 +30,7 @@
 #   **Release assets** are served anonymously only for *public* repositories. So
 #   the repository these releases land in must be public. If the simulator's own
 #   repository is not, publish to a small public one that holds releases and
-#   nothing else, and point losim/cli/Released.java's DIST at it.
+#   nothing else, and point dissaly/cli/Released.java's DIST at it.
 #
 #   **GitHub Packages' Maven registry is not an option at all.** It requires a
 #   token to *read*. Unlike the Container registry, which is the only one
@@ -74,7 +74,7 @@ jobs:
               exit 1
             fi
           fi
-          echo "releasing losim $FILE"
+          echo "releasing dissaly $FILE"
 
       # Before the checks, not after: Gradle builds the simulator, and
       # `bin/dissaly` is a Gradle build followed by a JVM.
@@ -90,7 +90,7 @@ jobs:
       # here so that a change to where the jar lands fails the release rather
       # than publishing whatever was in build/ from something else.
       - name: the jar exists
-        run: test -f build/losim.jar
+        run: test -f build/dissaly.jar
 
       # The Maven layout, as files. This is the artifact students resolve, and it
       # is built before anything is pushed anywhere so a broken build file fails
@@ -102,7 +102,7 @@ jobs:
       # depend on Pages at all can unzip this into any static host, and it means
       # the release is self-contained even if the Pages push below is skipped.
       - name: attach the Maven repository to the release
-        run: cd build/maven-repo && zip -qr ../losim-maven-repo.zip .
+        run: cd build/maven-repo && zip -qr ../dissaly-maven-repo.zip .
 
       # Served anonymously, which GitHub Packages' Maven registry cannot be: it
       # wants a token to read even a public package, and a student cannot be
@@ -141,14 +141,14 @@ jobs:
           # published, so copying it over the branch's own replaced a list of every
           # release with a list of one — for six releases running. Rebuilt here from
           # the version directories that are actually on the branch.
-          D=io/github/interactions-hsg/losim
+          D=io/github/interactions-hsg/dissaly
           ALL="$(ls -d "$D"/*/ | xargs -n1 basename | sort -V)"
           NEWEST="$(echo "$ALL" | tail -1)"
           {
             echo '<?xml version="1.0" encoding="UTF-8"?>'
             echo '<metadata>'
             echo '  <groupId>io.github.interactions-hsg</groupId>'
-            echo '  <artifactId>losim</artifactId>'
+            echo '  <artifactId>dissaly</artifactId>'
             echo '  <versioning>'
             echo "    <latest>${NEWEST}</latest>"
             echo "    <release>${NEWEST}</release>"
@@ -167,8 +167,8 @@ jobs:
           echo "metadata lists: $(echo "$ALL" | tr '\n' ' ')"
 
           git add -A
-          git -c user.name=losim-release -c user.email=noreply@github.com \
-              commit -m "losim ${V}" || echo "nothing changed"
+          git -c user.name=dissaly-release -c user.email=noreply@github.com \
+              commit -m "dissaly ${V}" || echo "nothing changed"
           git push origin maven-repo
 
       - name: publish to GitHub Packages (maintainers only, needs a token to read)
@@ -200,8 +200,8 @@ jobs:
           # nothing changed.
           NOTES=build/release-notes.md
           {
-            echo "A lab takes this by changing losimVersion in its build.gradle.kts to $V."
-            echo "With no losim yet: download losim.jar and run \`java -jar losim.jar adopt .\`"
+            echo "A lab takes this by changing dissalyVersion in its build.gradle.kts to $V."
+            echo "With no dissaly yet: download dissaly.jar and run \`java -jar dissaly.jar adopt .\`"
             echo
             awk -v v="## $V" '$0 == v {on=1; next} on && /^## / {exit} on {print}' CHANGELOG.md \
               > build/section.md
@@ -210,9 +210,9 @@ jobs:
           } > "$NOTES"
 
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" build/losim.jar build/losim-maven-repo.zip --clobber
-            gh release edit "$TAG" --title "losim $V" --notes-file "$NOTES"
+            gh release upload "$TAG" build/dissaly.jar build/dissaly-maven-repo.zip --clobber
+            gh release edit "$TAG" --title "dissaly $V" --notes-file "$NOTES"
           else
-            gh release create "$TAG" build/losim.jar build/losim-maven-repo.zip \
-              --title "losim $V" --notes-file "$NOTES"
+            gh release create "$TAG" build/dissaly.jar build/dissaly-maven-repo.zip \
+              --title "dissaly $V" --notes-file "$NOTES"
           fi

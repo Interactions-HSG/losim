@@ -9,7 +9,7 @@ nodes:
   master:                       # one node, named by its key
     instance: m5.large
     zone: eu-central-1a
-    runs: { losim.Job: src/RenderJob.java }
+    runs: { dissaly.Job: src/RenderJob.java }
 
   workers:                           # a pool: w0 w1 w2 w3
     count: 4
@@ -26,7 +26,7 @@ nodes:
 ```
 
 The configuration must contain at least one node, and **exactly one must run
-`losim.Job`**.
+`dissaly.Job`**.
 
 ## Services
 
@@ -38,16 +38,16 @@ A map from **service name** on the left to the implementing **`.java` file** on 
 right.
 
 The key is the gRPC service name and the value used by `peersServing("Thumbnailer")`.
-Use a dotted name when the `.proto` has a package, such as `losim.Job` or
+Use a dotted name when the `.proto` has a package, such as `dissaly.Job` or
 `render.Thumbnailer`. A key that disagrees with the class's service is refused.
 
 The value is a path relative to the project root. It must end in `.java`, the file
-must exist, and it must declare a type with its own name. losim checks all three
+must exist, and it must declare a type with its own name. dissaly checks all three
 conditions **at load** before building, then loads the compiled class from
 `dissaly build`.
 
 <Note>
-A path, not a class name, identifies the implementation. losim can check a path
+A path, not a class name, identifies the implementation. dissaly can check a path
 before compiling, so a typo is reported during loading rather than after a full
 build.
 </Note>
@@ -104,7 +104,7 @@ node's copy of an RPC needs a failure rule. See [failures](/ref/failures).
 </ParamField>
 
 <ParamField path="diskMb" type="double" default="the instance type's storage">
-  The disk cap. `Losim.current().wroteDisk(bytes)` throws when it is exceeded.
+  The disk cap. `Dissaly.current().wroteDisk(bytes)` throws when it is exceeded.
 </ParamField>
 
 <ParamField path="overrides" type="map by node name">
@@ -144,4 +144,4 @@ caps so demand relative to capacity is preserved. The file defines the system's
 | a disk cap | checked on every `wroteDisk` |
 | a zone | which decides latency, and which bytes are billed |
 | one channel per peer | made once, owned by the node |
-| a local store | `Losim.current().local()`, shared by every service on it, emptied by a restart |
+| a local store | `Dissaly.current().local()`, shared by every service on it, emptied by a restart |

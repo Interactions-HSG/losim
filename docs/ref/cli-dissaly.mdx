@@ -1,0 +1,106 @@
+---
+title: "./dissaly and dissaly version"
+description: "The project launcher, toolchain file, and version command."
+icon: "terminal"
+---
+
+```bash
+./dissaly <verb> […]          # anything below, in this project
+./dissaly version [--check]
+```
+
+`dissaly adopt` writes `./dissaly` into a project so the launcher can be committed.
+The launcher is:
+
+```sh
+G=./gradlew
+[ -x "$G" ] || G="$(command -v gradle || true)"
+"$G" -q dissalyToolchain
+CP="$(cat build/dissaly/classpath)"
+exec java -cp "$CP" dissaly.cli.Main "$@"
+```
+
+**It builds before it runs.** This avoids a separate build step and avoids using a
+stale classpath. Gradle supplies the jar from its cache.
+
+## Toolchain file
+
+`dissalyToolchain` is a task in the `build.gradle.kts` that `adopt` wrote. It writes
+`build/dissaly-toolchain.properties`:
+
+```
+dissaly=2.0.2
+classpath=/…/dissaly-2.0.2.jar:/…/grpc-api-1.83.1.jar:…
+protoc=/…/build/dissaly/bin/protoc
+protoc-gen-grpc-java=/…/build/dissaly/bin/protoc-gen-grpc-java
+```
+
+That file records the project toolchain used by dissaly. There is no separate
+`lib/` directory; the declared classpath is used for compilation and execution.
+
+<Warning>
+It contains absolute paths for one machine, so it is generated and never
+committed; `build/` is gitignored. If the project moves to another machine, the
+paths are invalid. dissaly ignores the stale file and reports that fact. Running
+`./dissaly` rewrites it.
+</Warning>
+
+The task also writes `build/dissaly/classpath` as one plain line for the launcher.
+`java.util.Properties` escapes `:` and `\` in the properties file, so a shell
+reading that file with `sed` would not get the classpath Gradle resolved. Java
+reads the properties; the shell reads the plain line.
+
+## Pin the resolved dependencies
+
+A project's classpath is a resolved dependency graph. Dependency locking makes
+future builds resolve the same versions and artifacts.
+
+```bash
+gradle --write-locks dissalyToolchain     # then commit gradle.lockfile
+```
+
+Run this once after the first build. Declaring `dependencyLocking` does not create
+a lockfile until Gradle resolves a configuration.
+
+<Warning>
+Name the task explicitly. Gradle locks the configurations resolved by the
+invocation. A bare `gradle --write-locks` resolves none, so it succeeds without
+writing a lockfile. `dissalyToolchain` resolves the classpath, `protoc`, and the
+gRPC plugin used by a run.
+</Warning>
+
+## Take a newer dissaly
+
+```bash
+./dissaly version --check
+```
+
+The command checks the latest release tag without downloading the release.
+
+```
+1.4.0
+2.0.2 is released.
+
+  Change dissalyVersion in build.gradle.kts to 2.0.2 and run ./dissaly.
+  Nothing else moves: the viewer and the manual are inside the jar,
+  and your simulations, schema and Java are untouched by a version.
+```
+
+Update the one version line. Current projects resolve the simulator through the
+build, so `dissaly update` is no longer needed.
+
+<Note>
+`--check` is the only command here that accesses the network, and only when invoked.
+Builds and runs use already-resolved dependencies.
+</Note>
+
+## Without `./dissaly`
+
+Download the release jar, then use it to create the launcher:
+
+```bash
+curl -sSLo dissaly.jar https://github.com/Interactions-HSG/losim/releases/latest/download/dissaly.jar
+java -jar dissaly.jar adopt .
+```
+
+After that, `./dissaly`.

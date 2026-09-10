@@ -4,7 +4,7 @@ description: "The interceptors between a gRPC call site and its handler."
 icon: "right-left"
 ---
 
-losim intercepts each call on both sides of gRPC. Calls use an in-process
+dissaly intercepts each call on both sides of gRPC. Calls use an in-process
 transport; there is no separate transport layer or message bus.
 
 ```text
@@ -50,7 +50,7 @@ one still terminates.
     visible.
   </Step>
   <Step title="Open a span and pass its id in metadata">
-    `losim-parent-span`. The callee opens its own span under that id, so causality
+    `dissaly-parent-span`. The callee opens its own span under that id, so causality
     survives the boundary.
   </Step>
   <Step title="Measure the request">
@@ -87,14 +87,14 @@ one still terminates.
     The order matters. Reversing it collapses the Gantt block in the trace.
   </Step>
   <Step title="Run the handler">
-    The node is ambient, so `Losim.current()` works.
+    The node is ambient, so `Dissaly.current()` works.
   </Step>
   <Step title="Sleep for the per-unit cost before sending the response">
     The handler has already reported the amount through `units(n)`.
   </Step>
   <Step title="`handler_end` is recorded, with both durations">
     `ms` is the program's duration. `grossMs` covers the interval from open to
-    close, including work done by losim inside it.
+    close, including work done by dissaly inside it.
   </Step>
 </Steps>
 
@@ -113,7 +113,7 @@ gRPC's in-process transport **does not serialize**. It passes the same object
 reference to the receiver. Protobuf messages are immutable, but the transport does
 not provide a byte count.
 
-losim therefore marshals the message explicitly: `getSerializedSize()` plus 5
+dissaly therefore marshals the message explicitly: `getSerializedSize()` plus 5
 bytes per message, consisting of one compressed-flag byte and a four-byte length
 prefix.
 

@@ -22,7 +22,7 @@ Time enters the model in these ways:
 | | meaning | stretches on a slow node? | occupies a core? |
 |---|---|---|---|
 | `simulatedDuration:` in the simulation | declared **work** for an rpc | yes | yes |
-| `Losim.current().sleep(refMs)` | a declared **wait**, such as a backoff or poll interval | no | no |
+| `Dissaly.current().sleep(refMs)` | a declared **wait**, such as a backoff or poll interval | no | no |
 | `Thread.sleep(…)` | host time, unaffected by `k_time` | n/a | n/a |
 
 The third one is flagged; see [that page](/write/waiting) for details. Waiting is
@@ -46,10 +46,10 @@ The model has direct consequences:
 <Columns cols={2}>
   <Card title="Work off the pool is charged to nobody" icon="ghost">
     A thread your handler starts is not part of the node's pool. Its memory and CPU
-    are not attributed to the node, so losim flags it.
+    are not attributed to the node, so dissaly flags it.
   </Card>
   <Card title="A node can only read its own limits" icon="lock">
-    `Losim.current().here()` gives the current node's instance type, zone, cores,
+    `Dissaly.current().here()` gives the current node's instance type, zone, cores,
     and caps. To learn a peer's capacity, ask it over gRPC.
   </Card>
 </Columns>
@@ -62,14 +62,14 @@ async stub, so it receives the same costs, failures, telemetry, and byte account
 Peers are found by **the services they serve**, not by hostname:
 
 ```java
-var here = Losim.current();
+var here = Dissaly.current();
 String peer = here.peersServing("Thumbnailer").get(0);
 Channel to  = here.channelTo(peer);
 ThumbnailerGrpc.newBlockingStub(to).thumbnail(frame);   // ordinary generated stub
 ```
 
 `channelTo` returns an ordinary `io.grpc.Channel`, so the call site is plain gRPC.
-losim's interceptor adds latency, byte counts, spans, failures, and retries. A
+dissaly's interceptor adds latency, byte counts, spans, failures, and retries. A
 hand-built channel bypasses those features and is flagged.
 
 ## 4. The simulation is checked before execution
@@ -77,26 +77,26 @@ hand-built channel bypasses those features and is flagged.
 The system, failures, and runtime conditions are declared in YAML. Code is referenced
 by `.java` path. Two designs can therefore be compared as data files.
 
-losim checks configuration **at load, with the line it was written on**. It can reject
+dissaly checks configuration **at load, with the line it was written on**. It can reject
 unknown instance types, missing `runs:` paths, invalid partitions, unknown keys,
 unitless durations, and unsupported retry policies before execution.
 
 ## 5. Work starts at an RPC
 
-losim does not construct application objects. It calls **`losim.Job/Run`** on the
+dissaly does not construct application objects. It calls **`dissaly.Job/Run`** on the
 node named by `runs:`. Other trace activity comes from application code.
 
-That service is defined in losim's `.proto` with two RPCs: `Load` builds the workload
+That service is defined in dissaly's `.proto` with two RPCs: `Load` builds the workload
 with the clock stopped, and `Run` performs the simulation. `Run` receives a
 `Workload`, not the simulation declaration.
 
 ```yaml
 master:
   instance: m5.large
-  runs: { losim.Job: src/lab/RenderJob.java }
+  runs: { dissaly.Job: src/lab/RenderJob.java }
 ```
 
-[losim.Job ->](/ref/losim-proto)
+[dissaly.Job ->](/ref/dissaly-proto)
 
 ## 6. The trace is the interchange format
 
@@ -119,7 +119,7 @@ comparable. [Full format ->](/ref/trace)
 ## 7. Two scales, with conditional projection
 
 A simulation with `scale:` above 1 represents a workload larger than the measured
-run. losim shrinks the workload **and the nodes**, runs what fits, and projects the
+run. dissaly shrinks the workload **and the nodes**, runs what fits, and projects the
 full-scale values.
 
 The projection uses fitted laws rather than simple multiplication. The engine fits a

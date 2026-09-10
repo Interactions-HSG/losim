@@ -62,7 +62,7 @@ rpc Announce  (Health) returns (Empty) { option idempotency_level = IDEMPOTENT; 
 
 <Note>
 Retry policy belongs in the simulation file because it describes runtime behavior.
-Retry safety belongs in the `.proto` because it describes the method. losim checks
+Retry safety belongs in the `.proto` because it describes the method. dissaly checks
 both before making a call.
 </Note>
 

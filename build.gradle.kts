@@ -15,7 +15,7 @@
 // two ever drift the check at the bottom fails the build rather than publishing a
 // POM that lies.
 //
-//   gradle jar                          -> build/losim.jar
+//   gradle jar                          -> build/dissaly.jar
 //   gradle publishToMavenLocal          try it
 //   gradle publish                      to GitHub Packages (needs credentials)
 //
@@ -46,20 +46,20 @@ repositories { mavenCentral() }
 
 sourceSets {
     main {
-        java.setSrcDirs(listOf("losim/src"))
+        java.setSrcDirs(listOf("dissaly/src"))
         resources.setSrcDirs(emptyList<String>())
         compileClasspath = vendored
         runtimeClasspath = output + vendored
     }
-    // losim's own tests run under `dissaly dev test`, against the jar, with their own
+    // dissaly's own tests run under `dissaly dev test`, against the jar, with their own
     // generated protobuf. Gradle is not asked to reproduce that, so this source
-    // set stays empty rather than being pointed at losim/test.
+    // set stays empty rather than being pointed at dissaly/test.
 }
 
 // The version, as a resource, at a path Version.get() knows. Same file, same
 // path inside the jar, so a jar from either build answers Version.get() the same.
 val stampVersion by tasks.registering {
-    val out = layout.buildDirectory.file("version-resource/losim/version")
+    val out = layout.buildDirectory.file("version-resource/dissaly/version")
     inputs.file("VERSION")
     outputs.file(out)
     doLast {
@@ -71,32 +71,32 @@ val stampVersion by tasks.registering {
 
 tasks.named<ProcessResources>("processResources") {
     from(stampVersion.map { layout.buildDirectory.dir("version-resource") })
-    // The price lists, so that a consumer outside a lab has the numbers losim
+    // The price lists, so that a consumer outside a lab has the numbers dissaly
     // bills with. A lab still reads lib/prices/ from disk; this is for everyone
     // who has a jar and no lib/.
-    from("prices") { include("*.yaml"); into("losim/prices") }
+    from("prices") { include("*.yaml"); into("dissaly/prices") }
 
-    // The console and the manual, so that depending on losim is the whole of
-    // getting losim. A lab used to carry both as committed directories, put there
+    // The console and the manual, so that depending on dissaly is the whole of
+    // getting dissaly. A lab used to carry both as committed directories, put there
     // by a maintainer running a script over its repository; now they ride in the
     // jar and `dissaly serve` finds them there when there is nothing on disk.
     //
     // Wholesale, both of them. The manual's pages link images and a favicon, and
     // Mintlify's docs.json names every page — a filtered copy would ship a sidebar
     // whose entries 404. About 1.7 MB uncompressed between them.
-    from("viewer/out") { into("losim/viewer") }
-    from("docs") { into("losim/docs") }
+    from("viewer/out") { into("dissaly/viewer") }
+    from("docs") { into("dissaly/docs") }
 
     // What `dissaly adopt` writes into the project it adopts. A resource rather than
     // a string constant, so it is written and reviewed as prose.
-    from("losim/agents") { include("AGENTS.md"); into("losim") }
+    from("dissaly/agents") { include("AGENTS.md"); into("dissaly") }
 
-    // losim's own schema, so a system can `import "losim/job.proto"` without
+    // dissaly's own schema, so a system can `import "dissaly/job.proto"` without
     // fetching anything. It travels as the .proto only: the classes generated from
     // it are in this jar already, and a project that generated its own copy would
     // compile one that parent-first delegation never loads. So this is an include
     // path for protoc and never an input file to it.
-    from("losim/proto") { into("losim/proto") }
+    from("dissaly/proto") { into("dissaly/proto") }
 }
 
 // A jar that shipped the sidebar but not the pages would render a manual of dead
@@ -109,15 +109,15 @@ val docsBundled by tasks.registering {
         val built = tasks.named<Jar>("jar").get().archiveFile.get().asFile
         val zip = ZipFile(built)
         try {
-            val nav = zip.getEntry("losim/docs/docs.json")
-                ?: error("the jar carries no losim/docs/docs.json, so it has no manual")
-            if (zip.getEntry("losim/viewer/index.html") == null)
-                error("the jar carries no losim/viewer/index.html, so `dissaly serve` has no console")
+            val nav = zip.getEntry("dissaly/docs/docs.json")
+                ?: error("the jar carries no dissaly/docs/docs.json, so it has no manual")
+            if (zip.getEntry("dissaly/viewer/index.html") == null)
+                error("the jar carries no dissaly/viewer/index.html, so `dissaly serve` has no console")
 
             val text = zip.getInputStream(nav).readBytes().decodeToString()
             val pages = Regex("\"([a-z0-9-]+/[a-z0-9-]+)\"").findAll(text)
                 .map { it.groupValues[1] }.distinct().toList()
-            val missing = pages.filter { zip.getEntry("losim/docs/" + it + ".mdx") == null }
+            val missing = pages.filter { zip.getEntry("dissaly/docs/" + it + ".mdx") == null }
             if (missing.isNotEmpty())
                 error("docs.json names " + missing.size + " page(s) the jar does not carry, so "
                       + "the manual would render dead links: " + missing.take(5).joinToString(", "))
@@ -137,15 +137,15 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 tasks.named<Jar>("jar") {
-    // `build/losim.jar`, not `build/libs/losim-<version>.jar`. This is the one
+    // `build/dissaly.jar`, not `build/libs/dissaly-<version>.jar`. This is the one
     // build, so the jar lands where everything already looks for it: the tests,
     // the devcontainer, the workflows and the editor all name that path, and a
     // version in the filename would make every one of them go looking.
-    archiveFileName.set("losim.jar")
+    archiveFileName.set("dissaly.jar")
     destinationDirectory.set(layout.buildDirectory)
     manifest {
         attributes(
-            "Implementation-Title" to "losim",
+            "Implementation-Title" to "dissaly",
             "Implementation-Version" to version,
             "Main-Class" to "dissaly.cli.Main",
         )
@@ -170,7 +170,7 @@ val guavaVersion = pin("guava")
 
 dependencies {
     // `api`, not `implementation`: a lab's own handlers import grpc and protobuf
-    // directly, so these are losim's interface and not its private business.
+    // directly, so these are dissaly's interface and not its private business.
     // Gradle publishes api dependencies in the POM's `compile` scope, which is
     // what a consumer needs to both compile and run against them.
     //
@@ -190,10 +190,10 @@ dependencies {
 
 publishing {
     publications {
-        create<MavenPublication>("losim") {
+        create<MavenPublication>("dissaly") {
             from(components["java"])
             pom {
-                name.set("losim")
+                name.set("dissaly")
                 description.set(project.description)
                 url.set("https://github.com/Interactions-HSG/losim")
                 licenses {
@@ -248,8 +248,8 @@ publishing {
         maven {
             name = "GitHubPackages"
             url = uri(
-                providers.gradleProperty("losim.packages.url").orNull
-                    ?: System.getenv("LOSIM_PACKAGES_URL")
+                providers.gradleProperty("dissaly.packages.url").orNull
+                    ?: System.getenv("DISSALY_PACKAGES_URL")
                     ?: "https://maven.pkg.github.com/Interactions-HSG/losim"
             )
             credentials {

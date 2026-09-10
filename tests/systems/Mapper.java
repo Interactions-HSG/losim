@@ -7,8 +7,8 @@ import dissaly.api.Dissaly;
 /**
  * The service most of the suite is written against: count the words in a chunk.
  *
- * <p>An ordinary gRPC service from an ordinary .proto, with one losim annotation
- * and one losim call — neither of which appears in a signature, which is what lets
+ * <p>An ordinary gRPC service from an ordinary .proto, with one dissaly annotation
+ * and one dissaly call — neither of which appears in a signature, which is what lets
  * the same handler be constructed and called from a plain test with nothing
  * simulating anything.
  */

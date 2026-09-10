@@ -65,7 +65,7 @@ Other resources can still be projected after a resource refusal.
     ```
 
     Your system never wrote to disk, so there is no disk law. If disk usage was
-    expected, add a `Losim.current().wroteDisk(bytes)` call.
+    expected, add a `Dissaly.current().wroteDisk(bytes)` call.
   </Accordion>
 
   <Accordion title="nothing measured varied with it" icon="equals">
@@ -106,7 +106,7 @@ The simulation does not run and no projection is produced.
     The engine uses at most **60%** of the JVM's max heap. Raise it if appropriate:
 
     ```bash
-    java -Xmx6g -cp "$CP" losim.cli.Main simulate …
+    java -Xmx6g -cp "$CP" dissaly.cli.Main simulate …
     ```
 
     Reduce retained data per unit if raising the heap is not appropriate.

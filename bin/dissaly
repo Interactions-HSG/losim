@@ -1,14 +1,14 @@
 #!/usr/bin/env sh
-# The CLI, in losim's own repository. `bin/dissaly dev test`, `bin/dissaly serve`.
+# The CLI, in dissaly's own repository. `bin/dissaly dev test`, `bin/dissaly serve`.
 #
-# Everything it does needs a current `build/losim.jar`, and building that is this
+# Everything it does needs a current `build/dissaly.jar`, and building that is this
 # file's job rather than any verb's: the commands under `dissaly dev` run *out of*
 # that jar, and a Gradle jar task truncates its output in place — so a verb that
 # rebuilt the jar it was executing would be reading a file being rewritten under
 # it. Building before the JVM starts makes that impossible rather than unlikely.
 #
 # `bin/` rather than the root, for the one reason that the source lives in
-# `losim/` and a file cannot be a directory. What `dissaly adopt` writes into a
+# `dissaly/` and a file cannot be a directory. What `dissaly adopt` writes into a
 # lab is this file at `./dissaly`, where nothing is in the way.
 set -e
 cd "$(dirname "$0")/.."
@@ -29,4 +29,4 @@ G=./gradlew
 }
 
 "$G" -q jar
-exec java -cp build/losim.jar dissaly.cli.Main "$@"
+exec java -cp build/dissaly.jar dissaly.cli.Main "$@"

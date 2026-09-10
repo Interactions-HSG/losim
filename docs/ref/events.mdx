@@ -30,7 +30,7 @@ icon: "bolt"
 `count` is the file's number at **full** size. `loaded` is what `Load` produced at
 the size measured by this run. They should match at `scale: 1`. Above `scale: 1`,
 `scale.units` and `scale.fullUnits` describe the measured and full sizes. `entry`
-is the node running `losim.Job`.
+is the node running `dissaly.Job`.
 
 There is no event for `Job.Load`. It runs before the trace opens, and node ledgers
 are reset afterwards. Its work is therefore not charged or recorded here.
@@ -56,20 +56,20 @@ metadata header. Readers can use it to join the two halves of one call.
 `why` on a failure is `unreachable`, `partitioned`, or `lost`. The caller cannot
 distinguish them; the trace records the cause.
 
-`ms` on `handler_end` is what the **program** took — losim's own bookkeeping inside
+`ms` on `handler_end` is what the **program** took — dissaly's own bookkeeping inside
 that window is metered and subtracted. `grossMs` is open-to-close including it.
 </Note>
 
-The entry node's `losim.Job.Run` appears as an ordinary call in these tables. It
-is the only call initiated by losim itself.
+The entry node's `dissaly.Job.Run` appears as an ordinary call in these tables. It
+is the only call initiated by dissaly itself.
 
 ## Events from your code
 
 | kind | detail | written by |
 |---|---|---|
-| `state` | `key`, `value` | `Losim.current().reveal(k, v)` |
-| `log` | `message` | `Losim.current().log(m)` |
-| `sleep` | `refMs` | `Losim.current().sleep(refMs)` |
+| `state` | `key`, `value` | `Dissaly.current().reveal(k, v)` |
+| `log` | `message` | `Dissaly.current().log(m)` |
+| `sleep` | `refMs` | `Dissaly.current().sleep(refMs)` |
 
 ## Node failures
 
@@ -105,7 +105,7 @@ arrived; the caller's `rpc_timeout` records the result.
 | `oom` | `resource`, `capMb`, `demandMb`, `objects`, `cause` |
 | `disk_full` | `resource`, `capMb`, `demandMb`, `cause` |
 
-losim records each event **once per node**, at its first occurrence.
+dissaly records each event **once per node**, at its first occurrence.
 
 ## Count events
 

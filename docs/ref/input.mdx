@@ -11,14 +11,14 @@ input:
   count:  30000
 ```
 
-These keys define the workload. losim passes them to `Job.Load` as a
-[`losim.Input`](/ref/losim-proto); the engine adjusts `count` for the run's scale.
+These keys define the workload. dissaly passes them to `Job.Load` as a
+[`dissaly.Input`](/ref/dissaly-proto); the engine adjusts `count` for the run's scale.
 
 Keeping the workload here lets the engine vary its size across a scale ladder. A
 constant in Java would make direct and scaled runs use different definitions.
 
 <ParamField path="source" type="path">
-  A file or folder relative to the project root. losim checks it before loading the
+  A file or folder relative to the project root. dissaly checks it before loading the
   workload and reports a missing path on its own line.
 
   A folder also supports one file per input unit, which is useful when the workload
@@ -27,7 +27,7 @@ constant in Java would make direct and scaled runs use different definitions.
 
 <ParamField path="unit" type="string" default="unit">
   The singular name for one item, such as `frame`, `line`, or `order`. The same word
-  names the units recorded by `Losim.current().units(n)` and priced by
+  names the units recorded by `Dissaly.current().units(n)` and priced by
   [`perUnit:`](/ref/simulated-duration).
 </ParamField>
 
@@ -39,7 +39,7 @@ constant in Java would make direct and scaled runs use different definitions.
 ## No source
 
 When `source` is omitted, `Load` generates the workload from
-`Losim.current().seed()` and `Input.count`. The seed keeps sweeps reproducible, and
+`Dissaly.current().seed()` and `Input.count`. The seed keeps sweeps reproducible, and
 the loading work is outside the simulated clock.
 
 ```yaml
@@ -98,7 +98,7 @@ requested can distort the fitted exponent.
 | `count:` that is not whole | its unit is wrong; say what one item is |
 | a count that shrinks to none at the chosen rung | refused rather than rounded up, which would change the ratios |
 
-losim checks all of these before the simulation starts.
+dissaly checks all of these before the simulation starts.
 
 <Note>
 An [overlay](/ref/cli-simulate) cannot change `input:`. Overlays change runtime
@@ -108,5 +108,5 @@ conditions, not the workload definition being compared.
 ## Values discovered at runtime
 
 Values discovered during `Run`, such as a vocabulary, distinct-key count, or
-data-dependent fan-out, belong in [revealed](/ref/api-losim). losim fits those values
+data-dependent fan-out, belong in [revealed](/ref/api-dissaly). dissaly fits those values
 against the input count.

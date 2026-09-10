@@ -8,16 +8,16 @@ icon: "chart-line"
 scale: 5000
 ```
 
-`scale` is the only scale setting. During a run, losim derives the probe ladder,
+`scale` is the only scale setting. During a run, dissaly derives the probe ladder,
 system sizes, and clock rate from it.
 
 <ParamField path="scale" type="number" default="1">
   How many times larger the design is than the largest run the engine can measure.
 
-  At **1**, losim runs the declared workload directly. `Load` receives exactly what
+  At **1**, dissaly runs the declared workload directly. `Load` receives exactly what
   [`input:`](/ref/input) declares, and the reported values are measurements.
 
-  Above 1, losim measures a fraction of the input and projects from it. The fraction
+  Above 1, dissaly measures a fraction of the input and projects from it. The fraction
   is `units / (scale x 8000)`, where 8000 is the top of the probe ladder. Thus
   `scale: 5000` represents a design 5000 times larger than the largest measured run.
 
@@ -40,7 +40,7 @@ full workload. This is valid but can be slow.
 <Warning>
 `count:` is the workload in **your** unit, such as frames, lines, or orders. The
 probe ladder's **units** are what handlers count with
-`Losim.current().units(n)`. A handler that reports pixels per frame makes those
+`Dissaly.current().units(n)`. A handler that reports pixels per frame makes those
 two quantities differ by a thousand, and nothing reconciles them.
 
 The engine fits its laws in handler units and scales `count:` by the ratio between

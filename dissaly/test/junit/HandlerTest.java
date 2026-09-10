@@ -1,0 +1,83 @@
+import static org.junit.jupiter.api.Assertions.*;
+
+import dissaly.api.Dissaly;
+import dissaly.t.Chunk;
+import dissaly.t.Counts;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+/**
+ * A gRPC handler, debugged on its own, in plain JUnit, with nothing simulating
+ * anything.
+ *
+ * <p>This is the test that decides whether the service shape was worth its twelve
+ * lines of adapter. There is no cluster here, no simulation, no interceptor and no
+ * clock — just a class, constructed, with a method called on it. Set a breakpoint
+ * on the line below and step into {@code map}: it is ordinary Java, and stopping
+ * on it stops nothing else, because nothing else is running.
+ *
+ * <p>dissaly is on the classpath because {@code Dissaly.current()} is an api type
+ * and {@code Dissaly.current()} has to resolve. It does nothing here, which is the
+ * point: a handler that needed a simulation to be testable would not be testable.
+ */
+class HandlerTest {
+
+    @Test
+    @DisplayName("a handler is an ordinary object with an ordinary method")
+    void countsWords() {
+        var counter = new Counter();
+
+        Counts counts = counter.map(Chunk.newBuilder()
+                .setText("the cat sat on the mat").setLines(1).build());
+
+        assertEquals(2, counts.getCountsOrDefault("the", 0));
+        assertEquals(1, counts.getCountsOrDefault("cat", 0));
+        assertEquals(5, counts.getCountsCount());
+    }
+
+    @Test
+    @DisplayName("nothing is running, and the handler is not told otherwise")
+    void recordingIsSilentOutsideARun() {
+        assertFalse(Dissaly.current().isRunning());
+        // A test does not have to know dissaly exists for a handler to be callable.
+        assertDoesNotThrow(() -> Dissaly.current().reveal("emitted", 3));
+        assertDoesNotThrow(() -> Dissaly.current().log("counted"));
+        assertDoesNotThrow(() -> Dissaly.current().units(1));
+        assertDoesNotThrow(() -> Dissaly.current().wroteDisk(4096));
+
+        // And a declared wait returns at once. There is no compressed clock to
+        // spend against here, so a suite that really slept would be slower for
+        // nothing — and a handler that waits would be one nobody unit-tests.
+        long began = System.nanoTime();
+        Dissaly.current().sleep(5_000);
+        assertTrue((System.nanoTime() - began) / 1e6 < 50,
+                   "sleep(refMs) outside a run must return immediately");
+    }
+
+    @Test
+    @DisplayName("but asking about a world that is not there fails, rather than inventing one")
+    void stateThrowsOutsideARun() {
+        var e = assertThrows(IllegalStateException.class, () -> Dissaly.current().node());
+        assertTrue(e.getMessage().contains("no simulation is running"));
+        assertThrows(IllegalStateException.class, () -> Dissaly.current().peers());
+        assertThrows(IllegalStateException.class, () -> Dissaly.current().clockMs());
+        assertThrows(IllegalStateException.class, () -> Dissaly.current().seed());
+        // A store outside a run would be a handler sharing state with nothing, and
+        // a test asserting over it would be asserting over its own scratch map.
+        assertThrows(IllegalStateException.class, () -> Dissaly.current().local());
+        // A fabricated empty cluster would let this test pass while asserting nothing,
+        // which is worse than failing.
+    }
+
+    @Test
+    @DisplayName("the reducer accumulates, which is the whole reason it can run out of memory")
+    void reduceAccumulates() {
+        var counter = new Counter();
+
+        counter.reduce(Counts.newBuilder().putCounts("a", 1).build());
+        Counts second = counter.reduce(Counts.newBuilder().putCounts("a", 2).putCounts("b", 1).build());
+
+        assertEquals(3, second.getCountsOrDefault("a", 0));
+        assertEquals(1, second.getCountsOrDefault("b", 0));
+    }
+}

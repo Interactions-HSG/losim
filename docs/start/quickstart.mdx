@@ -62,26 +62,26 @@ The published site and the `.mdx` files under `docs/` also contain the manual.
 
 ## Command line
 
-The lab console provides common operations. Commands under `dissaly dev` are for losim
+The lab console provides common operations. Commands under `dissaly dev` are for dissaly
 maintainers.
 
 The console invokes the same launcher from the command line:
 
 <Note>
-`losim` is a command. `dissaly adopt` writes `./dissaly` into your project, like
+`dissaly` is a command. `dissaly adopt` writes `./dissaly` into your project, like
 `gradlew`. It builds the project and runs the simulator with the required classpath:
 
 ```bash
 ./dissaly simulate thumbs.yaml
 ```
 
-In losim's own repository the same launcher is `bin/dissaly`, because the source
-lives in `losim/` and a file cannot be a directory. Some pages here write
+In dissaly's own repository the same launcher is `bin/dissaly`, because the source
+lives in `dissaly/` and a file cannot be a directory. Some pages here write
 `bin/dissaly` for that reason.
 </Note>
 
 ```bash
-dissaly simulate thumbs.yaml --cp build/losim/classes --out build/results/thumbs.json
+dissaly simulate thumbs.yaml --cp build/dissaly/classes --out build/results/thumbs.json
 ```
 
 At a terminal this opens the viewer on the new run. It serves the trace directory, so
@@ -120,7 +120,7 @@ step for you:
 | `0` | `Job.Run` completed |
 | `1` | the job failed or exceeded its allowed time |
 | `2` | configuration error: an unknown key, an unknown instance type, or a duration with no unit. The simulation did not run. |
-| `3` | something went wrong inside losim |
+| `3` | something went wrong inside dissaly |
 
 ## Next steps
 

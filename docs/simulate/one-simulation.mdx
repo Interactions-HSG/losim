@@ -7,9 +7,9 @@ icon: "play"
 ```bash
 CP=$(ls vendor/jars/*.jar | tr '\n' ':')
 
-java -Xmx3g -cp "${CP}build/losim.jar:build/losim/classes" \
-     losim.cli.Main simulate thumbs.yaml \
-     --cp build/losim/classes \
+java -Xmx3g -cp "${CP}build/dissaly.jar:build/dissaly/classes" \
+     dissaly.cli.Main simulate thumbs.yaml \
+     --cp build/dissaly/classes \
      --out build/thumbs.json
 ```
 
@@ -51,7 +51,7 @@ The order explains most error messages:
     them. It reports caveats with source addresses.
   </Step>
   <Step title="Nodes are built and start serving">
-    losim starts one in-process server and one pool per node, sized to the instance's
+    dissaly starts one in-process server and one pool per node, sized to the instance's
     vCPUs. Missing classes and no-argument constructors are discovered here.
   </Step>
   <Step title="Retry policies are checked against what the system serves">
@@ -78,7 +78,7 @@ The order explains most error messages:
 | `0` | `Job.Run` completed |
 | `1` | it did not — it threw, or it was still running after **two minutes of real time** |
 | `2` | the simulation is wrong. Nothing ran. |
-| `3` | something went wrong inside losim. Re-run with `LOSIM_DEBUG=1` for the stack. |
+| `3` | something went wrong inside dissaly. Re-run with `DISSALY_DEBUG=1` for the stack. |
 
 ## Options
 
@@ -96,7 +96,7 @@ The order explains most error messages:
   How much is recorded.
 </ParamField>
 
-<ParamField path="LOSIM_DEBUG" type="environment variable">
+<ParamField path="DISSALY_DEBUG" type="environment variable">
   When set, an exit-code-3 failure prints its stack trace as well as its message.
 </ParamField>
 

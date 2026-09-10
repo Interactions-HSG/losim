@@ -80,16 +80,16 @@ The checks import the Python modules listed here. The remaining files under `vie
 belong to the abandoned renderer:
 
 ```
-view/losim_view/design.py     216 lines   imported by viewer/checks/glyph_ref.py
-view/losim_view/glyphs.py     155         imported by viewer/checks/glyph_ref.py
-view/losim_view/layout.py     383         imported by viewer/checks/layout_ref.py
-view/losim_view/trace.py      335         imported by viewer/checks/layout_ref.py
+view/dissaly_view/design.py     216 lines   imported by viewer/checks/glyph_ref.py
+view/dissaly_view/glyphs.py     155         imported by viewer/checks/glyph_ref.py
+view/dissaly_view/layout.py     383         imported by viewer/checks/layout_ref.py
+view/dissaly_view/trace.py      335         imported by viewer/checks/layout_ref.py
 ```
 
 The reference scripts put `view/` on `sys.path` and import these modules directly, so
 deleting any of the four breaks `dissaly dev viewer check`.
 
-`view/losim_view/film.py`, `view/dataflow.py`, and `view/sheet.py` are the manim
+`view/dissaly_view/film.py`, `view/dataflow.py`, and `view/sheet.py` are the manim
 sidecar. The last two have no importers, and `film.py` is imported only by them.
 This environment has no `manim` installation, so these files have no effect on the
 viewer checks.
@@ -125,7 +125,7 @@ without npm.
     **nobody**. Late penalties belong to the job, so spreading them over nine nodes
     would invent an unsupported attribution.
 
-    The classification is matched against the exact line labels `losim.price.Bill`
+    The classification is matched against the exact line labels `dissaly.price.Bill`
     writes. The coupling is deliberate and checked: an unrecognised line is `unknown`
     and attributed to nobody, rather than guessed at.
   </Accordion>
@@ -196,13 +196,13 @@ bin/dissaly dev viewer traces --suite         # ...and the reference suite's
 **Only `build/traces` is used by default.** Other collections must be requested, so
 students see their own work. For each trace, the command copies the file, writes
 `<name>.bill.json` beside it when the bill is missing or stale, and rewrites
-`index.json` with the same code that answers `/traces/index.json` when losim is the
+`index.json` with the same code that answers `/traces/index.json` when dissaly is the
 server. A listed directory that exists but yields no traces reports that result.
 
 Each run is tagged with its source, and the picker groups runs by that tag with
 yours first. `dev viewer serve` forwards its arguments here, so
 `bin/dissaly dev viewer serve ~/my-project/runs` serves traces from another project.
-losim is a library, and project traces can live outside this repository.
+dissaly is a library, and project traces can live outside this repository.
 
 <Warning>
 `build/served` is a **mirror of the last sweep**. Each sweep removes files that were

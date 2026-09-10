@@ -5,11 +5,11 @@ icon: "receipt"
 ---
 
 ```bash
-java -cp build/losim.jar losim.cli.Main bill <trace.json> [--prices <file>] [--json]
+java -cp build/dissaly.jar dissaly.cli.Main bill <trace.json> [--prices <file>] [--json]
 ```
 
 <ParamField path="--prices <file>" type="path" default="prices/eu-central-1.yaml">
-  A price list. If the file is missing, losim uses its built-in defaults and reports
+  A price list. If the file is missing, dissaly uses its built-in defaults and reports
   that on **stderr**, keeping `--json` valid on stdout.
 </ParamField>
 

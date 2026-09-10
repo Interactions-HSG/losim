@@ -20,7 +20,7 @@ reviewed and swept. The handler remains independent of deployment policy.
 ## Schema validation
 
 Whether retrying is *safe* is a property of the **method**, not deployment. It lives
-in the `.proto`; losim refuses a policy that disagrees with the schema:
+in the `.proto`; dissaly refuses a policy that disagrees with the schema:
 
 ```
 thumbs.yaml:22: retrying lab.Volley.Hit is refused — its .proto declares no
@@ -124,19 +124,19 @@ deadline must cover all attempts and backoffs.
 
 ## Custom retry loops
 
-The simulation's policy is fixed per method. Use `Losim.current().sleep(refMs)` in
+The simulation's policy is fixed per method. Use `Dissaly.current().sleep(refMs)` in
 your own loop when the decision depends on program state, such as which peer to try,
 how many peers remain, or whether work was already redone:
 
 ```java
 for (int attempt = 1; ; attempt++) {
-    var workers = Losim.current().peersServing("Thumbnailer");
+    var workers = Dissaly.current().peersServing("Thumbnailer");
     if (workers.isEmpty()) throw new IllegalStateException("nobody left");
     try {
         return call(workers.get(attempt % workers.size()), split);   // a different peer
     } catch (StatusRuntimeException e) {
         if (attempt >= 3) throw e;
-        Losim.current().sleep(50 * Math.pow(2, attempt));
+        Dissaly.current().sleep(50 * Math.pow(2, attempt));
     }
 }
 ```
@@ -154,7 +154,7 @@ nodes:
   master:
     instance: m5.large
     zone: eu-central-1a
-    runs: { losim.Job: src/lab/RenderJob.java }
+    runs: { dissaly.Job: src/lab/RenderJob.java }
   workers:
     count: 3
     prefix: w

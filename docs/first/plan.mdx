@@ -8,7 +8,7 @@ Build a small thumbnail system. A master reads an album, sends splits of
 frames to nodes that serve the thumbnail service, and collects the results. The
 later steps add failures so we can inspect the system's response.
 
-The tutorial focuses on the system *shape*: how services are arranged so losim
+The tutorial focuses on the system *shape*: how services are arranged so dissaly
 can measure them. The thumbnail algorithm stays simple.
 
 ## Tutorial files
@@ -28,7 +28,7 @@ can measure them. The thumbnail algorithm stays simple.
     [Write it ->](/first/service)
   </Step>
   <Step title="RenderJob.java: the job">
-    One class implementing `losim.Job`. `Load` builds the album outside the clock.
+    One class implementing `dissaly.Job`. `Load` builds the album outside the clock.
     `Run` finds peers by their services, asks each for its capacity, distributes the
     work, and reports the result.
 
@@ -45,7 +45,7 @@ can measure them. The thumbnail algorithm stays simple.
 ## System shape
 
 ```
-  master (m5.large, eu-central-1a)   runs losim.Job
+  master (m5.large, eu-central-1a)   runs dissaly.Job
       │
       ├── w0  c5.large  eu-central-1a  ┐
       ├── w1  c5.large  eu-central-1b  │  all four serve Thumbnailer

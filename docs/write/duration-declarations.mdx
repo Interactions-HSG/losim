@@ -11,11 +11,11 @@ simulatedDuration:
 ```
 
 **Declare durations in the simulation.** A duration describes modeled node work and
-keeps the handler independent of losim.
+keeps the handler independent of dissaly.
 
 ## Declared time
 
-losim shrinks the workload **and** the nodes by the same factor, so memory and bytes
+dissaly shrinks the workload **and** the nodes by the same factor, so memory and bytes
 retain the same relationship to capacity.
 
 Time does not scale because **the host's CPU is not scaled**. It runs at full speed
@@ -51,13 +51,13 @@ The value remains comparable across systems and compression levels.
 ## Duration terms
 
 <ParamField path="refMs" type="double" default="0">
-  What one call takes **regardless of its contents**: the fixed part. losim applies it
+  What one call takes **regardless of its contents**: the fixed part. dissaly applies it
   before the handler runs on the node's pool thread.
 </ParamField>
 
 <ParamField path="perUnit" type="double" default="0">
   What each input unit adds, in reference **nanoseconds**. The handler declares the
-  count with `Losim.current().units(n)`, and losim applies this part **after the body
+  count with `Dissaly.current().units(n)`, and dissaly applies this part **after the body
   returns**, before the response leaves.
 
   The caller therefore waits for the declared work to finish.
@@ -89,7 +89,7 @@ Keep declarations **consistent between designs you compare**. A handler declared
 
 ## Timing floor
 
-The clock cannot express a duration finer than about **0.05 ms** of real time. losim
+The clock cannot express a duration finer than about **0.05 ms** of real time. dissaly
 records smaller costs as owed, but refuses a projection when the timing resolution is
 insufficient:
 

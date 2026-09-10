@@ -5,7 +5,7 @@ icon: "hard-drive"
 ---
 
 ```java
-Losim.current().wroteDisk(bytes);
+Dissaly.current().wroteDisk(bytes);
 ```
 
 This API records the number of bytes a design would write. It does not create a
@@ -17,7 +17,7 @@ Unlike recording calls, this operation fails when the simulated disk is full:
 
 ```java
 try {
-    Losim.current().wroteDisk(spill.getSerializedSize());
+    Dissaly.current().wroteDisk(spill.getSerializedSize());
 } catch (IllegalStateException e) {
     // w3 has no disk left: 33.4 MB written against a 32.0 MB volume
 }
@@ -46,17 +46,17 @@ Report the number of bytes the design would write:
 
 ```java
 byte[] payload = spill.toByteArray();
-Losim.current().wroteDisk(payload.length);
+Dissaly.current().wroteDisk(payload.length);
 ```
 
 or, without building the array:
 
 ```java
-Losim.current().wroteDisk(spill.getSerializedSize());
+Dissaly.current().wroteDisk(spill.getSerializedSize());
 ```
 
 <Note>
-losim cannot independently verify the declared number. Keep it consistent when
+dissaly cannot independently verify the declared number. Keep it consistent when
 comparing designs, as with a declared duration.
 </Note>
 
@@ -112,7 +112,7 @@ nodes:
   master:
     instance: m5.large
     zone: eu-central-1a
-    runs: { losim.Job: src/lab/SpillJob.java }
+    runs: { dissaly.Job: src/lab/SpillJob.java }
   workers:
     count: 2
     prefix: w

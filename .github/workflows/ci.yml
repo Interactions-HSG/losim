@@ -7,8 +7,8 @@
 #
 # What is compared is structure and attribution, not measurements: runs are not
 # reproducible (D1) and a Codespace is slower than a laptop, so a textual diff could
-# never pass and a check that can never pass is not a check. See losim/cli/Diff.java.
-name: losim
+# never pass and a check that can never pass is not a check. See dissaly/cli/Diff.java.
+name: dissaly
 
 on:
   push:
@@ -17,10 +17,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Every phase's acceptance criteria, calling into losim's own classes. Fast, and
+  # Every phase's acceptance criteria, calling into dissaly's own classes. Fast, and
   # the thing that fails first when something regresses.
   checks:
-    name: losim's own checks
+    name: dissaly's own checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,7 +36,7 @@ jobs:
   # rule has a sample it must catch and a nearby sample it must not, so a regex
   # with a typo fails the build instead of silently passing everything.
   #
-  # It scans the copy inside losim.jar as well as docs/, which is why this job now
+  # It scans the copy inside dissaly.jar as well as docs/, which is why this job now
   # builds: `processResources` copies a directory, and a directory that grew a
   # `fixtures/` would ship every phrase these rules exist to catch.
   docs:

@@ -3,7 +3,7 @@
 #
 #     <extended regex>:::<what it would give away>
 #
-# Matched case-insensitively against every text file under docs/ and losim/src,
+# Matched case-insensitively against every text file under docs/ and dissaly/src,
 # except this directory. A hit fails the build. Nothing here is about style —
 # every rule names a thing a student is supposed to arrive at themselves, and a
 # page that contains it has handed in their answer for them.
