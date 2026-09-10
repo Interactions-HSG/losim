@@ -49,9 +49,8 @@ export const ui = stylex.create({
   },
   primary: {
     color: '#fff',
-    backgroundColor: chrome.accent,
+    backgroundColor: { default: chrome.accent, ':hover': chrome.accentStrong },
     borderColor: 'transparent',
-    filter: { default: null, ':hover': 'brightness(1.07)' },
   },
   icon: { width: '34px', paddingInline: 0, justifyContent: 'center' },
   /**

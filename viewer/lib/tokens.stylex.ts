@@ -30,6 +30,13 @@ export const chrome = stylex.defineVars({
   text3: { default: '#8e959f', [DARK]: '#6b7380' },
   accent: { default: '#3d6fd4', [DARK]: '#6b95ea' },
   accentSoft: { default: '#e8eefb', [DARK]: '#1b2740' },
+  /**
+   * The accent under the pointer. A token rather than a `brightness()` filter,
+   * because a brand that publishes a hover colour publishes a colour and not an
+   * instruction to lighten one — and a filter cannot be given a different answer
+   * by a theme.
+   */
+  accentStrong: { default: '#2f57a8', [DARK]: '#87a9ef' },
   danger: '#c4342a',
   warn: '#e8a33d',
 });

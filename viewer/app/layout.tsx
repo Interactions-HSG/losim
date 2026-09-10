@@ -3,6 +3,7 @@ import * as stylex from '@stylexjs/stylex';
 
 import './globals.css';
 import { chrome, font } from '../lib/tokens.stylex.ts';
+import { hsg, hsgType } from '../lib/themes.stylex.ts';
 
 export const metadata = {
   title: 'losim',
@@ -12,7 +13,9 @@ export const metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" {...stylex.props(sx.page)}>
-      <body {...stylex.props(sx.page, sx.body)}>{children}</body>
+      {/* The theme goes on before the styles that read it, so every token in
+          the tree below resolves to the university's value. */}
+      <body {...stylex.props(hsg, hsgType, sx.page, sx.body)}>{children}</body>
     </html>
   );
 }
