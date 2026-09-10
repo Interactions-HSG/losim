@@ -18,6 +18,11 @@ import type { Theme } from '../../lib/theme.ts';
 import { taskColour } from '../../lib/theme.ts';
 import { RUN, type Trace } from '../../lib/trace.ts';
 import { Table, Td, Th } from '../../lib/text.tsx';
+import * as stylex from '@stylexjs/stylex';
+
+import { chrome } from '../../lib/tokens.stylex.ts';
+import { ui } from '../../lib/ui.stylex.ts';
+import { rollupVars } from './rollup.stylex.ts';
 
 export type By = 'method' | 'node' | 'zone' | 'task';
 
@@ -59,66 +64,81 @@ export function Rollup({
   const all = rows.reduce((a, r) => a + r.self, 0);
 
   return (
-    <div className="rollup" style={{ height: '100%' }}>
-      <Table>
+    <div {...stylex.props(sx.rollup)}>
+      <Table style={sx.table}>
         <thead>
           <tr>
             <Th>{by}</Th>
-            <Th className="r">its own time</Th>
-            <Th className="r">share</Th>
+            <Th style={sx.right}>its own time</Th>
+            <Th style={sx.right}>share</Th>
             <Th></Th>
-            <Th className="r">total</Th>
-            <Th className="r">calls</Th>
-            <Th className="r">failed</Th>
-            <Th className="r">bytes</Th>
+            <Th style={sx.right}>total</Th>
+            <Th style={sx.right}>calls</Th>
+            <Th style={sx.right}>failed</Th>
+            <Th style={sx.right}>bytes</Th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r: Row) => (
             <tr
               key={r.key}
+              {...stylex.props(sx.row)}
               onMouseEnter={() => by === 'node' && onHoverNode(r.key)}
               onMouseLeave={() => by === 'node' && onHoverNode(null)}
             >
-              <Td>
+              <Td style={sx.cell}>
                 {by === 'task' && r.key !== 'no task' && (
                   <span
-                    className="tk"
+                    {...stylex.props(sx.tk)}
                     style={{ background: taskColour(theme, Number(r.key.replace('task ', ''))) }}
                   />
                 )}
                 {r.key}
               </Td>
-              <Td className="r n">{ms(r.self)}</Td>
-              <Td className="r n muted pct">{((r.self / (all || 1)) * 100).toFixed(1)}%</Td>
-              <Td className="bar">
-                <span style={{ width: `${(r.self / most) * 100}%` }} />
+              <Td num style={[sx.right, sx.cell]}>{ms(r.self)}</Td>
+              <Td num style={[sx.right, sx.cell, ui.muted, sx.pct]}>{((r.self / (all || 1)) * 100).toFixed(1)}%</Td>
+              <Td style={[sx.cell, sx.barCell]}>
+                <span {...stylex.props(sx.bar)} style={{ width: `${(r.self / most) * 100}%` }} />
               </Td>
-              <Td className="r n muted">{ms(r.total)}</Td>
-              <Td className="r n">{r.calls}</Td>
-              <Td className="r n">{r.failed > 0 ? <b>{r.failed}</b> : <span className="muted">—</span>}</Td>
-              <Td className="r n muted">{r.bytes ? `${(r.bytes / 1024).toFixed(1)} KB` : '—'}</Td>
+              <Td num style={[sx.right, sx.cell, ui.muted]}>{ms(r.total)}</Td>
+              <Td num style={[sx.right, sx.cell]}>{r.calls}</Td>
+              <Td num style={[sx.right, sx.cell]}>{r.failed > 0 ? <b {...stylex.props(sx.bad)}>{r.failed}</b> : <span {...stylex.props(ui.muted)}>—</span>}</Td>
+              <Td num style={[sx.right, sx.cell, ui.muted]}>{r.bytes ? `${(r.bytes / 1024).toFixed(1)} KB` : '—'}</Td>
             </tr>
           ))}
         </tbody>
       </Table>
-      <style>{`
-        .rollup { overflow: auto; }
-        .rollup table { width: 100%; font-size: 12.5px; }
-        .rollup th.r, .rollup td.r { text-align: right; }
-        .rollup td { padding: 4px 8px; border-bottom: 1px solid var(--border); }
-        .rollup tr:hover td { background: var(--surface-2); }
-        .rollup .pct { width: 52px; }
-        .rollup .bar { width: 26%; }
-        .rollup .bar span {
-          display: block; height: 8px; border-radius: 999px; background: var(--accent, #5C8F70);
-          opacity: .75; min-width: 1px;
-        }
-        .rollup .tk {
-          width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 6px;
-        }
-        .rollup b { color: var(--danger); }
-      `}</style>
     </div>
   );
 }
+
+const sx = stylex.create({
+  rollup: { overflow: 'auto', position: 'relative', height: '100%' },
+  table: { fontSize: '12.5px' },
+  right: { textAlign: 'right' },
+  /** Tighter than the shared cell: this table is dense on purpose. */
+  cell: {
+    paddingBlock: '4px',
+    paddingInline: '8px',
+    backgroundColor: rollupVars.cellBg,
+  },
+  row: { [rollupVars.cellBg]: { default: 'transparent', ':hover': chrome.surface2 } },
+  pct: { width: '52px' },
+  barCell: { width: '26%' },
+  bar: {
+    display: 'block',
+    height: '8px',
+    borderRadius: '999px',
+    backgroundColor: chrome.accent,
+    opacity: 0.75,
+    minWidth: '1px',
+  },
+  tk: {
+    width: '7px',
+    height: '7px',
+    borderRadius: '50%',
+    display: 'inline-block',
+    marginRight: '6px',
+  },
+  bad: { color: chrome.danger },
+});

@@ -19,6 +19,8 @@ import { SpanBar } from './SpanBar.tsx';
 import type { SpanNode, SpanTree } from '../../lib/spans.ts';
 import type { Theme } from '../../lib/theme.ts';
 import type { Trace } from '../../lib/trace.ts';
+import * as stylex from '@stylexjs/stylex';
+
 
 const LANE = 26;
 /** A band above each zone's first lane, so its name is not written over a node. */
@@ -87,7 +89,7 @@ export function Swimlanes({
   }
 
   return (
-    <div className="lanes-box" style={{ height: '100%' }}>
+    <div {...stylex.props(sx.box)} style={{ height: '100%' }}>
       <svg width={width} height={Math.max(h, height)}>
         <defs>
           <pattern id="fray" width="4" height="4" patternUnits="userSpaceOnUse">
@@ -101,7 +103,7 @@ export function Swimlanes({
         {heads.map((z) => (
           <Fragment key={z.zone}>
             <line x1={0} x2={width} y1={z.y - ZONE_GAP + 2} y2={z.y - ZONE_GAP + 2} stroke={theme.rule} strokeWidth={1} />
-            <text x={8} y={z.y - 5} fontSize={9.5} fill={theme.pencil} letterSpacing="0.06em">
+            <text {...stylex.props(sx.label)} x={8} y={z.y - 5} fontSize={9.5} fill={theme.pencil} letterSpacing="0.06em">
               {z.zone.toUpperCase()}
             </text>
           </Fragment>
@@ -118,7 +120,7 @@ export function Swimlanes({
               onMouseEnter={() => onHoverNode(m.name)}
               onMouseLeave={() => onHoverNode(null)}
             />
-            <text x={12} y={(top.get(m.name) ?? 0) + LANE / 2 + 4} fontSize={11.5} fill={theme.ink}>
+            <text {...stylex.props(sx.label)} x={12} y={(top.get(m.name) ?? 0) + LANE / 2 + 4} fontSize={11.5} fill={theme.ink}>
               {m.name}
             </text>
           </Fragment>
@@ -166,10 +168,12 @@ export function Swimlanes({
 
         <line x1={x(t)} x2={x(t)} y1={0} y2={h} stroke={theme.ink} strokeWidth={1} opacity={0.4} />
       </svg>
-      <style>{`
-        .lanes-box { overflow: auto; }
-        .lanes-box text { pointer-events: none; user-select: none; }
-      `}</style>
     </div>
   );
 }
+
+const sx = stylex.create({
+  box: { overflow: 'auto' },
+  /** `.lanes-box text` used to say this for every label in the chart. */
+  label: { pointerEvents: 'none', userSelect: 'none' },
+});

@@ -14,6 +14,9 @@
  * being told its shape.
  */
 import { digest } from '../lib/trace.ts';
+import * as stylex from '@stylexjs/stylex';
+
+import { ui } from '../lib/ui.stylex.ts';
 
 export function Payload({
   detail,
@@ -42,13 +45,13 @@ function Side({ label, body, open }: { label: string; body: unknown; open: boole
   return (
     <details open={open}>
       <summary style={{ cursor: 'pointer', listStyle: 'none' }}>
-        <span className="muted" style={{ marginRight: 6 }}>
+        <span {...stylex.props(ui.muted)} style={{ marginRight: 6 }}>
           {label}
         </span>
-        {text || <span className="muted">empty</span>}
+        {text || <span {...stylex.props(ui.muted)}>empty</span>}
       </summary>
       <pre
-        className="mono"
+        {...stylex.props(ui.mono)}
         style={{
           maxHeight: 180,
           overflow: 'auto',

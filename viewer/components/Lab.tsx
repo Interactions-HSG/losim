@@ -23,6 +23,9 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useConsole } from '../lib/console.tsx';
 import { project, type Project, type Simulation } from '../lib/lab.ts';
+import * as stylex from '@stylexjs/stylex';
+
+import { chrome, font, radius, shadow } from '../lib/tokens.stylex.ts';
 
 export function Lab({
   onEdit,
@@ -58,21 +61,21 @@ export function Lab({
   if (!lab) return null;
 
   return (
-    <section className="lab">
-      <div className="rows">
+    <section {...stylex.props(sty.lab)}>
+      <div {...stylex.props(sty.rows)}>
         {lab.simulations.length === 0 && (
           <div className="row">
-            <span className="empty">
+            <span {...stylex.props(sty.empty)}>
               No simulations yet. Write one above and it appears here.
             </span>
           </div>
         )}
-        {lab.simulations.map((sc: Simulation) => {
+        {lab.simulations.map((sc: Simulation, i: number) => {
           const running = building?.simulation === sc.name;
           return (
-            <div key={sc.name} className={`row${running ? ' running' : ''}`}>
+            <div key={sc.name} {...stylex.props(sty.row, running && sty.running, i === lab.simulations.length - 1 && sty.lastRow)}>
               <button
-                className="go"
+                {...stylex.props(sty.go)}
                 disabled={!lab.started || building != null}
                 onClick={() => press(sc.name)}
                 title={
@@ -87,11 +90,11 @@ export function Lab({
                 {running ? '…' : '▶'}
               </button>
 
-              <span className="id">{sc.name}</span>
-              <span className="facts">{sc.path}</span>
+              <span {...stylex.props(sty.id)}>{sc.name}</span>
+              <span {...stylex.props(sty.facts)}>{sc.path}</span>
 
               <button
-                className="seen"
+                {...stylex.props(sty.seen)}
                 disabled={building != null}
                 onClick={() => onEdit(sc.name)}
               >
@@ -100,7 +103,7 @@ export function Lab({
 
               {sc.trace && (
                 <button
-                  className="seen"
+                  {...stylex.props(sty.seen)}
                   disabled={building != null}
                   onClick={() =>
                     void openAt(
@@ -118,40 +121,66 @@ export function Lab({
         })}
       </div>
 
-      <style>{`
-        .lab {
-          flex: none; background: var(--surface); border: 1px solid var(--border);
-          border-radius: var(--r); box-shadow: var(--shadow-1); overflow: hidden;
-        }
-        .rows { display: flex; flex-direction: column; }
-        .row {
-          display: flex; align-items: center; gap: 10px;
-          padding: 6px 10px; border-bottom: 1px solid var(--border);
-          font-size: 12.5px;
-        }
-        .row:last-child { border-bottom: 0; }
-        .row.running { background: var(--accent-soft); }
-
-        .go {
-          flex: none; width: 24px; height: 24px; border-radius: var(--r-sm);
-          border: 1px solid var(--border-strong); background: var(--surface-2);
-          color: var(--accent); font-size: 11px; line-height: 1; cursor: pointer;
-        }
-        .go:hover:not(:disabled) { background: var(--accent); color: #fff; border-color: transparent; }
-        .go:disabled { opacity: 0.35; cursor: default; }
-
-        .id { font-family: var(--mono); font-weight: 600; }
-        .facts { margin-left: auto; color: var(--text-3); font-size: 11.5px; font-family: var(--mono); }
-        .empty { color: var(--text-3); font-size: 12.5px; }
-
-        .seen {
-          flex: none; padding: 2px 8px; border-radius: var(--r-sm);
-          border: 1px solid var(--border-strong); background: transparent;
-          color: var(--text-2); font-size: 11.5px; cursor: pointer;
-        }
-        .seen:hover:not(:disabled) { color: var(--text); border-color: var(--text-3); }
-        .seen:disabled { opacity: 0.35; cursor: default; }
-      `}</style>
     </section>
   );
 }
+
+const sty = stylex.create({
+  lab: {
+    flex: 'none',
+    backgroundColor: chrome.surface,
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: chrome.border,
+    borderRadius: radius.base,
+    boxShadow: shadow.s1,
+    overflow: 'hidden',
+  },
+  rows: { display: 'flex', flexDirection: 'column' },
+  row: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    paddingBlock: '6px',
+    paddingInline: '10px',
+    borderBottomWidth: '1px',
+    borderBottomStyle: 'solid',
+    borderBottomColor: chrome.border,
+    fontSize: '12.5px',
+  },
+  /** `:last-child` had to ask the DOM; the list knows which row is last. */
+  lastRow: { borderBottomWidth: 0 },
+  running: { backgroundColor: chrome.accentSoft },
+  go: {
+    flex: 'none',
+    width: '24px',
+    height: '24px',
+    borderRadius: radius.sm,
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: { default: chrome.borderStrong, ':hover': 'transparent', ':disabled': chrome.borderStrong },
+    backgroundColor: { default: chrome.surface2, ':hover': chrome.accent, ':disabled': chrome.surface2 },
+    color: { default: chrome.accent, ':hover': '#fff', ':disabled': chrome.accent },
+    fontSize: '11px',
+    lineHeight: 1,
+    cursor: { default: 'pointer', ':disabled': 'default' },
+    opacity: { default: 1, ':disabled': 0.35 },
+  },
+  id: { fontFamily: font.mono, fontWeight: 600 },
+  facts: { marginLeft: 'auto', color: chrome.text3, fontSize: '11.5px', fontFamily: font.mono },
+  empty: { color: chrome.text3, fontSize: '12.5px' },
+  seen: {
+    flex: 'none',
+    paddingBlock: '2px',
+    paddingInline: '8px',
+    borderRadius: radius.sm,
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: { default: chrome.borderStrong, ':hover': chrome.text3, ':disabled': chrome.borderStrong },
+    backgroundColor: 'transparent',
+    color: { default: chrome.text2, ':hover': chrome.text, ':disabled': chrome.text2 },
+    fontSize: '11.5px',
+    cursor: { default: 'pointer', ':disabled': 'default' },
+    opacity: { default: 1, ':disabled': 0.35 },
+  },
+});
