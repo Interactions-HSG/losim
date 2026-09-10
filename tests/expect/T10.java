@@ -135,20 +135,64 @@ public final class T10 {
 
         // The plan travels, so projected = f(observed) is something a reader can
         // redo rather than take on trust.
-        double keys = at(sub(sub(scale, "variables"), "revealed.distinctKeys"),
-                         Expect.num(scale.get("fullUnits")));
-        double redone = at(memoryLaw, keys);
-        double reported = Expect.num(projected.get("memoryMb").get("projected"));
+        var memory = projected.get("memoryMb");
+        double full = Expect.num(scale.get("fullUnits"));
+        // Which arithmetic the engine says it did, because there are two of them and
+        // they give different answers. A cluster peak assembled from the per-machine
+        // laws is not the cluster law evaluated at full size — max is not a smooth
+        // function of what is under it — so the trace states which was used and this
+        // redoes that one. Recomputing the other and calling the difference a bug is
+        // exactly how this check failed when the engine learned to assemble.
+        String from = String.valueOf(memory.get("from"));
+        double redone = "machines".equals(from)
+                ? peakOverMachines(scale, "memoryMb", full)
+                : at(memoryLaw, variableAt(scale, memoryLaw, full));
+        double reported = Expect.num(memory.get("projected"));
         e.check(Math.abs(redone - reported) < 0.01 * Math.max(1, reported), String.format(
-                "and the plan travels in the trace: recomputing the memory projection from the"
-                + " two laws it carries — keys from units, then memory from keys — gives"
-                + " %.3f against the %.3f it reported", redone, reported));
+                "and the plan travels in the trace: recomputing the memory projection the way"
+                + " the trace says it was made (from: %s) gives %.3f against the %.3f it"
+                + " reported", from, redone, reported));
         e.done();
     }
 
     private static double uniformError(Map<String, Object> p, double factor, double was) {
         if (p == null) return 0;
         return Math.abs(Expect.num(p.get("observed")) * factor - was) / was * 100;
+    }
+
+    /**
+     * What one law's independent variable comes to at a given size.
+     *
+     * <p>{@code units} is known exactly; anything else is a law of its own over
+     * units, and carrying both is what lets a reader redo the whole chain rather
+     * than only its last step.
+     */
+    static double variableAt(Map<String, Object> scale, Map<String, Object> law, double units) {
+        String of = String.valueOf(law.get("variable"));
+        if ("units".equals(of)) return units;
+        var own = sub(sub(scale, "variables"), of);
+        return own.isEmpty() ? units : at(own, units);
+    }
+
+    /**
+     * The worst machine's projection, assembled the way the engine assembles it.
+     *
+     * <p>Every machine carries its own law under {@code <machine>/<resource>}, each
+     * possibly fitted against a different variable, so each is resolved on its own
+     * terms before the peak is taken.
+     */
+    @SuppressWarnings("unchecked")
+    static double peakOverMachines(Map<String, Object> scale, String resource, double units) {
+        var laws = sub(scale, "laws");
+        double peak = 0;
+        for (var entry : laws.entrySet()) {
+            String key = entry.getKey();
+            int slash = key.indexOf('/');
+            if (slash < 0 || !key.substring(slash + 1).equals(resource)) continue;
+            var law = (Map<String, Object>) entry.getValue();
+            peak = Math.max(peak, at(law, variableAt(scale, law, units)));
+        }
+        return peak;
     }
 
     /** {@code fixed + coefficient * n^beta}, exactly as the engine states it. */

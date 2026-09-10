@@ -90,28 +90,42 @@ public final class Scaled {
             // fitted to the aggregate — `max` and `sum` are taken after projecting,
             // not before. See Probe.isPeak for what fitting the aggregate does to a
             // cluster whose largest machine at probe size is not its largest at scale.
-            List<String> short0 = List.of();
+            boolean assembled = false;
             if (!Probe.isPerNode(e.getKey())
                     && (Probe.isPeak(e.getKey()) || Probe.isSum(e.getKey()))
-                    && !machines.isEmpty()) {
+                    && !machines.isEmpty()
+                    // A refused resource stays refused. Assembling one from its parts
+                    // overwrites the reason with a number, and this shipped: a memory
+                    // law refused for bending came back as `projected: 0` with the
+                    // refusal cleared, which is a refusal turned into a confident
+                    // answer — the one outcome the whole design exists to prevent.
+                    && p.projected().isPresent()) {
                 var across = plan.laws().across(e.getKey(), plan.fullUnits(), machines);
-                if (across.value().isPresent()) {
+                // And a peak or a total short of a machine is a lower bound, not a
+                // projection. Reporting one as though it were the answer understates
+                // it by however much the missing machine would have contributed, and
+                // says nothing about by how much.
+                if (across.value().isPresent() && across.missing().isEmpty()) {
                     p = new ScalePlan.Projection(p.resource(), p.observed(), across.value(),
                             p.errorBar() > 0 ? p.errorBar() : 1.0, null);
-                    short0 = across.missing();
+                    assembled = true;
                 }
             }
             var m = new LinkedHashMap<String, Object>();
             m.put("resource", Probe.resourceOf(p.resource()));
             m.put("observed", round(p.observed()));
-            // Named, not swallowed: a peak missing a machine is a lower bound and a
-            // total missing one is short by however much that machine would have been.
-            if (!short0.isEmpty()) m.put("incomplete", short0);
             if (p.projected().isPresent()) {
                 m.put("projected", round(p.projected().getAsDouble()));
                 m.put("errorBar", round(p.errorBar()));
                 var law = plan.laws().law(p.resource());
                 if (law != null) m.put("of", law.variable());
+                // How this number was arrived at, because the two ways give different
+                // answers and a reader recomputing from the laws has to know which
+                // arithmetic to do. Without it the trace stopped being self-checking:
+                // a cluster peak assembled from per-machine laws does not equal the
+                // cluster law evaluated at full size, and the acceptance test that
+                // recomputes it said so.
+                m.put("from", assembled ? "machines" : "law");
             } else {
                 m.put("refused", p.refusedBecause());
             }

@@ -98,6 +98,7 @@ public final class Invariants {
         if (!plan.feasible()) return out;
 
         hiddenWorkingSet(result, out);
+        refusalsStayRefused(plan, reported, out);
         aggregatesAreAssembled(plan, reported, out);
         lawsFitTheirOwnMeasurement(plan, probe, out);
         capsAreConsistent(plan, out);
@@ -107,6 +108,33 @@ public final class Invariants {
     }
 
     // ------------------------------------------------------------------ the checks
+
+    /**
+     * A resource the engine refused must not come back carrying a number.
+     *
+     * <p>The narrowest check in this file and the one that catches the worst thing
+     * that can happen. A wrong number is a bug; a refusal quietly replaced by a
+     * number is a lie, because the reason a reader would have used to distrust it
+     * has been deleted along the way. It shipped: a memory law refused for bending
+     * was overwritten by an assembly of its per-machine parts and reported as
+     * {@code projected: 0}, reason cleared, error bar 1.
+     *
+     * <p>Mechanical, deliberately. It compares two things the engine already knows
+     * about itself — what {@code Laws} refused, and what is about to be written —
+     * and needs no judgement about whether either is right.
+     */
+    private static void refusalsStayRefused(ScalePlan plan, List<ScalePlan.Projection> reported,
+                                            List<Violation> out) {
+        for (var p : reported) {
+            String why = plan.laws().refused().get(p.resource());
+            if (why == null || p.projected().isEmpty()) continue;
+            out.add(new Violation("refusal-overwritten", p.resource(), String.format(
+                    "was refused, and is being reported as %.4g anyway. The refusal said: %s."
+                    + " A number that replaces a refusal takes the reader's grounds for"
+                    + " doubting it away at the same time",
+                    p.projected().getAsDouble(), why)));
+        }
+    }
 
     /**
      * A machine whose retained heap is implausibly small for what it allocated.
