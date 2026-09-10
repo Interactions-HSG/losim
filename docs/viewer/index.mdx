@@ -77,56 +77,28 @@ The scrubber reads the clock **used by the simulation**, not the host's compress
 clock. It therefore matches the durations written in YAML.
 </Note>
 
-<Warning>
-**Playback speed varies, and `1x` does not mean one simulated second per real second.**
-Short messages would otherwise be difficult to inspect.
-
-The clock therefore **slows down for quick events**, keeping each message leg and
-work interval visible for at least a second. The **hold** button cycles
-`1s -> 0.5s -> 0.25s -> off`.
-</Warning>
-
-Only playback pace changes:
+`1x` means one simulated second per real second, everywhere in the console. The
+playhead moves through trace time at a constant rate:
 
 | | |
 |---|---|
 | **monotone** | trace time never goes backwards, so nothing is reordered and nothing overlaps that did not overlap |
 | **read at the true instant** | every number on screen is taken from the trace at the trace time the playhead is at — a node's memory at 400 refMs is what it was at 400 refMs |
-| **the scrubber is still refMs** | the axis is unchanged; only the speed along it varies |
+| **the scrubber is still refMs** | the axis is unchanged, and the playhead crosses it evenly |
 
-**The film is longer than the run, often much longer.** The viewer displays the film's
-total duration beside the elapsed time.
-
-Turn `hold` down or off to approach the run's original playback speed.
+<Tip>
+**A run whose calls are quicker than a video frame is a run to watch at `0.25x`.**
+A control message that took three refMs is three thousandths of a second at `1x`
+and twelve at `0.25x`; step through it with the arrow keys to read it properly, or
+open the [waterfall](/viewer/views#spans), where a three-refMs call is a bar you
+can hover.
+</Tip>
 
 ### The `fit` rate
 
-`fit` plays **the whole film in thirty seconds**. It preserves the pacing proportions
-while reducing the total playback time.
-
-The one-second floor applies at **`1x`**. At `fit`, each moment gets
-`30s / the film's length`:
-
-| | run | film | each moment at `fit` |
-|---|---|---|---|
-| a small run | 5.2s | 57.0s | ~0.53s |
-| a run full of failures | 8.9s | 165.0s | ~0.18s |
-
-Use `fit` for an overview and `1x` for detailed reading. `hold` controls the film's
-timing shape; `fit` controls total viewing time. Pressing a numbered rate clears
-`fit`.
-
-<Tip>
-Turn `hold` **off** and `fit` plays the whole run in thirty seconds at a constant
-rate.
-</Tip>
-
-
-
-<Tip>
-**Do not judge relative duration from the film.** Playback pacing changes the visual
-timing. The [waterfall](/viewer/views#spans) uses a linear axis for duration.
-</Tip>
+`fit` plays **the whole run in thirty seconds**, whatever it took — a 5.2s run
+slowed by six, a 165s run sped up by five. Use it for an overview and a numbered
+rate for detailed reading. Pressing a numbered rate clears `fit`.
 
 
 ## Status

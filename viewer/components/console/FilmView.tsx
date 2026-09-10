@@ -7,7 +7,7 @@
  * it a definite height. The clock is the film's own, because the film is the one
  * view whose clock is not linear: it slows down where something short is
  * happening, so that a three-millisecond call is on screen long enough to see.
- * A chart of memory against time has nothing that flickers past and should not
+ * A chart of load against time has nothing that flickers past and should not
  * pay for that — on the rest of the console a reference second takes a second.
  */
 import { useCallback, useState } from 'react';

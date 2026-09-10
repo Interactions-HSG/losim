@@ -13,22 +13,16 @@
  * written in, not the compressed one the host actually ran at. Every reading
  * anywhere in the viewer is at the trace instant the playhead is at.
  *
- * **But the playhead does not move through trace time evenly.** It moves through
- * *film* time, and `lib/pace.ts` maps that to trace time so that every message
- * and every stretch of work is on screen for at least a second, however briefly
- * it really happened. Without that, at `1x`, a three-millisecond call is three
- * thousandths of a second of film and nobody has ever seen one.
- *
- * So `1x` means the run at its natural pace, with the quick parts held long
- * enough to read — not literally one simulated second per real second. The rate
- * buttons multiply that. `linear()` turns the pacing off for anybody who wants
- * the literal reading, and the transport says which it is in.
+ * **And the playhead moves through trace time evenly.** `1x` is one simulated
+ * second per real second and means that everywhere — in the film, in the
+ * console, in a recording. The rate buttons multiply it, so a run whose calls
+ * are quicker than a frame is a run to watch at `0.25x`.
  */
 import { timer, type Timer } from 'd3-timer';
 
-import { HOLD_SECONDS, NORMAL, Pace } from './pace.ts';
-
 export const RATES = [0.25, 0.5, 1, 2, 4, 8] as const;
+/** Reference milliseconds per real second at `1x` — one simulated second, per second. */
+export const NORMAL = 1000;
 /** How long the whole run takes at `fit`, in real seconds. */
 export const FIT_SECONDS = 30;
 
@@ -36,8 +30,6 @@ export class Clock {
   duration: number;
   /** Where the playhead is in the **film**, in real seconds. */
   private d = 0;
-  private pace: Pace;
-  private hold = HOLD_SECONDS;
   private rate: number = 1;
   private fitted = false;
   private playing = false;
@@ -45,13 +37,14 @@ export class Clock {
   private last = 0;
   private listeners = new Set<() => void>();
 
-  constructor(duration: number, moments: readonly { t0: number; t1: number }[] = []) {
+  constructor(duration: number) {
     this.duration = Math.max(1, duration);
-    this.pace = Pace.of(moments, this.duration, this.hold);
-    this.moments = moments;
   }
 
-  private moments: readonly { t0: number; t1: number }[];
+  /** How long the film runs at `1x`, in real seconds. */
+  private get total(): number {
+    return this.duration / NORMAL;
+  }
 
   subscribe = (fn: () => void): (() => void) => {
     this.listeners.add(fn);
@@ -59,40 +52,17 @@ export class Clock {
   };
 
   /** The snapshot has to be a primitive, or every subscriber re-renders forever. */
-  now = (): number => this.pace.traceAt(this.d);
+  now = (): number => this.d * NORMAL;
   isPlaying = (): boolean => this.playing;
   isFitted = (): boolean => this.fitted;
   /** What the buttons show: a number, or the word. */
   label = (): string => (this.fitted ? 'fit' : `${this.rate}x`);
 
   /** How many film seconds pass per real second. */
-  speed = (): number =>
-    this.fitted ? Math.max(1e-6, this.pace.total) / FIT_SECONDS : this.rate;
+  speed = (): number => (this.fitted ? Math.max(1e-6, this.total) / FIT_SECONDS : this.rate);
 
   /** How long the film runs at `1x`, in real seconds. */
-  filmSeconds = (): number => this.pace.total;
-
-  /** How much longer the film is than the run itself. 1 when nothing is paced. */
-  stretch = (): number => this.pace.stretch;
-
-  /** The least time anything stays on screen, in real seconds. 0 when off. */
-  holding = (): number => this.hold;
-
-  /**
-   * Change how long things are held, or turn the pacing off with 0.
-   *
-   * The playhead keeps its place in the *trace*, not in the film: somebody who
-   * has scrubbed to the moment a node died and then slows the film down is
-   * still looking at that moment.
-   */
-  setHold(seconds: number): void {
-    const where = this.now();
-    this.hold = Math.max(0, seconds);
-    this.pace = this.hold > 0 ? Pace.of(this.moments, this.duration, this.hold)
-                              : Pace.linear(this.duration);
-    this.d = this.pace.displayAt(where);
-    this.changed();
-  }
+  filmSeconds = (): number => this.total;
 
   private changed(): void {
     for (const fn of this.listeners) fn();
@@ -101,13 +71,11 @@ export class Clock {
   /**
    * Seek to a point in the **film**, in real seconds.
    *
-   * What the recorder steps through. Recording in trace time would undo the
-   * whole of the pacing: the video would spend its frames evenly across the run
-   * and the quick messages would be back to one frame each — which is precisely
-   * the film a lecture cannot use.
+   * What the recorder steps through, and the same instant `seek` names in
+   * reference milliseconds — the two differ by their unit and nothing else.
    */
   seekFilm(seconds: number): void {
-    const next = Math.max(0, Math.min(this.pace.total, seconds));
+    const next = Math.max(0, Math.min(this.total, seconds));
     if (next === this.d) return;
     this.d = next;
     this.changed();
@@ -115,10 +83,7 @@ export class Clock {
 
   /** Seek to a **trace** instant: what the scrubber, the markers and a span mean. */
   seek(t: number): void {
-    const next = this.pace.displayAt(Math.max(0, Math.min(this.duration, t)));
-    if (next === this.d) return;
-    this.d = next;
-    this.changed();
+    this.seekFilm(Math.max(0, Math.min(this.duration, t)) / NORMAL);
   }
 
   setRate(rate: number): void {
@@ -136,17 +101,15 @@ export class Clock {
     if (this.playing) return;
     // Starting from the end is a replay, not a no-op: nobody presses play on a
     // finished film meaning "do nothing".
-    if (this.d >= this.pace.total) this.d = 0;
+    if (this.d >= this.total) this.d = 0;
     this.playing = true;
     this.last = 0;
     this.ticker = timer((elapsed) => {
       const dt = elapsed - this.last;
       this.last = elapsed;
-      // Film seconds, not trace milliseconds: how far that advances the trace is
-      // the pace's business and varies with what is happening.
       this.d += (dt / 1000) * this.speed();
-      if (this.d >= this.pace.total) {
-        this.d = this.pace.total;
+      if (this.d >= this.total) {
+        this.d = this.total;
         this.pause();
       }
       this.changed();
@@ -170,17 +133,14 @@ export class Clock {
   /** One frame of the film, at 30 — a frame of *film*, so it is a visible step. */
   step(direction: number): void {
     this.pause();
-    this.d = Math.max(0, Math.min(this.pace.total, this.d + direction / 30));
+    this.d = Math.max(0, Math.min(this.total, this.d + direction / 30));
     this.changed();
   }
 
   /** Retargets an existing clock at a different run without losing subscribers. */
-  reset(duration: number, moments: readonly { t0: number; t1: number }[] = []): void {
+  reset(duration: number): void {
     this.pause();
     this.duration = Math.max(1, duration);
-    this.moments = moments;
-    this.pace = this.hold > 0 ? Pace.of(moments, this.duration, this.hold)
-                              : Pace.linear(this.duration);
     this.d = 0;
     this.changed();
   }
@@ -196,9 +156,6 @@ export class Clock {
 export function frames(duration: number, fps = 30): number {
   return Math.max(1, Math.round(FIT_SECONDS * fps));
 }
-
-/** The rate the film would run at with no pacing, for the readout. */
-export const LINEAR_RATE = NORMAL;
 
 /** A reference-time reading, in the shortest form that still says which one it is. */
 export function refTime(ms: number): string {

@@ -5,10 +5,9 @@
  *
  * **A panel, not a tooltip.** A tooltip is for a number. What a viewer wants
  * when they point at a node is everything about it right now, and there is
- * far too much of that to float over the picture: what it is, what it holds
- * against what it is allowed to hold, what it is computing and the *whole*
- * payload rather than the digest, what it has served, and what has happened to
- * it.
+ * far too much of that to float over the picture: what it is, what it is
+ * computing and the *whole* payload rather than the digest, what it has
+ * served, and what has happened to it.
  *
  * **It is a slice of the same frame the picture is drawn from**, not a second
  * query path — so it cannot disagree with the node behind it, and it keeps
@@ -16,9 +15,9 @@
  * on hover a node can only be sampled, and pinned it can be *watched*, which
  * is how you see a reducer fill up rather than discover that it did.
  *
- * The sparklines are the whole run with the current instant marked, so the
- * reading has a shape around it. "Holding 255 MB" says nothing on its own; "255
- * MB, climbing steadily since the shuffle started, 180 left" says what is about
+ * The sparkline is the whole run with the current instant marked, so the
+ * reading has a shape around it. "255 MB of disk" says nothing on its own; "255
+ * MB, climbing steadily since the spill started, 180 left" says what is about
  * to happen.
  */
 import * as stylex from '@stylexjs/stylex';
@@ -45,7 +44,6 @@ export interface NodePanelProps {
 }
 
 export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePanelProps) {
-  const held = useMemo(() => trace.series(m.name, 'retainMb'), [trace, m.name]);
   const disk = useMemo(() => trace.series(m.name, 'diskMb'), [trace, m.name]);
   const busy = useMemo(() => trace.series(m.name, 'busyPct'), [trace, m.name]);
 
@@ -102,19 +100,9 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
         </div>
       </section>
 
-      <section>
-        <H2>capacity remaining</H2>
-        <Gauge
-          name="memory"
-          free={m.freeMb}
-          used={m.heldMb}
-          cap={m.capMb}
-          share={m.memShare}
-          series={held}
-          t={t}
-          duration={trace.duration}
-        />
-        {m.diskCapMb > 0 && (
+      {m.diskCapMb > 0 && (
+        <section>
+          <H2>capacity remaining</H2>
           <Gauge
             name="disk"
             free={m.diskFreeMb}
@@ -125,8 +113,8 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
             t={t}
             duration={trace.duration}
           />
-        )}
-      </section>
+        </section>
+      )}
 
       <section>
         <H2>current activity</H2>

@@ -156,14 +156,10 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
   /**
    * One clock per run, and every view reads it.
    *
-   * Rebuilt when the run changes rather than reset, because its pacing is
-   * computed from that run's moments — the whole point of `lib/pace.ts` is that
-   * the playhead slows down where *this* run is quick.
+   * Rebuilt when the run changes rather than reset, so that nothing subscribed
+   * to the old run's length can outlive it.
    */
-  const clock = useMemo(
-    () => (run ? new Clock(run.trace.duration, run.index.moments()) : null),
-    [run],
-  );
+  const clock = useMemo(() => (run ? new Clock(run.trace.duration) : null), [run]);
   useEffect(() => () => clock?.dispose(), [clock]);
 
   // A clock is built when its run opens, so this is the first moment there is

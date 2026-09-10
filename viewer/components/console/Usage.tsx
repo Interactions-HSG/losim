@@ -20,6 +20,7 @@ import { Head, Panel } from './Shell.tsx';
 import { useConsole, useNow } from '../../lib/console.tsx';
 import { refTime } from '../../lib/playback.ts';
 import type { Trace } from '../../lib/trace.ts';
+import { A, Code, P, Table, Td, Th } from '../../lib/text.tsx';
 
 interface Metric {
   id: string;
@@ -35,8 +36,6 @@ interface Metric {
 
 const METRICS: Metric[] = [
   { id: 'busyPct', label: 'CPU', unit: '%', max: 100, dp: 0, note: 'of the node’s cores, at this instant' },
-  { id: 'memPct', label: 'Memory', unit: '%', max: 100, dp: 0, note: 'of its cap — past 75% is where a node starts to be in trouble' },
-  { id: 'retainMb', label: 'Retained heap', unit: 'MB', dp: 2, note: 'what your code is holding on to, not what it allocated' },
   { id: 'bytesOutMb', label: 'Bytes out', unit: 'MB', dp: 2, note: 'cumulative — the line the egress bill is drawn from' },
   { id: 'inflight', label: 'Calls in flight', unit: '', divs: 2, dp: 0, note: 'handlers running on it right now' },
   { id: 'queued', label: 'Queued', unit: '', divs: 2, dp: 0, note: 'calls waiting for a core. A queue that never empties is a node too small' },
@@ -129,10 +128,10 @@ export function Usage() {
       <>
         <Head title="Usage" sub="what each node was doing" />
         <Panel>
-          <p className="muted">
+          <P className="muted">
             This trace carries no channels — it was recorded with telemetry off. Run it again
-            without <code>--quiet</code> and every node gets a line here.
-          </p>
+            without <Code>--quiet</Code> and every node gets a line here.
+          </P>
         </Panel>
       </>
     );
@@ -150,9 +149,9 @@ export function Usage() {
       <Head
         crumbs={
           <>
-            <a href="#" onClick={(e) => { e.preventDefault(); go('runs'); }}>Runs</a>
+            <A href="#" onClick={(e) => { e.preventDefault(); go('runs'); }}>Runs</A>
             {' / '}
-            <a href="#" onClick={(e) => { e.preventDefault(); go('overview'); }}>{run.name}</a>
+            <A href="#" onClick={(e) => { e.preventDefault(); go('overview'); }}>{run.name}</A>
             {' / Usage'}
           </>
         }
@@ -215,15 +214,15 @@ export function Usage() {
 
       <Panel title="Per node, up to the clock" note={`everything below counts only what has happened by ${refTime(now)}`} flush>
         <div className="scroll">
-          <table>
+          <Table>
             <thead>
               <tr>
-                <th>Node</th>
-                <th>Instance</th>
-                <th>Zone</th>
-                <th className="r">{metric.label} now</th>
-                <th className="r">Peak so far</th>
-                <th>Shape so far</th>
+                <Th>Node</Th>
+                <Th>Instance</Th>
+                <Th>Zone</Th>
+                <Th className="r">{metric.label} now</Th>
+                <Th className="r">Peak so far</Th>
+                <Th>Shape so far</Th>
               </tr>
             </thead>
             <tbody>
@@ -233,19 +232,19 @@ export function Usage() {
                 const value = pts.length ? pts[pts.length - 1][1] : 0;
                 return (
                   <tr key={mc.name}>
-                    <td className="id">{mc.name}</td>
-                    <td>{mc.instance}</td>
-                    <td className="muted">{mc.zone}</td>
-                    <td className="n">{reading(value, metric)}</td>
-                    <td className="n">{reading(peak, metric)}</td>
-                    <td className="sp">
+                    <Td className="id">{mc.name}</Td>
+                    <Td>{mc.instance}</Td>
+                    <Td className="muted">{mc.zone}</Td>
+                    <Td num>{reading(value, metric)}</Td>
+                    <Td num>{reading(peak, metric)}</Td>
+                    <Td className="sp">
                       <Spark pts={pts} colour={colourOf(i)} max={tops.get(metric.id) ?? 1} />
-                    </td>
+                    </Td>
                   </tr>
                 );
               })}
             </tbody>
-          </table>
+          </Table>
         </div>
       </Panel>
 

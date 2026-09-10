@@ -20,7 +20,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { LineChart, short } from './Chart.tsx';
+import { LineChart } from './Chart.tsx';
 import { Head, Panel, Tile } from './Shell.tsx';
 import { Spans } from '../Spans.tsx';
 import { Topology } from '../Topology.tsx';
@@ -29,6 +29,7 @@ import { useConsole, useNow } from '../../lib/console.tsx';
 import { BUCKETS, money } from '../../lib/ledger.ts';
 import { refTime } from '../../lib/playback.ts';
 import { useTheme } from '../../lib/theme.ts';
+import { A, Code, H2, Kbd, P, Table, Td, Th } from '../../lib/text.tsx';
 
 /**
  * What a trace's event kinds are, said the way somebody would say them.
@@ -76,8 +77,8 @@ function Step({
       <header>
         <span className="step-n" aria-hidden>{n}</span>
         <div className="step-q">
-          <h2>{q}</h2>
-          <p>{say}</p>
+          <H2>{q}</H2>
+          <P>{say}</P>
         </div>
         {aside && <div className="step-aside">{aside}</div>}
       </header>
@@ -184,7 +185,7 @@ export function Overview() {
       <Head
         crumbs={
           <>
-            <a href="#" onClick={(e) => { e.preventDefault(); go('runs'); }}>Runs</a>
+            <A href="#" onClick={(e) => { e.preventDefault(); go('runs'); }}>Runs</A>
             {' / '}
             {run.name}
           </>
@@ -288,7 +289,7 @@ export function Overview() {
             <strong>In flight</strong> is what it is handling now, <strong>queued</strong> is
             what is waiting for a free core — a queue that never empties is a node too small.
             {busiest && busiest.inflight > 0 && (
-              <> Right now the busiest is <code>{busiest.name}</code>.</>
+              <> Right now the busiest is <Code>{busiest.name}</Code>.</>
             )}
           </>
         }
@@ -296,35 +297,33 @@ export function Overview() {
       >
         <Panel flush>
           <div className="scroll">
-            <table>
+            <Table>
               <thead>
                 <tr>
-                  <th>Node</th>
-                  <th>Zone</th>
-                  <th>Serves</th>
-                  <th className="r">In flight</th>
-                  <th className="r">Queued</th>
-                  <th className="r">Memory held</th>
-                  <th>Doing</th>
+                  <Th>Node</Th>
+                  <Th>Zone</Th>
+                  <Th>Serves</Th>
+                  <Th className="r">In flight</Th>
+                  <Th className="r">Queued</Th>
+                  <Th>Doing</Th>
                 </tr>
               </thead>
               <tbody>
                 {(frame?.nodes ?? []).map((m) => (
                   <tr key={m.name}>
-                    <td className="id">{m.name}</td>
-                    <td className="muted">{m.zone}</td>
-                    <td className="muted">{m.serves.join(', ') || '—'}</td>
-                    <td className="n">{m.inflight}</td>
-                    <td className="n">{m.queued}</td>
-                    <td className="n">{short(m.heldMb)} MB</td>
-                    <td>
+                    <Td className="id">{m.name}</Td>
+                    <Td className="muted">{m.zone}</Td>
+                    <Td className="muted">{m.serves.join(', ') || '—'}</Td>
+                    <Td num>{m.inflight}</Td>
+                    <Td num>{m.queued}</Td>
+                    <Td>
                       <span className={`state ${m.state}`}>{m.state}</span>
                       {m.work.length > 0 && <span className="muted"> · {m.work[0].method}</span>}
-                    </td>
+                    </Td>
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </Table>
           </div>
         </Panel>
       </Step>
@@ -341,7 +340,7 @@ export function Overview() {
             </>
           ) : (
             <>
-              Nothing by {refTime(now)}. Press <kbd>]</kbd> to jump straight to the next thing
+              Nothing by {refTime(now)}. Press <Kbd>]</Kbd> to jump straight to the next thing
               that broke, rather than hunting for it with the scrubber.
             </>
           )
@@ -368,10 +367,10 @@ export function Overview() {
               ))}
             </ul>
           ) : (
-            <p className="pad muted">Nothing yet.</p>
+            <P className="pad muted">Nothing yet.</P>
           )}
           {wrong.length > 14 && (
-            <p className="pad muted">{wrong.length - 14} earlier ones, not listed.</p>
+            <P className="pad muted">{wrong.length - 14} earlier ones, not listed.</P>
           )}
         </Panel>
       </Step>
@@ -398,9 +397,9 @@ export function Overview() {
             <div className="money">
               <div className="sum">
                 <div className="big">{money(l.cost, l.currency)}</div>
-                <p className="note">
+                <P className="note">
                   as at <span className="mono">{refTime(now)}</span> of {refTime(trace.duration)}
-                </p>
+                </P>
                 <div className="stack">
                   {BUCKETS.map((b) => (
                     <i
@@ -439,7 +438,7 @@ export function Overview() {
                   unit={l.currency}
                   label="what this run had cost, over the run"
                 />
-                <p className="note">
+                <P className="note">
                   {(() => {
                     // Against the *whole* run, not against what has accrued: the
                     // claim is about what the design fixed in advance, and that is
@@ -461,16 +460,16 @@ export function Overview() {
                       </>
                     );
                   })()}
-                </p>
+                </P>
               </div>
             </div>
           </Panel>
         ) : (
           <Panel>
-            <p className="muted">
-              Run <code>losim bill</code> next to this trace and this fills in — the viewer will
+            <P className="muted">
+              Run <Code>losim bill</Code> next to this trace and this fills in — the viewer will
               not invent prices of its own.
-            </p>
+            </P>
           </Panel>
         )}
       </Step>

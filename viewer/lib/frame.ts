@@ -17,7 +17,6 @@
  * - **The views cannot disagree**, because they are functions of one value.
  */
 import { Layout, TIGHT } from './layout.ts';
-import type { Moment } from './pace.ts';
 import { Trace, digest, entries, liveAt, spanTo, type Span, type TraceEvent } from './trace.ts';
 
 export type NodeState = 'alive' | 'degraded' | 'frozen' | 'dead' | 'reclaiming';
@@ -42,11 +41,7 @@ export interface FrameNode {
   w: number;
   h: number;
   state: NodeState;
-  /** What it holds, and — the number anyone is actually reaching for — what is left. */
-  heldMb: number;
-  capMb: number;
-  freeMb: number;
-  memShare: number;
+  /** What it holds on disk, and — the number anyone is actually reaching for — what is left. */
   diskMb: number;
   diskCapMb: number;
   diskFreeMb: number;
@@ -187,41 +182,7 @@ export class RunIndex {
     return this.notable;
   }
 
-  /**
-   * Everything the film draws that has to be seen, as intervals in trace time.
-   *
-   * This is what the paced clock is built from (`lib/pace.ts`), and the reason it
-   * is computed **here** rather than from the span tree is that the thing which
-   * has to be visible is not a span. A call is drawn as three separate things —
-   * an envelope going out, a node working, an envelope coming back — and
-   * pacing the call as a whole would give a ten-millisecond call its second on
-   * screen while its one-millisecond outward leg still flickered past in a
-   * hundredth of it. So the legs are what is listed, computed by the same
-   * arithmetic that draws them.
-   */
-  moments(): Moment[] {
-    const out: Moment[] = [];
-    for (const span of this.live) {
-      const end = span.t1 >= 0 ? span.t1 : this.duration;
-      if (span.kind === 'rpc') {
-        const leg = this.legOf(span, end);
-        out.push({ t0: span.t0, t1: span.t0 + leg });
-        if (end - leg > span.t0 + leg) out.push({ t0: end - leg, t1: end });
-      } else {
-        // A handler or a local computation: what the node is visibly doing,
-        // and the label that says what it is doing it to.
-        if (end > span.t0) out.push({ t0: span.t0, t1: end });
-      }
-    }
-    return out;
-  }
-
-  /**
-   * How much of a call is the outward flight — the same number `flightOf` draws.
-   *
-   * Shared rather than duplicated: if these two ever disagreed, the clock would
-   * be holding still for a leg that is not the one on screen.
-   */
+  /** How much of a call is the outward flight, and how much the return. */
   private legOf(span: Span, end: number): number {
     const total = Math.max(1e-6, end - span.t0);
     const net = Number(span.detail['netRefMs'] ?? 0);
@@ -270,8 +231,6 @@ export class RunIndex {
     for (const m of this.trace.nodes) {
       const [x, y] = this.layout.point(m.name);
       const [w, h] = this.layout.sizeOf(m.name);
-      const held = this.trace.channel(m.name, 'retainMb', t);
-      const cap = this.trace.channel(m.name, 'memCapMb', t) || m.capMb;
       const disk = this.trace.channel(m.name, 'diskMb', t);
       const diskCap = this.diskCap.get(m.name) ?? 0;
       nodes.push({
@@ -285,10 +244,6 @@ export class RunIndex {
         w,
         h,
         state: this.stateOf(m.name, t),
-        heldMb: held,
-        capMb: cap,
-        freeMb: Math.max(0, cap - held),
-        memShare: cap > 0 ? Math.min(1, held / cap) : 0,
         diskMb: disk,
         diskCapMb: diskCap,
         diskFreeMb: Math.max(0, diskCap - disk),

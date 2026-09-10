@@ -499,7 +499,7 @@ public final class Dev {
     /**
      * The viewer's own checks, which are node and stay node.
      *
-     * <p>Five of them are arithmetic; the rest are about what a browser does, and
+     * <p>Four of them are arithmetic; the rest are about what a browser does, and
      * a browser is where those are answered. They need a sweep to have happened,
      * because they check the port and the bill against runs that actually
      * occurred rather than against fixtures that agree with them by construction.
@@ -516,7 +516,7 @@ public final class Dev {
             return 1;
         }
         boolean fail = false;
-        for (String check : List.of("glyphs", "parity", "ledger", "cost", "pace",
+        for (String check : List.of("glyphs", "parity", "ledger", "cost",
                                     "console", "author", "stops")) {
             System.out.println();
             fail |= exec(List.of("node", "viewer/checks/" + check + ".ts")) != 0;

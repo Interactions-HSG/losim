@@ -85,11 +85,9 @@ The distributed call stack. The views share one tree, time axis, and selection.
 Hovering a row highlights the call in the film and panel; clicking seeks.
 
 <Warning>
-**Spans uses a linear time axis.** The film slows down for quick events; Spans does
-not.
-
-**The film shows activity; the waterfall shows duration.** Use Spans to compare call
-durations.
+**The film shows activity; the waterfall shows duration.** A call three refMs long
+is three thousandths of a second of film and a hoverable bar here. Use Spans to
+compare call durations.
 </Warning>
 
 
@@ -233,13 +231,12 @@ No bill beside the trace means no cost is shown.
 
 | | |
 |---|---|
-| `1x` | the run at its own pace, with the quick parts held long enough to read. **This is the only speed where the one-second floor holds.** |
-| `2x`, `4x`, etc. | the same shape, faster. Pressing one clears `fit`. |
-| `fit` | the whole **film** in thirty seconds. The pacing is kept but squeezed, so each moment gets `30s / the film's length`, well under a second on a long film. |
-| `hold` | cycles `1s -> 0.5s -> 0.25s -> off`, and decides the shape of the film rather than how fast you watch it. Off means no pacing at all. |
+| `1x` | one reference second per real second — the run at the speed it happened. |
+| `0.5x`, `0.25x` | slower, for a run whose calls are quicker than a video frame. |
+| `2x`, `4x`, `8x` | faster. Pressing any numbered rate clears `fit`. |
+| `fit` | the whole run in thirty seconds, whatever it took. |
 
-`hold` and `fit` compose: one sets the pacing, and the other sets total viewing time.
-[Why the clock is paced at all ->](/viewer/index#the-clock-is-in-reference-milliseconds)
+[More on the clock ->](/viewer/index#the-clock-is-in-reference-milliseconds)
 
 ### The message panel
 
@@ -252,8 +249,9 @@ A trace that kept only a bounded sample of a large payload says so, and says the
 count, so a truncated list is never mistaken for a short one.
 
 <Tip>
-This is the reason the film is paced. A control message that took three refMs is on
-screen long enough to hover precisely because the clock slows down for it.
+A control message that took three refMs crosses the gap in three thousandths of a
+second. Drop to `0.25x`, or pause and step through it with the arrow keys — a
+paused film hovers just as well as a playing one.
 </Tip>
 
 ### The node panel

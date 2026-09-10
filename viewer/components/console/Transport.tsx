@@ -13,9 +13,9 @@
  * the bottom of it.
  *
  * Its behaviour matches `Film`'s own playbar exactly: the scrubber is the
- * run's own phases with its own accidents marked on it, `1x` means the run at
- * its natural pace with the quick parts held long enough to see, and every
- * reading anywhere in the console is at the trace instant this playhead is at.
+ * run's own phases with its own accidents marked on it, `1x` is one reference
+ * second per second, and every reading anywhere in the console is at the trace
+ * instant this playhead is at.
  */
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 
@@ -23,24 +23,11 @@ import { Scrubber } from '../Scrubber.tsx';
 import { Clock, FIT_SECONDS, RATES, refTime } from '../../lib/playback.ts';
 import type { Run } from '../../lib/runs.ts';
 
-/** Nothing on screen for less than this, in real seconds. `0` turns the pacing off. */
-/** How long this film runs, in the shortest form that is still a duration. */
 export function Transport({ run, clock }: { run: Run; clock: Clock }) {
   const { trace, index } = run;
   const t = useSyncExternalStore(clock.subscribe, clock.now, clock.now);
   const playing = useSyncExternalStore(clock.subscribe, clock.isPlaying, () => false);
   const rateLabel = useSyncExternalStore(clock.subscribe, clock.label, () => '1x');
-
-  // Linear, and deliberately. The pace in `lib/pace.ts` exists so that a
-  // three-millisecond call is on screen long enough to see a shape cross a gap,
-  // and the film is the only view that draws one. A chart of memory against time
-  // and a bill accruing have nothing that flickers past, and holding every moment
-  // for a second costs them a seventyfold stretch: a five second run takes seven
-  // minutes to watch a line grow, which reads as a broken page rather than a
-  // careful one. Here a reference second takes a second, and `1x` means it.
-  useEffect(() => {
-    clock.setHold(0);
-  }, [clock]);
 
   const events = useMemo(() => index.events(), [index]);
 
