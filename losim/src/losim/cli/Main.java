@@ -373,6 +373,18 @@ public final class Main {
                 System.out.printf("      %s%n", caveat);
         }
         for (String note : plan.notes()) System.out.println("  note: " + note);
+
+        // The engine's own consistency checks, printed where the numbers they are
+        // about have just been printed. Not fatal and not a summary: each one names a
+        // machine or a resource, so a reader can go straight to the line it doubts.
+        if (!scaled.invariants().isEmpty()) {
+            System.out.println();
+            System.out.printf("  %d invariant(s) did not hold. The numbers above still stand as"
+                    + " the engine computed them; these say why one of them may not mean what"
+                    + " it appears to.%n", scaled.invariants().size());
+            for (var v : scaled.invariants())
+                System.out.printf("    %s [%s]%n      %s%n", v.name(), v.about(), v.said());
+        }
         System.out.println();
         System.out.print(scaled.trust().describe());
 

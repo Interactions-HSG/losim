@@ -13,11 +13,45 @@ import losim.sim.Simulation;
  * @param units     what the run actually processed
  * @param fullUnits what it is a scale model of
  * @param caps        per machine, {memoryMb, diskMb}, <b>solved rather than divided</b>
+ * @param fullCaps    per machine, {memoryMb, diskMb}, at full size — what the instance
+ *                    type actually offers, or what the file declared for it. The pair
+ *                    travels because a percentage is the only reading of a cap anybody
+ *                    wants, and taking one against {@link #caps} answers a question about
+ *                    the probe. Same node, same order, same units as {@code caps}
  * @param notes       what the engine could not do, in words, so nothing is silently absent
  */
 public record ScalePlan(long units, long fullUnits,
-                        Map<String, double[]> caps, Laws laws,
+                        Map<String, double[]> caps, Map<String, double[]> fullCaps, Laws laws,
                         int gridRuns, List<String> notes, String infeasible) {
+
+    /**
+     * What shape a cached plan is in.
+     *
+     * <p>Part of the cache key, so a plan fitted by an older engine is a miss rather
+     * than a plan missing half its answers. The class fingerprint in the key covers
+     * the *simulation's* code and not losim's own, so without this an engine that
+     * learned to fit something new would keep being handed plans that had never
+     * heard of it — and would report their absence as a refusal, which is the one
+     * kind of wrong answer this whole package is built to avoid.
+     *
+     * <p><b>Bump it whenever a plan's contents change, not only its keys.</b> What
+     * is cached is the engine's answers, so a change in how a resource is fitted —
+     * one that used to be refused and now is not — is as invalidating as a renamed
+     * field, and it is the harder one to notice: nothing fails, the old plan simply
+     * keeps being handed back and the fix appears not to work. That happened once
+     * already, to the change that made 3 out of 2.
+     *
+     * <ul>
+     *   <li><b>4</b> — cluster peaks and totals are assembled from the per-machine
+     *       projections instead of being fitted to the pre-aggregated series.</li>
+     *   <li><b>3</b> — a resource measured at zero on every rung is projected as
+     *       zero rather than refused.</li>
+     *   <li><b>2</b> — per-machine laws under {@code <machine>/<resource>}, and
+     *       {@code fullCaps} beside the solved ones.</li>
+     *   <li><b>1</b> — cluster laws, solved caps.</li>
+     * </ul>
+     */
+    public static final int FORMAT = 4;
 
     public boolean feasible() { return infeasible == null; }
 
@@ -75,6 +109,12 @@ public record ScalePlan(long units, long fullUnits,
         var capMap = new LinkedHashMap<String, Object>();
         caps.forEach((name, c) -> capMap.put(name, List.of(round(c[0]), round(c[1]))));
         m.put("caps", capMap);
+        // What the machine would really have. Without it a reader has a demand
+        // projected to full size and a capacity solved for the probe, and dividing
+        // one by the other gives a percentage of nothing.
+        var fullCapMap = new LinkedHashMap<String, Object>();
+        fullCaps.forEach((name, c) -> fullCapMap.put(name, List.of(round(c[0]), round(c[1]))));
+        m.put("fullCaps", fullCapMap);
         if (!notes.isEmpty()) m.put("notes", notes);
         if (infeasible != null) m.put("infeasible", infeasible);
         return m;

@@ -44,7 +44,7 @@ public final class Solve {
             infeasible = why;
         }
         if (chosen == null)
-            return new ScalePlan(0, full, Map.of(), laws, grid.runs(), notes,
+            return new ScalePlan(0, full, Map.of(), Map.of(), laws, grid.runs(), notes,
                     infeasible != null ? infeasible
                             : "no size on the probe ladder satisfies every resource at once");
 
@@ -52,7 +52,7 @@ public final class Solve {
         var caps = solveCaps(s, laws, n, full);
         String tooFine = tooFineToExpress(s, laws, n);
         if (tooFine != null)
-            return new ScalePlan(0, full, Map.of(), laws, grid.runs(), notes, tooFine);
+            return new ScalePlan(0, full, Map.of(), Map.of(), laws, grid.runs(), notes, tooFine);
 
         if (laws.byResource().isEmpty())
             notes.add("no resource could be fitted at all, so this plan shrinks the world"
@@ -60,8 +60,18 @@ public final class Solve {
         for (var e : laws.refused().entrySet())
             notes.add(e.getKey() + " is not projected: " + e.getValue());
 
-        return new ScalePlan(n, full, caps, laws, grid.runs(), notes, null);
+        return new ScalePlan(n, full, caps.solved(), caps.full(), laws, grid.runs(), notes, null);
     }
+
+    /**
+     * Both readings of a machine's limits: what it is given for the probe, and what
+     * it would really have.
+     *
+     * <p>Returned together because they are solved together and only mean anything
+     * together — the whole claim of a scale model is that the ratio between them is
+     * the ratio the full-size system would be under.
+     */
+    private record Caps(Map<String, double[]> solved, Map<String, double[]> full) {}
 
     /**
      * Feasibility, checked in both directions.
@@ -103,8 +113,9 @@ public final class Solve {
      * scale)}. The ratio is what preserves demand-over-capacity; the fixed term is
      * what stops a machine being given less baseline than a JVM needs to exist.
      */
-    private static Map<String, double[]> solveCaps(Simulation s, Laws laws, long n, long full) {
+    private static Caps solveCaps(Simulation s, Laws laws, long n, long full) {
         var caps = new LinkedHashMap<String, double[]>();
+        var declared = new LinkedHashMap<String, double[]>();
         double memRatio = ratio(laws, Probe.MEMORY, n, full);
         double diskRatio = ratio(laws, Probe.DISK, n, full);
         double memFixed = laws.has(Probe.MEMORY) ? laws.law(Probe.MEMORY).fixed() : 0;
@@ -117,8 +128,14 @@ public final class Solve {
             caps.put(m.name(), new double[]{
                     Math.max(1, memFixed + declaredMem * memRatio),
                     Math.max(1, diskFixed + declaredDisk * diskRatio)});
+            // Unshrunk, and straight from the same two sources the shrunk pair was
+            // derived from: the file where it named a cap, the instance catalogue
+            // where it did not. Not recovered afterwards by dividing the solved cap
+            // by the ratio, which would round-trip through a number the reader
+            // cannot check and would drift by the fixed term.
+            declared.put(m.name(), new double[]{declaredMem, declaredDisk});
         }
-        return caps;
+        return new Caps(caps, declared);
     }
 
     private static double ratio(Laws laws, String resource, long n, long full) {

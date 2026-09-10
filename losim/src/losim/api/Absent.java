@@ -22,6 +22,7 @@ final class Absent implements LosimCtx {
     @Override public void log(String message)               { }
     @Override public void units(long n)                   { }
     @Override public void wroteDisk(long bytes)             { }
+    @Override public void alsoHolds(Object held)            { }
     @Override public void sleep(double refMs)               { }
 
     @Override public String node()                           { throw absent("node()"); }

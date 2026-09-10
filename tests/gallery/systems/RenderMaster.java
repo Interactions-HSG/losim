@@ -76,6 +76,14 @@ public final class RenderMaster extends JobGrpc.JobImplBase {
 
         long frames = work.getCount();
         var catalogue = new Assets(CATALOGUE, SKEW, here.seed());
+        // Held for the whole run, and in a local, where the heap walk cannot see it:
+        // the walk starts at a machine's services and follows their fields, and this
+        // class deliberately has none. Unsaid, the master measures as holding two
+        // hundred bytes while it holds eleven megabytes — and the engine then fits a
+        // memory law with no fixed term and sizes the machine for a workload it does
+        // not have. A real master would hold a catalogue like this; saying so is not
+        // a hint to the simulator, it is the same declaration a field would be.
+        here.alsoHolds(catalogue);
         int splits = (int) ((frames + FRAMES_PER_BATCH - 1) / FRAMES_PER_BATCH);
 
         // Fanned out across every renderer at once, which is what makes this the

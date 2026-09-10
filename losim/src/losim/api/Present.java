@@ -78,6 +78,18 @@ final class Present implements LosimCtx {
         finally { b.charge(Meter.allocNow() - a0, System.nanoTime() - t0); }
     }
 
+    @Override public void alsoHolds(Object held) {
+        long a0 = Meter.allocNow(), t0 = System.nanoTime();
+        Bound b = Ambient.MACHINE.get();
+        if (b == null) return;
+        // Registering a root costs a list append and is charged like any other
+        // call the program makes. What it does *not* do is measure anything: the
+        // walk happens on the sampler's cadence, so the cost of holding this shows
+        // up where the holding does rather than where it was declared.
+        try { b.alsoHolds(held); }
+        finally { b.charge(Meter.allocNow() - a0, System.nanoTime() - t0); }
+    }
+
     @Override public void sleep(double refMs) {
         long a0 = Meter.allocNow(), t0 = System.nanoTime();
         Bound b = Ambient.MACHINE.get();

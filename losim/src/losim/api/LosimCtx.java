@@ -69,6 +69,32 @@ public interface LosimCtx {
      */
     void wroteDisk(long bytes);
 
+    /**
+     * Tells the machine it is holding something the heap walk cannot reach.
+     *
+     * <p>Retained heap is measured by walking outward from a machine's services and
+     * following their fields. That finds everything a service keeps — a cache, an
+     * index, a catalogue in a field — and it finds nothing a handler keeps in a
+     * <b>local variable</b>, because a local is on the stack and reachable from no
+     * root. A job that builds a large structure inside its {@code Run} and holds it
+     * for the whole run therefore measures as holding nothing at all.
+     *
+     * <p>That is not a small error. A master holding an eleven-megabyte catalogue in
+     * a local was measured at two hundred bytes — and a resource that reports a
+     * confident zero is worse than one that refuses, because nothing about it invites
+     * a second look. The engine then fits a memory law with no fixed term, and the
+     * scale solver hands the machine a cap sized for a workload it does not have.
+     *
+     * <p>So: anything held across a call that is not reachable from a service's
+     * fields goes here. Registering it twice is harmless — the walk is by identity —
+     * and registering something short-lived is not, because it is held until the
+     * machine restarts. Prefer a field where a field is honest; use this where the
+     * thing genuinely belongs to the run rather than to a service.
+     *
+     * <p>Outside a run it does nothing, like the recording calls.
+     */
+    void alsoHolds(Object held);
+
     // --------------------------------------------------------------------- time
 
     /**

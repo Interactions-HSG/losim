@@ -101,6 +101,51 @@ public record Laws(Map<String, Fit.Law> byResource,
                 * amplification.getOrDefault(resource, 1.0));
     }
 
+    /**
+     * A cluster figure rebuilt from its machines, and who could not be included.
+     *
+     * <p>Empty where no machine could be projected at all. Where some could and some
+     * could not, the value is what the rest come to and {@code missing} names the
+     * others — because a peak that is short one machine is a lower bound and has to
+     * be read as one, and a total that is short one is simply wrong.
+     */
+    public record Across(OptionalDouble value, List<String> missing) {}
+
+    /**
+     * What a cluster resource comes to at a given size, assembled from the per-machine
+     * laws rather than from a law fitted to the aggregate.
+     *
+     * <p>See {@link Probe#isPeak} for why the difference is not cosmetic. This is the
+     * arithmetic a reader would do by hand if handed the per-machine table, and doing
+     * it here means the cluster line and the machine lines cannot disagree.
+     */
+    public Across across(String resource, double units, Collection<String> machines) {
+        boolean peak = Probe.isPeak(resource);
+        var missing = new ArrayList<String>();
+        double total = 0;
+        boolean any = false;
+        for (String machine : machines) {
+            String key = Probe.perNode(machine, resource);
+            // A machine with no law at all is not the same as one that was refused,
+            // but for an aggregate they amount to the same thing: it cannot be
+            // counted, and pretending otherwise silently understates the answer.
+            var one = project(key, units);
+            if (one.isEmpty()) { missing.add(machine); continue; }
+            total = any ? (peak ? Math.max(total, one.getAsDouble()) : total + one.getAsDouble())
+                        : one.getAsDouble();
+            any = true;
+        }
+        return new Across(any ? OptionalDouble.of(total) : OptionalDouble.empty(), List.copyOf(missing));
+    }
+
+    /** Every machine this run fitted or refused a per-machine law for, in name order. */
+    public Set<String> machines() {
+        var out = new TreeSet<String>();
+        for (String key : byResource.keySet()) if (Probe.isPerNode(key)) out.add(Probe.machineOf(key));
+        for (String key : refused.keySet()) if (Probe.isPerNode(key)) out.add(Probe.machineOf(key));
+        return out;
+    }
+
     /** The variable part alone — what shrinks when the workload does. Fixed overhead does not. */
     public double variablePart(String resource, double units) {
         Fit.Law law = byResource.get(resource);
@@ -151,8 +196,26 @@ public record Laws(Map<String, Fit.Law> byResource,
         for (String resource : resources) {
             double[] y = rungs.stream().mapToDouble(p -> p.resources().getOrDefault(resource, 0.0))
                               .toArray();
+            // Nothing, everywhere, is an answer — and it is the easiest answer there
+            // is. A machine that writes no disk writes none at a thousand units and
+            // none at a hundred million, and the projection is zero with nothing to
+            // be uncertain about. Refusing it says "I could not tell" about the one
+            // case that is not in doubt, and a reader who is shown a refusal beside
+            // a machine goes looking for the measurement that failed.
+            //
+            // Checked before the guard below, because that guard is right about what
+            // it is for: a power law cannot be fitted through a zero, so a resource
+            // that is zero at *some* rungs and not others still has nothing usable.
+            // All zeros is a different shape from some zeros.
+            if (Arrays.stream(y).allMatch(v -> v == 0)) {
+                byResource.put(resource, new Fit.Law(resource, "units", 0, 0, 1, 1, 0));
+                errorBars.put(resource, 1.0);
+                continue;
+            }
             if (Arrays.stream(y).anyMatch(v -> v <= 0)) {
-                refused.put(resource, "it was never measured above zero, so there is nothing to fit");
+                refused.put(resource, "it was measured at zero on some rungs and not others, so no"
+                        + " power law passes through it — a resource that appears only above some"
+                        + " size has a threshold in it, and the ladder cannot see past a threshold");
                 continue;
             }
             // The discontinuity test belongs on the axis the ladder was climbed on.
@@ -335,15 +398,41 @@ public record Laws(Map<String, Fit.Law> byResource,
         return lo > 0 && hi > lo * 1.05;
     }
 
-    /** A one-screen account of what was fitted and what was refused. */
+    /**
+     * A one-screen account of what was fitted and what was refused.
+     *
+     * <p>The cluster's laws only. There is one per machine per resource as well,
+     * and printing two dozen more lines here would bury the five a reader came for
+     * — so they are counted instead, and the count says how many were refused,
+     * because "twenty fitted, four refused" is the thing that should send somebody
+     * looking. The refusals themselves travel in the trace, one per machine, where
+     * the viewer draws them beside the node they are about.
+     */
     public String describe() {
         var sb = new StringBuilder();
-        byResource.forEach((resource, law) -> sb.append(String.format("  %-14s %s  +-x%.2f%s%n",
-                resource, law, errorBars.getOrDefault(resource, 1.0),
-                amplification.getOrDefault(resource, 1.0) > 1.001
-                        ? String.format("  x%.2f under fault", amplification.get(resource)) : "")));
-        refused.forEach((resource, why) ->
-                sb.append(String.format("  %-14s REFUSED: %s%n", resource, why)));
+        byResource.forEach((resource, law) -> {
+            if (Probe.isPerNode(resource)) return;
+            // A peak or a total is reported from the per-machine laws rather than from
+            // this one, so printing this one beside that number would be showing a
+            // reader the arithmetic that did not happen. It is still fitted, and still
+            // in the trace, because it is what the ladder saw before aggregation.
+            boolean assembled = (Probe.isPeak(resource) || Probe.isSum(resource)) && !machines().isEmpty();
+            sb.append(String.format("  %-14s %s  +-x%.2f%s%s%n",
+                    resource, law, errorBars.getOrDefault(resource, 1.0),
+                    amplification.getOrDefault(resource, 1.0) > 1.001
+                            ? String.format("  x%.2f under fault", amplification.get(resource)) : "",
+                    assembled ? "   [not projected from: the cluster figure is assembled per machine]" : ""));
+        });
+        refused.forEach((resource, why) -> {
+            if (Probe.isPerNode(resource)) return;
+            sb.append(String.format("  %-14s REFUSED: %s%n", resource, why));
+        });
+
+        long fitted = byResource.keySet().stream().filter(Probe::isPerNode).count();
+        long declined = refused.keySet().stream().filter(Probe::isPerNode).count();
+        if (fitted + declined > 0)
+            sb.append(String.format("  %-14s %d fitted, %d refused — in the trace, per machine%n",
+                    "per machine", fitted, declined));
         return sb.toString();
     }
 }

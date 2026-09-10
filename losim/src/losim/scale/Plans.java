@@ -23,7 +23,15 @@ import losim.trace.JsonReader;
 public final class Plans {
     private Plans() {}
 
-    private static final Path CACHE = Path.of("build", ".losim-plans");
+    /**
+     * Where a fitted plan is kept between runs.
+     *
+     * <p>Public because it is already public behaviour: it is under {@code build/},
+     * it is documented as the thing to delete when a plan should be refitted, and a
+     * test that wants to put a plan from an older engine in front of the loader has
+     * to be able to write one.
+     */
+    public static final Path CACHE = Path.of("build", ".losim-plans");
 
     /**
      * What this plan was fitted from.
@@ -46,6 +54,7 @@ public final class Plans {
      */
     public static String key(Simulation s, Telemetry.Level level, List<Path> code) {
         var sb = new StringBuilder();
+        sb.append(ScalePlan.FORMAT).append('|');
         sb.append(level).append('|').append(s.input()).append('|').append(s.units())
           .append('|').append(s.seed())
           .append('|').append(s.scale());
@@ -135,18 +144,30 @@ public final class Plans {
                     num(l, "beta"), num(l, "r2"), num(l, "wobble")));
         });
 
-        var caps = new LinkedHashMap<String, double[]>();
-        ((Map<String, Object>) m.getOrDefault("caps", Map.of())).forEach((k, v) -> {
-            var pair = (List<Object>) v;
-            caps.put(k, new double[]{((Number) pair.get(0)).doubleValue(),
-                                     ((Number) pair.get(1)).doubleValue()});
-        });
+        var caps = pairs(m, "caps");
+        // A plan cached before full-size caps were carried has none, and comes back
+        // with an empty map rather than a fabricated one. The reading that needs it
+        // is then absent, which is the same discipline as a refused law: a plan from
+        // an older engine should say less, not guess.
+        var fullCaps = pairs(m, "fullCaps");
         var notes = new ArrayList<String>();
         for (Object n : (List<Object>) m.getOrDefault("notes", List.of())) notes.add(String.valueOf(n));
 
-        return new ScalePlan(units, full, caps,
+        return new ScalePlan(units, full, caps, fullCaps,
                 new Laws(byResource, errorBars, refused, new TreeMap<>(), amplification, byVariable),
                 runs, notes, (String) m.get("infeasible"));
+    }
+
+    /** One of the plan's per-machine {@code name -> [a, b]} blocks, or an empty map. */
+    @SuppressWarnings("unchecked")
+    private static Map<String, double[]> pairs(Map<String, Object> m, String key) {
+        var out = new LinkedHashMap<String, double[]>();
+        ((Map<String, Object>) m.getOrDefault(key, Map.of())).forEach((k, v) -> {
+            var pair = (List<Object>) v;
+            out.put(k, new double[]{((Number) pair.get(0)).doubleValue(),
+                                    ((Number) pair.get(1)).doubleValue()});
+        });
+        return out;
     }
 
     private static double num(Map<String, Object> m, String key) {

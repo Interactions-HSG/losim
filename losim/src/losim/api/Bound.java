@@ -50,6 +50,9 @@ public interface Bound {
     /** Records a write and throws if the disk cap would be exceeded. */
     void wroteDisk(long bytes);
 
+    /** Anything the machine holds that no service's fields reach. */
+    void alsoHolds(Object held);
+
     /**
      * Spends a declared duration against the compressed clock.
      *
