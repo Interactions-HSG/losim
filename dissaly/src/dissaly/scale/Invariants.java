@@ -98,10 +98,22 @@ public final class Invariants {
         var out = new ArrayList<Violation>();
         if (!plan.feasible()) return out;
 
+        // Counted once and handed down, because two checks need it and one of them
+        // says something different depending on the answer.
+        int lost = 0;
+        for (var t : result.machines().values()) if (!t.alive()) lost++;
+        int all = result.machines().size();
+        boolean clusterGone = all > 0 && lost * 2 >= all;
+
+        // First, because it changes what the others are allowed to say. Where the
+        // cluster is gone, every check below is looking at the same one fact from a
+        // different angle, and fifteen restatements of it are how a reader learns to
+        // skip this section.
+        theRunItselfHappened(result, lost, all, clusterGone, out);
         hiddenWorkingSet(result, out);
         refusalsStayRefused(plan, reported, out);
         aggregatesAreAssembled(plan, reported, out);
-        lawsFitTheirOwnMeasurement(plan, probe, out);
+        lawsFitTheirOwnMeasurement(plan, probe, clusterGone, out);
         capsAreConsistent(plan, out);
         everyMachineIsAccountedFor(plan, result, out);
         projectionsAreSane(plan, out);
@@ -218,7 +230,9 @@ public final class Invariants {
      * the size the probe ran is not a law about that system at all, whatever its R²
      * says. R² is about the points as a set; this is about one point that is known.
      */
-    private static void lawsFitTheirOwnMeasurement(ScalePlan plan, Probe probe, List<Violation> out) {
+    private static void lawsFitTheirOwnMeasurement(ScalePlan plan, Probe probe, boolean clusterGone,
+                                                   List<Violation> out) {
+        var missed = new ArrayList<String>();
         for (var e : probe.resources().entrySet()) {
             var law = plan.laws().law(e.getKey());
             if (law == null) continue;
@@ -229,12 +243,69 @@ public final class Invariants {
             // Wide, because a law is fitted across four rungs and is not required to
             // pass through any one of them. An order of magnitude out is not a fit.
             if (said >= observed / 3 && said <= observed * 3) continue;
-            out.add(new Violation("law-misses-its-own-probe", e.getKey(), String.format(Locale.ROOT, 
+            missed.add(e.getKey());
+            if (clusterGone) continue;
+            out.add(new Violation("law-misses-its-own-probe", e.getKey(), String.format(Locale.ROOT,
                     "at the size that was actually run (%,d units) the fitted law says %.4g"
                     + " and the run measured %.4g. A law that cannot reproduce the one point"
                     + " it is known to have been fitted at will not do better further out",
                     plan.units(), said, observed)));
         }
+        // Which of the two is the anomaly is not obvious, and this decided it in the
+        // law's disfavour every time. On a run where the cluster died that is exactly
+        // backwards — the law is fitted across the whole ladder and the measurement is
+        // one rung of it, taken on a system that was mostly gone — and it sends a
+        // reader to look at the arithmetic instead of at the corpses.
+        //
+        // Said once, for all of them. Fifteen restatements of one fact, each three
+        // lines long, is how a reader learns to skip this section entirely.
+        if (clusterGone && !missed.isEmpty()) {
+            out.add(new Violation("law-misses-its-own-probe", missed.size() + " of "
+                    + probe.resources().size() + " resources", String.format(Locale.ROOT,
+                    "are more than 3x from what the run measured at %,d units: %s."
+                    + " On this run the measurement is the more likely anomaly of the two,"
+                    + " for the reason cluster-did-not-survive gives — so the thing to look"
+                    + " at is what stopped the machines, not the arithmetic of the fit",
+                    plan.units(), String.join(", ", missed))));
+        }
+    }
+
+    /**
+     * A run that says it finished, out of a cluster that did not.
+     *
+     * <p>{@code completed} means the entry handler returned. That is a true thing to
+     * record and a misleading thing to read alone: a job whose master returns after
+     * every worker it was talking to has died has completed in exactly the sense
+     * that nothing threw, and in no other. It shipped saying so — four workers dead,
+     * a hundred and thirty-nine calls of a hundred and sixty-four timed out, and
+     * {@code completed: true} at the top of the trace.
+     *
+     * <p>What makes it this file's business rather than the summary's is what happens
+     * next: every law in the plan is fitted from what the survivors managed, and a
+     * projection from that describes a smaller system than the one that was declared,
+     * doing less than it was asked. Nothing else says so, because each individual
+     * number is correctly measured.
+     */
+    private static void theRunItselfHappened(Simulate.Result result, int lost, int all,
+                                             boolean clusterGone, List<Violation> out) {
+        // Losing a machine is a thing simulations are for, and most of the runs that
+        // do it are demonstrating something on purpose. What is worth a word is a
+        // cluster that mostly stopped existing.
+        if (!clusterGone) return;
+        long handled = 0;
+        for (var t : result.machines().values()) handled += t.handledCalls();
+        out.add(new Violation("cluster-did-not-survive", lost + " of " + all + " machines",
+                String.format(Locale.ROOT,
+                        "died before the run ended%s. Between them the machines handled %,d"
+                        + " calls. Every law in this plan is fitted from that, so what is being"
+                        + " projected is what the survivors managed rather than what the design"
+                        + " costs",
+                        result.completed()
+                                ? ", and the run reports itself completed — which it is, in the"
+                                  + " sense that the entry handler returned and nothing threw,"
+                                  + " and in no other"
+                                : ", and the run did not finish either",
+                        handled)));
     }
 
     /**
@@ -296,14 +367,33 @@ public final class Invariants {
                 continue;
             }
             // Growth is not required — a resource may genuinely be flat — but shrinking
-            // is a claim that a bigger workload costs less, and that needs an exponent
-            // below zero, which is a thing worth saying out loud rather than implying.
-            if (e.getValue().beta() >= 0 && b < a * (1 - TOLERANCE)) {
-                out.add(new Violation("projection-shrinks", resource, String.format(Locale.ROOT, 
-                        "falls from %.4g at %,d units to %.4g at %,d, while its exponent is"
-                        + " %.3f. A law that is not decreasing cannot decrease",
-                        a, plan.units(), b, plan.fullUnits(), e.getValue().beta())));
-            }
+            // is a claim that a bigger workload costs less, and it is worth saying out
+            // loud rather than implying.
+            //
+            // This was written as `beta >= 0 && falls`, which is a check on whether a
+            // law contradicts its own exponent. That is a real thing to check and it is
+            // not the interesting one: where the exponent is itself negative the law is
+            // perfectly self-consistent and the claim it is making — a hundred million
+            // frames finishing sooner than eight thousand — is the absurd part. The
+            // precondition excluded the only case anybody would want caught. Every
+            // guard written as "unless the author thought this was impossible" has that
+            // shape available to it.
+            if (b >= a * (1 - TOLERANCE)) continue;
+            double beta = e.getValue().beta();
+            out.add(new Violation("projection-shrinks", resource, String.format(Locale.ROOT,
+                    "falls from %.4g at %,d units to %.4g at %,d. %s",
+                    a, plan.units(), b, plan.fullUnits(),
+                    beta >= 0
+                        ? String.format(Locale.ROOT,
+                                "Its exponent is %.3f, and a law that is not decreasing cannot"
+                                + " decrease", beta)
+                        : String.format(Locale.ROOT,
+                                "Its exponent is %.3f, so the law is consistent and the claim is"
+                                + " the problem: this says the design costs less the more of it"
+                                + " there is. A fitted exponent goes negative when the quantity"
+                                + " it was fitted to does not reproduce between runs, so the"
+                                + " thing to check is whether the measurement is stable, not"
+                                + " what the curve does past the ladder", beta))));
         }
     }
 }
