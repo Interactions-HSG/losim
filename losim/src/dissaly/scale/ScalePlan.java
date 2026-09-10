@@ -42,6 +42,11 @@ public record ScalePlan(long units, long fullUnits,
      * already, to the change that made 3 out of 2.
      *
      * <ul>
+     *   <li><b>7</b> — a resource the workload barely moves says so as growth
+     *       between the two sizes, not as the law's fixed/coefficient split.</li>
+     *   <li><b>6</b> — a dominant fixed term is an assumption on that resource
+     *       rather than the end of the run, and the host-heap estimate is summed
+     *       from the per-machine laws.</li>
      *   <li><b>5</b> — what used to be refused is fitted under a stated assumption,
      *       carried in {@code assumed}.</li>
      *   <li><b>4</b> — cluster peaks and totals are assembled from the per-machine
@@ -53,7 +58,7 @@ public record ScalePlan(long units, long fullUnits,
      *   <li><b>1</b> — cluster laws, solved caps.</li>
      * </ul>
      */
-    public static final int FORMAT = 5;
+    public static final int FORMAT = 7;
 
     public boolean feasible() { return infeasible == null; }
 

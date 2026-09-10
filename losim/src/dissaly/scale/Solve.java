@@ -41,7 +41,12 @@ public final class Solve {
             long n = rungs.get(i).variables().getOrDefault("units", 0.0).longValue();
             String why = whyNot(n, s, laws, grid);
             if (why == null) { chosen = n; break; }
-            infeasible = why;
+            // The FIRST reason, from the largest rung, because that is the rung that
+            // came closest and the one a reader can do something about. This kept the
+            // last instead — the smallest rung, the least favourable — and reported a
+            // ratio of 0.2x where the rung that actually decided it was at 2.0x, ten
+            // times more hopeless than the truth.
+            if (infeasible == null) infeasible = why;
         }
         if (chosen == null)
             return new ScalePlan(0, full, Map.of(), Map.of(), laws, grid.runs(), notes,
@@ -59,6 +64,10 @@ public final class Solve {
                     + " without being able to project anything back from it");
         for (var e : laws.refused().entrySet())
             notes.add(e.getKey() + " is not projected: " + e.getValue());
+        for (String resource : List.of(Probe.MEMORY, Probe.DISK)) {
+            String overhead = overheadNote(laws, resource, n, full);
+            if (overhead != null) notes.add(resource + ": " + overhead);
+        }
 
         return new ScalePlan(n, full, caps.solved(), caps.full(), laws, grid.runs(), notes, null);
     }
@@ -86,19 +95,28 @@ public final class Solve {
         // allocation carries the JVM's own warm-up, which is real at every scale —
         // says the law for that resource is weak, not that the run size is wrong, and
         // refusing a whole run over it would leave nothing runnable at all.
-        for (String resource : List.of(Probe.MEMORY, Probe.DISK)) {
-            var law = laws.law(resource);
-            if (law == null) continue;
-            double variable = laws.variablePart(resource, n);
-            if (law.fixed() > 0 && variable < law.fixed() * VARIABLE_MUST_DOMINATE)
-                return String.format(Locale.ROOT, "%s at %d units is only %.1fx its own fixed overhead"
-                        + " (%.3f against %.3f); below %.0fx the fit is describing the overhead"
-                        + " rather than the workload", resource, n, variable / law.fixed(),
-                        variable, law.fixed(), VARIABLE_MUST_DOMINATE);
-        }
+        // A large fixed term used to end the run here. It no longer does, and the
+        // reason is that it was answering the wrong question: `fixed + c*n^beta` is a
+        // perfectly good law with a big constant in it, the variable part still spans
+        // the whole ladder, and whether the exponent can be trusted is measured
+        // directly and empirically by refitting independent seed sets. A constant
+        // that dominates is a fact about the design — sixty-four megabytes of index
+        // per worker is the headline, not a reason to throw away every other resource
+        // in the same run. It is recorded as an assumption on that resource instead,
+        // by whoever calls `overheadNote`.
+        //
+        // It also became actively harmful once laws stopped being refused: a resource
+        // with no law was invisible here, so making the engine answer more made this
+        // guard fire on runs it had never seen, and end them.
         double heapMb = Runtime.getRuntime().maxMemory() / 1048576.0 * HOST_HEAP_SHARE;
-        double demand = laws.project(Probe.MEMORY, n).orElse(0)
-                * Math.max(1, s.nodes().size() - 1);
+        // Summed from the per-machine laws, not the cluster peak multiplied by the
+        // machine count. That was "assume every machine simultaneously holds whatever
+        // the worst one holds", which was the only thing available before per-machine
+        // laws existed and denies a host runs that would have fitted comfortably.
+        var perMachine = laws.across(Probe.MEMORY, n, laws.machines());
+        double demand = perMachine.value().isPresent() && perMachine.missing().isEmpty()
+                ? sumAcross(laws, n)
+                : laws.project(Probe.MEMORY, n).orElse(0) * Math.max(1, s.nodes().size() - 1);
         if (demand > heapMb)
             return String.format(Locale.ROOT, "at %d units the cluster would hold %.0f MB, and this host"
                     + " offers %.0f MB to work in — the run does not fit the laptop it is"
@@ -136,6 +154,49 @@ public final class Solve {
             declared.put(m.name(), new double[]{declaredMem, declaredDisk});
         }
         return new Caps(caps, declared);
+    }
+
+    /**
+     * What the whole cluster holds at once, machine by machine.
+     *
+     * <p>Memory is a peak *per machine* — one machine runs out, not an average — but
+     * the host has to hold all of them at the same time, so what matters here is the
+     * sum of the peaks rather than the peak itself. Distinct from
+     * {@link Laws#across}, which answers the other question.
+     */
+    private static double sumAcross(Laws laws, long n) {
+        double total = 0;
+        for (String machine : laws.machines())
+            total += laws.project(Probe.perNode(machine, Probe.MEMORY), n).orElse(0);
+        return total;
+    }
+
+    /**
+     * What to say about a resource the workload barely moves.
+     *
+     * <p>Stated as how far the answer travels between the two sizes, not as the split
+     * between the law's fixed term and its coefficient. That split is a fitting
+     * artefact and not a fact: on a flat measurement the fitter is free to write
+     * {@code 51.2 + 12.6 * n^0.002}, where the second term is every bit as constant
+     * as the first and calling it "the part that varies" is simply false. It said
+     * exactly that about a 64 MB index — "the part that varies is 12.855" — of a
+     * quantity whose exponent was two thousandths.
+     *
+     * <p>Growth is the thing a reader wants and the thing that survives however the
+     * fit chose to decompose itself.
+     */
+    static String overheadNote(Laws laws, String resource, long n, long full) {
+        var here = laws.project(resource, n);
+        var there = laws.project(resource, full);
+        if (here.isEmpty() || there.isEmpty() || here.getAsDouble() <= 0) return null;
+        double from = here.getAsDouble(), to = there.getAsDouble();
+        double growth = (to - from) / from * 100;
+        if (Math.abs(growth) >= 100.0 / VARIABLE_MUST_DOMINATE) return null;
+        return String.format(Locale.ROOT,
+                "the workload barely moves it: %,d units gives %.3f and %,d gives %.3f, a change"
+                + " of %.2f%% for %.0fx the work. Whatever this resource costs, it is not a cost"
+                + " of the workload, and a bigger run will not change it",
+                n, from, full, to, growth, full / (double) Math.max(1, n));
     }
 
     private static double ratio(Laws laws, String resource, long n, long full) {

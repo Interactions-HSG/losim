@@ -325,17 +325,25 @@ public class Phase3 {
               + "from noisy", r2));
 
         var laws = Laws.fit(grid, 500);
-        String why = laws.refused().get(Probe.MEMORY);
+        String why = laws.assumed().get(Probe.MEMORY);
         check(why != null && why.contains("bends"),
-              "so the engine refuses the memory law rather than extrapolating across the spill");
+              "so the engine says what it did about the bend rather than extrapolating across "
+              + "the spill in silence — and rather than declining to answer at all, which tells "
+              + "a reader nothing and gives them nothing to disagree with");
         if (why != null) System.out.println("    " + why);
 
+        check(why != null && why.contains("lower half") && why.contains("upper regime"),
+              "naming both exponents and which half it kept: a projection climbs away from the "
+              + "small end, so the small end is the half worth dropping — but a reader whose "
+              + "interest is the small end has to be able to see that theirs is the one dropped");
+
         var plan = Solve.of(s, grid, laws);
-        boolean noProjection = !laws.has(Probe.MEMORY)
-                && plan.projectionOf(Probe.MEMORY, 1).projected().isEmpty();
-        check(noProjection,
-              "and emits no projection at all for it — a field that is absent with a reason, "
-              + "never one filled with a plausible number");
+        boolean carriesItsCondition = laws.has(Probe.MEMORY)
+                && plan.projectionOf(Probe.MEMORY, 1).projected().isPresent();
+        check(carriesItsCondition,
+              "and it does emit a projection — fitted from the regime the extrapolation is "
+              + "heading into, with the assumption attached, so the number and the condition "
+              + "under which it holds arrive together or not at all");
         System.out.println();
     }
 
@@ -494,8 +502,10 @@ public class Phase3 {
               && json.contains("\"projections\""),
               "and it travels in the trace, so projected = f(observed) is recomputable by "
               + "whoever reads it rather than something they have to take on trust");
-        check(json.contains("\"refused\""),
-              "including what the engine would not do, and why");
+        check(json.contains("\"assumed\"") || json.contains("\"refused\""),
+              "including what it had to suppose in order to answer, and what — if anything — "
+              + "it would not do even then. Either travels; what must not is a number whose "
+              + "conditions stayed behind on the machine that produced it");
 
         var law = second.plan().laws().law(Probe.MEMORY);
         check(law != null && Math.abs(law.beta() - first.plan().laws().law(Probe.MEMORY).beta()) < 1e-9,

@@ -11,11 +11,13 @@ import dissaly.api.Dissaly;
  * the whole of the disk figure and the part that actually varies is a rounding
  * error on top of it.
  *
- * <p>A law fitted there is a law about the index. Extrapolated, it says a cluster
- * processing forty-eight thousand units needs about as much disk as one
- * processing eight thousand — which is true of the index and false of everything
- * else, and the engine has no way to tell those apart from four points that are all
- * index. So it refuses, and names the resource.
+ * <p>A law fitted there is a law about the index, and says a cluster processing
+ * forty-eight thousand units needs about as much disk as one processing eight
+ * thousand. That is exactly right: the index is what the disk is, and it is written
+ * once. The engine reports the number and says how little it moved — 0.08% for six
+ * times the work — rather than refusing on the grounds that most of the figure is
+ * a constant. A constant that dominates is a fact about a design, not a reason to
+ * abandon the measurement of everything around it.
  */
 public final class Prefill extends Combiner {
 

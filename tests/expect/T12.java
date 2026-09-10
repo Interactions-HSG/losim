@@ -2,17 +2,23 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * t12-refusal — the two ways an extrapolation is not available, and saying so.
+ * t12-refusal — the two ways a ladder does not straightforwardly extrapolate, and
+ * what the engine says about each.
  *
  * <p><b>Catches:</b> extrapolating past a discontinuity, and anyone later
  * "simplifying" the check back to R². This case exists as much for the second as
  * for the first: the split-ladder test looks fussy beside a familiar goodness-of-fit
  * number, and the whole point is that the familiar number does not work here.
  *
- * <p>Two workloads. One spills to disk above a key count, so its memory climbs and
- * then flattens — the ladder bends. The other writes a fixed index that dwarfs
- * everything the probe scale varies, so there is no feasible size at all and the run
- * does not happen.
+ * <p>Two workloads, and neither is refused any more. One spills to disk above a key
+ * count, so its memory climbs and then flattens — the ladder bends, and the engine
+ * fits the upper regime and says which half it dropped. The other writes a fixed
+ * index that dwarfs everything the probe scale varies, so its projection barely
+ * moves, and the engine says how far it travels rather than declining to travel.
+ *
+ * <p>Both used to be absences. An absence tells a reader nothing and gives them
+ * nothing to disagree with; a number with its condition attached tells them what was
+ * measured, what was supposed, and where to push back.
  */
 public final class T12 {
 
@@ -79,14 +85,40 @@ public final class T12 {
                 + "the same run — one resource the engine cannot fit does not make the ones it "
                 + "can fit unsayable");
 
-        // The other refusal: no feasible size, so nothing ran and nothing was written.
+        // The other half of the pair: a design whose cost is mostly a constant.
+        //
+        // This used to assert that the engine stopped — no feasible size, no run, no
+        // trace. It no longer stops, and it should not have: `fixed + c*n^beta` is a
+        // perfectly good law with a large constant in it, and refusing the whole run
+        // over one resource threw away every other resource that fitted fine. What
+        // the case is named for is overhead, and overhead is what it still tests —
+        // only now the engine answers instead of declining, which is a better
+        // demonstration of the same phenomenon.
         String said = Expect.text(args[1]);
-        e.check(said.contains("no feasible size") && said.contains("diskMb"),
-                "and where a probe would be too small to have measured the workload at all, the "
-                + "engine names the resource and stops: nothing is run, so there is no trace "
-                + "to mistake for a result");
-        for (String line : said.lines().toList())
-            if (line.contains("fixed overhead")) e.note(line.trim());
+        e.check(!said.contains("no feasible size"),
+                "a constant that dwarfs what the ladder varied is not a reason to abandon the "
+                + "run: sixty-four megabytes of index per worker is the headline about this "
+                + "design, and every other resource in it is still measurable");
+
+        String moves = said.lines().filter(l -> l.contains("barely moves it"))
+                .findFirst().orElse("");
+        e.check(!moves.isEmpty(),
+                "and the engine says so in the terms that survive however the fit chose to "
+                + "decompose itself — how far the answer travels between the two sizes, not "
+                + "the split between a fixed term and a coefficient, which on a flat "
+                + "measurement is an artefact and not a fact");
+        e.note(moves.trim());
+
+        // The claim worth pinning down, and the one a refusal could never have made:
+        // six times the workload is not six times the disk when most of the disk is
+        // an index that gets written once.
+        double growth = number(moves, "a change of ");
+        e.check(Math.abs(growth) < 5.0, String.format(
+                "six times the work moves it by %.2f%% — because the workload is not what it "
+                + "is a cost of. A projection that multiplied the observed figure by the scale "
+                + "factor would have been out by a factor of six, and would have looked "
+                + "perfectly reasonable doing it", growth));
+
         e.done();
     }
 

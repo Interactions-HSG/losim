@@ -1,11 +1,19 @@
-# The other way an extrapolation fails: not a bend, but a probe too small to have
-# measured the workload at all.
+# The other way a ladder does not straightforwardly extrapolate: not a bend, but a
+# cost that is not a cost of the workload at all.
 #
 # Every worker writes a fixed 64 MB index before it is any use. At probe scale that
 # index is almost the whole disk figure, and the part that varies with the data is a
-# rounding error on top of it. Four points that are all index cannot say what the
-# data costs, so there is no feasible size on this ladder and the engine says so
-# rather than fitting the index and calling it a law.
+# rounding error on top of it. So the disk law is nearly flat, and six times the
+# workload comes out at very nearly the same number — which is the true answer about
+# this design and the useful one: whatever the index costs, a bigger run will not
+# change it.
+#
+# This used to be refused. Four points that are all index were held to be unable to
+# say what the data costs, and the engine declined to run at all. That was wrong in
+# two ways. `fixed + c*n^beta` is a perfectly good law with a large constant in it,
+# and the run it abandoned contained four other resources that fitted perfectly well.
+# What it should say — and now does — is how far the answer travels between the two
+# sizes, which is the thing that survives however the fit chose to split itself.
 seed: 12
 scale: 6
 
