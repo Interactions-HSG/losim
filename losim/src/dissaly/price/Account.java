@@ -1,6 +1,7 @@
 package dissaly.price;
 
 import java.util.*;
+import java.util.Locale;
 
 /**
  * What one run cost.
@@ -103,22 +104,22 @@ public final class Account {
         for (String bucket : BUCKETS) {
             for (LineItem i : items) {
                 if (!i.bucket().equals(bucket)) continue;
-                sb.append(String.format("  %-11s %-30s %12.4g %-14s %s %9.4f%n",
+                sb.append(String.format(Locale.ROOT, "  %-11s %-30s %12.4g %-14s %s %9.4f%n",
                         i.bucket(), i.what(), i.quantity(), i.unit(), currency, i.amount()));
             }
             // In its own bucket, so that a bucket totalling zero is visibly a bucket
             // nobody could fill in rather than one that genuinely cost nothing.
             for (String[] row : unpriceable) {
                 if (!row[0].equals(bucket)) continue;
-                sb.append(String.format("  %-11s %-30s %12s %-14s %s %9s%n      %s%n",
+                sb.append(String.format(Locale.ROOT, "  %-11s %-30s %12s %-14s %s %9s%n      %s%n",
                         row[0], row[1], "-", "", currency, "refused", row[2]));
             }
         }
         sb.append("  ").append("-".repeat(84)).append('\n');
         var b = byBucket();
         for (String bucket : BUCKETS)
-            sb.append(String.format("  %-12s %s %12.4f%n", bucket, currency, b.get(bucket)));
-        sb.append(String.format("  %-12s %s %12.4f%s%n", "TOTAL COST", currency, cost(),
+            sb.append(String.format(Locale.ROOT, "  %-12s %s %12.4f%n", bucket, currency, b.get(bucket)));
+        sb.append(String.format(Locale.ROOT, "  %-12s %s %12.4f%s%n", "TOTAL COST", currency, cost(),
                 complete() ? "" : "   (of what could be priced)"));
         return sb.toString();
     }

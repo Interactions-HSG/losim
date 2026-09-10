@@ -1,6 +1,7 @@
 package dissaly.runtime;
 
 import io.grpc.BindableService;
+import java.util.Locale;
 import io.grpc.Channel;
 import java.util.*;
 import java.util.concurrent.*;
@@ -122,7 +123,7 @@ public final class Simulate {
                             + " served in full — expect more parks, not less time. The figures"
                             + " are in the trace as parkCorrection and hostNoise.%n",
                     c.correction(),
-                    c.quiet() ? "" : String.format(" and %.0f%% of sample parks were wild", c.noise() * 100));
+                    c.quiet() ? "" : String.format(Locale.ROOT, " and %.0f%% of sample parks were wild", c.noise() * 100));
         }
         return c;
     }
