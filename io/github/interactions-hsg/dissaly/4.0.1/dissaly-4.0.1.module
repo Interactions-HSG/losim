@@ -85,11 +85,11 @@
         {
           "name": "dissaly-4.0.1.jar",
           "url": "dissaly-4.0.1.jar",
-          "size": 1057624,
-          "sha512": "a800c2283d36dc476ae10ea7d6484fd9c50c408b1eca0f431b2dcaf1e8040e5c95ea78c8fabd4ad7307cf31cce733a8c11237e763e3f1bf19033f28362558436",
-          "sha256": "bae95cc43353791e79c57c5350966412b1c82ccaeeeded7362e4b3a9e75ff1a6",
-          "sha1": "83dd0f5fb666b6ada8060ba4cc66c0468fa19c43",
-          "md5": "413e8968d5a22a7ed5fccda14b30daae"
+          "size": 1066089,
+          "sha512": "2b2a687511b834eca5adc11818c6db357abc9169e8f9be433ee5746732f850821a0c5f689e1c2e392488f0a93e72afd86bb2d32fda8affd4aa6339c9edbfc38f",
+          "sha256": "9c489576f1232410750627f10f0c019d578cb2c79074fe88e8fa76d8978be6af",
+          "sha1": "b3722c60736fbc20ec3048e1026fc0b8cea6f2c5",
+          "md5": "0cf7fd3ec1068a1b6b1d3e6b1252c67d"
         }
       ]
     },
@@ -164,11 +164,11 @@
         {
           "name": "dissaly-4.0.1.jar",
           "url": "dissaly-4.0.1.jar",
-          "size": 1057624,
-          "sha512": "a800c2283d36dc476ae10ea7d6484fd9c50c408b1eca0f431b2dcaf1e8040e5c95ea78c8fabd4ad7307cf31cce733a8c11237e763e3f1bf19033f28362558436",
-          "sha256": "bae95cc43353791e79c57c5350966412b1c82ccaeeeded7362e4b3a9e75ff1a6",
-          "sha1": "83dd0f5fb666b6ada8060ba4cc66c0468fa19c43",
-          "md5": "413e8968d5a22a7ed5fccda14b30daae"
+          "size": 1066089,
+          "sha512": "2b2a687511b834eca5adc11818c6db357abc9169e8f9be433ee5746732f850821a0c5f689e1c2e392488f0a93e72afd86bb2d32fda8affd4aa6339c9edbfc38f",
+          "sha256": "9c489576f1232410750627f10f0c019d578cb2c79074fe88e8fa76d8978be6af",
+          "sha1": "b3722c60736fbc20ec3048e1026fc0b8cea6f2c5",
+          "md5": "0cf7fd3ec1068a1b6b1d3e6b1252c67d"
         }
       ]
     }
