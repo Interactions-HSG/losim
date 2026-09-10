@@ -33,6 +33,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Head, Panel } from './Shell.tsx';
 import { useConsole } from '../../lib/console.tsx';
 import { Lab } from '../Lab.tsx';
+import { Code, P } from '../../lib/text.tsx';
 import {
   distances, entryOf, firstDraft, nodes as nodesIn, perHour, toYaml, unplaced,
   BASE_UNITS, FAILURE_KINDS, PAIRED, RATEABLE, RPC_FAILURE_KINDS,
@@ -227,25 +228,25 @@ export function Simulations() {
         }
       />
 
-      {busy && <Panel><p className="muted">reading the lab…</p></Panel>}
+      {busy && <Panel><P className="muted">reading the lab…</P></Panel>}
 
       {mode === 'list' && refused && (
         <Panel title="This one can't open here">
           <pre className="log bad">{refused}</pre>
-          <p className="note">
+          <P className="note">
             The loader's own sentence, with the line it was written on. Edit the file directly,
             then open it here again once that's out — this form only ever refuses to open one;
             it never opens one with something quietly missing.
-          </p>
+          </P>
         </Panel>
       )}
 
       {mode === 'list' && !busy && palette && !palette.compiled && (
         <Panel title="This lab does not compile">
-          <p className="muted">
+          <P className="muted">
             Nothing can be placed until it does — the list of services is read off the classes,
             and there are none. This is javac, unedited:
-          </p>
+          </P>
           <pre className="log">{palette.log || '(the lab said nothing)'}</pre>
         </Panel>
       )}
@@ -258,11 +259,11 @@ export function Simulations() {
           is nothing to author. */}
       {mode === 'list' && !busy && palette && palette.compiled && !canAuthor && (
         <Panel title="Nothing to place yet">
-          <p className="muted">
+          <P className="muted">
             This lab compiles — {palette.other} class{palette.other === 1 ? '' : 'es'} — but none
             of them is a gRPC service a node can be given. A simulation says <em>where the code
             runs</em>, so there has to be code that runs somewhere first.
-          </p>
+          </P>
         </Panel>
       )}
 
@@ -311,20 +312,20 @@ export function Simulations() {
                   </dl>
                 </>
               )}
-              <p className="note">
-                A rate, not a bill. What the run costs is what <code>losim bill</code> says
+              <P className="note">
+                A rate, not a bill. What the run costs is what <Code>losim bill</Code> says
                 afterwards, against a price list this page has never seen — a second number here
                 that looked like a prediction would be a second accountant.
-              </p>
+              </P>
             </Panel>
 
             {refused && (
               <Panel title="The lab refused it">
                 <pre className="log bad">{refused}</pre>
-                <p className="note">
+                <P className="note">
                   That is the loader’s own sentence, with the line it was written on — the same
                   one a run would have given you.
-                </p>
+                </P>
               </Panel>
             )}
 
@@ -341,9 +342,9 @@ export function Simulations() {
                   onChange={(e) => edit((d) => { d.name = e.target.value; })}
                 />
                 <span className="hint">
-                  Written to <code>simulations/{draft.name}.yaml</code>
+                  Written to <Code>simulations/{draft.name}.yaml</Code>
                   {editing && draft.name !== editing.name.replace(/\.ya?ml$/, '') ? (
-                    <> — a new file. <code>{editing.name}</code> is left as it was.</>
+                    <> — a new file. <Code>{editing.name}</Code> is left as it was.</>
                   ) : palette.simulations.includes(`${draft.name}.yaml`) ? (
                     <> — <strong>which already exists and will be replaced</strong></>
                   ) : null}
@@ -357,12 +358,12 @@ export function Simulations() {
                 {saying ?? (editing ? 'Save' : 'Create and simulate')}
               </button>
               {!entry && (
-                <p className="note">
-                  No node runs <code>losim.Job</code>, so there is nothing to start. It is a
+                <P className="note">
+                  No node runs <Code>losim.Job</Code>, so there is nothing to start. It is a
                   gRPC service like any other: a class extending
-                  {' '}<code>losim.pb.JobGrpc.JobImplBase</code>, placed on a node like
+                  {' '}<Code>losim.pb.JobGrpc.JobImplBase</Code>, placed on a node like
                   everything else. Exactly one node has one.
-                </p>
+                </P>
               )}
             </Panel>
           </div>
@@ -441,9 +442,9 @@ function Scale({ draft, edit }: { draft: Draft; edit: (f: (d: Draft) => void) =>
         ? `a model of ${(draft.scale * BASE_UNITS).toLocaleString()} units`
         : 'one run, nothing projected'}
     >
-      <p className="lead">
+      <P className="lead">
         How much bigger is this design than the run you can afford to watch?
-      </p>
+      </P>
 
       <div className="row">
         <div className="field">
@@ -557,11 +558,11 @@ function Nodes({
         </button>
       }
     >
-      <p className="lead">
+      <P className="lead">
         Each block is a <strong>pool</strong>: nodes that grow and shrink together, dealt
         round-robin over the zones you give it. What it runs, where it sits and what happens to
         it are all on the block, because they are all facts about the same nodes.
-      </p>
+      </P>
 
       <div className="pools">
         {draft.pools.map((p, i) => (
@@ -745,7 +746,7 @@ function PoolCard({
         })}
         {!palette.services.length && (
           <span className="hint">
-            Nothing here extends a generated <code>ImplBase</code>, so there is nothing a
+            Nothing here extends a generated <Code>ImplBase</Code>, so there is nothing a
             node can be given.
           </span>
         )}
@@ -804,7 +805,7 @@ function PoolCard({
             })}
           />
           <span className="hint">
-            MB. Only a job that calls <code>wroteDisk</code> can ever reach it.
+            MB. Only a job that calls <Code>wroteDisk</Code> can ever reach it.
           </span>
         </div>
       </div>
@@ -892,7 +893,7 @@ function PoolCard({
               <button className="btn" onClick={() => edit((d) => { d.pools[i].overrides.splice(k, 1); })}>×</button>
               {!names.includes(o.node) && (
                 <span className="hint warn">
-                  This pool has no node called <code>{o.node}</code>, so the run ignores
+                  This pool has no node called <Code>{o.node}</Code>, so the run ignores
                   this line. Point it at one, or remove it.
                 </span>
               )}
@@ -1027,10 +1028,10 @@ function Network({
 
   return (
     <Panel title="Network" note={quiet ? 'instant and lossless' : undefined}>
-      <p className="lead">
+      <P className="lead">
         What a gRPC call costs before your code has done anything with it. These are the four
-        numbers <code>network:</code> is written in, and they apply to every call in the run.
-      </p>
+        numbers <Code>network:</Code> is written in, and they apply to every call in the run.
+      </P>
 
       <div className="jobs">
         <div className="field">
@@ -1360,7 +1361,7 @@ function RpcFailures({
     <div className="rpcwx">
       <div className="wxhead">
         <span className="lbl">
-          <code>{r.service}</code> here
+          <Code>{r.service}</Code> here
         </span>
         <button
           className="btn"
@@ -1487,32 +1488,32 @@ function TheInput({
                })} />
         <input className="unit" value={draft.input.unit} aria-label="what one item is called"
                onChange={(e) => set((w) => { w.unit = e.target.value; })} />
-        <span>to <code>Job.Load</code>, before the clock starts</span>
+        <span>to <Code>Job.Load</Code>, before the clock starts</span>
       </div>
-      <p className="aside">
+      <P className="aside">
         Singular — frame, line, order. It is the same word{' '}
-        <code>Losim.current().units(n)</code> counts and <code>perUnit</code> prices, so a
+        <Code>Losim.current().units(n)</Code> counts and <Code>perUnit</Code> prices, so a
         blank one leaves three numbers counting something nobody named.
-      </p>
+      </P>
       <div className="rule">
         <span>read from</span>
         <input className="src" value={draft.input.source} placeholder="nothing — generated from the seed"
                aria-label="where the workload is read from"
                onChange={(e) => set((w) => { w.source = e.target.value.trim(); })} />
       </div>
-      <p className="aside">
+      <P className="aside">
         {draft.input.source
           ? 'A file or a folder, from the project root. It has to be there: the loader stats it '
             + 'and refuses a simulation that would spend its setup reading something that is not.'
           : 'Left empty, Load generates the workload from Losim.current().seed() — reproducible '
             + 'from the seed, different across a sweep, and free, because Load is off the clock.'}
-      </p>
+      </P>
       {draft.scale > 1 && (
-        <p className="aside">
+        <P className="aside">
           A model of {draft.scale}× the run: the engine measures a fraction of these and
-          projects from what it saw. <code>Run</code> is never told which fraction, which is
+          projects from what it saw. <Code>Run</Code> is never told which fraction, which is
           the property the whole thing depends on.
-        </p>
+        </P>
       )}
       <style>{`
         .rule {
@@ -1572,13 +1573,13 @@ function Costs({
   return (
     <Panel title="What a call takes" note="reference milliseconds, by the file that serves it">
       {!rows.length && (
-        <p className="none">
+        <P className="none">
           Nothing is placed yet, so there is nothing to price. Give a pool something to run.
-        </p>
+        </P>
       )}
       {rows.map((r) => (
         <div className="rule" key={`${r.runs}.${r.rpc}`}>
-          <span><code>{r.runs.replace(/^.*\//, '')}</code>.{r.rpc}</span>
+          <span><Code>{r.runs.replace(/^.*\//, '')}</Code>.{r.rpc}</span>
           <span>takes</span>
           <input type="number" min={0} step="any" value={r.fixedRefMs}
                  onChange={(e) => set(r.runs, r.rpc, (c) => {
@@ -1593,10 +1594,10 @@ function Costs({
         </div>
       ))}
       {rows.length > 0 && !priced && (
-        <p className="aside warn">
+        <P className="aside warn">
           Every call is instant. Nothing queues, nothing contends, and the timeline is empty —
           which is most of what a distributed system is interesting for.
-        </p>
+        </P>
       )}
     </Panel>
   );
@@ -1641,10 +1642,10 @@ function Retries({
       }
     >
       {!draft.retries.length && (
-        <p className="none">
+        <P className="none">
           Nothing is retried. A call that fails, fails — which is what makes a fault visible in
           the first place.
-        </p>
+        </P>
       )}
       {draft.retries.map((r, i) => {
         const safe = methods.find((m) => m.method === r.method)?.idempotent ?? false;
@@ -1688,8 +1689,8 @@ function Retries({
             )}
             {!safe && (
               <span className="aside warn">
-                its <code>.proto</code> declares no <code>idempotency_level</code>, so this is
-                written <code>unsafe: true</code> — running it twice is not known to be safe
+                its <Code>.proto</Code> declares no <Code>idempotency_level</Code>, so this is
+                written <Code>unsafe: true</Code> — running it twice is not known to be safe
               </span>
             )}
           </div>

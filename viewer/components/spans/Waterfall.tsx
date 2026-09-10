@@ -19,6 +19,7 @@ import { ms, type SpanNode } from '../../lib/spans.ts';
 import type { Theme } from '../../lib/theme.ts';
 import { taskColour } from '../../lib/theme.ts';
 import { digest } from '../../lib/trace.ts';
+import { P } from '../../lib/text.tsx';
 
 export const ROW = 22;
 const GUTTER = 356;
@@ -228,7 +229,7 @@ function Detail({ n, theme }: { n: SpanNode | undefined; theme: Theme }) {
         </span>
         {!n.ok && <span style={{ color: '#C4342A' }}>{String(n.span.status)}</span>}
       </div>
-      {typeof d['error'] === 'string' && <p className="err">{d['error'] as string}</p>}
+      {typeof d['error'] === 'string' && <P className="err">{d['error'] as string}</P>}
       <div className="sides">
         {d['arg'] !== undefined && (
           <div>

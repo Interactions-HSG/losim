@@ -17,6 +17,7 @@ import { ms } from '../../lib/spans.ts';
 import type { Theme } from '../../lib/theme.ts';
 import { taskColour } from '../../lib/theme.ts';
 import { RUN, type Trace } from '../../lib/trace.ts';
+import { Table, Td, Th } from '../../lib/text.tsx';
 
 export type By = 'method' | 'node' | 'zone' | 'task';
 
@@ -59,17 +60,17 @@ export function Rollup({
 
   return (
     <div className="rollup" style={{ height: '100%' }}>
-      <table>
+      <Table>
         <thead>
           <tr>
-            <th>{by}</th>
-            <th className="r">its own time</th>
-            <th className="r">share</th>
-            <th></th>
-            <th className="r">total</th>
-            <th className="r">calls</th>
-            <th className="r">failed</th>
-            <th className="r">bytes</th>
+            <Th>{by}</Th>
+            <Th className="r">its own time</Th>
+            <Th className="r">share</Th>
+            <Th></Th>
+            <Th className="r">total</Th>
+            <Th className="r">calls</Th>
+            <Th className="r">failed</Th>
+            <Th className="r">bytes</Th>
           </tr>
         </thead>
         <tbody>
@@ -79,7 +80,7 @@ export function Rollup({
               onMouseEnter={() => by === 'node' && onHoverNode(r.key)}
               onMouseLeave={() => by === 'node' && onHoverNode(null)}
             >
-              <td>
+              <Td>
                 {by === 'task' && r.key !== 'no task' && (
                   <span
                     className="tk"
@@ -87,20 +88,20 @@ export function Rollup({
                   />
                 )}
                 {r.key}
-              </td>
-              <td className="r n">{ms(r.self)}</td>
-              <td className="r n muted pct">{((r.self / (all || 1)) * 100).toFixed(1)}%</td>
-              <td className="bar">
+              </Td>
+              <Td className="r n">{ms(r.self)}</Td>
+              <Td className="r n muted pct">{((r.self / (all || 1)) * 100).toFixed(1)}%</Td>
+              <Td className="bar">
                 <span style={{ width: `${(r.self / most) * 100}%` }} />
-              </td>
-              <td className="r n muted">{ms(r.total)}</td>
-              <td className="r n">{r.calls}</td>
-              <td className="r n">{r.failed > 0 ? <b>{r.failed}</b> : <span className="muted">—</span>}</td>
-              <td className="r n muted">{r.bytes ? `${(r.bytes / 1024).toFixed(1)} KB` : '—'}</td>
+              </Td>
+              <Td className="r n muted">{ms(r.total)}</Td>
+              <Td className="r n">{r.calls}</Td>
+              <Td className="r n">{r.failed > 0 ? <b>{r.failed}</b> : <span className="muted">—</span>}</Td>
+              <Td className="r n muted">{r.bytes ? `${(r.bytes / 1024).toFixed(1)} KB` : '—'}</Td>
             </tr>
           ))}
         </tbody>
-      </table>
+      </Table>
       <style>{`
         .rollup { overflow: auto; }
         .rollup table { width: 100%; font-size: 12.5px; }

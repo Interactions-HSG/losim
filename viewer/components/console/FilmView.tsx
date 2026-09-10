@@ -17,6 +17,7 @@ import { Film } from '../Film.tsx';
 import { useConsole } from '../../lib/console.tsx';
 import { refTime } from '../../lib/playback.ts';
 import { openUrl, type Run } from '../../lib/runs.ts';
+import { A } from '../../lib/text.tsx';
 
 export function FilmView() {
   const { run, runs, go } = useConsole();
@@ -55,9 +56,9 @@ export function FilmView() {
       <Head
         crumbs={
           <>
-            <a href="#" onClick={(e) => { e.preventDefault(); go('runs'); }}>Runs</a>
+            <A href="#" onClick={(e) => { e.preventDefault(); go('runs'); }}>Runs</A>
             {' / '}
-            <a href="#" onClick={(e) => { e.preventDefault(); go('overview'); }}>{run.name}</a>
+            <A href="#" onClick={(e) => { e.preventDefault(); go('overview'); }}>{run.name}</A>
             {' / Film'}
           </>
         }

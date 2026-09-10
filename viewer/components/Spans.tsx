@@ -26,6 +26,7 @@ import { Waterfall } from './spans/Waterfall.tsx';
 import { ms, SpanTree, type SpanNode } from '../lib/spans.ts';
 import type { Theme } from '../lib/theme.ts';
 import type { Trace } from '../lib/trace.ts';
+import { P } from '../lib/text.tsx';
 
 type View = 'waterfall' | 'swimlanes' | 'rollup';
 
@@ -253,11 +254,11 @@ export function Spans({
         )}
       </div>
 
-      <p className="hint muted">
+      <P className="hint muted">
         Click a span to seek the film to it. ⌘-scroll to zoom the axis, shift-scroll to pan.
         The outlined chain is the critical path — at every level, the child that finished last,
         which is what the makespan is actually made of.
-      </p>
+      </P>
 
       <style>{`
         .spans { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; }

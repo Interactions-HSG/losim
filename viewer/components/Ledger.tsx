@@ -20,8 +20,10 @@
  * about a picture and a bill at the same time, and a viewer should not have to
  * hold the two in their head to make it.
  */
+import * as stylex from '@stylexjs/stylex';
 import { BUCKETS, money, type Bucket, type Ledger as L } from '../lib/ledger.ts';
 import * as D from '../lib/design.ts';
+import { Code, P, Table, Td, Th } from '../lib/text.tsx';
 
 /** One palette for the four buckets, wherever they are drawn. */
 export const COLOUR: Record<Bucket, string> = {
@@ -115,19 +117,19 @@ export function LedgerStrip({
                       {focus.name} {money(mine, l.currency)}
                     </span>
                   )}
-                  <p>{WHY[b]}</p>
+                  <P>{WHY[b]}</P>
                 </div>
               );
             })}
           </div>
 
-          <table>
+          <Table>
             <thead>
               <tr>
-                <th>line</th>
-                <th style={{ textAlign: 'right' }}>quantity</th>
-                <th style={{ textAlign: 'right' }}>so far</th>
-                <th style={{ textAlign: 'right' }}>{focus ? focus.name : 'whole run'}</th>
+                <Th>line</Th>
+                <Th style={cells.right}>quantity</Th>
+                <Th style={cells.right}>so far</Th>
+                <Th style={cells.right}>{focus ? focus.name : 'whole run'}</Th>
               </tr>
             </thead>
             <tbody>
@@ -140,31 +142,31 @@ export function LedgerStrip({
                     onMouseEnter={() => node && onHover?.(node)}
                     onMouseLeave={() => node && onHover?.(null)}
                   >
-                    <td>
+                    <Td>
                       <span className="ledger-dot" style={{ background: COLOUR[line.bucket] }} />
                       {line.what}
                       {why && <em className="why"> — {why}</em>}
-                    </td>
-                    <td className="n" style={{ textAlign: 'right' }}>
+                    </Td>
+                    <Td num style={cells.right}>
                       {line.quantity.toPrecision(3)} <span className="muted">{line.unit}</span>
-                    </td>
-                    <td className="n" style={{ textAlign: 'right' }}>
+                    </Td>
+                    <Td num style={cells.right}>
                       {money(sofar, l.currency)}
-                    </td>
-                    <td className="n muted" style={{ textAlign: 'right' }}>
+                    </Td>
+                    <Td num style={cells.right} className="muted">
                       {focus
                         ? mine > 0
                           ? money(mine, l.currency)
                           : '—'
                         : money(line.amount, l.currency)}
-                    </td>
+                    </Td>
                   </tr>
                 );
               })}
             </tbody>
-          </table>
-          <p className="ledger-fine">
-            Every amount here is a line <code>losim bill</code> already computed; what is added
+          </Table>
+          <P className="ledger-fine">
+            Every amount here is a line <Code>losim bill</Code> already computed; what is added
             is only when it arrives, and who it belongs to. The closing total is the
             bill&rsquo;s, exactly.
             {focus && (
@@ -174,7 +176,7 @@ export function LedgerStrip({
                 penalty belongs to the job, not to a node.
               </>
             )}
-          </p>
+          </P>
         </div>
       )}
 
@@ -264,3 +266,6 @@ export function LedgerStrip({
     </div>
   );
 }
+
+/** The money columns line up on the right, where a column of numbers belongs. */
+const cells = stylex.create({ right: { textAlign: 'right' } });

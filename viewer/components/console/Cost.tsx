@@ -22,6 +22,7 @@ import { useConsole, useNow } from '../../lib/console.tsx';
 import { BUCKETS, LedgerModel, money, type Bucket } from '../../lib/ledger.ts';
 import { refTime } from '../../lib/playback.ts';
 import { openUrl, type Run } from '../../lib/runs.ts';
+import { A, Code, P, Table, Td, Th } from '../../lib/text.tsx';
 
 const DIMS = {
   bucket: 'Bucket',
@@ -217,11 +218,11 @@ export function Cost() {
       <>
         <Head title="Cost" sub={run.name} />
         <Panel>
-          <p className="muted">
-            There is no bill beside <code>{run.name}</code>, so there is nothing to report. Bills
-            are written by <code>losim bill --json</code> next to the trace, and{' '}
-            <code>losim dev viewer traces</code> writes one for every run it sweeps.
-          </p>
+          <P className="muted">
+            There is no bill beside <Code>{run.name}</Code>, so there is nothing to report. Bills
+            are written by <Code>losim bill --json</Code> next to the trace, and{' '}
+            <Code>losim dev viewer traces</Code> writes one for every run it sweeps.
+          </P>
         </Panel>
       </>
     );
@@ -235,16 +236,16 @@ export function Cost() {
       <Head
         crumbs={
           <>
-            <a href="#" onClick={(e) => { e.preventDefault(); go('runs'); }}>Runs</a>
+            <A href="#" onClick={(e) => { e.preventDefault(); go('runs'); }}>Runs</A>
             {' / '}
-            <a href="#" onClick={(e) => { e.preventDefault(); go('overview'); }}>{run.name}</a>
+            <A href="#" onClick={(e) => { e.preventDefault(); go('overview'); }}>{run.name}</A>
             {' / Cost'}
           </>
         }
         title="Cost"
         sub={
           <>
-            {run.name} as it stood {refTime(now)} in, from <code>losim bill</code>. Tick another
+            {run.name} as it stood {refTime(now)} in, from <Code>losim bill</Code>. Tick another
             run below and it is drawn at the same instant of its own clock.
           </>
         }
@@ -297,12 +298,12 @@ export function Cost() {
             />
             <div className="pad">
               <Legend keys={keys} colour={colour} />
-              <p className="note">
+              <P className="note">
                 Grouped by <strong>{DIMS[dim].toLowerCase()}</strong>, cut off at the clock.
                 {dim === 'bucket'
                   ? ' The four are printed apart rather than summed because they are four different kinds of decision, and one number cannot say that.'
                   : ` Build belongs to no node — it is what the design cost to write — so it is shown as “${NOBODY}” rather than shared out and making every other figure wrong in the same direction.`}
-              </p>
+              </P>
             </div>
           </Panel>
 
@@ -312,38 +313,38 @@ export function Cost() {
             flush
           >
             <div className="scroll">
-              <table>
+              <Table>
                 <thead>
                   <tr>
-                    <th>Bucket</th>
-                    <th>What</th>
-                    <th className="r">Quantity</th>
-                    <th className="r">Unit price</th>
-                    <th className="r">So far</th>
-                    <th className="r">Of</th>
+                    <Th>Bucket</Th>
+                    <Th>What</Th>
+                    <Th className="r">Quantity</Th>
+                    <Th className="r">Unit price</Th>
+                    <Th className="r">So far</Th>
+                    <Th className="r">Of</Th>
                   </tr>
                 </thead>
                 <tbody>
                   {l.lines.slice(0, 40).map((row, i) => (
                     <tr key={i}>
-                      <td>
+                      <Td>
                         <i className="dot" style={{ background: COLOUR[row.line.bucket] }} />
                         {row.line.bucket}
-                      </td>
-                      <td>{row.line.what}</td>
-                      <td className="n">
+                      </Td>
+                      <Td>{row.line.what}</Td>
+                      <Td num>
                         {short(row.line.quantity)} <span className="muted">{row.line.unit}</span>
-                      </td>
-                      <td className="n">{short(row.line.unitPrice)}</td>
-                      <td className="n b">{money(row.sofar, l.currency)}</td>
-                      <td className="n muted">{money(row.line.amount, l.currency)}</td>
+                      </Td>
+                      <Td num>{short(row.line.unitPrice)}</Td>
+                      <Td className="n b">{money(row.sofar, l.currency)}</Td>
+                      <Td className="n muted">{money(row.line.amount, l.currency)}</Td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </Table>
             </div>
             {l.lines.length > 40 && (
-              <p className="pad note">{l.lines.length - 40} more, the smallest of them.</p>
+              <P className="pad note">{l.lines.length - 40} more, the smallest of them.</P>
             )}
           </Panel>
         </div>
@@ -393,10 +394,10 @@ export function Cost() {
                   </label>
                 ))}
             </div>
-            <p className="note">
+            <P className="note">
               Ticking one opens its trace, so it can be accrued rather than only totalled. The
               totals beside each name are what the whole run cost.
-            </p>
+            </P>
           </Panel>
 
           <Panel title="Open another">
@@ -417,19 +418,19 @@ export function Cost() {
           flush
         >
           <div className="scroll">
-            <table className="per">
+            <Table className="per">
               <thead>
                 <tr>
-                  <th>Node</th>
-                  <th>Where</th>
+                  <Th>Node</Th>
+                  <Th>Where</Th>
                   {BUCKETS.map((b) => (
-                    <th key={b} className="r">
+                    <Th key={b} className="r">
                       <i className="dot" style={{ background: COLOUR[b] }} />
                       {b}
-                    </th>
+                    </Th>
                   ))}
-                  <th className="r">So far</th>
-                  <th className="r">Share</th>
+                  <Th className="r">So far</Th>
+                  <Th className="r">Share</Th>
                 </tr>
               </thead>
               <tbody>
@@ -442,26 +443,26 @@ export function Cost() {
                         onClick={() => setWhose(open ? null : r.node.name)}
                         aria-expanded={open}
                       >
-                        <td className="id">
+                        <Td className="id">
                           <span className="tw" aria-hidden>{open ? '\u25be' : '\u25b8'}</span>
                           {r.node.name}
-                        </td>
-                        <td className="muted where">
+                        </Td>
+                        <Td className="muted where">
                           {r.node.instance} · {r.node.zone}
-                        </td>
+                        </Td>
                         {BUCKETS.map((b) => (
-                          <td key={b} className="n">
+                          <Td key={b} className="n">
                             {r.focus.buckets[b] > 1e-9 ? amt(r.focus.buckets[b]) : '\u2014'}
-                          </td>
+                          </Td>
                         ))}
-                        <td className="n b">{amt(r.focus.cost)}</td>
-                        <td className="n muted">
+                        <Td className="n b">{amt(r.focus.cost)}</Td>
+                        <Td className="n muted">
                           {((r.focus.cost / Math.max(l.cost, 1e-9)) * 100).toFixed(0)}%
-                        </td>
+                        </Td>
                       </tr>
                       {open && (
                         <tr className="why">
-                          <td colSpan={3 + BUCKETS.length + 2}>
+                          <Td colSpan={3 + BUCKETS.length + 2}>
                             {r.lines.length ? (
                               <ul>
                                 {r.lines.map((row, i) => (
@@ -477,11 +478,11 @@ export function Cost() {
                                 ))}
                               </ul>
                             ) : (
-                              <p className="muted">
+                              <P className="muted">
                                 Nothing is charged to {r.node.name} by {refTime(now)}.
-                              </p>
+                              </P>
                             )}
-                          </td>
+                          </Td>
                         </tr>
                       )}
                     </Fragment>
@@ -489,25 +490,25 @@ export function Cost() {
                 })}
                 {l.cost - claimed > 1e-9 && (
                   <tr className="rest">
-                    <td className="id">{NOBODY}</td>
-                    <td colSpan={1 + BUCKETS.length} className="muted">
+                    <Td className="id">{NOBODY}</Td>
+                    <Td colSpan={1 + BUCKETS.length} className="muted">
                       what the design cost to write, and any penalty the job as a whole earned —
                       splitting these over the nodes would invent a claim nothing supports
-                    </td>
-                    <td className="n b">{amt(l.cost - claimed)}</td>
-                    <td className="n muted">
+                    </Td>
+                    <Td className="n b">{amt(l.cost - claimed)}</Td>
+                    <Td className="n muted">
                       {(((l.cost - claimed) / Math.max(l.cost, 1e-9)) * 100).toFixed(0)}%
-                    </td>
+                    </Td>
                   </tr>
                 )}
               </tbody>
-            </table>
+            </Table>
           </div>
-          <p className="pad note">
+          <P className="pad note">
             Click a node for its own lines, and why each one is charged to it. Every amount is
-            a line <code>losim bill</code> already computed — only the claim about who is
+            a line <Code>losim bill</Code> already computed — only the claim about who is
             answerable for it is added here.
-          </p>
+          </P>
         </Panel>
 
       <style>{`

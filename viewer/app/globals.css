@@ -109,46 +109,6 @@ body {
   font-feature-settings: 'cv05', 'ss01';
 }
 
-h1 {
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: -0.011em;
-  margin: 0;
-}
-
-h2 {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-3);
-  margin: 0 0 8px;
-}
-
-p {
-  color: var(--text-2);
-  margin: 0 0 10px;
-  max-width: 64ch;
-}
-
-a {
-  color: var(--accent);
-  text-decoration: none;
-}
-a:hover {
-  text-decoration: underline;
-}
-
-code,
-kbd {
-  font-family: var(--mono);
-  font-size: 0.9em;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  padding: 1px 5px;
-}
-
 /* ------------------------------------------------------------------ controls */
 
 .btn {
@@ -284,33 +244,6 @@ select.picker {
   border-radius: 999px;
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-th,
-td {
-  text-align: left;
-  padding: 10px 16px 10px 0;
-  border-bottom: 1px solid var(--border);
-  vertical-align: baseline;
-}
-tbody tr:last-child td {
-  border-bottom: 0;
-}
-th {
-  color: var(--text-3);
-  font-weight: 500;
-  font-size: 11px;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-td.n {
-  font-family: var(--mono);
-  font-variant-numeric: tabular-nums;
-}
-
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -431,101 +364,6 @@ td.n {
  * dozens of times on a page, and a component that carries its own <style> writes
  * that stylesheet out once per instance.
  */
-
-.c-head {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.c-head .c-crumbs {
-  margin: 0 0 2px;
-  font-size: 12.5px;
-  color: var(--text-3);
-}
-.c-head .c-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-.c-head h1 {
-  font-size: 26px;
-  font-weight: 400;
-  letter-spacing: -0.012em;
-  margin: 0;
-}
-.c-head .c-sub {
-  margin: 4px 0 0;
-  font-size: 13.5px;
-  color: var(--text-2);
-  max-width: 80ch;
-}
-.c-head .c-acts {
-  margin-left: auto;
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.c-panel {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-.c-panel > header {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 18px 20px 0;
-}
-.c-panel > header h2 {
-  font-size: 16px;
-  font-weight: 500;
-  letter-spacing: -0.008em;
-  text-transform: none;
-  color: var(--text);
-  margin: 0;
-}
-.c-panel > header .c-note {
-  font-size: 12.5px;
-  color: var(--text-3);
-}
-.c-panel > header .c-acts {
-  margin-left: auto;
-  display: flex;
-  gap: 6px;
-}
-.c-panel .c-in {
-  padding: 16px 20px 20px;
-  min-width: 0;
-}
-.c-panel .c-in.flush {
-  padding: 12px 0 0;
-}
-
-.c-tile {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 16px 18px 18px;
-}
-.c-tile .k {
-  font-size: 12.5px;
-  color: var(--text-3);
-}
-.c-tile .v {
-  font-size: 26px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-  font-variant-numeric: tabular-nums;
-  margin-top: 3px;
-}
-.c-tile .n {
-  font-size: 11.5px;
-  color: var(--text-3);
-}
 
 /* The categorical palette for the console's charts: ten hues that stay apart
  * from each other and off the four bucket colours, in both schemes. Reached

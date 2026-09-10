@@ -22,6 +22,7 @@ import { useConsole } from '../../lib/console.tsx';
 import { BUCKETS, money } from '../../lib/ledger.ts';
 import { refTime } from '../../lib/playback.ts';
 import type { RunRef } from '../../lib/runs.ts';
+import { Code, P } from '../../lib/text.tsx';
 
 const GROUPS = [
   { key: 'yours', label: 'Your runs', note: 'whatever you have run in this project' },
@@ -107,11 +108,11 @@ export function Gallery() {
 
       {!shown.length && (
         <Panel>
-          <p className="muted">
+          <P className="muted">
             Nothing matches <strong>{q}</strong>. Every result is named for the simulation it
-            came from, so <code>kill</code>, <code>scale</code> and <code>deadline</code> are
+            came from, so <Code>kill</Code>, <Code>scale</Code> and <Code>deadline</Code> are
             all worth trying.
-          </p>
+          </P>
         </Panel>
       )}
 
@@ -189,10 +190,10 @@ function Card({
           <button className="name" onClick={onOpen}>{r.name}</button>
           {here && <span className="chip">open</span>}
         </div>
-        <p className="of">
+        <P className="of">
           {r.simulation ?? 'a simulation'}
           {r.entry && <span className="muted"> · entered at {r.entry}</span>}
-        </p>
+        </P>
         <dl>
           <div>
             <dt>nodes</dt>

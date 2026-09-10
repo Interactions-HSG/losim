@@ -21,6 +21,7 @@
  * MB, climbing steadily since the shuffle started, 180 left" says what is about
  * to happen.
  */
+import * as stylex from '@stylexjs/stylex';
 import { useMemo } from 'react';
 
 import * as D from '../lib/design.ts';
@@ -30,6 +31,7 @@ import { refTime } from '../lib/playback.ts';
 import { Payload } from './Payload.tsx';
 import { money as chf, type Ledger } from '../lib/ledger.ts';
 import { digest, type Trace, type TraceEvent } from '../lib/trace.ts';
+import { Code, H1, H2, P, Table, Td, Th } from '../lib/text.tsx';
 
 export interface NodePanelProps {
   trace: Trace;
@@ -67,7 +69,7 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
     >
       <header>
         <div>
-          <h1>{m.name}</h1>
+          <H1>{m.name}</H1>
           <div className="sub">
             {m.instance} · {m.vcpu} vCPU · {m.zone}
           </div>
@@ -86,7 +88,7 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
       </header>
 
       <section>
-        <h2>services offered</h2>
+        <H2>services offered</H2>
         <div className="chips">
           {m.serves.length ? (
             m.serves.map((s) => (
@@ -101,7 +103,7 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
       </section>
 
       <section>
-        <h2>capacity remaining</h2>
+        <H2>capacity remaining</H2>
         <Gauge
           name="memory"
           free={m.freeMb}
@@ -127,11 +129,11 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
       </section>
 
       <section>
-        <h2>current activity</h2>
+        <H2>current activity</H2>
         {m.work.length === 0 ? (
-          <p className="muted" style={{ margin: 0 }}>
+          <P className="muted" style={bits.flat}>
             idle
-          </p>
+          </P>
         ) : (
           m.work.map((w) => (
             <div key={w.span.id} className="work">
@@ -159,8 +161,8 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
 
       {totals && (
         <section>
-          <h2>over the whole run</h2>
-          <table>
+          <H2>over the whole run</H2>
+          <Table>
             <tbody>
               <Row k="calls served" v={String(Math.round(num(totals.raw, 'calls')))} />
               <Row k="allocated" v={mb(num(totals.raw, 'allocMb'))} />
@@ -179,13 +181,13 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
                 hint="metered and taken back off everything above"
               />
             </tbody>
-          </table>
+          </Table>
         </section>
       )}
 
       {money?.focus && money.focus.name === m.name && (
         <section>
-          <h2>cost</h2>
+          <H2>cost</H2>
           <div className="cost">
             <div>
               <span className="muted">so far</span>
@@ -214,19 +216,19 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
                 </li>
               ))}
           </ul>
-          <p className="muted" style={{ fontSize: 11, margin: '6px 0 0' }}>
-            Its share of lines <code>losim bill</code> already computed. The late-finish
+          <P className="muted" style={bits.small}>
+            Its share of lines <Code>losim bill</Code> already computed. The late-finish
             penalty belongs to the job and is not here.
-          </p>
+          </P>
         </section>
       )}
 
       <section>
-        <h2>events</h2>
+        <H2>events</H2>
         {mine.length === 0 ? (
-          <p className="muted" style={{ margin: 0 }}>
+          <P className="muted" style={bits.flat}>
             nothing — it ran to the end untouched
-          </p>
+          </P>
         ) : (
           <ol className="events">
             {mine.map((e, i) => (
@@ -306,13 +308,13 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
 function Row({ k, v, hint }: { k: string; v: string; hint?: string }) {
   return (
     <tr>
-      <th style={{ textTransform: 'none', letterSpacing: 0, fontSize: 12 }}>
+      <Th style={bits.plainHead}>
         {k}
         {hint && <div style={{ color: 'var(--text-3)', fontSize: 11 }}>{hint}</div>}
-      </th>
-      <td className="n" style={{ textAlign: 'right' }}>
+      </Th>
+      <Td num style={bits.right}>
         {v}
-      </td>
+      </Td>
     </tr>
   );
 }
@@ -475,3 +477,11 @@ function egress(raw: Record<string, number | string | boolean>): [string, number
     .filter(([, sent]) => sent > 0)
     .sort((a, b) => b[1] - a[1]);
 }
+
+const bits = stylex.create({
+  flat: { margin: 0 },
+  small: { fontSize: '11px', margin: '6px 0 0' },
+  /** One header that is a label rather than a column name, so it is not shouted. */
+  plainHead: { textTransform: 'none', letterSpacing: 0, fontSize: '12px' },
+  right: { textAlign: 'right' },
+});
