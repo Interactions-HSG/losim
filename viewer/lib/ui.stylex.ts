@@ -110,10 +110,21 @@ export const ui = stylex.create({
     fontWeight: 500,
     color: chrome.text,
     backgroundColor: chrome.surface,
-    backgroundImage:
-      "url(\"data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238e959f' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E\")",
+    /**
+     * The arrow, drawn as two gradient wedges rather than as an SVG.
+     *
+     * It was a data URI with `stroke='%238e959f'` in it — a grey no theme could
+     * reach, because a data URI is an opaque string to CSS and cannot read a
+     * variable. So the one mark on this control stayed the old palette's while
+     * everything around it turned. Two half-transparent gradients meeting at a
+     * point make the same chevron out of a colour token, and the token is what
+     * makes it follow the theme and the dark scheme without being told twice.
+     */
+    backgroundImage: `linear-gradient(45deg, transparent 50%, ${chrome.text3} 50%),`
+      + ` linear-gradient(135deg, ${chrome.text3} 50%, transparent 50%)`,
+    backgroundSize: '5px 5px, 5px 5px',
     backgroundRepeat: 'no-repeat',
-    backgroundPosition: 'right 10px center',
+    backgroundPosition: 'right 14px center, right 10px center',
     borderWidth: '1px',
     borderStyle: 'solid',
     borderColor: chrome.border,

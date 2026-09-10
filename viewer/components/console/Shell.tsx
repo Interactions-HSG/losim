@@ -17,7 +17,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import * as stylex from '@stylexjs/stylex';
 
-import { bar, chrome, font, radius, size } from '../../lib/tokens.stylex.ts';
+import { bar, chrome, font, radius, shadow, size } from '../../lib/tokens.stylex.ts';
 import { ui } from '../../lib/ui.stylex.ts';
 
 import { Transport } from './Transport.tsx';
@@ -53,11 +53,31 @@ export function Shell({ children }: { children: ReactNode }) {
   const [tight, setTight] = useState(false);
   useEffect(() => {
     try {
-      setTight(window.localStorage.getItem(RAIL_KEY) === '1');
+      const said = window.localStorage.getItem(RAIL_KEY);
+      // No stored preference and no room for a rail beside the page: start with
+      // it away. Below 900px the rail is an overlay, and an overlay that is open
+      // on arrival is a menu covering the thing you came to read.
+      setTight(said === null ? window.innerWidth <= 900 : said === '1');
     } catch {
       /* site data refused; the rail stays open, which is the better default */
     }
   }, []);
+  /**
+   * Go somewhere, and get the drawer out of the way if it was over the page.
+   *
+   * Not written to storage: closing it here is what this tap meant, not a
+   * preference about rails. Remembering it would collapse the rail on a laptop
+   * because somebody once used a phone.
+   */
+  const pick = (id: View) => {
+    go(id);
+    try {
+      if (window.innerWidth <= 900) setTight(true);
+    } catch {
+      /* no window to measure; the drawer stays as it is */
+    }
+  };
+
   const toggleRail = () => {
     setTight((was) => {
       const now = !was;
@@ -136,7 +156,7 @@ export function Shell({ children }: { children: ReactNode }) {
                   aria-current={view === n.id}
                   aria-label={n.label}
                   title={tight ? n.label : undefined}
-                  onClick={() => go(n.id)}
+                  onClick={() => pick(n.id)}
                 >
                   <i {...stylex.props(styles.icon)}>{n.icon}</i>
                   {!tight && n.label}
@@ -168,7 +188,7 @@ export function Shell({ children }: { children: ReactNode }) {
                   aria-label={n.label}
                   title={tight ? n.label : undefined}
                   disabled={!run}
-                  onClick={() => go(n.id)}
+                  onClick={() => pick(n.id)}
                 >
                   <i {...stylex.props(styles.icon)}>{n.icon}</i>
                   {!tight && n.label}
@@ -382,12 +402,30 @@ const styles = stylex.create({
     borderRightStyle: 'solid',
     borderRightColor: chrome.border,
     backgroundColor: chrome.surface,
-    display: { default: 'flex', [NARROW]: 'none' },
+    display: 'flex',
     flexDirection: 'column',
     overflowY: 'auto',
     overflowX: 'hidden',
+    /**
+     * Below 900px there is no column to put it in, so it stops being a column
+     * and becomes a drawer over the page. It used to be `display: none` here,
+     * which left a phone with a ☰ that toggled nothing and no way to reach any
+     * view but the one already open.
+     */
+    position: { default: 'static', [NARROW]: 'fixed' },
+    top: { default: null, [NARROW]: '56px' },
+    bottom: { default: null, [NARROW]: 0 },
+    left: { default: null, [NARROW]: 0 },
+    width: { default: 'auto', [NARROW]: '248px' },
+    maxWidth: { default: 'none', [NARROW]: '80vw' },
+    zIndex: { default: null, [NARROW]: 30 },
+    boxShadow: { default: 'none', [NARROW]: shadow.s2 },
   },
-  railTight: { paddingInline: '8px' },
+  /** Away. Wide, that is 56px of icons; narrow, it is the drawer shut. */
+  railTight: {
+    paddingInline: '8px',
+    display: { default: 'flex', [NARROW]: 'none' },
+  },
   /**
    * What a group heading becomes when there is no room to read one. A rule
    * rather than a truncated word: the grouping is still there to be seen, and

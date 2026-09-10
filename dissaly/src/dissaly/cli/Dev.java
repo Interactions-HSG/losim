@@ -840,6 +840,21 @@ public final class Dev {
             // and the two would be different files to protobuf.
             if (protoc(protos, staged, List.of(protos.resolve("dissaly/job.proto"))) != 0) return 1;
             Path made = staged.resolve("dissaly/pb");
+
+            // An empty result is never an instruction to delete. protoc exited 0
+            // and wrote nothing here, which means it wrote somewhere else — the
+            // package moved, the include root moved — and the loop below would
+            // read every committed file as one protoc had removed and delete all
+            // eight. It has done exactly that once. A generator that produced
+            // nothing has said nothing about what should already exist.
+            if (children(made).stream().noneMatch(p -> p.getFileName().toString().endsWith(".java"))) {
+                System.err.println("protoc wrote no Java under " + made
+                                   + " — the output path moved, and this verb will not");
+                System.err.println("treat that as eight deletions. Check the package in "
+                                   + protos.resolve("dissaly/job.proto") + ".");
+                return 1;
+            }
+
             var changed = new ArrayList<String>();
             for (Path fresh : children(made)) {
                 String name = fresh.getFileName().toString();

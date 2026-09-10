@@ -48,6 +48,26 @@ export const form = stylex.create({
     borderColor: chrome.border,
     borderRadius: radius.sm,
   },
+  /**
+   * What a `<select>` needs on top of `control` to be ours rather than the
+   * operating system's.
+   *
+   * `control` alone left the native widget in place — a macOS select is drawn by
+   * the platform, keeps its own rounding and its own blue, and ignores every
+   * border and radius set here. `appearance: none` is what actually hands the
+   * box over; the room on the right and the chevron are what have to replace
+   * what the platform was drawing. Same two-gradient arrow as `ui.picker`, for
+   * the same reason: it is a colour token, so it follows the theme.
+   */
+  chooser: {
+    appearance: 'none',
+    paddingRight: '28px',
+    cursor: 'pointer',
+    backgroundImage: `linear-gradient(45deg, transparent 50%, ${chrome.text3} 50%), linear-gradient(135deg, ${chrome.text3} 50%, transparent 50%)`,
+    backgroundSize: '5px 5px, 5px 5px',
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'right 14px center, right 10px center',
+  },
   /** Anything typed rather than chosen is a value, and values are monospaced. */
   typed: { fontFamily: font.mono, width: '110px' },
   small: { height: '28px', paddingInline: '8px', fontSize: '12.5px' },
@@ -141,5 +161,5 @@ export const Input = ({ small, style, ...rest }: With<'input'> & { small?: boole
   <input {...rest} {...stylex.props(form.control, form.typed, small && form.small, style)} />
 );
 export const Select = ({ small, style, ...rest }: With<'select'> & { small?: boolean }) => (
-  <select {...rest} {...stylex.props(form.control, small && form.small, style)} />
+  <select {...rest} {...stylex.props(form.control, form.chooser, small && form.small, style)} />
 );
