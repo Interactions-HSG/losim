@@ -29,12 +29,23 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gunzipSync } from 'node:zlib';
 
-import { RunIndex } from '../lib/frame.ts';
-import { Trace } from '../lib/trace.ts';
+import { RunIndex, revealText } from '../lib/frame.ts';
+import { Trace, asReveal } from '../lib/trace.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const TRACES = resolve(HERE, '../../build/served');
+/**
+ * The parity oracle's traces, borrowed read-only.
+ *
+ * `build/served` is not committed and holds whatever was last swept, so on a
+ * fresh checkout it is empty or it is the gallery. These 22 are in the tree, and
+ * they are the only ones carrying a node that reveals two keys or a node that
+ * reveals none — which is exactly what the reveal proof below needs. Read only:
+ * nothing here writes them, and `parity.ts --capture` is the only thing that may.
+ */
+const FROZEN = resolve(HERE, 'traces');
 
 /**
  * Kinds that are deliberately not stops, and why.
@@ -54,7 +65,11 @@ const FURNITURE = new Set([
   'handler_start', // becomes the node's work bar
   'handler_end',
   'queue_wait',    // drawn as the gap before the work bar
-  'state',         // reveal(): read continuously by revealedAt(), not as a stop
+  // reveal(): drawn continuously on the node and its panel rather than stepped
+  // to. Unlike the rest of this list that is a claim about another piece of
+  // code, so it is proved below rather than asserted here — it was false for
+  // long enough to ship, and it read exactly like the true ones.
+  'state',
   'series',        // the dense samples behind every sparkline
   'trust',         // what the verifier made of the code, which is not an instant
   // A `failures:` entry announces itself and then does the thing.
@@ -153,5 +168,152 @@ if (withRpcFailure === 0) {
   console.log('        it is in NOTABLE and TOLD, and nothing here holds them to it');
 }
 
-if (failed === 0) console.log('  every kind a trace carries is reachable');
+if (unreachable.size === 0) console.log('  every kind a trace carries is reachable');
+
+/* ------------------------------------------------------- the excuse, proved
+ *
+ * `state` is excused from being a stop because something else draws it. That
+ * sentence sat in FURNITURE for a release while `revealedAt()` had no callers
+ * at all, and nothing here could tell the difference: an excuse is prose, and
+ * prose passes every check.
+ *
+ * So the excuse is held to `RunIndex`, which is what the film actually reads.
+ * `Trace.revealedAt()` is kept deliberately naive — a scan of every event, no
+ * index — precisely so that this comparison is between two different pieces of
+ * code rather than one piece of code and a restatement of it.
+ */
+const at = (trace: Trace, t: number): Map<string, unknown> => trace.revealedAt(t);
+
+let revealTraces = 0;
+let revealValues = 0;
+let multiKey = 0;
+let uneven = 0;
+const wrong: string[] = [];
+
+for (const [where, label] of [[FROZEN, 'frozen'], [TRACES, 'served']] as const) {
+  let files: string[];
+  try {
+    files = readdirSync(where).filter((f) => f.endsWith('.json.gz') || (f.endsWith('.json')
+      && !f.endsWith('.bill.json') && f !== 'index.json'));
+  } catch {
+    continue;
+  }
+  for (const f of files) {
+    let trace: Trace;
+    let index: RunIndex;
+    try {
+      const raw = f.endsWith('.gz')
+        ? gunzipSync(readFileSync(join(where, f))).toString('utf8')
+        : readFileSync(join(where, f), 'utf8');
+      trace = Trace.parse(raw);
+      index = new RunIndex(trace);
+    } catch {
+      continue;
+    }
+    const keys = index.revealedKeys();
+    if (!keys.length) continue;
+    revealTraces++;
+    if (keys.length > 1) multiKey++;
+
+    // Which nodes report which keys, over the whole run — the fact the frame's
+    // row set claims to be, and the only way to catch a row invented for a node
+    // that never says anything of the kind.
+    const ever = new Set<string>();
+    for (const k of at(trace, Number.POSITIVE_INFINITY).keys()) ever.add(k);
+    if (new Set([...ever].map((k) => k.split('\u0000')[0])).size < trace.nodes.length) uneven++;
+
+    const say = (m: string) => wrong.push(`${label}/${f}: ${m}`);
+    for (let i = 0; i <= 12; i++) {
+      const t = (trace.duration * i) / 12;
+      const frame = index.frameAt(t);
+      const oracle = at(trace, t);
+
+      // Everything the slow way found is on the picture, with the same value.
+      for (const [k, v] of oracle) {
+        const value = asReveal(v);
+        if (value === null) continue;
+        const [vm, key] = k.split('\u0000');
+        const node = frame.nodes.find((n) => n.name === vm);
+        if (!node) continue;
+        const r = node.revealed.find((x) => x.key === key);
+        revealValues++;
+        if (!r) say(`${vm} revealed ${key} by t=${t.toFixed(1)} and the frame has no row for it`);
+        else if (!Object.is(r.value, value)) {
+          say(`${vm}.${key} is ${String(value)} at t=${t.toFixed(1)} and the frame says ${String(r.value)}`);
+        }
+      }
+
+      for (const node of frame.nodes) {
+        // Nothing on the picture that the slow way did not find. An index that
+        // lags a sample, holds a value too long, or files it under the wrong
+        // node all show up here and nowhere else.
+        for (const r of node.revealed) {
+          if (r.value !== null) continue;
+          if (!ever.has(`${node.name}\u0000${r.key}`)) {
+            say(`${node.name} has a row for ${r.key} and never reveals it`);
+          }
+        }
+        for (const r of node.revealed) {
+          if (r.value === null) continue;
+          if (!Object.is(asReveal(oracle.get(`${node.name}\u0000${r.key}`)), r.value)) {
+            say(`the frame has ${node.name}.${r.key} = ${String(r.value)} at t=${t.toFixed(1)}, unreported`);
+          }
+        }
+        // One order for every node, so two panels can be read down a column.
+        const order = node.revealed.map((r) => keys.indexOf(r.key));
+        if (order.some((n, j) => j > 0 && n <= order[j - 1])) {
+          say(`${node.name} lists its keys out of the run's order`);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * The types no captured run has.
+ *
+ * Every `reveal()` in every trace in this tree is an `int`, so the string and
+ * boolean branches of the value formatter have no coverage from the fixtures
+ * and would not get any from sweeping harder. Written out by hand instead —
+ * a trace is JSON, and three events is a cheaper fixture than a simulation.
+ */
+const HAND = Trace.parse(JSON.stringify({
+  meta: { name: 'hand' },
+  nodes: [{ name: 'w0' }],
+  events: [
+    { t: 1, kind: 'state', vm: 'w0', detail: { key: 'forwardedTo', value: 'w3' } },
+    { t: 2, kind: 'state', vm: 'w0', detail: { key: 'storeMissed', value: true } },
+    { t: 3, kind: 'state', vm: 'w0', detail: { key: 'jpegKb', value: 1.5 } },
+    { t: 4, kind: 'state', vm: 'w0', detail: { key: 'ignored', value: { a: 1 } } },
+    { t: 9, kind: 'done' },
+  ],
+}));
+const hand = new RunIndex(HAND).frameAt(9).nodes[0];
+const drawn = hand.revealed.map((r) => `${r.key}=${r.value === null ? '-' : revealText(r.value)}`);
+const WANT = 'forwardedTo=w3,storeMissed=yes,jpegKb=1.5';
+if (drawn.join(',') !== WANT) {
+  wrong.push(`a string, a boolean and a float read as ${drawn.join(',')}, wanted ${WANT}`);
+}
+
+console.log(`  ${revealTraces} traces reveal something, ${revealValues} values held to the picture`);
+for (const w of wrong) console.error(`  ${w}`);
+if (wrong.length) failed = 1;
+
+// Backwards again, the same way the three above are. A trace set with no
+// reveals in it would prove nothing here however broken the index was; and the
+// two interesting shapes — a node with two keys, a node the others leave out —
+// are the ones a single-key gallery would quietly stop covering.
+if (revealTraces === 0) {
+  console.error('  nothing here reveals anything, so this proves nothing about reveal()');
+  failed = 1;
+}
+if (multiKey === 0) {
+  console.log('  note: no trace here reveals two keys on one node, so the row order is unexercised —');
+  console.log('        checks/traces/t12-spill and t13-chatty carry it');
+}
+if (uneven === 0) {
+  console.log('  note: every node here reveals something, so the empty panel is unexercised —');
+  console.log('        checks/traces/t6 has a master that never does');
+}
+
 process.exit(failed);

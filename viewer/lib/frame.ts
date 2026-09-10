@@ -17,7 +17,18 @@
  * - **The views cannot disagree**, because they are functions of one value.
  */
 import { Layout, TIGHT } from './layout.ts';
-import { Trace, digest, entries, liveAt, spanTo, type Span, type TraceEvent } from './trace.ts';
+import {
+  Trace,
+  asReveal,
+  digest,
+  entries,
+  g,
+  liveAt,
+  spanTo,
+  type RevealValue,
+  type Span,
+  type TraceEvent,
+} from './trace.ts';
 
 export type NodeState = 'alive' | 'degraded' | 'frozen' | 'dead' | 'reclaiming';
 
@@ -28,6 +39,28 @@ export interface Work {
   method: string;
   task: number | null;
   digest: string;
+}
+
+/** One key a node reported with `reveal()`, and where that key had got to at `t`. */
+export interface Reveal {
+  key: string;
+  /** The newest value at or before `t`, or null when it has not said yet. */
+  value: RevealValue | null;
+  /** When that value was reported, or -1 when there is none. */
+  at: number;
+}
+
+/**
+ * A revealed value, written the way the rest of the viewer writes values.
+ *
+ * `g()` rather than a fresh `toLocaleString`, because the picture already has
+ * one number convention and a second one would put 1,048,576 on the face and
+ * 1.04858e+06 in the digest beside it.
+ */
+export function revealText(v: RevealValue): string {
+  if (typeof v === 'number') return g(v);
+  if (typeof v === 'boolean') return v ? 'yes' : 'no';
+  return v;
 }
 
 export interface FrameNode {
@@ -50,6 +83,22 @@ export interface FrameNode {
   queued: number;
   inflight: number;
   work: Work[];
+  /**
+   * What this node reported with `reveal()`, newest value per key at `t`.
+   *
+   * Every key this node reveals *anywhere in the run* is here, ordered by when
+   * the run first saw each key — so which rows exist is a fact about the run,
+   * like `serves` and `diskCapMb` above, and what is a fact about the instant is
+   * the value, with `null` for "has not said yet".
+   *
+   * That split is the one place this file bends "the picture holds only what is
+   * currently true", and it buys two things worth the bend. Panel rows fill in
+   * rather than appear, so a reader's eye keeps its place while the film plays.
+   * And the face can tell *has not computed it yet* from *never computes it* —
+   * which is the whole signal when two nodes are supposed to agree and one of
+   * them is late.
+   */
+  revealed: readonly Reveal[];
 }
 
 export interface Flight {
@@ -131,6 +180,14 @@ export class RunIndex {
   private readonly maxEnd: number[];
   private readonly diskCap = new Map<string, number>();
   private readonly notable: TraceEvent[];
+  /**
+   * Per node, per key: the times it reported, ascending, and the values beside
+   * them. Two parallel arrays rather than a list of pairs, so the search reads
+   * one contiguous run of numbers.
+   */
+  private readonly reveals = new Map<string, RevealTrack[]>();
+  /** Every key any node revealed, in the order the run first revealed each. */
+  private readonly revealKeys: string[] = [];
   /** The busiest payload in the run, which every other one is drawn against. */
   private readonly heaviest: number;
 
@@ -169,6 +226,35 @@ export class RunIndex {
       .filter((e) => NOTABLE.has(String(e.kind)))
       .sort((a, b) => Number(a.t ?? 0) - Number(b.t ?? 0));
 
+    // Sorted rather than trusted: events are the one part of the trace that is
+    // read in raw, so nothing here guarantees the order the file happens to be
+    // in — and a track out of order would be searched wrongly for the whole run.
+    const said = trace.events
+      .filter((e) => e.kind === 'state')
+      .sort((a, b) => Number(a.t ?? 0) - Number(b.t ?? 0));
+    for (const e of said) {
+      const vm = String(e.vm ?? '');
+      if (!trace.byName.has(vm)) continue;
+      const d = e.detail ?? {};
+      const key = String(d['key'] ?? '');
+      const value = asReveal(d['value']);
+      if (!key || value === null) continue;
+      if (!this.revealKeys.includes(key)) this.revealKeys.push(key);
+      const tracks = this.reveals.get(vm) ?? [];
+      if (!this.reveals.has(vm)) this.reveals.set(vm, tracks);
+      let track = tracks.find((x) => x.key === key);
+      if (!track) {
+        track = { key, t: [], v: [] };
+        tracks.push(track);
+        // Every node lists its keys in the run's order, not in its own arrival
+        // order, so two nodes' panels line up row for row and the reader can
+        // compare down a column instead of hunting for the matching label.
+        tracks.sort((a, b) => this.revealKeys.indexOf(a.key) - this.revealKeys.indexOf(b.key));
+      }
+      track.t.push(Number(e.t ?? 0));
+      track.v.push(value);
+    }
+
     let heaviest = 1;
     for (const s of this.live) {
       if (s.kind !== 'rpc') continue;
@@ -180,6 +266,29 @@ export class RunIndex {
   /** The instants worth being able to jump to: every kill, freeze, OOM and disk-full. */
   events(): TraceEvent[] {
     return this.notable;
+  }
+
+  /** Every key the run reveals, in the order it first revealed each — for the picker. */
+  revealedKeys(): readonly string[] {
+    return this.revealKeys;
+  }
+
+  /**
+   * What one node had reported by `t`, one entry per key it ever reports.
+   *
+   * Searched rather than walked forward from the last frame: seeking backwards
+   * has to cost what playing costs, and a cursor would remember where the film
+   * had got to — which is the one thing nothing in this file is allowed to do.
+   */
+  private revealedOf(name: string, t: number): readonly Reveal[] {
+    const tracks = this.reveals.get(name);
+    if (!tracks) return NOTHING_REVEALED;
+    return tracks.map((track) => {
+      const i = lastAtOrBefore(track.t, t);
+      return i < 0
+        ? { key: track.key, value: null, at: -1 }
+        : { key: track.key, value: track.v[i], at: track.t[i] };
+    });
   }
 
   /** How much of a call is the outward flight, and how much the return. */
@@ -252,6 +361,7 @@ export class RunIndex {
         queued: this.trace.channel(m.name, 'queued', t),
         inflight: this.trace.channel(m.name, 'inflight', t),
         work: workOf.get(m.name) ?? [],
+        revealed: this.revealedOf(m.name, t),
       });
     }
 
@@ -374,6 +484,32 @@ export class RunIndex {
       failed: span.status !== 'OK',
     };
   }
+}
+
+interface RevealTrack {
+  key: string;
+  t: number[];
+  v: RevealValue[];
+}
+
+/**
+ * One shared empty list for the nodes that reveal nothing, which is most of them.
+ *
+ * Frozen so that sharing it cannot become a way for one node's frame to be
+ * written into another's.
+ */
+const NOTHING_REVEALED: readonly Reveal[] = Object.freeze([]);
+
+/** The last index whose time is at or before `t`, or -1 when none is. */
+function lastAtOrBefore(times: number[], t: number): number {
+  let lo = 0;
+  let hi = times.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (times[mid] <= t) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo - 1;
 }
 
 const NOTABLE = new Set([

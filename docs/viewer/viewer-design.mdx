@@ -22,12 +22,13 @@ observable to the run.
 
   <Step title="Reveal numbers for the node panel">
     ```java
-    Losim.current().reveal("frames", request.getFramesCount());
-    Losim.current().reveal("jpegKb", bytes / 1024.0);
+    Dissaly.current().reveal("frames", request.getFramesCount());
+    Dissaly.current().reveal("jpegKb", bytes / 1024.0);
     ```
 
     This puts **real numbers on a node** instead of only showing activity. Pin the
-    node to keep the panel beside the film while the values update.
+    node to keep the panel beside the film while the values update, or name one key
+    in the picker over the film to read it on every face at once.
 
     Use primitive overloads. The `Object` overload boxes values at the call site and
     repeated calls can affect the fitted memory exponent.
@@ -49,7 +50,7 @@ observable to the run.
 
   <Step title="Declare how many units each call processed">
     ```java
-    Losim.current().units(request.getFramesCount());
+    Dissaly.current().units(request.getFramesCount());
     ```
 
     The count appears on the span, so duration can be interpreted against the work
@@ -58,7 +59,7 @@ observable to the run.
 
   <Step title="Account for disk">
     ```java
-    Losim.current().wroteDisk(bytes);
+    Dissaly.current().wroteDisk(bytes);
     ```
 
     It throws when the cap is exceeded. A `disk_full` event also puts a red marker on
@@ -108,7 +109,7 @@ Use `NO_PAYLOAD` for measurement runs and `FULL` for runs you will inspect.
 
 <Note>
 A production system would normally avoid putting arguments and results in telemetry.
-losim includes them so the viewer can show the computation rather than opaque byte
+dissaly includes them so the viewer can show the computation rather than opaque byte
 counts.
 </Note>
 

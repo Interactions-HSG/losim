@@ -258,6 +258,34 @@ export function taskOf(span: Span): number | null {
   return null;
 }
 
+/**
+ * What a `reveal()` can actually have put in the trace.
+ *
+ * The Java side offers `int`, `long`, `double`, `boolean` and `String`, and its
+ * `Object` fallback goes through `String.valueOf` before it is written — so
+ * three JSON types is the whole range, and anything else in a `state` event came
+ * from a hand-edited file rather than from a run.
+ */
+export type RevealValue = number | string | boolean;
+
+/**
+ * One revealed value, or nothing, narrowed once so nothing downstream re-asks.
+ *
+ * Events are the one part of the trace that is never normalised on the way in
+ * (`this.events` is the raw array), so `detail.value` arrives as `unknown` and
+ * the narrowing has to happen somewhere. Doing it here, once, is what keeps a
+ * `typeof` ladder out of the panel and out of the SVG — and exporting it is what
+ * lets `checks/stops.ts` filter by exactly the same rule the film filters by,
+ * rather than by a second opinion about what counts.
+ *
+ * NaN is not a value a reader can compare, so it is not one here either.
+ */
+export function asReveal(v: unknown): RevealValue | null {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  if (typeof v === 'string' || typeof v === 'boolean') return v;
+  return null;
+}
+
 // ------------------------------------------------------------------- numbers
 //
 // Two formatters, matching Python's `f"{v:,g}"` and `f"{n:,}"`, because the
@@ -558,6 +586,14 @@ export class Trace {
    * Newest, not all: a state badge is rewritten so the number visibly moves.
    * A stack of every value ever reported is a log, and a log is the thing this
    * exists to replace.
+   *
+   * **The film does not read this.** It reads the index `RunIndex` builds once
+   * per run, because a scan of every event on every frame is the cost `RunIndex`
+   * exists to avoid. What this is, is the slow and obvious statement of the
+   * question that index answers — kept deliberately naive so that
+   * `checks/stops.ts` can hold the two against each other and have a real second
+   * opinion rather than a rephrasing of the first. Rewriting this in terms of
+   * the index would leave that check comparing something with itself.
    */
   revealedAt(t: number): Map<string, unknown> {
     const out = new Map<string, unknown>();

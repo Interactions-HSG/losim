@@ -21,10 +21,10 @@
  * to happen.
  */
 import * as stylex from '@stylexjs/stylex';
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 
 import * as D from '../lib/design.ts';
-import { bare, type FrameNode } from '../lib/frame.ts';
+import { bare, revealText, type FrameNode } from '../lib/frame.ts';
 import { mb } from './Dataflow.tsx';
 import { refTime } from '../lib/playback.ts';
 import { Payload } from './Payload.tsx';
@@ -159,6 +159,36 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
         <Spark values={busy.v} times={busy.t} t={t} duration={trace.duration} colour={D.taskColour(0)} height={22} />
       </section>
 
+      {/* What it computed, beside what it is computing — the two halves of one
+          question. The machine facts above are the same for a node doing the
+          right thing and a node doing the wrong thing very efficiently. */}
+      <section {...stylex.props(panel.section)} data-reveals="">
+        <H2>revealed values</H2>
+        {m.revealed.length === 0 ? (
+          <P style={[ui.muted, panel.flat]}>
+            nothing — a handler that calls <Code>reveal()</Code> puts its numbers here
+          </P>
+        ) : (
+          <Table>
+            <tbody>
+              {m.revealed.map((r) => (
+                <Row
+                  key={r.key}
+                  k={r.key}
+                  later={r.value === null}
+                  hint={r.at >= 0 ? refTime(r.at) : 'not yet'}
+                  v={
+                    <span data-reveal={r.key}>
+                      {r.value === null ? '—' : revealText(r.value)}
+                    </span>
+                  }
+                />
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </section>
+
       {totals && (
         <section {...stylex.props(panel.section)}>
           <H2>over the whole run</H2>
@@ -177,7 +207,7 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
               ))}
               <Row
                 k="DISSALy's own cost"
-                v={mb(num(totals.raw, 'losimMb'))}
+                v={mb(num(totals.raw, 'dissalyMb', 'losimMb'))}
                 hint="metered and taken back off everything above"
               />
             </tbody>
@@ -248,9 +278,20 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
   );
 }
 
-function Row({ k, v, hint }: { k: string; v: string; hint?: string }) {
+function Row({
+  k,
+  v,
+  hint,
+  later,
+}: {
+  k: string;
+  v: ReactNode;
+  hint?: string;
+  /** Reported by this node somewhere in the run, but not yet at this instant. */
+  later?: boolean;
+}) {
   return (
-    <tr>
+    <tr {...stylex.props(later && panel.later)}>
       <Th style={panel.plainHead}>
         {k}
         {hint && <div style={{ color: chrome.text3, fontSize: 11 }}>{hint}</div>}
@@ -394,15 +435,35 @@ function say(e: TraceEvent): string {
   const bits: string[] = [];
   for (const k of Object.keys(d)) {
     const v = d[k];
-    if (typeof v === 'number') bits.push(`${k} ${v.toLocaleString(undefined, { maximumFractionDigits: 3 })}`);
+    // Through the same formatter the film writes numbers with: an event line
+    // saying 1.04858e+06 beside a face saying 1,048,576 is two readings of one
+    // number, and the reader has to work out that they agree.
+    if (typeof v === 'number') bits.push(`${k} ${revealText(v)}`);
     else if (typeof v === 'string') bits.push(v);
     else if (typeof v === 'boolean') bits.push(v ? k : `no ${k}`);
   }
   return bits.join(' · ');
 }
 
-function num(raw: Record<string, number | string | boolean>, key: string): number {
-  return Number(raw[key] ?? 0);
+/**
+ * A total off the node's record, under the first name it answers to.
+ *
+ * The extra names are older spellings of the same measurement. This page reads
+ * raw traces with no baking step in front of it — that is what lets somebody
+ * drop a run from last term onto it — so a trace on disk is not rewritten when
+ * a channel is renamed, and a reader that knows only the current name reports
+ * a confident 0.0 rather than an error. Same reasoning as `egress()` below,
+ * which tolerates a trace written before the split existed.
+ */
+function num(
+  raw: Record<string, number | string | boolean>,
+  key: string,
+  ...older: string[]
+): number {
+  for (const k of [key, ...older]) {
+    if (raw[k] !== undefined) return Number(raw[k]);
+  }
+  return 0;
 }
 
 /**

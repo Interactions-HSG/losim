@@ -23,7 +23,7 @@ import { memo } from 'react';
 
 import * as D from '../lib/design.ts';
 import * as G from '../lib/glyphs.ts';
-import type { Flight, Frame, FrameNode } from '../lib/frame.ts';
+import { revealText, type Flight, type Frame, type FrameNode } from '../lib/frame.ts';
 import type { Layout } from '../lib/layout.ts';
 import { alarm, chill, taskColour, warn, type Theme } from '../lib/theme.ts';
 import { font } from '../lib/tokens.stylex.ts';
@@ -34,6 +34,15 @@ export interface DataflowProps {
   theme: Theme;
   /** Set when a cluster is big enough that some readings have to go. */
   dense?: boolean;
+  /**
+   * Which revealed key to write on every node's face, if any.
+   *
+   * A node reveals as many keys as it likes and the face has room for one line,
+   * so the choice has to be made rather than inferred. It is the reader's, not
+   * the program's: nominating a key needs no re-run, and the question a reader
+   * arrives with is rarely the one the author guessed.
+   */
+  show?: string | null;
   hovered?: string | null;
   /** Clicking a message, which keeps its panel open and makes it readable. */
   onPinMessage?: (f: Flight, at: [number, number]) => void;
@@ -82,6 +91,7 @@ export function Dataflow({
   frame,
   theme,
   dense,
+  show,
   hovered,
   onMessage,
   onPinMessage,
@@ -186,6 +196,7 @@ export function Dataflow({
           m={m}
           theme={theme}
           dense={!!dense}
+          show={show ?? ''}
           dim={(!!hovered && hovered !== m.name) || !!muted?.has(m.name)}
           onHover={onHover}
           onPin={onPinNode}
@@ -226,6 +237,7 @@ const Node = memo(
     m,
     theme,
     dense,
+    show,
     dim,
     onHover,
     onPin,
@@ -233,6 +245,7 @@ const Node = memo(
     m: FrameNode;
     theme: Theme;
     dense: boolean;
+    show: string;
     dim: boolean;
     onHover?: (name: string | null) => void;
     onPin?: (name: string) => void;
@@ -243,6 +256,7 @@ const Node = memo(
     const [bars, hatchWeight] = m.state === 'degraded' ? G.hatch(w, h) : [[], 0];
     const task = m.work.length ? m.work[0].task : null;
     const rim = dead || frozen ? chill(theme) : theme.ink;
+    const shown = show ? m.revealed.find((r) => r.key === show) : undefined;
 
     return (
       <g
@@ -321,6 +335,41 @@ const Node = memo(
           </text>
         )}
 
+        {/* What this node computed, when a key has been nominated.
+            Inside the body rather than under it: everything below the rim is
+            machine — cores, queue, disk, instance type — and the one number the
+            program chose to report is not a fact about the hardware. Here it is
+            also the only line where two nodes' values sit at the same height
+            with nothing between them, which is the entire point of drawing it.
+
+            Three states, and the difference between the last two is the whole
+            signal: a value; a dash for a node that reports this key but has not
+            said yet; and nothing at all for a node that never reports it. A
+            store with no opinion about `distinctKeys` must not look late. */}
+        {shown && (
+          <text
+            textAnchor="middle"
+            y={dense ? 0.17 : 0.215}
+            fontSize={dense ? 0.105 : 0.125}
+            fontWeight={600}
+            fill={dead || frozen ? chill(theme) : shown.value === null ? theme.pencil : theme.ink}
+            style={{ fontFamily: font.mono }}
+            data-reveal={shown.key}
+          >
+            {!dense && shown.key.length <= 14 && (
+              <tspan
+                fill={theme.pencil}
+                fontSize={0.095}
+                fontWeight={500}
+                style={{ fontFamily: font.sans }}
+              >
+                {shown.key}{' '}
+              </tspan>
+            )}
+            {shown.value === null ? '—' : clip(revealText(shown.value))}
+          </text>
+        )}
+
         {/* What program answers here, at all times. A column position says where a
             node sits in the pipeline; only this says what it runs — and on a
             cluster where one node serves two services, the column has stopped
@@ -369,7 +418,12 @@ const Node = memo(
       </g>
     );
   },
-  (a, b) => a.dense === b.dense && a.dim === b.dim && a.theme === b.theme && same(a.m, b.m),
+  (a, b) =>
+    a.dense === b.dense &&
+    a.dim === b.dim &&
+    a.show === b.show &&
+    a.theme === b.theme &&
+    same(a.m, b.m),
 );
 
 /** One slot per vCPU, lit while something is in it, plus what is queued behind. */
@@ -651,7 +705,7 @@ function shrink(
  * at the size a node is drawn, so a spill creeping up by a hundredth of a
  * megabyte does not re-render for it.
  */
-function same(a: FrameNode, b: FrameNode): boolean {
+export function same(a: FrameNode, b: FrameNode): boolean {
   return (
     a.name === b.name &&
     a.state === b.state &&
@@ -659,8 +713,36 @@ function same(a: FrameNode, b: FrameNode): boolean {
     Math.round(a.busy / 12) === Math.round(b.busy / 12) &&
     Math.round(a.queued) === Math.round(b.queued) &&
     label(a) === label(b) &&
-    mb(a.diskFreeMb) === mb(b.diskFreeMb)
+    mb(a.diskFreeMb) === mb(b.diskFreeMb) &&
+    revealedSame(a, b)
   );
+}
+
+/**
+ * Every revealed key, not just the nominated one.
+ *
+ * Comparing only the key on the face would make this function depend on the
+ * selection, and then the selection would have to be threaded into every caller
+ * that asks whether a node looks different. Compared whole, `show` stays an
+ * ordinary prop — and the list is one or two entries on every run there is.
+ */
+function revealedSame(a: FrameNode, b: FrameNode): boolean {
+  if (a.revealed.length !== b.revealed.length) return false;
+  return a.revealed.every(
+    (r, i) => r.key === b.revealed[i].key && Object.is(r.value, b.revealed[i].value),
+  );
+}
+
+/**
+ * A value too long for a face, cut where the digests are cut.
+ *
+ * Numbers never reach this — `g()` stops at six significant digits. A string
+ * does, and a node wearing a whole hostname stops being a node and becomes a
+ * label. The full value is one hover away in the panel, which is the same
+ * division of labour a message digest already has with its payload.
+ */
+function clip(s: string): string {
+  return s.length > 16 ? `${s.slice(0, 15)}…` : s;
 }
 
 function bucket(share: number): number {

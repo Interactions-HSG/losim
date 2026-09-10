@@ -106,6 +106,8 @@ export function Film({
   const [zone, setZone] = useState('');
   const [role, setRole] = useState('');
   const [task, setTask] = useState<number | null>(null);
+  /** Which revealed key rides on the faces. Not a filter: it hides nothing. */
+  const [show, setShow] = useState('');
   const svgRef = useRef<SVGSVGElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
 
@@ -143,8 +145,12 @@ export function Film({
     if (at !== null && Number.isFinite(Number(at))) clock.seek(Number(at));
     const m = q.get('m');
     if (m && trace.byName.has(m)) setPinned(m);
+    // Guarded like `m` above: a key this run never reveals is dropped rather
+    // than held, so the picker cannot sit on a selection the film cannot draw.
+    const k = q.get('show');
+    if (k && index.revealedKeys().includes(k)) setShow(k);
     if (q.get('ledger') === '1') setShowLedger(true);
-  }, [clock, trace]);
+  }, [clock, trace, index]);
 
   useEffect(() => {
     if (playing) return;
@@ -159,6 +165,18 @@ export function Film({
     else url.searchParams.delete('vs');
     window.history.replaceState(null, '', url);
   }, [playing, t, run.name, pinned, showLedger, against]);
+
+  // Its own effect, and deliberately not gated on `playing` like the one above.
+  // That gate is there because `t` moves sixty times a second and the address
+  // bar is not a clock; a dropdown moves when somebody moves it. The two write
+  // disjoint keys and each re-reads the live URL first, so neither overwrites
+  // the other's — and nominating a key mid-play still yields a link that works.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (show) url.searchParams.set('show', show);
+    else url.searchParams.delete('show');
+    window.history.replaceState(null, '', url);
+  }, [show]);
 
   // `layout` is in here on purpose: it is what the node positions come from,
   // so a re-searched arrangement has to make a new frame.
@@ -192,6 +210,13 @@ export function Film({
   const tasks = useMemo(
     () => [...new Set(index.tasks.values())].sort((a, b) => a - b),
     [index],
+  );
+  // The union across both panes, not this run's keys: a key only one run
+  // reveals is exactly the one worth nominating, and the other run's silence is
+  // then the answer rather than a gap in the menu.
+  const revealKeys = useMemo(
+    () => [...new Set([...index.revealedKeys(), ...(against?.index.revealedKeys() ?? [])])],
+    [index, against],
   );
 
   // The second run gets its own everything, on the same clock. Its layout is
@@ -372,13 +397,32 @@ export function Film({
               ))}
             </select>
           )}
-          {(zone || role || task !== null) && (
+          {/* Hidden when the run reveals nothing, like the task picker above:
+              a control whose only option is "no" is furniture. */}
+          {revealKeys.length > 0 && (
+            <select
+              {...stylex.props(ui.picker, styles.filter)}
+              value={show}
+              onChange={(e) => setShow(e.target.value)}
+              aria-label="value on the face"
+              data-show-picker=""
+            >
+              <option value="">no value on the face</option>
+              {revealKeys.map((k) => (
+                <option key={k} value={k}>
+                  {k}
+                </option>
+              ))}
+            </select>
+          )}
+          {(zone || role || task !== null || show) && (
             <button
               {...stylex.props(ui.btn)}
               onClick={() => {
                 setZone('');
                 setRole('');
                 setTask(null);
+                setShow('');
               }}
             >
               clear
@@ -396,6 +440,7 @@ export function Film({
           frame={frame}
           theme={theme}
           dense={dense}
+          show={show}
           hovered={shown}
           onHover={(n) => setHovered(n)}
           // Clicking the one already pinned closes it, the same as a message.
@@ -439,6 +484,7 @@ export function Film({
               frame={vsFrame}
               theme={theme}
               dense={vsLayout.scaleFor < 0.4}
+              show={show}
               hovered={null}
               onHover={() => {}}
               task={task}
