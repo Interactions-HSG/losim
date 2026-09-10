@@ -232,9 +232,19 @@ No bill beside the trace means no cost is shown.
 | | |
 |---|---|
 | `1x` | one reference second per real second — the run at the speed it happened. |
-| `0.5x`, `0.25x` | slower, for a run whose calls are quicker than a video frame. |
-| `2x`, `4x`, `8x` | faster. Pressing any numbered rate clears `fit`. |
+| `0.5x` `0.25x` `0.1x` | slower, for a run whose calls are quicker than a video frame. |
+| `0.01x` `0.001x` | slow enough to watch a single control message cross. At `0.001x` one reference millisecond takes a second on screen. |
+| `2x` `4x` `8x` | faster. Pressing any numbered rate clears `fit`. |
 | `fit` | the whole run in thirty seconds, whatever it took. |
+
+Each rate's tooltip says what a reference millisecond is worth on screen at that
+rate, which is the number to pick by.
+
+<Warning>
+**The slow rates make long films.** A 1.7s run at `0.001x` is nearly half an hour.
+Pick the rate for the stretch you are watching, not for the run — scrub to it
+first, then slow down.
+</Warning>
 
 [More on the clock ->](/viewer/index#the-clock-is-in-reference-milliseconds)
 

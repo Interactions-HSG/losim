@@ -20,7 +20,7 @@
  */
 import { timer, type Timer } from 'd3-timer';
 
-export const RATES = [0.25, 0.5, 1, 2, 4, 8] as const;
+export const RATES = [0.001, 0.01, 0.1, 0.25, 0.5, 1, 2, 4, 8] as const;
 /** Reference milliseconds per real second at `1x` — one simulated second, per second. */
 export const NORMAL = 1000;
 /** How long the whole run takes at `fit`, in real seconds. */
@@ -155,6 +155,25 @@ export class Clock {
 /** How many frames the whole run is, when it is recorded at `fit`. */
 export function frames(duration: number, fps = 30): number {
   return Math.max(1, Math.round(FIT_SECONDS * fps));
+}
+
+/**
+ * What a rate does, in the unit that makes it legible.
+ *
+ * Below `1x` the useful number is not how often a reference second goes by — at
+ * `0.001x` that is sixteen minutes, which tells nobody anything. It is what a
+ * single reference **millisecond** is worth on screen, because a three-refMs
+ * control message is the thing the slow rates exist for.
+ *
+ * Written here rather than in the playbar because the console's transport draws
+ * the same buttons, and two copies of this sentence would drift.
+ */
+export function rateSays(rate: number): string {
+  if (rate === 1) return 'one reference second per second — the run at the speed it happened';
+  if (rate > 1) return `${rate}x that: a reference second every ${(1 / rate).toFixed(2)}s.`;
+  const ms = 1 / rate;
+  const on = ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.round(ms)}ms`;
+  return `${rate}x that: one reference millisecond takes ${on} on screen.`;
 }
 
 /** A reference-time reading, in the shortest form that still says which one it is. */

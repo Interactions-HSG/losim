@@ -23,7 +23,7 @@ import { MessagePanel } from './MessagePanel.tsx';
 import { Scrubber } from './Scrubber.tsx';
 import type { Flight } from '../lib/frame.ts';
 import { LedgerModel, money as money2 } from '../lib/ledger.ts';
-import { Clock, FIT_SECONDS, RATES, refTime } from '../lib/playback.ts';
+import { Clock, FIT_SECONDS, RATES, rateSays, refTime } from '../lib/playback.ts';
 import { record, save, still, type Recording } from '../lib/record.ts';
 import type { Run } from '../lib/runs.ts';
 import { useTheme } from '../lib/theme.ts';
@@ -526,11 +526,7 @@ export function Film({
               key={r}
               aria-pressed={rateLabel === `${r}x`}
               onClick={() => clock.setRate(r)}
-              title={
-                r === 1
-                  ? 'one reference second per second — the run at the speed it happened'
-                  : `${r}x that: a reference second every ${(1 / r).toFixed(2)}s.`
-              }
+              title={rateSays(r)}
             >
               {r}x
             </button>

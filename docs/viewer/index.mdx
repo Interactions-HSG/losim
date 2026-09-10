@@ -87,11 +87,12 @@ playhead moves through trace time at a constant rate:
 | **the scrubber is still refMs** | the axis is unchanged, and the playhead crosses it evenly |
 
 <Tip>
-**A run whose calls are quicker than a video frame is a run to watch at `0.25x`.**
-A control message that took three refMs is three thousandths of a second at `1x`
-and twelve at `0.25x`; step through it with the arrow keys to read it properly, or
-open the [waterfall](/viewer/views#spans), where a three-refMs call is a bar you
-can hover.
+**A run whose calls are quicker than a video frame is a run to slow down.** The
+rates go to `0.001x`, where one reference millisecond takes a second on screen —
+a control message that took three refMs crosses the gap in three seconds and can
+be hovered while it does. The [waterfall](/viewer/views#spans) answers the same
+question the other way: there, a three-refMs call is a bar, whatever the clock is
+doing.
 </Tip>
 
 ### The `fit` rate
