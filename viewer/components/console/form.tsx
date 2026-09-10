@@ -21,10 +21,11 @@ import * as stylex from '@stylexjs/stylex';
 import { chrome, font, radius } from '../../lib/tokens.stylex.ts';
 
 type Styles = stylex.StyleXStyles;
+/** `className?: never` for the reason lib/text.tsx gives at length. */
 type With<T extends keyof React.JSX.IntrinsicElements> = Omit<
   ComponentProps<T>,
   'style' | 'className'
-> & { style?: Styles; children?: ReactNode };
+> & { style?: Styles; className?: never; children?: ReactNode };
 
 export const form = stylex.create({
   /** A row of fields, wrapping rather than shrinking: these are all captions. */

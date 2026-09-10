@@ -27,7 +27,7 @@
  */
 import * as stylex from '@stylexjs/stylex';
 
-import { chrome, font } from './tokens.stylex.ts';
+import { bar, chrome, font } from './tokens.stylex.ts';
 
 const DARK = '@media (prefers-color-scheme: dark)';
 
@@ -67,6 +67,23 @@ export const hsg = stylex.createTheme(chrome, {
   accentSoft: { default: GREEN_PALE, [DARK]: GREEN_TINT_DARK },
   danger: RED,
   warn: '#e8a33d',
+});
+
+/**
+ * The console's own bar, which is the one place the university's green belongs
+ * at full strength rather than as an accent.
+ *
+ * It was slate in both schemes — dark on purpose, so the chrome ends somewhere
+ * visible and the page below it can be quiet all the way down. Green does the
+ * same job and does it as HSG. It stays the same green in dark mode: a header
+ * that changes colour with the system is a masthead that is only sometimes the
+ * university's.
+ */
+export const hsgBar = stylex.createTheme(bar, {
+  bg: GREEN,
+  ink: '#ffffff',
+  /** The subtitle beside the wordmark, and the chip. Legible on green, not white. */
+  dim: '#bfe0cb',
 });
 
 /**

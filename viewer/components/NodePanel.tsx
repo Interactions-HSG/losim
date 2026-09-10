@@ -131,7 +131,7 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
       <section {...stylex.props(panel.section)}>
         <H2>current activity</H2>
         {m.work.length === 0 ? (
-          <P {...stylex.props(ui.muted)} style={panel.flat}>
+          <P style={[ui.muted, panel.flat]}>
             idle
           </P>
         ) : (
@@ -216,7 +216,7 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
                 </li>
               ))}
           </ul>
-          <P {...stylex.props(ui.muted)} style={panel.small}>
+          <P style={[ui.muted, panel.small]}>
             Its share of lines <Code>losim bill</Code> already computed. The late-finish
             penalty belongs to the job and is not here.
           </P>
@@ -226,7 +226,7 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
       <section {...stylex.props(panel.section)}>
         <H2>events</H2>
         {mine.length === 0 ? (
-          <P {...stylex.props(ui.muted)} style={panel.flat}>
+          <P style={[ui.muted, panel.flat]}>
             nothing — it ran to the end untouched
           </P>
         ) : (

@@ -283,7 +283,7 @@ export function Spans({
         )}
       </div>
 
-      <P {...stylex.props(sp.hint, ui.muted)}>
+      <P style={[sp.hint, ui.muted]}>
         Click a span to seek the film to it. ⌘-scroll to zoom the axis, shift-scroll to pan.
         The outlined chain is the critical path — at every level, the child that finished last,
         which is what the makespan is actually made of.

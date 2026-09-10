@@ -129,7 +129,7 @@ export function LedgerStrip({
                       {focus.name} {money(mine, l.currency)}
                     </span>
                   )}
-                  <P {...stylex.props(styles.bkWhy)}>{WHY[b]}</P>
+                  <P style={styles.bkWhy}>{WHY[b]}</P>
                 </div>
               );
             })}
@@ -177,7 +177,7 @@ export function LedgerStrip({
               })}
             </tbody>
           </Table>
-          <P {...stylex.props(styles.fine)}>
+          <P style={styles.fine}>
             Every amount here is a line <Code>losim bill</Code> already computed; what is added
             is only when it arrives, and who it belongs to. The closing total is the
             bill&rsquo;s, exactly.

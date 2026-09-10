@@ -77,7 +77,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
       <div {...stylex.props(styles.body)}>
         <nav {...stylex.props(styles.rail)} aria-label="console">
-          <P {...stylex.props(styles.grp)}>Lab</P>
+          <h2 {...stylex.props(styles.grp, styles.grpFirst)}>Lab</h2>
           <ul {...stylex.props(styles.list)}>
             {lab.map((n) => (
               <li key={n.id}>
@@ -94,10 +94,10 @@ export function Shell({ children }: { children: ReactNode }) {
             ))}
           </ul>
 
-          <P {...stylex.props(styles.grp)}>
+          <h2 {...stylex.props(styles.grp)}>
             The open run
             {run && <span {...stylex.props(styles.of)}>{run.name}</span>}
-          </P>
+          </h2>
           <ul {...stylex.props(styles.list)}>
             {open.map((n) => (
               <li key={n.id}>
@@ -114,10 +114,10 @@ export function Shell({ children }: { children: ReactNode }) {
             ))}
           </ul>
 
-          <P {...stylex.props(styles.fine)}>
+          <p {...stylex.props(styles.fine)}>
             Drop a trace anywhere on this window to open it — a run from anybody, on any
             node, reads the same way.
-          </P>
+          </p>
         </nav>
 
         <div {...stylex.props(styles.pane)}>
@@ -161,11 +161,11 @@ export function Head({
 }) {
   return (
     <div {...stylex.props(styles.head)}>
-      {crumbs && <P {...stylex.props(styles.crumbs)}>{crumbs}</P>}
+      {crumbs && <P style={styles.crumbs}>{crumbs}</P>}
       <div {...stylex.props(styles.headRow)}>
         <div>
-          <H1 {...stylex.props(styles.h1)}>{title}</H1>
-          {sub && <P {...stylex.props(styles.sub)}>{sub}</P>}
+          <H1 style={styles.h1}>{title}</H1>
+          {sub && <P style={styles.sub}>{sub}</P>}
         </div>
         {actions && <div {...stylex.props(styles.acts)}>{actions}</div>}
       </div>
@@ -192,7 +192,7 @@ export function Panel({
     <section {...stylex.props(ui.card, styles.panel)}>
       {(title || actions) && (
         <header {...stylex.props(styles.panelHead)}>
-          <H2 {...stylex.props(styles.h2)}>{title}</H2>
+          <H2 style={styles.h2}>{title}</H2>
           {note && <span {...stylex.props(styles.note)}>{note}</span>}
           {actions && <span {...stylex.props(styles.panelActs)}>{actions}</span>}
         </header>
@@ -268,33 +268,51 @@ const styles = stylex.create({
     minHeight: 0,
   },
   rail: {
-    paddingTop: '14px',
-    paddingBottom: '24px',
+    paddingTop: '10px',
+    paddingBottom: '20px',
+    paddingInline: '10px',
     borderRightWidth: '1px',
     borderRightStyle: 'solid',
     borderRightColor: chrome.border,
-    display: { default: 'block', [NARROW]: 'none' },
+    backgroundColor: chrome.surface,
+    display: { default: 'flex', [NARROW]: 'none' },
+    flexDirection: 'column',
+    overflowY: 'auto',
   },
+  /**
+   * A group heading, in the app's own heading idiom rather than a paragraph that
+   * happened to be grey: small, upper case, tracked out. It is padded to the
+   * same inline edge as the label of the items under it — the old one lined up
+   * with their icons instead, which read as an indent nobody had asked for.
+   */
   grp: {
-    marginBlock: '18px 6px',
-    paddingInline: '24px',
-    fontSize: '12px',
-    fontWeight: 500,
+    marginTop: '18px',
+    marginRight: 0,
+    marginBottom: '4px',
+    marginLeft: 0,
+    paddingInline: '10px',
+    fontSize: '10.5px',
+    fontWeight: 600,
+    letterSpacing: '0.07em',
+    textTransform: 'uppercase',
     color: chrome.text3,
-    maxWidth: 'none',
   },
+  grpFirst: { marginTop: '4px' },
+  /** The run's own name under the heading, which is data and is set as data. */
   of: {
     display: 'block',
     fontFamily: font.mono,
-    fontSize: '11.5px',
-    color: chrome.text3,
-    opacity: 0.75,
-    marginTop: '2px',
+    fontSize: '11px',
+    letterSpacing: 0,
+    textTransform: 'none',
+    fontWeight: 400,
+    color: chrome.text2,
+    marginTop: '3px',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
   },
-  list: { listStyle: 'none', margin: 0, paddingBlock: 0, paddingRight: '8px', paddingLeft: 0 },
+  list: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '1px' },
 
   /**
    * `:disabled` is written after `:hover` so a disabled item the pointer is over
@@ -305,38 +323,71 @@ const styles = stylex.create({
   nav: {
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
+    gap: '10px',
     width: '100%',
-    height: '40px',
+    height: '34px',
     paddingBlock: 0,
-    paddingRight: '16px',
-    paddingLeft: '24px',
+    paddingInline: '10px',
     font: 'inherit',
-    fontSize: '14px',
+    fontSize: '13.5px',
     color: { default: chrome.text2, ':hover': chrome.text },
     textAlign: 'left',
     backgroundColor: { default: 'transparent', ':hover': chrome.surface2 },
     borderWidth: 0,
-    borderRadius: '0 999px 999px 0',
+    /**
+     * Rounded on both sides and inset from the rail's edge, rather than a half
+     * pill bleeding off the left of the window. The item is a thing on a shelf;
+     * it should not look like it is falling off it.
+     */
+    borderRadius: radius.sm,
     cursor: 'pointer',
-    transitionProperty: 'background-color, color',
+    transitionProperty: 'background-color, color, box-shadow',
     transitionDuration: '0.1s',
   },
-  navOn: { backgroundColor: chrome.accentSoft, color: chrome.accent, fontWeight: 500 },
+  /**
+   * The open view, said twice: tinted, and marked on its leading edge. The mark
+   * is an inset shadow rather than a border or a pseudo-element, so it follows
+   * the corner radius and costs the layout nothing.
+   */
+  navOn: {
+    backgroundColor: chrome.accentSoft,
+    color: chrome.accent,
+    fontWeight: 500,
+    boxShadow: `inset 3px 0 0 ${chrome.accent}`,
+  },
   navOff: { color: chrome.text3, opacity: 0.55, cursor: 'default', backgroundColor: 'transparent' },
-  icon: { fontStyle: 'normal', width: '18px', textAlign: 'center', opacity: 0.9 },
+  icon: {
+    fontStyle: 'normal',
+    width: '16px',
+    flexGrow: 0,
+    flexShrink: 0,
+    textAlign: 'center',
+    fontSize: '13px',
+    opacity: 0.75,
+  },
+  /** How many runs there are. A count, so it is set like one and sits in a well. */
   tag: {
     marginLeft: 'auto',
+    minWidth: '20px',
+    paddingInline: '6px',
+    borderRadius: '999px',
+    backgroundColor: chrome.surface2,
     fontFamily: font.mono,
-    fontSize: '11.5px',
+    fontSize: '11px',
+    lineHeight: '17px',
+    textAlign: 'center',
     color: chrome.text3,
     fontWeight: 400,
   },
   fine: {
-    marginTop: '28px',
-    marginInline: '24px',
-    fontSize: '11.5px',
-    lineHeight: 1.55,
+    marginTop: 'auto',
+    marginRight: 0,
+    marginBottom: 0,
+    marginLeft: 0,
+    paddingTop: '18px',
+    paddingInline: '10px',
+    fontSize: '11px',
+    lineHeight: 1.5,
     color: chrome.text3,
   },
 

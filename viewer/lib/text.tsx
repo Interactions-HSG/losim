@@ -70,8 +70,25 @@ export const text = stylex.create({
   num: { fontFamily: font.mono, fontVariantNumeric: 'tabular-nums' },
 });
 
-type With<T extends keyof React.JSX.IntrinsicElements> = Omit<ComponentProps<T>, 'style'> & {
+/**
+ * `className?: never` is load-bearing, not decoration.
+ *
+ * These components spread `stylex.props` *after* whatever they are given, so a
+ * `className` handed to one — either written out, or spread in from a
+ * `stylex.props()` call at the call site — is overwritten before it reaches the
+ * DOM and the style is silently lost. That is not hypothetical: it cost this
+ * app 59 right-aligned number columns, a page title, and every breadcrumb in
+ * the console, and nothing failed while it did. Declaring the prop as `never`
+ * turns both spellings of the mistake into a compile error.
+ *
+ * Styles come through `style`, which takes one or an array of them.
+ */
+type With<T extends keyof React.JSX.IntrinsicElements> = Omit<
+  ComponentProps<T>,
+  'style' | 'className'
+> & {
   style?: Styles;
+  className?: never;
   children?: ReactNode;
 };
 

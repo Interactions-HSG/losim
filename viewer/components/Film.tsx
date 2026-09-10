@@ -331,7 +331,12 @@ export function Film({
         {/* Filters set nodes aside rather than removing them, so the picture
             never jumps and a filtered node is still visibly among a cluster. */}
         <div {...stylex.props(styles.filters)}>
-          <select value={zone} onChange={(e) => setZone(e.target.value)} aria-label="zone">
+          <select
+            {...stylex.props(ui.picker, styles.filter)}
+            value={zone}
+            onChange={(e) => setZone(e.target.value)}
+            aria-label="zone"
+          >
             <option value="">every zone</option>
             {[...new Set(trace.nodes.map((m) => m.zone))].sort().map((z) => (
               <option key={z} value={z}>
@@ -339,7 +344,12 @@ export function Film({
               </option>
             ))}
           </select>
-          <select value={role} onChange={(e) => setRole(e.target.value)} aria-label="role">
+          <select
+            {...stylex.props(ui.picker, styles.filter)}
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            aria-label="role"
+          >
             <option value="">every role</option>
             {roles.map((r) => (
               <option key={r} value={r}>
@@ -349,6 +359,7 @@ export function Film({
           </select>
           {tasks.length > 0 && (
             <select
+              {...stylex.props(ui.picker, styles.filter)}
               value={task === null ? '' : String(task)}
               onChange={(e) => setTask(e.target.value === '' ? null : Number(e.target.value))}
               aria-label="task"
@@ -602,6 +613,13 @@ const styles = stylex.create({
   views: { display: 'flex', alignItems: 'center', gap: '10px', flex: 'none' },
   vhint: { fontSize: '11.5px' },
   filters: { display: 'flex', gap: '6px', marginLeft: 'auto', alignItems: 'center' },
+  /**
+   * The three filters were bare `<select>`s and drew as whatever the operating
+   * system draws, beside a `ui.picker` that did not. Sized down from the shared
+   * picker because they sit in a row of three on the film's own bar rather than
+   * alone in a page header.
+   */
+  filter: { height: '28px', fontSize: '12.5px', maxWidth: '150px' },
 
   /**
    * Over the picture while hovering, beside it once pinned. A hover is a peek and
