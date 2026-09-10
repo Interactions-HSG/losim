@@ -20,6 +20,10 @@
  * if you can read it: 0 / 25 / 50 / 75 / 100, not 0 / 23.7 / 47.4 / 71.1 / 94.8.
  */
 
+import * as stylex from '@stylexjs/stylex';
+
+import { chrome, font } from '../../lib/tokens.stylex.ts';
+
 export interface Series {
   name: string;
   color: string;
@@ -118,21 +122,31 @@ export function LineChart({
   const cursor = X(Math.min(now, duration));
 
   return (
-    <svg className="chart" viewBox={`0 0 ${W} ${height}`} role="img"
+    <svg {...stylex.props(styles.chart)} viewBox={`0 0 ${W} ${height}`} role="img"
          aria-label={`${label ?? series.map((s) => s.name).join(', ')}${unit ? ` in ${unit}` : ''}, drawn to ${Math.round(now)} reference milliseconds`}>
       {ticks.map((tick, i) => {
         const y = P.t + ih - (i / divs) * ih;
         return (
           <g key={tick + i}>
-            <line className="grid" x1={P.l} y1={y} x2={W - P.r} y2={y} />
-            <text className="tick" x={P.l - 8} y={y + 3.5} textAnchor="end">{tick}</text>
+            <line {...stylex.props(styles.grid)} x1={P.l} y1={y} x2={W - P.r} y2={y} />
+            <text
+              {...stylex.props(styles.tick)}
+              // The ruler, and checks/console.ts finds it by this. A class
+              // name would not survive StyleX, which generates its own.
+              data-ruler=""
+              x={P.l - 8}
+              y={y + 3.5}
+              textAnchor="end"
+            >
+              {tick}
+            </text>
           </g>
         );
       })}
       {[0, 1, 2, 3, 4].map((i) => {
         const t = (duration * i) / 4;
         return (
-          <text key={i} className="tick" x={X(t)} y={height - 7} textAnchor="middle">
+          <text key={i} {...stylex.props(styles.tick)} x={X(t)} y={height - 7} textAnchor="middle">
             {Math.round(t)}
           </text>
         );
@@ -148,13 +162,13 @@ export function LineChart({
           <g key={s.name}>
             {area && (
               <path
-                className="area"
+                {...stylex.props(styles.area)}
                 style={{ fill: s.color }}
                 d={`${d}L${X(last[0]).toFixed(1)},${Y(0)}L${P.l},${Y(0)}Z`}
               />
             )}
-            <path className="ln" style={{ stroke: s.color }} d={d} />
-            <circle className="dot" style={{ fill: s.color }} cx={X(last[0])} cy={Y(last[1])} r={3} />
+            <path {...stylex.props(styles.ln)} style={{ stroke: s.color }} d={d} />
+            <circle {...stylex.props(styles.dot)} style={{ fill: s.color }} cx={X(last[0])} cy={Y(last[1])} r={3} />
           </g>
         );
       })}
@@ -163,8 +177,8 @@ export function LineChart({
           whole run, and the window fills into it. */}
       {now < duration - 0.5 && (
         <>
-          <rect className="future" x={cursor} y={P.t} width={W - P.r - cursor} height={ih} />
-          <line className="cursor" x1={cursor} y1={P.t} x2={cursor} y2={P.t + ih} />
+          <rect {...stylex.props(styles.future)} x={cursor} y={P.t} width={W - P.r - cursor} height={ih} />
+          <line {...stylex.props(styles.cursor)} x1={cursor} y1={P.t} x2={cursor} y2={P.t + ih} />
         </>
       )}
     </svg>
@@ -204,14 +218,24 @@ export function StackedBars({
   const bw = Math.min(72, slot * 0.6);
 
   return (
-    <svg className="chart" viewBox={`0 0 ${W} ${height}`} role="img"
+    <svg {...stylex.props(styles.chart)} viewBox={`0 0 ${W} ${height}`} role="img"
          aria-label={`cost by ${keys.join(', ')}${currency ? ` in ${currency}` : ''}`}>
       {ticks.map((tick, i) => {
         const y = P.t + ih - (i / 4) * ih;
         return (
           <g key={tick + i}>
-            <line className="grid" x1={P.l} y1={y} x2={W - P.r} y2={y} />
-            <text className="tick" x={P.l - 8} y={y + 3.5} textAnchor="end">{tick}</text>
+            <line {...stylex.props(styles.grid)} x1={P.l} y1={y} x2={W - P.r} y2={y} />
+            <text
+              {...stylex.props(styles.tick)}
+              // The ruler, and checks/console.ts finds it by this. A class
+              // name would not survive StyleX, which generates its own.
+              data-ruler=""
+              x={P.l - 8}
+              y={y + 3.5}
+              textAnchor="end"
+            >
+              {tick}
+            </text>
           </g>
         );
       })}
@@ -235,7 +259,7 @@ export function StackedBars({
             })}
             {c.here && (
               <rect
-                className="here"
+                {...stylex.props(styles.here)}
                 x={cx - bw / 2 - 3}
                 y={P.t + ih - (total / max) * ih - 3}
                 width={bw + 6}
@@ -243,11 +267,11 @@ export function StackedBars({
                 rx={4}
               />
             )}
-            <text className="bl" x={cx} y={height - 26} textAnchor="middle">{c.label}</text>
+            <text {...stylex.props(styles.bl)} x={cx} y={height - 26} textAnchor="middle">{c.label}</text>
             {c.sub && (
-              <text className="tick" x={cx} y={height - 15} textAnchor="middle">{c.sub}</text>
+              <text {...stylex.props(styles.tick)} x={cx} y={height - 15} textAnchor="middle">{c.sub}</text>
             )}
-            <text className="total" x={cx} y={height - 3} textAnchor="middle">{short(total)}</text>
+            <text {...stylex.props(styles.total)} x={cx} y={height - 3} textAnchor="middle">{short(total)}</text>
           </g>
         );
       })}
@@ -291,18 +315,18 @@ export function Donut({
           <title>{`${k} ${short(parts[k])}`}</title>
         </path>
       ))}
-      <text className="mid" x={C} y={sub ? C + 1 : C + 5} textAnchor="middle">{middle}</text>
-      {sub && <text className="tick" x={C} y={C + 16} textAnchor="middle">{sub}</text>}
+      <text {...stylex.props(styles.mid)} x={C} y={sub ? C + 1 : C + 5} textAnchor="middle">{middle}</text>
+      {sub && <text {...stylex.props(styles.tick)} x={C} y={C + 16} textAnchor="middle">{sub}</text>}
     </svg>
   );
 }
 
 export function Legend({ keys, colour }: { keys: string[]; colour: (k: string) => string }) {
   return (
-    <div className="legend">
+    <div {...stylex.props(styles.legend)}>
       {keys.map((k) => (
-        <span key={k}>
-          <i style={{ background: colour(k) }} />
+        <span key={k} {...stylex.props(styles.item)}>
+          <i {...stylex.props(styles.swatch)} style={{ background: colour(k) }} />
           {k}
         </span>
       ))}
@@ -312,14 +336,14 @@ export function Legend({ keys, colour }: { keys: string[]; colour: (k: string) =
 
 /** A shape, not a number — for a table cell that has to be read at a glance. */
 export function Spark({ pts, colour, max }: { pts: [number, number][]; colour: string; max: number }) {
-  if (!pts.length) return <svg className="spark" viewBox="0 0 100 24" />;
+  if (!pts.length) return <svg {...stylex.props(styles.spark)} viewBox="0 0 100 24" />;
   const span = Math.max(pts[pts.length - 1][0], 1);
   const top = Math.max(max, 1e-9);
   const d = pts
     .map((p, i) => `${i ? 'L' : 'M'}${((p[0] / span) * 100).toFixed(1)},${(23 - (p[1] / top) * 22).toFixed(1)}`)
     .join('');
   return (
-    <svg className="spark" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden>
+    <svg {...stylex.props(styles.spark)} viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden>
       <path
         d={d}
         style={{ fill: 'none', stroke: colour }}
@@ -329,3 +353,37 @@ export function Spark({ pts, colour, max }: { pts: [number, number][]; colour: s
     </svg>
   );
 }
+
+/**
+ * The console's charts, drawn in the chrome's language rather than the figure's.
+ *
+ * These were `.chart .grid`, `.chart .tick` and so on — a parent styling the SVG
+ * elements inside it by name. Every one of those children is rendered in this
+ * file, so each carries its own style now and nothing selects at a distance.
+ */
+const styles = stylex.create({
+  chart: { display: 'block', width: '100%', height: 'auto' },
+  grid: { stroke: chrome.border, strokeWidth: 1 },
+  tick: {
+    fill: chrome.text3,
+    font: `400 10.5px ${font.mono}`,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  bl: { fill: chrome.text2, font: `400 11px ${font.sans}` },
+  total: { fill: chrome.text, font: `500 11.5px ${font.sans}`, fontVariantNumeric: 'tabular-nums' },
+  ln: { fill: 'none', strokeWidth: 2, strokeLinejoin: 'round', strokeLinecap: 'round' },
+  area: { opacity: 0.14 },
+  dot: { stroke: chrome.surface, strokeWidth: 1.5 },
+  /** The part of the run that has not happened yet: shaded, never cropped. */
+  future: { fill: chrome.text, opacity: 0.05 },
+  cursor: { stroke: chrome.danger, strokeWidth: 1, strokeDasharray: '3 3', opacity: 0.75 },
+  here: { fill: 'none', stroke: chrome.accent, strokeWidth: 1.5 },
+  mid: { fill: chrome.text, font: `500 15px ${font.sans}`, fontVariantNumeric: 'tabular-nums' },
+
+  legend: { display: 'flex', flexWrap: 'wrap', gap: '6px 18px', fontSize: '12px', color: chrome.text2 },
+  item: { display: 'flex', alignItems: 'center', gap: '7px' },
+  swatch: { width: '10px', height: '10px', borderRadius: '2px', flex: 'none' },
+
+  /** A shape, not a number — for a table cell read at a glance. */
+  spark: { display: 'block', width: '100%', height: '24px' },
+});
