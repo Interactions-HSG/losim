@@ -366,7 +366,7 @@ const Node = memo(
                 {shown.key}{' '}
               </tspan>
             )}
-            {shown.value === null ? '—' : clip(revealText(shown.value))}
+            {shown.value === null ? '-' : clip(revealText(shown.value))}
           </text>
         )}
 
@@ -384,7 +384,7 @@ const Node = memo(
             fill={theme.pencil}
             style={{ fontFamily: font.sans }}
           >
-            {m.serves.join(' · ')}
+            {m.serves.join(', ')}
           </text>
         )}
 
@@ -545,17 +545,17 @@ const Packet = memo(function Packet({
   // Everything about this call, for the pointer. The film already says the route
   // and a digest; this is the rest of what a viewer asks next.
   const says = [
-    `${f.method}: ${from} to ${to}`,
-    f.returning ? 'the answer, coming back' : 'the request, going out',
+    `${f.method}: ${from} -> ${to}`,
+    f.returning ? 'returning response' : 'outbound request',
     `${f.bytes.toLocaleString()} bytes`,
     f.items > 0 ? `${f.items.toLocaleString()} entries` : '',
-    f.crossZone ? 'crossed a zone: billed, and slower' : '',
+    f.crossZone ? 'cross-zone transfer: billed and slower' : '',
     f.failed ? 'failed' : '',
     f.held ? 'held on screen longer than it took' : '',
     f.digest,
   ]
     .filter(Boolean)
-    .join(' — ');
+    .join('; ');
 
   return (
     <g
@@ -632,11 +632,11 @@ const Packet = memo(function Packet({
               strokeLinejoin="round"
               style={{ fontFamily: font.sans, paintOrder: 'stroke' }}
             >
-              {from} <tspan fill={colour}>{f.returning ? '←' : '→'}</tspan> {to}
+              {from} <tspan fill={colour}>{f.returning ? '<-' : '->'}</tspan> {to}
               {f.bytes > 0 && (
                 <tspan fill={theme.rule} fontWeight={500}>
                   {' '}
-                  · {bytes(f.bytes)}
+                  | {bytes(f.bytes)}
                 </tspan>
               )}
             </text>
@@ -742,7 +742,7 @@ function revealedSame(a: FrameNode, b: FrameNode): boolean {
  * division of labour a message digest already has with its payload.
  */
 function clip(s: string): string {
-  return s.length > 16 ? `${s.slice(0, 15)}…` : s;
+  return s.length > 16 ? `${s.slice(0, 15)}...` : s;
 }
 
 function bucket(share: number): number {

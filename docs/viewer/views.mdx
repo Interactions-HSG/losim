@@ -57,6 +57,13 @@ the payload needed for inspection.
 
 **Filters** by zone, role, and task dim nodes while keeping the layout stable.
 
+**A picker beside them writes one revealed key on every node's face.** A node reveals
+as many keys as it likes and a face has room for one line, so you name the one you want
+to read; the choice is yours rather than the program's, and changing it needs no re-run.
+A node that reports the key but has not said yet draws a dash. A node that never reports
+it draws nothing — which is how two nodes that are supposed to agree show that they do
+not.
+
 <Note>
 **The picture shows only what is currently true.** A completed call is *absent* at
 later times. Each element is a function of the current instant.
@@ -92,7 +99,7 @@ compare call durations.
 
 
 <Note>
-Every span carries a parent, and losim propagates it **across the RPC boundary in a
+Every span carries a parent, and dissaly propagates it **across the RPC boundary in a
 metadata header**. The result is a distributed call stack rather than separate
 per-node timelines.
 
@@ -333,8 +340,14 @@ film** and the picture re-fits into the remaining space; hover still overlays wi
 moving the picture under the cursor.
 
 The panel reports the node's identity, contents relative to its caps, computation on
-the **whole** payload, served work, events, and cost. The sparklines cover the whole
-run with the current instant marked, so each reading has surrounding context.
+the **whole** payload, **the values it revealed**, served work, events, and cost. The
+sparklines cover the whole run with the current instant marked, so each reading has
+surrounding context.
+
+Every key the node passes to [`reveal()`](/write/telemetry) has a row, and each row
+carries the newest value at the current instant with the time it was reported. A key
+the node has not reported yet reads as a dash, so the rows do not move under you while
+the film plays.
 
 ### URL parameters
 
@@ -347,6 +360,7 @@ run with the current instant marked, so each reading has surrounding context.
 | `view=<page>` | which page of the console: `runs`, `simulations`, `overview`, `film`, `usage`, `cost` |
 | `sv=waterfall \| swimlanes \| rollup` | which sub-view of Spans, on Overview |
 | `m=<node>` | pins the panel on it |
+| `show=<key>` | writes one revealed key on every node's face |
 | `ledger=1` | opens the ledger |
 | `fail=1` | failed spans only |
 | `method=<text>` | filter by method |
@@ -390,7 +404,8 @@ have bills, a line below them shows each cost and the difference.
 run you picked first, on the left. Hovering works on the left film; the `vs` film is
 display-only.
 
-The **task** filter applies to both. The zone and role filters dim only the left.
+The **task** filter applies to both, and so does the revealed-value picker. The zone
+and role filters dim only the left.
 </Warning>
 
 The pairing is in the URL as `vs=<name>`, so a comparison is a link like any other

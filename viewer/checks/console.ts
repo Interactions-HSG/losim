@@ -35,13 +35,14 @@
  */
 import { execFileSync } from 'node:child_process';
 import { closeSync, openSync, readFileSync, readSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { createElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-import { RunIndex } from '../lib/frame.ts';
+import { RunIndex, revealText } from '../lib/frame.ts';
 import { LedgerModel, type BillJson } from '../lib/ledger.ts';
 import { Clock } from '../lib/playback.ts';
 import type { Run, RunRef } from '../lib/runs.ts';
@@ -118,6 +119,9 @@ const { Overview } = await load('components/console/Overview.js');
 const { Usage } = await load('components/console/Usage.js');
 const { Shell } = await load('components/console/Shell.js');
 const { ConsoleContext } = await load('lib/console.js');
+const { Dataflow, same } = await load('components/Dataflow.js');
+const { NodePanel } = await load('components/NodePanel.js');
+const { LIGHT } = await load('lib/theme.js');
 
 
 /** Six points, including both ends: nothing has happened, and everything has. */
@@ -272,11 +276,127 @@ const say = (m: string) => {
  * which literal strings appear in them: no component below the console may
  * write a key the console owns.
  */
+/*
+ * Does the memo comparator see every prop?
+ *
+ * `Node` in Dataflow.tsx is memoised on its *appearance*, so it re-renders only
+ * when its own comparator says two frames differ. A prop the comparator forgets
+ * is therefore a prop that silently stops working: the film keeps drawing the
+ * value it drew before, for as long as nothing else about that node changes.
+ * Nominating a different key and watching every face refuse to move is the
+ * symptom, and it looks exactly like a stale cache.
+ *
+ * No render check can catch it. `renderToStaticMarkup` builds a fresh tree
+ * every time, so `memo` never runs and the comparator is never consulted —
+ * which is the same blind spot the URL-key check below covers, and it is
+ * covered the same way, by reading the source for the names that must appear.
+ *
+ * The general property rather than the prop that prompted it: every prop the
+ * component destructures has to be compared, so the next one added fails here
+ * instead of on somebody's screen. Handlers are exempt — a fresh closure each
+ * render compares unequal every time, which would defeat the memo entirely.
+ */
+{
+  const src = readFileSync(join(ROOT, 'components/Dataflow.tsx'), 'utf8');
+  const taken = /const Node = memo\(\s*function Node\(\{([^}]*)\}/.exec(src);
+  const cmp = /\n\s*\(a, b\) =>([\s\S]*?),\n\);/.exec(src.slice(taken?.index ?? 0));
+  if (!taken || !cmp) say('Dataflow.tsx: cannot find Node\'s props or its memo comparator');
+  else {
+    const props = taken[1].split(',').map((x) => x.trim()).filter(Boolean);
+    for (const prop of props) {
+      if (/^on[A-Z]/.test(prop)) continue;
+      // `m` is compared through same(a.m, b.m) rather than by name.
+      const seen = prop === 'm'
+        ? /same\(\s*a\.m\s*,\s*b\.m\s*\)/.test(cmp[1])
+        : new RegExp(`a\\.${prop}\\s*===\\s*b\\.${prop}`).test(cmp[1]);
+      if (!seen) say(`Dataflow.tsx: Node takes \`${prop}\` and its memo comparator ignores it`);
+    }
+  }
+}
+
 const OWNED = new Set(['view']);
 for (const f of ['components/Film.tsx', 'components/console/FilmView.tsx']) {
   const src = readFileSync(join(ROOT, f), 'utf8');
   for (const m of src.matchAll(/searchParams\.(?:set|delete)\(\s*'([^']+)'/g)) {
     if (OWNED.has(m[1]!)) say(`${f} writes ?${m[1]}=, which the console owns`);
+  }
+}
+
+/*
+ * Does a revealed value reach the screen?
+ *
+ * `checks/stops.ts` proves the numbers arrive in the frame. A number in a frame
+ * that nothing renders is exactly the state this feature was in for a release,
+ * and no amount of checking the frame would have noticed — so the last step has
+ * to be markup.
+ *
+ * On `t6`, frozen in this directory rather than whatever was last swept, at the
+ * one instant that holds all three cases at once: `emitted` first lands on m0 at
+ * 175.9 and m1 at 178.1, and not on m2 until 186.5, so at 180 there are nodes
+ * with a value, nodes still to report, and nodes — master, r0, r1 — that never
+ * report this key at all. The last two look identical in a frame and must not
+ * look identical on a face: one is late, the other was never asked.
+ */
+{
+  /** The loaded components are untyped `any` out of `.check`; give them props. */
+  const el = (C: unknown, props: Record<string, unknown>) =>
+    createElement(C as (p: Record<string, unknown>) => ReactNode, props);
+  const trace = Trace.parse(gunzipSync(readFileSync(join(HERE, 'traces/t6.json.gz'))).toString('utf8'));
+  const idx = new RunIndex(trace);
+  const at = 180;
+  const frame = idx.frameAt(at);
+  const face = (show: string, dense = false) =>
+    renderToStaticMarkup(el(Dataflow, { layout: idx.layout, frame, theme: LIGHT, show, dense }));
+  const values = (html: string) =>
+    [...html.matchAll(/data-reveal="[^"]*"[^>]*>(.*?)<\/text>/g)]
+      .map((m) => m[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim());
+
+  const drawn = values(face('emitted'));
+  const said = frame.nodes.filter((n) => n.revealed.some((r) => r.key === 'emitted'));
+  const ready = said.filter((n) => n.revealed.some((r) => r.key === 'emitted' && r.value !== null));
+  if (drawn.length !== said.length) {
+    say(`t6 @180: ${said.length} nodes report emitted and ${drawn.length} faces carry it`);
+  }
+  if (said.length === frame.nodes.length || !ready.length || ready.length === said.length) {
+    say('t6 @180 no longer holds a value, a wait and a silence at once — pick another instant');
+  }
+  for (const n of ready) {
+    const want = revealText(n.revealed.find((r) => r.key === 'emitted')!.value!);
+    if (!drawn.some((d) => d.endsWith(want))) say(`t6 @180: ${n.name} reports ${want} and no face says it`);
+  }
+  // A node still to report wears a dash; a node that never reports wears
+  // nothing. The glyph is pinned on purpose: it is the mark that separates
+  // "asked, not yet answered" from "never asked", which is the distinction this
+  // whole feature exists to draw. If it changes, that is a decision about what
+  // the film says, and it should have to be made here rather than noticed
+  // later — so this goes red and a human chooses, instead of the assertion
+  // quietly following whatever the file happens to contain. It was an em dash
+  // until the prose pass of 2026-09-10 and is a hyphen by that decision.
+  if (!drawn.some((d) => d.endsWith('-'))) {
+    const marks = [...new Set(drawn.filter((d) => !/\d$/.test(d)).map((d) => d.slice(-1)))];
+    say(`t6 @180: the mark for a node that has not reported is ${marks.length
+      ? `"${marks.join('", "')}" and not "-"` : 'gone'} — decide, then update this line`);
+  }
+  if (values(face('')).length) say('a face draws a revealed value with nothing nominated');
+  if (!values(face('emitted', true)).length) say('a dense face drops the value entirely');
+
+  // The panel: the node's own values, and the sentence a node without any gets.
+  const panel = (name: string) =>
+    renderToStaticMarkup(el(NodePanel, {
+      trace, m: frame.nodes.find((n) => n.name === name), t: at,
+      pinned: true, onPin: () => {}, onClose: () => {},
+    }));
+  const m0 = panel('m0');
+  if (!m0.includes('data-reveals')) say('the node panel has no revealed values section');
+  if (!/data-reveal="emitted">\s*5\s*</.test(m0)) say('the node panel does not list m0 emitted 5');
+  if (!panel('master').includes('data-reveals')) say('a node that reveals nothing loses the section entirely');
+
+  // The memo comparator. A node whose value moved and whose appearance is
+  // otherwise identical is the only thing that changes on most frames, so a
+  // comparator blind to it freezes the number on the face while the film plays.
+  const one = frame.nodes.find((n) => n.name === 'm0')!;
+  if (same(one, { ...one, revealed: [{ ...one.revealed[0], value: 999 }] })) {
+    say('Dataflow.same() calls two nodes identical when a revealed value changed');
   }
 }
 
