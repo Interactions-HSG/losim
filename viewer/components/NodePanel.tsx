@@ -205,19 +205,18 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
               {egress(totals.raw).map(([region, sent]) => (
                 <Row key={region} k={`↳ ${region}`} v={mb(sent)} />
               ))}
-              {/* `losimMb` is the older spelling of this channel and is not a
-                  name a sweep has missed. Every trace recorded before 4.0.0
-                  carries it — all 22 frozen fixtures do — and this page reads a
-                  raw trace with no baking step, so that a student can drop a run
-                  from last term onto it. Renamed to match its neighbours, both
-                  arguments would say `dissalyMb` and every one of those runs
-                  would report a confident 0.0 for a number it did measure. Same
-                  reasoning as `egress()` above. */}
-              <Row
-                k="DISSALy's own cost"
-                v={mb(num(totals.raw, 'dissalyMb', 'losimMb'))}
-                hint="metered and taken back off everything above"
-              />
+              {/* Absent on a trace written before the channel had this name, and
+                  then simply not shown. The row is what is missing, not the
+                  number — a trace that never recorded this has no figure for it,
+                  and 0.0 would be a measurement rather than a silence. Same
+                  treatment as `egress()` below. */}
+              {totals.raw['dissalyMb'] !== undefined && (
+                <Row
+                  k="DISSALy's own cost"
+                  v={mb(num(totals.raw, 'dissalyMb'))}
+                  hint="metered and taken back off everything above"
+                />
+              )}
             </tbody>
           </Table>
         </section>
@@ -454,24 +453,17 @@ function say(e: TraceEvent): string {
 }
 
 /**
- * A total off the node's record, under the first name it answers to.
+ * A total off the node's record, by the one name it is written under.
  *
- * The extra names are older spellings of the same measurement. This page reads
- * raw traces with no baking step in front of it — that is what lets somebody
- * drop a run from last term onto it — so a trace on disk is not rewritten when
- * a channel is renamed, and a reader that knows only the current name reports
- * a confident 0.0 rather than an error. Same reasoning as `egress()` below,
- * which tolerates a trace written before the split existed.
+ * There is deliberately no list of older spellings to fall back through. This
+ * page reads a raw trace with no baking step in front of it, so a trace on disk
+ * keeps whatever names it was recorded with — and the answer to a channel that
+ * is not there is to leave the row out, which the caller does, rather than to
+ * find the number under a name the engine no longer writes. A renamed channel
+ * is a channel this trace does not have.
  */
-function num(
-  raw: Record<string, number | string | boolean>,
-  key: string,
-  ...older: string[]
-): number {
-  for (const k of [key, ...older]) {
-    if (raw[k] !== undefined) return Number(raw[k]);
-  }
-  return 0;
+function num(raw: Record<string, number | string | boolean>, key: string): number {
+  return raw[key] === undefined ? 0 : Number(raw[key]);
 }
 
 /**
