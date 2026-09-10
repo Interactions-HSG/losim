@@ -42,6 +42,8 @@ public record ScalePlan(long units, long fullUnits,
      * already, to the change that made 3 out of 2.
      *
      * <ul>
+     *   <li><b>5</b> — what used to be refused is fitted under a stated assumption,
+     *       carried in {@code assumed}.</li>
      *   <li><b>4</b> — cluster peaks and totals are assembled from the per-machine
      *       projections instead of being fitted to the pre-aggregated series.</li>
      *   <li><b>3</b> — a resource measured at zero on every rung is projected as
@@ -51,7 +53,7 @@ public record ScalePlan(long units, long fullUnits,
      *   <li><b>1</b> — cluster laws, solved caps.</li>
      * </ul>
      */
-    public static final int FORMAT = 4;
+    public static final int FORMAT = 5;
 
     public boolean feasible() { return infeasible == null; }
 
@@ -106,6 +108,10 @@ public record ScalePlan(long units, long fullUnits,
         });
         if (!vars.isEmpty()) m.put("variables", vars);
         if (!this.laws.refused().isEmpty()) m.put("refused", new LinkedHashMap<>(this.laws.refused()));
+        // What had to be assumed to produce a number. Travels with the law rather
+        // than beside it, because a projection read without its condition is a
+        // different claim from the one the engine made.
+        if (!this.laws.assumed().isEmpty()) m.put("assumed", new LinkedHashMap<>(this.laws.assumed()));
         var capMap = new LinkedHashMap<String, Object>();
         caps.forEach((name, c) -> capMap.put(name, List.of(round(c[0]), round(c[1]))));
         m.put("caps", capMap);

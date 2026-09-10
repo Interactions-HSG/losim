@@ -3,6 +3,7 @@ package dissaly.scale;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import dissaly.runtime.Simulate;
 
@@ -128,7 +129,7 @@ public final class Invariants {
         for (var p : reported) {
             String why = plan.laws().refused().get(p.resource());
             if (why == null || p.projected().isEmpty()) continue;
-            out.add(new Violation("refusal-overwritten", p.resource(), String.format(
+            out.add(new Violation("refusal-overwritten", p.resource(), String.format(Locale.ROOT, 
                     "was refused, and is being reported as %.4g anyway. The refusal said: %s."
                     + " A number that replaces a refusal takes the reader's grounds for"
                     + " doubting it away at the same time",
@@ -157,7 +158,7 @@ public final class Invariants {
             if (allocated <= 0) continue;
             double ratio = allocated / Math.max(retained, 1e-9);
             if (ratio < SUSPICIOUS_ALLOC_TO_RETAINED) continue;
-            out.add(new Violation("hidden-working-set", t.name(), String.format(
+            out.add(new Violation("hidden-working-set", t.name(), String.format(Locale.ROOT, 
                     "allocated %.2f MB and retained %.4f MB. Either it holds nothing across a"
                     + " call, or what it holds lives in a local variable where the heap walk"
                     + " cannot reach it — the walk starts at a machine's services and follows"
@@ -200,7 +201,7 @@ public final class Invariants {
             double said = p.projected().getAsDouble(), assembled = parts.value().getAsDouble();
             double bigger = Math.max(Math.abs(said), Math.abs(assembled));
             if (bigger <= 0 || Math.abs(said - assembled) / bigger <= TOLERANCE) continue;
-            out.add(new Violation("aggregate-not-assembled", resource, String.format(
+            out.add(new Violation("aggregate-not-assembled", resource, String.format(Locale.ROOT, 
                     "the cluster line reports %.4g while the per-machine laws combine to %.4g."
                     + " %s has to be taken after projecting, not before: fitting it to the"
                     + " pre-aggregated series follows whichever machine is largest at probe"
@@ -228,7 +229,7 @@ public final class Invariants {
             // Wide, because a law is fitted across four rungs and is not required to
             // pass through any one of them. An order of magnitude out is not a fit.
             if (said >= observed / 3 && said <= observed * 3) continue;
-            out.add(new Violation("law-misses-its-own-probe", e.getKey(), String.format(
+            out.add(new Violation("law-misses-its-own-probe", e.getKey(), String.format(Locale.ROOT, 
                     "at the size that was actually run (%,d units) the fitted law says %.4g"
                     + " and the run measured %.4g. A law that cannot reproduce the one point"
                     + " it is known to have been fitted at will not do better further out",
@@ -254,7 +255,7 @@ public final class Invariants {
 
             for (int i = 0; i < 2; i++) {
                 if (probeCap[i] > fullCap[i] * (1 + TOLERANCE)) {
-                    out.add(new Violation("probe-cap-above-full-cap", machine, String.format(
+                    out.add(new Violation("probe-cap-above-full-cap", machine, String.format(Locale.ROOT, 
                             "was given %.1f MB of %s for the probe and would really have %.1f MB."
                             + " A scale model that hands a machine more than it has is not under"
                             + " the pressure it is modelling",
@@ -271,7 +272,7 @@ public final class Invariants {
         if (known.isEmpty()) return;
         for (String machine : result.machines().keySet()) {
             if (known.contains(machine)) continue;
-            out.add(new Violation("machine-not-projected", machine, String.format(
+            out.add(new Violation("machine-not-projected", machine, String.format(Locale.ROOT, 
                     "ran, and carries no per-machine law and no per-machine refusal. A view"
                     + " showing only projected figures has nothing to show for it, and will"
                     + " either leave it out of a cluster total or fall back to what the probe"
@@ -290,7 +291,7 @@ public final class Invariants {
             double a = small.getAsDouble(), b = large.getAsDouble();
 
             if (!Double.isFinite(b) || b < 0) {
-                out.add(new Violation("projection-not-a-number", resource, String.format(
+                out.add(new Violation("projection-not-a-number", resource, String.format(Locale.ROOT, 
                         "projects %s at full size, which is not a quantity anything consumes", b)));
                 continue;
             }
@@ -298,7 +299,7 @@ public final class Invariants {
             // is a claim that a bigger workload costs less, and that needs an exponent
             // below zero, which is a thing worth saying out loud rather than implying.
             if (e.getValue().beta() >= 0 && b < a * (1 - TOLERANCE)) {
-                out.add(new Violation("projection-shrinks", resource, String.format(
+                out.add(new Violation("projection-shrinks", resource, String.format(Locale.ROOT, 
                         "falls from %.4g at %,d units to %.4g at %,d, while its exponent is"
                         + " %.3f. A law that is not decreasing cannot decrease",
                         a, plan.units(), b, plan.fullUnits(), e.getValue().beta())));

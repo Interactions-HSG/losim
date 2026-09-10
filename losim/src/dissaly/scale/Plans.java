@@ -153,8 +153,13 @@ public final class Plans {
         var notes = new ArrayList<String>();
         for (Object n : (List<Object>) m.getOrDefault("notes", List.of())) notes.add(String.valueOf(n));
 
+        var assumed = new TreeMap<String, String>();
+        ((Map<String, Object>) m.getOrDefault("assumed", Map.of()))
+                .forEach((k, v) -> assumed.put(k, String.valueOf(v)));
+
         return new ScalePlan(units, full, caps, fullCaps,
-                new Laws(byResource, errorBars, refused, new TreeMap<>(), amplification, byVariable),
+                new Laws(byResource, errorBars, refused, new TreeMap<>(), amplification, byVariable,
+                        assumed),
                 runs, notes, (String) m.get("infeasible"));
     }
 

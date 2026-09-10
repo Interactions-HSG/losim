@@ -20,11 +20,12 @@ public final class T12 {
         var e = Expect.of("t12-refusal", args);
         var scale = T10.sub(e.meta(), "scale");
         @SuppressWarnings("unchecked")
-        var refused = (Map<String, Object>) scale.getOrDefault("refused", Map.of());
+        var assumed = (Map<String, Object>) scale.getOrDefault("assumed", Map.of());
 
-        String why = String.valueOf(refused.get("memoryMb"));
-        e.check(refused.containsKey("memoryMb") && why.contains("bends"),
-                "the engine refuses the memory law rather than extrapolating across the spill");
+        String why = String.valueOf(assumed.get("memoryMb"));
+        e.check(assumed.containsKey("memoryMb") && why.contains("bends"),
+                "the engine sees the bend and says what it did about it, rather than either "
+                + "extrapolating across the spill in silence or declining to answer at all");
         e.note(why);
 
         // The claim this case exists to make. Read the two exponents out of the
@@ -43,25 +44,33 @@ public final class T12 {
                 + "line reaches just as easily. No threshold on R2 separates bent from noisy, "
                 + "which is why the check is not allowed to be simplified back to one", r2));
 
-        // The refusal has to be *present*, not merely un-contradicted.
+        // The number has to carry its condition.
         //
-        // This was `allMatch` over the memoryMb projections, and allMatch on an
-        // empty stream is true — so an engine that emitted no memoryMb entry at
-        // all would have passed a check whose own sentence demands a field
-        // "absent with a reason". Absent without one is the failure it is meant
-        // to catch, and it was the one shape that could not fail it.
-        var memory = T10.sub(T10.sub(scale, "laws"), "memoryMb");
-        var memoryProjections = T10.projections(e).stream()
+        // This was the inverse assertion — that no projection was emitted at all —
+        // and it was the right check for an engine that refused. It is the wrong one
+        // for an engine that answers, and the failure it now has to catch is the
+        // opposite: a bent ladder fitted from its upper half and reported as though
+        // nothing had been assumed. A number without its condition is a different
+        // claim from the one the engine made.
+        var memoryProjection = T10.projections(e).stream()
                 .filter(p -> "memoryMb".equals(p.get("resource")))
-                .toList();
-        boolean absent = memory.isEmpty()
-                && !memoryProjections.isEmpty()
-                && memoryProjections.stream()
-                     .allMatch(p -> !p.containsKey("projected") && p.containsKey("refused"));
-        e.check(absent,
-                "and no projection is emitted for it at all — a field absent with a reason "
-                + "the trace states, never one filled in with a plausible number and never "
-                + "one simply missing");
+                .findFirst().orElse(null);
+        e.check(memoryProjection != null
+                        && memoryProjection.containsKey("projected")
+                        && memoryProjection.containsKey("errorBar")
+                        && memoryProjection.containsKey("assumed"),
+                "and the projection it does emit carries the assumption with it — a value, the "
+                + "band around it, and the condition under which it was produced, so that a "
+                + "reader who disagrees with the condition can see they are entitled to");
+
+        // And the assumption names the half it dropped. Fitting the upper regime is
+        // the right move when the projection climbs away from the small end, but a
+        // reader whose interest is the small end has to be able to see that theirs
+        // is the half that was thrown away.
+        e.check(why.contains("lower half") && why.contains("upper regime"),
+                "and it says which half of the ladder it kept and which it discarded, because "
+                + "a projection that climbs away from the small end is entitled to drop the "
+                + "small end only if it admits to having done so");
 
         // Other resources on the same run are unaffected. Refusing a law is not
         // refusing the run: what could be said is still said.

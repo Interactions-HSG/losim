@@ -27,7 +27,8 @@ public record Laws(Map<String, Fit.Law> byResource,
                    Map<String, String> refused,
                    Map<String, Fit.Law> byCostSite,
                    Map<String, Double> amplification,
-                   Map<String, Fit.Law> byVariable) {
+                   Map<String, Fit.Law> byVariable,
+                   Map<String, String> assumed) {
 
     /**
      * How wide an error bar a projection may carry before it is not worth making.
@@ -165,6 +166,7 @@ public record Laws(Map<String, Fit.Law> byResource,
         var byResource = new TreeMap<String, Fit.Law>();
         var errorBars = new TreeMap<String, Double>();
         var refused = new TreeMap<String, String>();
+        var assumed = new TreeMap<String, String>();
 
         var rungs = grid.dataLadder().stream().map(Probe::medianOf).toList();
         if (rungs.size() < 4)
@@ -196,96 +198,124 @@ public record Laws(Map<String, Fit.Law> byResource,
         for (String resource : resources) {
             double[] y = rungs.stream().mapToDouble(p -> p.resources().getOrDefault(resource, 0.0))
                               .toArray();
-            // Nothing, everywhere, is an answer — and it is the easiest answer there
-            // is. A machine that writes no disk writes none at a thousand units and
-            // none at a hundred million, and the projection is zero with nothing to
-            // be uncertain about. Refusing it says "I could not tell" about the one
-            // case that is not in doubt, and a reader who is shown a refusal beside
-            // a machine goes looking for the measurement that failed.
-            //
-            // Checked before the guard below, because that guard is right about what
-            // it is for: a power law cannot be fitted through a zero, so a resource
-            // that is zero at *some* rungs and not others still has nothing usable.
-            // All zeros is a different shape from some zeros.
+
+            // Which rung the law is fitted from, and what had to be assumed to fit
+            // one at all. Everything below sets these two rather than giving up:
+            // an assumption a reader can see and disagree with beats an absence
+            // they can do nothing with, and the cases that used to be refused here
+            // are all cases where something true can still be said as long as the
+            // saying of it comes with the condition attached.
+            int from = 0;
+            String assumption = null;
+
+            // Nothing, everywhere, is an answer, and the easiest one there is.
             if (Arrays.stream(y).allMatch(v -> v == 0)) {
                 byResource.put(resource, new Fit.Law(resource, "units", 0, 0, 1, 1, 0));
                 errorBars.put(resource, 1.0);
                 continue;
             }
+
+            // Zero on some rungs and not others is a threshold: the resource
+            // switches on somewhere the ladder cannot see, because it switches on
+            // between two rungs and the ladder only has the rungs. What can be said
+            // is what happens above it, and where "above" begins.
             if (Arrays.stream(y).anyMatch(v -> v <= 0)) {
-                refused.put(resource, "it was measured at zero on some rungs and not others, so no"
-                        + " power law passes through it — a resource that appears only above some"
-                        + " size has a threshold in it, and the ladder cannot see past a threshold");
-                continue;
+                int first = 0;
+                while (first < y.length && y[first] <= 0) first++;
+                boolean clean = first < y.length;
+                for (int i = first; i < y.length && clean; i++) if (y[i] <= 0) clean = false;
+                // Zeros scattered through the ladder are not a threshold, they are a
+                // measurement that keeps missing. Two points is the fewest that can
+                // carry an exponent at all.
+                if (!clean || y.length - first < 2) {
+                    refused.put(resource, "it was measured at zero on rungs above and below others,"
+                            + " which is not a threshold but a measurement that keeps coming back"
+                            + " empty, and nothing can be fitted through it");
+                    continue;
+                }
+                from = first;
+                assumption = String.format(Locale.ROOT, 
+                        "assumed to be zero at or below %,.0f units: it was measured at zero there"
+                        + " and above zero on the %d rung(s) beyond, so it switches on somewhere"
+                        + " between two rungs and the law describes only the part above",
+                        unitsAxis[first - 1], y.length - first);
             }
-            // The discontinuity test belongs on the axis the ladder was climbed on.
-            // A resource that bends against units has changed behaviour between the
-            // small end and the large end, and no choice of variable makes that
-            // legitimate — re-parameterising a bend only hides it, and the hidden
-            // version extrapolates confidently and wrongly.
-            double bendsOnLadder = Fit.halvesDiverge(unitsAxis, y);
+
+            // A bend means the small end and the large end are different regimes.
+            // The projection is heading *upward*, so the upper regime is the one it
+            // is heading into, and fitting it is a far better answer than discarding
+            // both halves — provided the choice is stated, because a reader whose
+            // real interest is the lower regime has to be able to see that it was
+            // the half thrown away.
+            double bendsOnLadder = from == 0 ? Fit.halvesDiverge(unitsAxis, y) : 0;
             if (bendsOnLadder > Fit.DISCONTINUITY) {
-                // The R2 is quoted because it is the number that would have said
-                // nothing was wrong. A reader who reaches for it instead — and it is
-                // the obvious thing to reach for — should be able to see from the
-                // refusal itself why it would not have served.
-                refused.put(resource, String.format(
-                        "the ladder bends: over the lower half it grows as units^%.2f and over"
-                        + " the upper half as units^%.2f, a difference of %.2f. Something behaves"
-                        + " differently small than large — a threshold, a different code path, or a"
-                        + " granularity that only shows up when the pieces are few — and no"
-                        + " extrapolation across that means anything. R2 over the whole ladder is"
-                        + " still %.3f, which is why no threshold on R2 could have separated this"
-                        + " from a merely noisy straight line",
+                from = Math.max(0, y.length / 2 - 1);
+                assumption = String.format(Locale.ROOT, 
+                        "the ladder bends: over the lower half it grows as units^%.2f and over the"
+                        + " upper half as units^%.2f, a difference of %.2f. Assumed the upper"
+                        + " regime holds at scale, and fitted from %,.0f units up — a projection"
+                        + " climbs away from the small end, so the small end is the half worth"
+                        + " dropping. R2 over the whole ladder is still %.3f, which is why no"
+                        + " threshold on R2 could have found this",
                         Fit.lowerBeta(unitsAxis, y), Fit.upperBeta(unitsAxis, y), bendsOnLadder,
-                        Fit.power(unitsAxis, y)[1]));
-                continue;
+                        unitsAxis[from], Fit.power(unitsAxis, y)[1]);
             }
+
+            final int at = from;
+            double[] yFit = Arrays.copyOfRange(y, at, y.length);
 
             Candidate best = null;
             for (String variable : candidates) {
                 double[] x = rungs.stream()
                         .mapToDouble(p -> p.variables().getOrDefault(variable, 0.0)).toArray();
-                if (!varies(x)) continue;
-                var law = Fit.withFixedTerm(resource, variable, x, y);
+                double[] xFit = Arrays.copyOfRange(x, at, x.length);
+                if (!varies(xFit)) continue;
+                var law = Fit.withFixedTerm(resource, variable, xFit, yFit);
                 double wobble = wobbleOf(grid, resource, variable);
-                // The variable's own uncertainty rides along, raised to the
-                // resource's exponent: a law built on a projected quantity cannot be
-                // more certain than the quantity it is built on.
                 double carried = law.beta() * variableWobble.getOrDefault(variable, 0.0);
                 double bar = Math.pow(Math.max(scaleFactor, 1.0), Math.max(0, wobble) + carried);
                 var c = new Candidate(new Fit.Law(resource, variable, law.fixed(),
                         law.coefficient(), law.beta(), law.r2(), wobble),
-                        bar, Fit.halvesDiverge(x, y));
-                // Between two laws that both fit, prefer the one that would land in
-                // the same place again: R2 rewards a line through these points, and
-                // the question is about the next ones.
+                        bar, Fit.halvesDiverge(xFit, yFit));
                 if (best == null || c.better(best)) best = c;
             }
+
+            // Nothing varied, so the only shape left is a level one. That is a law:
+            // it says the resource does not follow the workload, which is a fact
+            // about the design and often the most useful one on the page.
             if (best == null) {
-                refused.put(resource, "nothing measured varied with it, so it has no law here");
+                var seen = new ArrayList<Double>();
+                for (double v : yFit) seen.add(v);
+                byResource.put(resource, new Fit.Law(resource, "units", Probe.median(seen), 0, 1, 1, 0));
+                errorBars.put(resource, 1.0);
+                assumed.put(resource, join(assumption, "assumed constant: nothing measured varied"
+                        + " with it across the ladder, so it is reported at the level it held"));
                 continue;
             }
-            // Order matters. An exponent that cannot be reproduced cannot establish
-            // that a ladder bends either, so an unreproducible measurement is refused
-            // as unreproducible rather than as a discontinuity it has no standing to
-            // claim.
+
+            // An exponent that moves between seed sets makes the band wide. The band
+            // is the thing to say, not a reason to say nothing: the fitted value is
+            // the geometric centre of a multiplicative band, so it is already the
+            // middle of the range rather than a corner of it.
             if (best.errorBar() > WIDEST_USABLE_ERROR_BAR) {
-                refused.put(resource, String.format(
+                assumption = join(assumption, String.format(Locale.ROOT, 
                         "its exponent moves by %.3f between independent seed sets of the same"
-                        + " workload, which over a factor of %.0f is an error bar of x%.1f —"
-                        + " wider than anything it would be asked to distinguish",
+                        + " workload, which over a factor of %.0f is a band of x%.1f. The value is"
+                        + " the centre of that band and should be read as its order rather than"
+                        + " its digits",
                         best.law().wobble(), scaleFactor, best.errorBar()));
-                continue;
             }
+
             byResource.put(resource, best.law());
             errorBars.put(resource, best.errorBar());
+            if (assumption != null) assumed.put(resource, assumption);
         }
 
         var byCostSite = fitCostSites(rungs, candidates, grid, scaleFactor, variableWobble);
         var amplification = new TreeMap<String, Double>();
         for (String resource : resources) amplification.put(resource, grid.amplification(resource));
-        return new Laws(byResource, errorBars, refused, byCostSite, amplification, byVariable);
+        return new Laws(byResource, errorBars, refused, byCostSite, amplification, byVariable,
+                assumed);
     }
 
     /**
@@ -393,6 +423,11 @@ public record Laws(Map<String, Fit.Law> byResource,
         return out;
     }
 
+    /** Two conditions on one number, in the order they were discovered. */
+    private static String join(String first, String second) {
+        return first == null ? second : first + ". Also: " + second;
+    }
+
     private static boolean varies(double[] x) {
         double lo = Arrays.stream(x).min().orElse(0), hi = Arrays.stream(x).max().orElse(0);
         return lo > 0 && hi > lo * 1.05;
@@ -417,21 +452,21 @@ public record Laws(Map<String, Fit.Law> byResource,
             // reader the arithmetic that did not happen. It is still fitted, and still
             // in the trace, because it is what the ladder saw before aggregation.
             boolean assembled = (Probe.isPeak(resource) || Probe.isSum(resource)) && !machines().isEmpty();
-            sb.append(String.format("  %-14s %s  +-x%.2f%s%s%n",
+            sb.append(String.format(Locale.ROOT, "  %-14s %s  +-x%.2f%s%s%n",
                     resource, law, errorBars.getOrDefault(resource, 1.0),
                     amplification.getOrDefault(resource, 1.0) > 1.001
-                            ? String.format("  x%.2f under fault", amplification.get(resource)) : "",
+                            ? String.format(Locale.ROOT, "  x%.2f under fault", amplification.get(resource)) : "",
                     assembled ? "   [not projected from: the cluster figure is assembled per machine]" : ""));
         });
         refused.forEach((resource, why) -> {
             if (Probe.isPerNode(resource)) return;
-            sb.append(String.format("  %-14s REFUSED: %s%n", resource, why));
+            sb.append(String.format(Locale.ROOT, "  %-14s REFUSED: %s%n", resource, why));
         });
 
         long fitted = byResource.keySet().stream().filter(Probe::isPerNode).count();
         long declined = refused.keySet().stream().filter(Probe::isPerNode).count();
         if (fitted + declined > 0)
-            sb.append(String.format("  %-14s %d fitted, %d refused — in the trace, per machine%n",
+            sb.append(String.format(Locale.ROOT, "  %-14s %d fitted, %d refused — in the trace, per machine%n",
                     "per machine", fitted, declined));
         return sb.toString();
     }

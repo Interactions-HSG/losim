@@ -58,7 +58,7 @@ class ScalePlanShapeTest {
         fullCaps.put("w0", new double[]{16384, 32768});
 
         var laws = new Laws(byResource, errorBars, refused, new TreeMap<>(),
-                new TreeMap<>(), new TreeMap<>());
+                new TreeMap<>(), new TreeMap<>(), new TreeMap<>());
         return new ScalePlan(8000, 40000000, caps, fullCaps, laws, 28, List.of(), null);
     }
 

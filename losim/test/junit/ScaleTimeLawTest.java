@@ -42,8 +42,11 @@ class ScaleTimeLawTest {
     /** Four, because a wobble is measured between two independent sets of two. */
     private static final int SEEDS = 4;
 
-    /** How far a projection reaches here. Large, so a wide error bar is refused rather than reported. */
+    /** How far a projection reaches here. Large, so a shaky exponent becomes a wide band. */
     private static final double REACH = 12500;
+
+    /** Past this an error bar is wide enough that the engine says so. Mirrors Laws. */
+    private static final double WIDEST = 2.0;
 
     // ------------------------------------------------------------------ scaffolding
 
@@ -159,19 +162,29 @@ class ScaleTimeLawTest {
     // ------------------------------------------------------- and what is refused
 
     @Test
-    @DisplayName("a ladder that bends is refused, and the refusal says so rather than averaging the two halves")
-    void bendsAreRefused() {
+    @DisplayName("a ladder that bends is fitted from its upper half, and says which half it dropped")
+    void bendsAreFittedFromTheUpperRegime() {
         // Flat while the pieces are few, linear once they are not — a threshold, and
-        // the single most common way a small measurement misleads about a large run.
+        // the most common way a small measurement misleads about a large run. The
+        // projection is climbing away from the flat end, so the linear end is the one
+        // that describes where it is going.
         var laws = Laws.fit(ladder(units -> units <= 2000 ? 200.0 : 0.1 * units), REACH);
 
-        String why = laws.refused().get(Probe.TIME);
-        assertNotNull(why, "a bent ladder must be refused: no exponent describes both halves,"
-                + " and the one that fits neither would still project confidently");
-        assertTrue(why.contains("bends"), "the refusal should name the bend, and instead said: " + why);
-        assertNull(laws.law(Probe.TIME), "a refused resource must carry no law at all");
-        assertTrue(laws.project(Probe.TIME, 8000 * REACH).isEmpty(),
-                "a refused resource must project nothing — an absent number is the result");
+        assertNull(laws.refused().get(Probe.TIME),
+                "a bend is a reason to say which regime was used, not a reason to say nothing:"
+                + " the upper half is the half the projection is heading into");
+        String why = laws.assumed().get(Probe.TIME);
+        assertNotNull(why, "fitting the upper half is an assumption and has to be stated —"
+                + " unstated, it is indistinguishable from having fitted the whole ladder");
+        assertTrue(why.contains("bends"), "the assumption should name the bend: " + why);
+        assertTrue(why.contains("lower half") && why.contains("upper regime"),
+                "and say which half it kept, so a reader whose interest is the small end can"
+                + " see that theirs is the half discarded: " + why);
+
+        // The claim that makes this worth doing rather than refusing: the projection
+        // follows the upper regime. Averaged across the bend it would be shallower,
+        // and it would be shallower by more at every further decade.
+        growsBy(laws, 10.0, "bent, fitted above the bend");
     }
 
     @Test
@@ -191,23 +204,28 @@ class ScaleTimeLawTest {
     }
 
     @Test
-    @DisplayName("an exponent that will not reproduce between seed sets is refused as unreproducible, not as a bend")
-    void unreproducibleExponentsAreRefusedAsSuch() {
-        // Two independent pairs of seeds that disagree about the shape itself: one
-        // pair linear, the other three-halves. The median across all four is a
-        // perfectly smooth curve, so nothing about the ladder looks bent — the only
-        // evidence that this law means nothing is that it does not come back the
-        // same way twice.
+    @DisplayName("an exponent that will not reproduce still yields a number, with the band it deserves")
+    void unreproducibleExponentsCarryTheirBand() {
+        // Two independent pairs of seeds that disagree about the shape itself. The
+        // median across all four is a smooth curve, so nothing about the ladder looks
+        // bent — the only evidence is that it does not come back the same way twice.
         var laws = Laws.fit(ladder((units, seed) ->
                 seed < 2 ? 0.5 * units : 0.5 * Math.pow(units, 1.5) / Math.pow(8000, 0.5)), REACH);
 
-        String why = laws.refused().get(Probe.TIME);
-        assertNotNull(why, "an exponent that moves between seed sets cannot support a projection"
-                + " over a factor of " + (long) REACH);
-        assertTrue(why.contains("moves by"),
-                "it should be refused as unreproducible rather than as a discontinuity —"
-                + " an exponent that cannot be reproduced has no standing to claim a bend"
-                + " either. It said: " + why);
+        assertNull(laws.refused().get(Probe.TIME),
+                "a wide band is a thing to report, not a reason to report nothing. Withholding"
+                + " the number tells a reader less than the number and its band together do");
+        assertTrue(laws.project(Probe.TIME, 8000 * REACH).isPresent(),
+                "there is a value: it is the geometric centre of a multiplicative band, so it"
+                + " is the middle of the range rather than a corner of it");
+        assertTrue(laws.errorBars().getOrDefault(Probe.TIME, 1.0) > WIDEST,
+                "and the band is wide, which is the fact worth carrying");
+
+        String why = laws.assumed().get(Probe.TIME);
+        assertNotNull(why, "a number this uncertain must not be presented like a certain one");
+        assertTrue(why.contains("moves by") && why.contains("band of"),
+                "the assumption should say how far the exponent moved and how wide that makes"
+                + " the answer: " + why);
     }
 
     // ------------------------------------------------------------ nothing at all
@@ -228,19 +246,35 @@ class ScaleTimeLawTest {
     }
 
     @Test
-    @DisplayName("a resource that is zero on some rungs and not others is still refused: that is a threshold, not a constant")
-    void zeroOnSomeRungsIsRefused() {
-        // Nothing until the workload is big enough, then something. No power law
-        // passes through it, and the interesting part — where it switches on — is
-        // below the smallest rung the ladder can see.
+    @DisplayName("a resource that switches on partway up the ladder is fitted above the threshold, and says where it starts")
+    void thresholdsAreFittedAboveTheThreshold() {
+        // Nothing until the workload is big enough, then something. Where it switches
+        // on is between two rungs and the ladder cannot see there — but what happens
+        // above it is perfectly measurable, and is what a projection needs.
         var laws = Laws.fit(ladder(units -> units <= 2000 ? 0.0 : 0.1 * units), REACH);
 
-        String why = laws.refused().get(Probe.TIME);
-        assertNotNull(why, "a resource that switches on partway up the ladder cannot be fitted:"
-                + " the threshold is the whole behaviour and the ladder cannot see past it");
-        assertFalse(why.contains("never measured above zero"),
-                "it was measured above zero — on half the rungs — so that is the wrong reason"
-                + " and would send somebody looking at the wrong thing. It said: " + why);
+        assertNull(laws.refused().get(Probe.TIME),
+                "the part above the threshold is measured on two rungs and is the part a"
+                + " projection climbing upward actually needs");
+        String why = laws.assumed().get(Probe.TIME);
+        assertNotNull(why, "assuming it is zero below a size is an assumption, however obvious");
+        assertTrue(why.contains("2,000") || why.contains("2000"),
+                "and it names where zero ended, because that is the one thing the ladder"
+                + " learned and cannot learn more precisely: " + why);
+        growsBy(laws, 10.0, "above a threshold");
+    }
+
+    @Test
+    @DisplayName("zeros scattered through the ladder are not a threshold, and are still refused")
+    void scatteredZerosAreStillRefused() {
+        // On, off, on, off. Not a resource that switches on at a size — a measurement
+        // that keeps coming back empty. There is no "above" to fit, and assuming one
+        // would be inventing the shape rather than stating a condition.
+        var laws = Laws.fit(ladder(units -> (units == 2000 || units == 8000) ? 0.0 : 0.1 * units),
+                REACH);
+        assertNotNull(laws.refused().get(Probe.TIME),
+                "this is the case where there is genuinely nothing to fit and nothing to"
+                + " assume: refusing here is not a cheap way out, it is the only honest answer");
     }
 
     // -------------------------------------------------------- shapes side by side

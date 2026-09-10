@@ -91,7 +91,7 @@ public final class Solve {
             if (law == null) continue;
             double variable = laws.variablePart(resource, n);
             if (law.fixed() > 0 && variable < law.fixed() * VARIABLE_MUST_DOMINATE)
-                return String.format("%s at %d units is only %.1fx its own fixed overhead"
+                return String.format(Locale.ROOT, "%s at %d units is only %.1fx its own fixed overhead"
                         + " (%.3f against %.3f); below %.0fx the fit is describing the overhead"
                         + " rather than the workload", resource, n, variable / law.fixed(),
                         variable, law.fixed(), VARIABLE_MUST_DOMINATE);
@@ -100,7 +100,7 @@ public final class Solve {
         double demand = laws.project(Probe.MEMORY, n).orElse(0)
                 * Math.max(1, s.nodes().size() - 1);
         if (demand > heapMb)
-            return String.format("at %d units the cluster would hold %.0f MB, and this host"
+            return String.format(Locale.ROOT, "at %d units the cluster would hold %.0f MB, and this host"
                     + " offers %.0f MB to work in — the run does not fit the laptop it is"
                     + " meant to fit on", n, demand, heapMb);
         return null;
@@ -171,7 +171,7 @@ public final class Solve {
         if (site == null) return null;
         double usable = finest / (Clock.FLOOR_MS / 50);
         if (s.kTime() <= usable) return null;
-        return String.format("this run is clocked at %.0fx real time, and %s costs %.4f refMs —"
+        return String.format(Locale.ROOT, "this run is clocked at %.0fx real time, and %s costs %.4f refMs —"
                 + " %.0fx below what the sleep debt can still settle at that compression, so its"
                 + " timings would drift rather than be owed. Give that cost site more to do, or"
                 + " lower the scale: at scale 1 the clock runs at %.0fx.",

@@ -126,6 +126,8 @@ public final class Scaled {
                 // cluster law evaluated at full size, and the acceptance test that
                 // recomputes it said so.
                 m.put("from", assembled ? "machines" : "law");
+                String why = plan.laws().assumed().get(p.resource());
+                if (why != null) m.put("assumed", why);
             } else {
                 m.put("refused", p.refusedBecause());
             }

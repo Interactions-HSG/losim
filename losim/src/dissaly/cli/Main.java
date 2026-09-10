@@ -81,9 +81,9 @@ public final class Main {
             if (flag(args, "--detach")) return detach(args);
             // Two things can be served and they are deliberately two processes.
             //
-            //   losim serve        the lab: the viewer, your runs, and a button
+            //   dissaly serve        the lab: the viewer, your runs, and a button
             //                      beside every system in the project.
-            //   losim serve docs   the manual, on its own port.
+            //   dissaly serve docs   the manual, on its own port.
             //
             // Apart on purpose: the manual is what you read when something will
             // not start, so it must not be served by the thing that will not
@@ -101,7 +101,7 @@ public final class Main {
                               option(args, "--host", host()),
                               !flag(args, "--no-open"), true);
         }
-        // `losim manual` is the same thing as `losim serve docs`, kept because a
+        // `dissaly manual` is the same thing as `dissaly serve docs`, kept because a
         // devcontainer somewhere is invoking it and a lab whose manual silently
         // did not start would fail in exactly the way the manual exists to
         // prevent, so this alias must not fall through to the usage text below.
@@ -145,16 +145,16 @@ public final class Main {
         // vocabulary comes apart again a year later.
         if (args.length > 0 && (args[0].equals("run") || args[0].equals("diff"))) {
             System.err.println(args[0].equals("run")
-                    ? "losim run is losim simulate. A simulation is simulated and yields one"
+                    ? "dissaly run is dissaly simulate. A simulation is simulated and yields one"
                       + " result; there is no comparison inside one, which is what `run` used to"
                       + " leave open."
-                    : "losim diff is losim compare. It takes two results, which is the only way"
+                    : "dissaly diff is dissaly compare. It takes two results, which is the only way"
                       + " two designs are ever compared.");
             return 2;
         }
         if (args.length == 0 || !args[0].equals("simulate")) {
             System.err.println("""
-                usage: losim simulate <simulation.yaml> [options]
+                usage: dissaly simulate <simulation.yaml> [options]
 
                   --cp <paths>       where the services are compiled to
                   --out <file>       where to write the trace (default: build/<name>.json)
@@ -170,20 +170,20 @@ public final class Main {
                   keeps it open. Simulate several files into one --out directory and
                   they are all in the picker, side by side.
 
-                       losim serve [--port 8000] [--root .]
+                       dissaly serve [--port 8000] [--root .]
 
                   The lab, and it keeps running: the viewer, the results on disk, and
                   a way to build and simulate each system in the project. This is what a
                   devcontainer starts, so that nobody has to type any of the rest of
                   this.
 
-                       losim serve docs [--port 3000] [--docs docs]
+                       dissaly serve docs [--port 3000] [--docs docs]
 
                   The manual, as a process of its own. Separate from the lab on
                   purpose: the manual is where you look when something will not
                   start, so it must not be served by the thing that will not start.
 
-                       losim adopt [<dir>] [--force] [--dirty]
+                       dissaly adopt [<dir>] [--force] [--dirty]
 
                   Put losim under a gRPC project that already works. Moves files,
                   writes a build, a launcher and a first simulation — and never
@@ -191,31 +191,31 @@ public final class Main {
                   system its author did not write. It prints what is left, with a
                   line number for each, and writes the same list into AGENTS.md.
 
-                       losim check [--root .]
+                       dissaly check [--root .]
 
                   Re-run those findings, without running the system.
 
-                       losim build [--root .]
+                       dissaly build [--root .]
 
                   Generate from the schema and compile, and stop there. The arrow
                   in the lab does this before every simulation; this is the same
                   thing when what you want is the compiler's answer and no more.
 
-                       losim compare <a.json> <b.json>
+                       dissaly compare <a.json> <b.json>
 
                   Whether two results came from the same simulator. Structure and
                   attribution have to agree; measurements are printed rather than
                   judged, because runs are not reproducible and hosts are not
                   identical. Two designs are two files, and this is how they meet.
 
-                       losim version [--check]
+                       dissaly version [--check]
 
                   Which losim this is. With --check, whether a newer one has been
                   released — the only command here that touches the network, and it
                   only does so when you type it. Updating is then one line in
                   build.gradle.kts, because that is where the version lives.
 
-                       losim bill <trace.json> [--prices <file>] [--json]
+                       dissaly bill <trace.json> [--prices <file>] [--json]
 
                   What it cost, in four buckets. A scaled simulation is billed twice:
                   once for what happened, and once for the system it is a model of —
@@ -369,6 +369,12 @@ public final class Main {
             // whether the measurement it was fitted to meant anything, and a machine
             // that stepped outside the simulated world is exactly that case — so the
             // caveat goes here, beside the number, not only in the block below.
+            // The condition, immediately under the number it applies to. A projection
+            // read without its assumption is a different claim from the one the
+            // engine made, and a reader who has to look elsewhere for it will not.
+            String assumed = plan.laws().assumed().get(p.resource());
+            if (assumed != null) System.out.printf("      assuming: %s%n", assumed);
+
             for (String caveat : scaled.trust().caveats(p.resource()))
                 System.out.printf("      %s%n", caveat);
         }
@@ -441,11 +447,11 @@ public final class Main {
     /**
      * Every argument that is not a flag or a flag's value, in order.
      *
-     * <p>Written as a scan rather than as `args[1]`, because `losim simulate --no-view
+     * <p>Written as a scan rather than as `args[1]`, because `dissaly simulate --no-view
      * thing.yaml` must mean what it looks like it means: taking the second
      * argument on faith would read that as "no such simulation: --no-view", which
      * is the sort of message that sends somebody looking in the wrong place — and
-     * `losim bill --prices expensive.yaml trace.json` would read the same way. So
+     * `dissaly bill --prices expensive.yaml trace.json` would read the same way. So
      * every subcommand's arguments are found here, this way, rather than at a
      * fixed position.
      */
@@ -655,7 +661,7 @@ public final class Main {
     /**
      * Whether a person is watching, as opposed to a script collecting a trace.
      *
-     * <p>This decides whether `losim simulate` opens the viewer afterwards. A person at
+     * <p>This decides whether `dissaly simulate` opens the viewer afterwards. A person at
      * a terminal wants to see what they just ran; the suite, the gallery and the
      * lab server all want the file and nothing else — and a server that started
      * itself in CI and never returned would hang the build. The distinction is
