@@ -524,6 +524,7 @@ export function Film({
           {RATES.map((r) => (
             <button
               key={r}
+              {...stylex.props(ui.segButton, rateLabel === `${r}x` && ui.segOn)}
               aria-pressed={rateLabel === `${r}x`}
               onClick={() => clock.setRate(r)}
               title={rateSays(r)}
@@ -532,6 +533,7 @@ export function Film({
             </button>
           ))}
           <button
+            {...stylex.props(ui.segButton, rateLabel === 'fit' && ui.segOn)}
             aria-pressed={rateLabel === 'fit'}
             onClick={() => clock.fit()}
             title={`the whole run in ${FIT_SECONDS} seconds, whatever it took.`}
@@ -541,10 +543,10 @@ export function Film({
         </div>
 
         <span {...stylex.props(ui.seg)} role="group" aria-label="save this instant">
-          <button onClick={() => snap('png')} disabled={!!recording} title="this frame as a PNG, 1920x1080">
+          <button {...stylex.props(ui.segButton)} onClick={() => snap('png')} disabled={!!recording} title="this frame as a PNG, 1920x1080">
             png
           </button>
-          <button onClick={() => snap('svg')} disabled={!!recording} title="this frame as vector SVG — type stays type on a projector">
+          <button {...stylex.props(ui.segButton)} onClick={() => snap('svg')} disabled={!!recording} title="this frame as vector SVG — type stays type on a projector">
             svg
           </button>
         </span>
@@ -558,10 +560,10 @@ export function Film({
         // where the picture is: this instant as a file, and the film as one.
         <div {...stylex.props(styles.savebar)}>
           <span {...stylex.props(ui.seg)} role="group" aria-label="save this instant">
-            <button onClick={() => snap('png')} disabled={!!recording} title="this frame as a PNG, 1920x1080">
+            <button {...stylex.props(ui.segButton)} onClick={() => snap('png')} disabled={!!recording} title="this frame as a PNG, 1920x1080">
               png
             </button>
-            <button onClick={() => snap('svg')} disabled={!!recording} title="this frame as vector SVG — type stays type on a projector">
+            <button {...stylex.props(ui.segButton)} onClick={() => snap('svg')} disabled={!!recording} title="this frame as vector SVG — type stays type on a projector">
               svg
             </button>
           </span>

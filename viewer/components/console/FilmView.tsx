@@ -69,8 +69,8 @@ export function FilmView() {
         sub={
           <>
             {run.trace.nodes.length} nodes over {refTime(run.trace.duration)}. Press play on
-            the bar above, or drag it — the execution graph, the usage charts and the cost report
-            are all at whatever instant it is showing.
+            the bar under the picture, or drag it. This film keeps its own clock — Overview,
+            Usage and Cost have theirs, and moving one does not move the other.
           </>
         }
         actions={

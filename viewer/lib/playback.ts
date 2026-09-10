@@ -130,10 +130,17 @@ export class Clock {
     else this.play();
   }
 
-  /** One frame of the film, at 30 — a frame of *film*, so it is a visible step. */
+  /**
+   * One frame of the film, at 30 — a frame of what is *being watched*.
+   *
+   * Scaled by the rate rather than fixed, because the slow rates exist to look
+   * at a three-refMs message and a fixed 33-refMs step clears the whole of it in
+   * one press. At `1x` this is the 33 refMs it has always been; at `0.001x` it
+   * is a thirtieth of a millisecond, which is one frame of what is on screen.
+   */
   step(direction: number): void {
     this.pause();
-    this.d = Math.max(0, Math.min(this.total, this.d + direction / 30));
+    this.d = Math.max(0, Math.min(this.total, this.d + (direction * this.speed()) / 30));
     this.changed();
   }
 
