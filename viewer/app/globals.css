@@ -1,3 +1,6 @@
+/* StyleX writes the app's atomic CSS in place of this directive. */
+@stylex;
+
 /*
  * The chrome around the figure.
  *

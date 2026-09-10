@@ -34,7 +34,7 @@
  * bug this can see.
  */
 import { execFileSync } from 'node:child_process';
-import { readFileSync, readdirSync, rmSync } from 'node:fs';
+import { readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -82,6 +82,33 @@ try {
     process.exit(1);
   }
 }
+
+/**
+ * StyleX is a build-time system, and tsc does not know that.
+ *
+ * What tsc emits above still contains the `stylex.defineVars` and
+ * `stylex.create` calls verbatim, and reaching one of those at runtime is an
+ * error the library raises on purpose — styles must be compiled. So the same
+ * Babel plugin the app builds with is run over the emitted JavaScript before
+ * anything is imported. The check then renders what the app renders, rather
+ * than a stand-in for it that could agree with a broken component.
+ */
+const { transformFileSync } = await import('@babel/core');
+const stylexBabel = (await import('@stylexjs/babel-plugin')).default;
+const js = (dir: string): string[] =>
+  readdirSync(dir).flatMap((e) => {
+    const at = join(dir, e);
+    return statSync(at).isDirectory() ? js(at) : at.endsWith('.js') ? [at] : [];
+  });
+for (const file of js(BUILT)) {
+  const out = transformFileSync(file, {
+    babelrc: false,
+    configFile: false,
+    plugins: [[stylexBabel, { runtimeInjection: false, unstable_moduleResolution: { type: 'commonJS' } }]],
+  });
+  if (out?.code) writeFileSync(file, out.code);
+}
+
 const load = async (p: string) => import(pathToFileURL(join(BUILT, p)).href);
 const { Cost } = await load('components/console/Cost.js');
 const { Simulations } = await load('components/console/Simulations.js');

@@ -17,8 +17,11 @@
  * typed.
  */
 import { useCallback, useRef, useState } from 'react';
+import * as stylex from '@stylexjs/stylex';
 
 import * as D from '../lib/design.ts';
+import { chrome, font, radius, shadow } from '../lib/tokens.stylex.ts';
+import { scrubVars } from './scrubber.stylex.ts';
 import { refTime } from '../lib/playback.ts';
 import type { TraceEvent } from '../lib/trace.ts';
 
@@ -94,16 +97,16 @@ export function Scrubber({ t, duration, events, onSeek }: ScrubberProps) {
   const hovered = hoverAt === null ? null : (hoverAt / duration) * 100;
 
   return (
-    <div className={`scrub${dragging ? ' dragging' : ''}`}>
+    <div {...stylex.props(styles.scrub, dragging && styles.active)}>
       {hoverAt !== null && (
-        <div className="tip" style={{ left: `${hovered}%` }}>
-          <span className="mono">{refTime(hoverAt)}</span>
+        <div {...stylex.props(styles.tip, styles.at(`${hovered}%`))}>
+          <span {...stylex.props(styles.mono)}>{refTime(hoverAt)}</span>
         </div>
       )}
 
       <div
         ref={track}
-        className="track"
+        {...stylex.props(styles.track)}
         onPointerDown={down}
         onPointerMove={move}
         onPointerUp={up}
@@ -116,20 +119,20 @@ export function Scrubber({ t, duration, events, onSeek }: ScrubberProps) {
         aria-valuetext={refTime(t)}
         tabIndex={0}
       >
-        <div className="bar" />
+        <div {...stylex.props(styles.bar)} />
 
-        <div className="played" style={{ width: `${played}%` }} />
-        {hovered !== null && <div className="ahead" style={{ width: `${hovered}%` }} />}
+        <div {...stylex.props(styles.played, styles.wide(`${played}%`))} />
+        {hovered !== null && <div {...stylex.props(styles.ahead, styles.wide(`${hovered}%`))} />}
 
         {events.map((e, i) => (
           <button
             key={i}
-            className="mark"
-            style={{
-              left: `${(Number(e.t ?? 0) / duration) * 100}%`,
-              background: MARKER[String(e.kind)] ?? D.PENCIL,
-            }}
-            title={`${e.kind} · ${e.vm ?? ''} · ${refTime(Number(e.t ?? 0))}`}
+            {...stylex.props(
+              styles.mark,
+              styles.at(`${(Number(e.t ?? 0) / duration) * 100}%`),
+              styles.paint(MARKER[String(e.kind)] ?? D.PENCIL),
+            )}
+            title={`${e.kind} \u00b7 ${e.vm ?? ''} \u00b7 ${refTime(Number(e.t ?? 0))}`}
             onPointerDown={(ev) => {
               ev.stopPropagation();
               onSeek(Number(e.t ?? 0));
@@ -137,59 +140,125 @@ export function Scrubber({ t, duration, events, onSeek }: ScrubberProps) {
           />
         ))}
 
-        <div className="knob" style={{ left: `${played}%` }} />
+        <div {...stylex.props(styles.knob, styles.at(`${played}%`))} />
       </div>
-
-      <style>{`
-        .scrub { position: relative; flex: 1; padding: 10px 0; min-width: 120px; }
-        .track {
-          position: relative; height: 5px; border-radius: 3px;
-          background: var(--surface-2); cursor: pointer; touch-action: none;
-          transition: height .12s ease, transform .12s ease;
-        }
-        .scrub:hover .track, .scrub.dragging .track { height: 9px; }
-        .track:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-
-        .bar {
-          position: absolute; inset: 0;
-          background: var(--border-strong); opacity: .55;
-          border-radius: 3px;
-        }
-        .played {
-          position: absolute; top: 0; bottom: 0; left: 0;
-          background: var(--accent); border-radius: 3px; pointer-events: none;
-        }
-        .ahead {
-          position: absolute; top: 0; bottom: 0; left: 0;
-          background: var(--text-3); opacity: .28; border-radius: 3px; pointer-events: none;
-        }
-        .knob {
-          position: absolute; top: 50%; width: 13px; height: 13px; margin-left: -6.5px;
-          border-radius: 50%; background: var(--accent);
-          border: 2px solid var(--surface); box-shadow: var(--shadow-2);
-          transform: translateY(-50%) scale(0); transform-origin: center;
-          transition: transform .12s ease; pointer-events: none;
-        }
-        .scrub:hover .knob, .scrub.dragging .knob { transform: translateY(-50%) scale(1); }
-
-        .mark {
-          position: absolute; top: 50%; width: 3px; height: 15px; margin-left: -1.5px;
-          padding: 0; border: 0; border-radius: 2px; cursor: pointer;
-          transform: translateY(-50%); box-shadow: 0 0 0 1.5px var(--surface);
-          transition: height .12s ease, width .12s ease;
-        }
-        .mark:hover { width: 5px; height: 19px; }
-
-        .tip {
-          position: absolute; bottom: 100%; transform: translateX(-50%);
-          margin-bottom: 2px; padding: 4px 8px; white-space: nowrap;
-          display: flex; gap: 8px; align-items: baseline;
-          font-size: 11.5px; color: var(--text);
-          background: var(--surface); border: 1px solid var(--border);
-          border-radius: var(--r-sm); box-shadow: var(--shadow-2);
-          pointer-events: none; z-index: 3;
-        }
-      `}</style>
     </div>
   );
 }
+
+const styles = stylex.create({
+  scrub: {
+    position: 'relative',
+    flex: 1,
+    paddingBlock: '10px',
+    minWidth: '120px',
+    // What the children read. The bar thickens and the handle appears together,
+    // because they are one gesture.
+    [scrubVars.trackHeight]: { default: '5px', ':hover': '9px' },
+    [scrubVars.knobScale]: { default: '0', ':hover': '1' },
+  },
+  // A drag keeps them up after the pointer has left the bar, which is the whole
+  // point of capturing it.
+  active: { [scrubVars.trackHeight]: '9px', [scrubVars.knobScale]: '1' },
+
+  track: {
+    position: 'relative',
+    height: scrubVars.trackHeight,
+    borderRadius: '3px',
+    backgroundColor: chrome.surface2,
+    cursor: 'pointer',
+    touchAction: 'none',
+    transitionProperty: 'height',
+    transitionDuration: '.12s',
+    transitionTimingFunction: 'ease',
+    outline: { default: null, ':focus-visible': `2px solid ${chrome.accent}` },
+    outlineOffset: '3px',
+  },
+  bar: {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: chrome.borderStrong,
+    opacity: 0.55,
+    borderRadius: '3px',
+  },
+  played: {
+    position: 'absolute',
+    insetBlock: 0,
+    left: 0,
+    backgroundColor: chrome.accent,
+    borderRadius: '3px',
+    pointerEvents: 'none',
+  },
+  ahead: {
+    position: 'absolute',
+    insetBlock: 0,
+    left: 0,
+    backgroundColor: chrome.text3,
+    opacity: 0.28,
+    borderRadius: '3px',
+    pointerEvents: 'none',
+  },
+  knob: {
+    position: 'absolute',
+    top: '50%',
+    width: '13px',
+    height: '13px',
+    marginLeft: '-6.5px',
+    borderRadius: '50%',
+    backgroundColor: chrome.accent,
+    borderWidth: '2px',
+    borderStyle: 'solid',
+    borderColor: chrome.surface,
+    boxShadow: shadow.s2,
+    transform: `translateY(-50%) scale(${scrubVars.knobScale})`,
+    transformOrigin: 'center',
+    transitionProperty: 'transform',
+    transitionDuration: '.12s',
+    transitionTimingFunction: 'ease',
+    pointerEvents: 'none',
+  },
+  mark: {
+    position: 'absolute',
+    top: '50%',
+    width: { default: '3px', ':hover': '5px' },
+    height: { default: '15px', ':hover': '19px' },
+    marginLeft: '-1.5px',
+    padding: 0,
+    borderWidth: 0,
+    borderRadius: '2px',
+    cursor: 'pointer',
+    transform: 'translateY(-50%)',
+    boxShadow: `0 0 0 1.5px ${chrome.surface}`,
+    transitionProperty: 'height, width',
+    transitionDuration: '.12s',
+    transitionTimingFunction: 'ease',
+  },
+  tip: {
+    position: 'absolute',
+    bottom: '100%',
+    transform: 'translateX(-50%)',
+    marginBottom: '2px',
+    paddingBlock: '4px',
+    paddingInline: '8px',
+    whiteSpace: 'nowrap',
+    display: 'flex',
+    gap: '8px',
+    alignItems: 'baseline',
+    fontSize: '11.5px',
+    color: chrome.text,
+    backgroundColor: chrome.surface,
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: chrome.border,
+    borderRadius: radius.sm,
+    boxShadow: shadow.s2,
+    pointerEvents: 'none',
+    zIndex: 3,
+  },
+  mono: { fontFamily: font.mono },
+
+  // The three the render decides: a position along the bar, a width, a meaning.
+  at: (left: string) => ({ left }),
+  wide: (width: string) => ({ width }),
+  paint: (backgroundColor: string) => ({ backgroundColor }),
+});
