@@ -13,6 +13,7 @@
  * trace scrolls without a virtualisation library.
  */
 import { useEffect, useRef, useState } from 'react';
+import * as stylex from '@stylexjs/stylex';
 
 import { SpanBar } from './SpanBar.tsx';
 import { ms, type SpanNode } from '../../lib/spans.ts';
@@ -20,6 +21,8 @@ import type { Theme } from '../../lib/theme.ts';
 import { taskColour } from '../../lib/theme.ts';
 import { digest } from '../../lib/trace.ts';
 import { P } from '../../lib/text.tsx';
+import { ui } from '../../lib/ui.stylex.ts';
+import { chrome } from '../../lib/tokens.stylex.ts';
 
 export const ROW = 22;
 const GUTTER = 356;
@@ -75,16 +78,15 @@ export function Waterfall({
 
   return (
     <div
-      className="fall"
+      {...stylex.props(sx.fall)}
       ref={box}
       onScroll={(e) => setScroll((e.target as HTMLDivElement).scrollTop)}
-      style={{ height: '100%' }}
     >
-      <div style={{ height: rows.length * ROW, position: 'relative' }}>
+      <div {...stylex.props(sx.body)} style={{ height: rows.length * ROW }}>
         <svg
           width={width}
           height={rows.length * ROW}
-          style={{ position: 'absolute', inset: 0 }}
+          {...stylex.props(sx.bars)}
           onDoubleClick={(e) => {
             const rect = box.current?.getBoundingClientRect();
             if (!rect) return;
@@ -113,7 +115,7 @@ export function Waterfall({
                   onSelect(on ? null : n.id);
                   onSeek(n.t0);
                 }}
-                style={{ cursor: 'pointer' }}
+                {...stylex.props(sx.hit)}
               >
                 <rect x={0} y={y} width={width} height={ROW} fill={on ? theme.faint : 'transparent'} />
                 <SpanBar
@@ -132,14 +134,15 @@ export function Waterfall({
 
         {/* The tree itself is HTML, over the bars, because it is text with a
             disclosure control and SVG is a poor place to keep either. */}
-        <div className="tree" style={{ width: GUTTER }}>
+        <div {...stylex.props(sx.tree)} style={{ width: GUTTER }}>
           {shown.map((n, i) => {
             const y = (first + i) * ROW;
             const on = selected === n.id;
+            const crit = critical.has(n.id);
             return (
               <div
                 key={n.id}
-                className={`row${on ? ' on' : ''}${critical.has(n.id) ? ' crit' : ''}`}
+                {...stylex.props(sx.row, on && sx.on)}
                 style={{ top: y, height: ROW, paddingLeft: 6 + n.depth * 11 }}
                 onMouseEnter={() => onHoverNode(n.span.vm)}
                 onMouseLeave={() => onHoverNode(null)}
@@ -149,26 +152,31 @@ export function Waterfall({
                 }}
               >
                 <button
-                  className="tw"
+                  {...stylex.props(sx.tw, !n.children.length && sx.hidden)}
                   onClick={(e) => {
                     e.stopPropagation();
                     onToggle(n.id);
                   }}
-                  style={{ visibility: n.children.length ? 'visible' : 'hidden' }}
                   aria-label={collapsed.has(n.id) ? 'expand' : 'collapse'}
                 >
                   {collapsed.has(n.id) ? '▸' : '▾'}
                 </button>
                 {n.task !== null && (
-                  <span className="tk" style={{ background: taskColour(theme, n.task) }} />
+                  <span {...stylex.props(sx.tk)} style={{ background: taskColour(theme, n.task) }} />
                 )}
-                <span className="nm">{n.method}</span>
-                <span className="vm">{n.span.vm}</span>
-                {n.to && <span className="to">→ {n.to}</span>}
-                {n.crossZone && <span className="xz" title="crossed a zone: billed, and slower">⇄</span>}
-                {!n.ok && <span className="bad">{String(n.span.status)}</span>}
-                {collapsed.has(n.id) && n.hidden > 0 && <span className="hid">+{n.hidden}</span>}
-                <span className="dur">{ms(n.t1 - n.t0)}</span>
+                {/* The critical path is underlined on the method, not on the row:
+                    a rule under a whole row of a table of rows reads as a border. */}
+                <span {...stylex.props(sx.nm, crit && sx.critical)}>{n.method}</span>
+                <span {...stylex.props(sx.vm)}>{n.span.vm}</span>
+                {n.to && <span {...stylex.props(sx.vm)}>→ {n.to}</span>}
+                {n.crossZone && (
+                  <span {...stylex.props(sx.xz)} title="crossed a zone: billed, and slower">⇄</span>
+                )}
+                {!n.ok && <span {...stylex.props(sx.bad)}>{String(n.span.status)}</span>}
+                {collapsed.has(n.id) && n.hidden > 0 && (
+                  <span {...stylex.props(sx.hid)}>+{n.hidden}</span>
+                )}
+                <span {...stylex.props(sx.dur)}>{ms(n.t1 - n.t0)}</span>
               </div>
             );
           })}
@@ -176,40 +184,6 @@ export function Waterfall({
       </div>
 
       {selected !== null && <Detail n={rows.find((r) => r.id === selected)} theme={theme} />}
-
-      <style>{`
-        .fall { overflow: auto; position: relative; }
-        .tree { position: absolute; inset: 0 auto 0 0; }
-        .tree .row {
-          position: absolute; left: 0; right: 0; display: flex; align-items: center; gap: 6px;
-          font-size: 12px; white-space: nowrap; cursor: pointer;
-          background: linear-gradient(90deg, var(--surface) 78%, transparent);
-        }
-        .tree .row:hover { background: linear-gradient(90deg, var(--surface-2) 78%, transparent); }
-        .tree .row.on { background: linear-gradient(90deg, var(--surface-2) 78%, transparent); font-weight: 600; }
-        .tree .row.crit .nm { text-decoration: underline; text-underline-offset: 2px; }
-        .tw {
-          border: 0; background: none; color: var(--text-3); font: inherit; cursor: pointer;
-          width: 12px; padding: 0; line-height: 1;
-        }
-        .tk { width: 7px; height: 7px; border-radius: 50%; flex: none; }
-        /* The method never gives up its room. A status is long — DEADLINE_EXCEEDED
-           is seventeen characters — and letting flexbox settle it crushed the one
-           word the row is about down to a single letter. */
-        .nm { flex: none; }
-        .vm { color: var(--text-3); font-size: 11px; flex: none; }
-        .to { color: var(--text-3); font-size: 11px; flex: none; }
-        .xz { color: #8FA6BC; flex: none; }
-        .bad {
-          color: var(--danger); font-size: 11px; font-weight: 600;
-          min-width: 0; overflow: hidden; text-overflow: ellipsis;
-        }
-        .hid { color: var(--text-3); font-size: 11px; }
-        .dur {
-          margin-left: auto; padding-right: 10px; color: var(--text-3);
-          font-variant-numeric: tabular-nums; font-size: 11px;
-        }
-      `}</style>
     </div>
   );
 }
@@ -219,43 +193,122 @@ function Detail({ n, theme }: { n: SpanNode | undefined; theme: Theme }) {
   if (!n) return null;
   const d = n.span.detail;
   return (
-    <div className="detail">
-      <div className="dh">
+    <div {...stylex.props(sx.detail, theme.dark ? sx.detailDark : sx.detailLight)}>
+      <div {...stylex.props(sx.dh)}>
         <strong>{n.method}</strong>
-        <span className="muted">{n.span.vm}</span>
-        {n.to && <span className="muted">→ {n.to}</span>}
-        <span className="muted mono">
+        <span {...stylex.props(ui.muted)}>{n.span.vm}</span>
+        {n.to && <span {...stylex.props(ui.muted)}>→ {n.to}</span>}
+        <span {...stylex.props(ui.muted, ui.mono)}>
           {ms(n.t1 - n.t0)} total · {ms(n.selfMs)} its own
         </span>
-        {!n.ok && <span style={{ color: '#C4342A' }}>{String(n.span.status)}</span>}
+        {!n.ok && <span {...stylex.props(sx.danger)}>{String(n.span.status)}</span>}
       </div>
-      {typeof d['error'] === 'string' && <P className="err">{d['error'] as string}</P>}
-      <div className="sides">
+      {typeof d['error'] === 'string' && <P style={sx.err}>{d['error'] as string}</P>}
+      <div {...stylex.props(sx.sides)}>
         {d['arg'] !== undefined && (
           <div>
-            <span className="muted">in</span> {digest(d['arg'], 8) || <em>empty</em>}
+            <span {...stylex.props(ui.muted)}>in</span> {digest(d['arg'], 8) || <em>empty</em>}
           </div>
         )}
         {d['result'] !== undefined && (
           <div>
-            <span className="muted">out</span> {digest(d['result'], 8) || <em>empty</em>}
+            <span {...stylex.props(ui.muted)}>out</span> {digest(d['result'], 8) || <em>empty</em>}
           </div>
         )}
       </div>
-      <style>{`
-        .detail {
-          position: sticky; bottom: 0; margin-top: 4px; padding: 8px 12px;
-          background: ${theme.dark ? 'rgba(20,24,30,.94)' : 'rgba(255,255,255,.94)'};
-          border-top: 1px solid var(--border); backdrop-filter: blur(6px);
-          font-size: 12px;
-        }
-        .dh { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
-        .sides { margin-top: 4px; display: grid; gap: 2px; }
-        .err { margin: 4px 0 0; color: #C4342A; }
-      `}</style>
     </div>
   );
 }
+
+const sx = stylex.create({
+  fall: { overflow: 'auto', position: 'relative', height: '100%' },
+  body: { position: 'relative' },
+  bars: { position: 'absolute', inset: 0 },
+  hit: { cursor: 'pointer' },
+  tree: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 'auto' },
+  row: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    fontSize: '12px',
+    whiteSpace: 'nowrap',
+    cursor: 'pointer',
+    /* The row fades out under the bars, so the text stays readable over the
+       drawing and the drawing stays visible past it. Written out three times —
+       resting, hovered, selected — because a gradient has no shorthand for the
+       one colour in it that changes, and StyleX will not take a helper that
+       builds one: values are read at build time, not called. */
+    backgroundImage: {
+      default: `linear-gradient(90deg, ${chrome.surface} 78%, transparent)`,
+      ':hover': `linear-gradient(90deg, ${chrome.surface2} 78%, transparent)`,
+    },
+  },
+  on: {
+    backgroundImage: `linear-gradient(90deg, ${chrome.surface2} 78%, transparent)`,
+    fontWeight: 600,
+  },
+  tw: {
+    borderWidth: 0,
+    borderStyle: 'none',
+    background: 'none',
+    color: chrome.text3,
+    font: 'inherit',
+    cursor: 'pointer',
+    width: '12px',
+    padding: 0,
+    lineHeight: 1,
+  },
+  /** A leaf keeps the twisty's width and loses the arrow, so the names line up. */
+  hidden: { visibility: 'hidden' },
+  tk: { width: '7px', height: '7px', borderRadius: '50%', flexGrow: 0, flexShrink: 0 },
+  /* The method never gives up its room. A status is long — DEADLINE_EXCEEDED
+     is seventeen characters — and letting flexbox settle it crushed the one
+     word the row is about down to a single letter. */
+  nm: { flexGrow: 0, flexShrink: 0 },
+  critical: { textDecorationLine: 'underline', textUnderlineOffset: '2px' },
+  vm: { color: chrome.text3, fontSize: '11px', flexGrow: 0, flexShrink: 0 },
+  xz: { color: '#8FA6BC', flexGrow: 0, flexShrink: 0 },
+  bad: {
+    color: chrome.danger,
+    fontSize: '11px',
+    fontWeight: 600,
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  hid: { color: chrome.text3, fontSize: '11px' },
+  dur: {
+    marginLeft: 'auto',
+    paddingRight: '10px',
+    color: chrome.text3,
+    fontVariantNumeric: 'tabular-nums',
+    fontSize: '11px',
+  },
+  detail: {
+    position: 'sticky',
+    bottom: 0,
+    marginTop: '4px',
+    paddingBlock: '8px',
+    paddingInline: '12px',
+    borderTopWidth: '1px',
+    borderTopStyle: 'solid',
+    borderTopColor: chrome.border,
+    backdropFilter: 'blur(6px)',
+    fontSize: '12px',
+  },
+  /* Not a token and not the scheme's: the panel sits over the drawing and is
+     deliberately translucent, and it follows the *trace's* theme rather than the
+     system's, because that is the theme the bars underneath were drawn in. */
+  detailLight: { backgroundColor: 'rgba(255, 255, 255, 0.94)' },
+  detailDark: { backgroundColor: 'rgba(20, 24, 30, 0.94)' },
+  dh: { display: 'flex', gap: '10px', alignItems: 'baseline', flexWrap: 'wrap' },
+  sides: { marginTop: '4px', display: 'grid', gap: '2px' },
+  danger: { color: chrome.danger },
+  err: { marginTop: '4px', marginRight: 0, marginBottom: 0, marginLeft: 0, color: chrome.danger },
+});
 
 /** Undo a linear time scale, which is all the axis ever is. */
 function invert(x: (t: number) => number, px: number): number {

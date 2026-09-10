@@ -14,6 +14,7 @@
  * own would be a second accountant, and two accountants disagree.
  */
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import * as stylex from '@stylexjs/stylex';
 
 import { colourOf, Donut, Legend, short, StackedBars, type Bar } from './Chart.tsx';
 import { Head, Panel, Tile } from './Shell.tsx';
@@ -23,6 +24,8 @@ import { BUCKETS, LedgerModel, money, type Bucket } from '../../lib/ledger.ts';
 import { refTime } from '../../lib/playback.ts';
 import { openUrl, type Run } from '../../lib/runs.ts';
 import { A, Code, P, Table, Td, Th } from '../../lib/text.tsx';
+import { ui } from '../../lib/ui.stylex.ts';
+import { chrome, font } from '../../lib/tokens.stylex.ts';
 
 const DIMS = {
   bucket: 'Bucket',
@@ -218,7 +221,7 @@ export function Cost() {
       <>
         <Head title="Cost" sub={run.name} />
         <Panel>
-          <P className="muted">
+          <P style={ui.muted}>
             There is no bill beside <Code>{run.name}</Code>, so there is nothing to report. Bills
             are written by <Code>losim bill --json</Code> next to the trace, and{' '}
             <Code>losim dev viewer traces</Code> writes one for every run it sweeps.
@@ -251,7 +254,7 @@ export function Cost() {
         }
       />
 
-      <div className="tiles">
+      <div {...stylex.props(sx.tiles)}>
         <Tile
           k="Billed so far"
           v={money(l.cost, l.currency)}
@@ -274,19 +277,24 @@ export function Cost() {
         />
       </div>
 
-      <div className="two">
-        <div className="col">
+      <div {...stylex.props(sx.two)}>
+        <div {...stylex.props(sx.col)}>
           <Panel flush>
-            <div className="tools">
-              <span className="lb">Group by</span>
-              <div className="seg" role="group" aria-label="group by">
+            <div {...stylex.props(sx.tools)}>
+              <span {...stylex.props(sx.lb)}>Group by</span>
+              <div {...stylex.props(ui.seg)} role="group" aria-label="group by">
                 {(Object.keys(DIMS) as Dim[]).map((d) => (
-                  <button key={d} aria-pressed={dim === d} onClick={() => setDim(d)}>
+                  <button
+                    key={d}
+                    {...stylex.props(ui.segButton, dim === d && ui.segOn)}
+                    aria-pressed={dim === d}
+                    onClick={() => setDim(d)}
+                  >
                     {DIMS[d]}
                   </button>
                 ))}
               </div>
-              {loading.length > 0 && <span className="note">opening {loading.join(', ')}…</span>}
+              {loading.length > 0 && <span {...stylex.props(sx.note)}>opening {loading.join(', ')}…</span>}
             </div>
             <StackedBars
               bars={bars}
@@ -296,9 +304,9 @@ export function Cost() {
               height={270}
               currency={l.currency}
             />
-            <div className="pad">
+            <div {...stylex.props(sx.pad)}>
               <Legend keys={keys} colour={colour} />
-              <P className="note">
+              <P style={sx.note}>
                 Grouped by <strong>{DIMS[dim].toLowerCase()}</strong>, cut off at the clock.
                 {dim === 'bucket'
                   ? ' The four are printed apart rather than summed because they are four different kinds of decision, and one number cannot say that.'
@@ -312,46 +320,46 @@ export function Cost() {
             note={`${l.lines.length} of ${ledger.at(Number.MAX_SAFE_INTEGER).lines.length} have begun`}
             flush
           >
-            <div className="scroll">
+            <div {...stylex.props(sx.scroll)}>
               <Table>
                 <thead>
                   <tr>
                     <Th>Bucket</Th>
                     <Th>What</Th>
-                    <Th className="r">Quantity</Th>
-                    <Th className="r">Unit price</Th>
-                    <Th className="r">So far</Th>
-                    <Th className="r">Of</Th>
+                    <Th style={sx.right}>Quantity</Th>
+                    <Th style={sx.right}>Unit price</Th>
+                    <Th style={sx.right}>So far</Th>
+                    <Th style={sx.right}>Of</Th>
                   </tr>
                 </thead>
                 <tbody>
                   {l.lines.slice(0, 40).map((row, i) => (
                     <tr key={i}>
                       <Td>
-                        <i className="dot" style={{ background: COLOUR[row.line.bucket] }} />
+                        <i {...stylex.props(sx.dot)} style={{ background: COLOUR[row.line.bucket] }} />
                         {row.line.bucket}
                       </Td>
                       <Td>{row.line.what}</Td>
-                      <Td num>
-                        {short(row.line.quantity)} <span className="muted">{row.line.unit}</span>
+                      <Td num style={sx.right}>
+                        {short(row.line.quantity)} <span {...stylex.props(ui.muted)}>{row.line.unit}</span>
                       </Td>
-                      <Td num>{short(row.line.unitPrice)}</Td>
-                      <Td className="n b">{money(row.sofar, l.currency)}</Td>
-                      <Td className="n muted">{money(row.line.amount, l.currency)}</Td>
+                      <Td num style={sx.right}>{short(row.line.unitPrice)}</Td>
+                      <Td num style={[sx.right, sx.strong]}>{money(row.sofar, l.currency)}</Td>
+                      <Td num style={[sx.right, ui.muted]}>{money(row.line.amount, l.currency)}</Td>
                     </tr>
                   ))}
                 </tbody>
               </Table>
             </div>
             {l.lines.length > 40 && (
-              <P className="pad note">{l.lines.length - 40} more, the smallest of them.</P>
+              <P style={[sx.pad, sx.note]}>{l.lines.length - 40} more, the smallest of them.</P>
             )}
           </Panel>
         </div>
 
-        <div className="col">
+        <div {...stylex.props(sx.col)}>
           <Panel title="At the clock" note={DIMS[dim].toLowerCase()}>
-            <div className="ring">
+            <div {...stylex.props(sx.ring)}>
               <Donut
                 parts={parts}
                 colour={colour}
@@ -364,13 +372,13 @@ export function Cost() {
 
           <Panel title="Beside" note="another run, on the same clock">
             <input
-              className="find"
+              {...stylex.props(sx.find)}
               placeholder="Filter"
               value={find}
               onChange={(e) => setFind(e.target.value)}
               aria-label="filter runs to compare with"
             />
-            <div className="beside">
+            <div {...stylex.props(sx.beside)}>
               {runs
                 .filter(
                   (r) =>
@@ -378,8 +386,8 @@ export function Cost() {
                     && r.cost !== undefined
                     && (!find || r.name.toLowerCase().includes(find.trim().toLowerCase())),
                 )
-                .map((r) => (
-                  <label key={r.name}>
+                .map((r, i) => (
+                  <label key={r.name} {...stylex.props(sx.pick, i > 0 && sx.ruled)}>
                     <input
                       type="checkbox"
                       checked={beside.includes(r.name)}
@@ -389,21 +397,21 @@ export function Cost() {
                         )
                       }
                     />
-                    <span className="nm">{r.name}</span>
-                    <span className="c">{money(r.cost ?? 0, r.currency ?? l.currency)}</span>
+                    <span {...stylex.props(sx.nm)}>{r.name}</span>
+                    <span {...stylex.props(sx.total)}>{money(r.cost ?? 0, r.currency ?? l.currency)}</span>
                   </label>
                 ))}
             </div>
-            <P className="note">
+            <P style={sx.note}>
               Ticking one opens its trace, so it can be accrued rather than only totalled. The
               totals beside each name are what the whole run cost.
             </P>
           </Panel>
 
           <Panel title="Open another">
-            <div className="jump">
+            <div {...stylex.props(sx.jump)}>
               {runs.filter((r) => r.from === 'yours' && r.name !== run.name).slice(0, 6).map((r) => (
-                <button key={r.name} className="btn" onClick={() => void open(r.name, 'cost')}>
+                <button key={r.name} {...stylex.props(ui.btn)} onClick={() => void open(r.name, 'cost')}>
                   {r.name}
                 </button>
               ))}
@@ -417,20 +425,20 @@ export function Cost() {
           note={`${mine.filter((r) => r.focus.cost > 0).length} of ${run.trace.nodes.length} carry any of it · ${l.currency}`}
           flush
         >
-          <div className="scroll">
-            <Table className="per">
+          <div {...stylex.props(sx.scroll)}>
+            <Table>
               <thead>
                 <tr>
                   <Th>Node</Th>
                   <Th>Where</Th>
                   {BUCKETS.map((b) => (
-                    <Th key={b} className="r">
-                      <i className="dot" style={{ background: COLOUR[b] }} />
+                    <Th key={b} style={sx.right}>
+                      <i {...stylex.props(sx.dot, sx.tight)} style={{ background: COLOUR[b] }} />
                       {b}
                     </Th>
                   ))}
-                  <Th className="r">So far</Th>
-                  <Th className="r">Share</Th>
+                  <Th style={sx.right}>So far</Th>
+                  <Th style={sx.right}>Share</Th>
                 </tr>
               </thead>
               <tbody>
@@ -439,46 +447,46 @@ export function Cost() {
                   return (
                     <Fragment key={r.node.name}>
                       <tr
-                        className={`row${open ? ' open' : ''}`}
+                        {...stylex.props(sx.row, open && sx.open)}
                         onClick={() => setWhose(open ? null : r.node.name)}
                         aria-expanded={open}
                       >
-                        <Td className="id">
-                          <span className="tw" aria-hidden>{open ? '\u25be' : '\u25b8'}</span>
+                        <Td style={sx.id}>
+                          <span {...stylex.props(sx.tw)} aria-hidden>{open ? '\u25be' : '\u25b8'}</span>
                           {r.node.name}
                         </Td>
-                        <Td className="muted where">
+                        <Td style={[ui.muted, sx.where]}>
                           {r.node.instance} · {r.node.zone}
                         </Td>
                         {BUCKETS.map((b) => (
-                          <Td key={b} className="n">
+                          <Td key={b} num style={sx.right}>
                             {r.focus.buckets[b] > 1e-9 ? amt(r.focus.buckets[b]) : '\u2014'}
                           </Td>
                         ))}
-                        <Td className="n b">{amt(r.focus.cost)}</Td>
-                        <Td className="n muted">
+                        <Td num style={[sx.right, sx.strong]}>{amt(r.focus.cost)}</Td>
+                        <Td num style={[sx.right, ui.muted]}>
                           {((r.focus.cost / Math.max(l.cost, 1e-9)) * 100).toFixed(0)}%
                         </Td>
                       </tr>
                       {open && (
-                        <tr className="why">
-                          <Td colSpan={3 + BUCKETS.length + 2}>
+                        <tr>
+                          <Td colSpan={3 + BUCKETS.length + 2} style={sx.whyCell}>
                             {r.lines.length ? (
-                              <ul>
+                              <ul {...stylex.props(sx.why)}>
                                 {r.lines.map((row, i) => (
-                                  <li key={i}>
-                                    <i className="dot" style={{ background: COLOUR[row.line.bucket] }} />
-                                    <span className="what">{row.line.what}</span>
+                                  <li key={i} {...stylex.props(sx.reason)}>
+                                    <i {...stylex.props(sx.dot)} style={{ background: COLOUR[row.line.bucket] }} />
+                                    <span {...stylex.props(sx.what)}>{row.line.what}</span>
                                     {!echoes(row.line.what, row.why) && (
-                                      <span className="cause">{row.why}</span>
+                                      <span {...stylex.props(sx.cause)}>{row.why}</span>
                                     )}
-                                    <span className="amt mono">{amt(row.mine)}</span>
-                                    <span className="of mono">of {amt(row.sofar)}</span>
+                                    <span {...stylex.props(sx.amt, ui.mono)}>{amt(row.mine)}</span>
+                                    <span {...stylex.props(sx.of, ui.mono)}>of {amt(row.sofar)}</span>
                                   </li>
                                 ))}
                               </ul>
                             ) : (
-                              <P className="muted">
+                              <P style={ui.muted}>
                                 Nothing is charged to {r.node.name} by {refTime(now)}.
                               </P>
                             )}
@@ -489,14 +497,14 @@ export function Cost() {
                   );
                 })}
                 {l.cost - claimed > 1e-9 && (
-                  <tr className="rest">
-                    <Td className="id">{NOBODY}</Td>
-                    <Td colSpan={1 + BUCKETS.length} className="muted">
+                  <tr>
+                    <Td style={[sx.rest, sx.nobody]}>{NOBODY}</Td>
+                    <Td colSpan={1 + BUCKETS.length} style={[ui.muted, sx.rest]}>
                       what the design cost to write, and any penalty the job as a whole earned —
                       splitting these over the nodes would invent a claim nothing supports
                     </Td>
-                    <Td className="n b">{amt(l.cost - claimed)}</Td>
-                    <Td className="n muted">
+                    <Td num style={[sx.right, sx.strong, sx.rest]}>{amt(l.cost - claimed)}</Td>
+                    <Td num style={[sx.right, ui.muted, sx.rest]}>
                       {(((l.cost - claimed) / Math.max(l.cost, 1e-9)) * 100).toFixed(0)}%
                     </Td>
                   </tr>
@@ -504,65 +512,97 @@ export function Cost() {
               </tbody>
             </Table>
           </div>
-          <P className="pad note">
+          <P style={[sx.pad, sx.note]}>
             Click a node for its own lines, and why each one is charged to it. Every amount is
             a line <Code>losim bill</Code> already computed — only the claim about who is
             answerable for it is added here.
           </P>
         </Panel>
 
-      <style>{`
-        .tiles { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
-        .two { display: grid; gap: 20px; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); align-items: start; }
-        .col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
-        @media (max-width: 1180px) { .two { grid-template-columns: 1fr; } }
-
-        .tools { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 0 20px 12px; }
-        .tools .lb { font-size: 12px; font-weight: 500; color: var(--text-3); }
-        .pad { padding: 0 20px 16px; }
-        .note { font-size: 12.5px; color: var(--text-3); }
-        .scroll { overflow-x: auto; padding: 0 20px 8px; }
-        th.r, td.n { text-align: right; font-variant-numeric: tabular-nums; }
-        td.n { font-family: var(--mono); }
-        td.n.b { color: var(--text); font-weight: 500; }
-        .dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 7px; }
-
-        .ring { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-
-        /* Every row is a question — "and what is that for?" — so every row opens. */
-        .per th .dot { margin-right: 5px; }
-        .per .row { cursor: pointer; }
-        .per .row:hover { background: var(--surface-2); }
-        .per .row.open { background: var(--surface-2); }
-        .per .tw { display: inline-block; width: 14px; color: var(--text-3); }
-        .per .rest td { color: var(--text-3); font-size: 12.5px; }
-        .per .rest .id { font-family: inherit; font-style: italic; }
-        .per .where { white-space: nowrap; }
-        .why td { padding: 0 0 12px 34px; }
-        .why ul { list-style: none; margin: 0; padding: 0; }
-        .why li {
-          display: flex; align-items: baseline; gap: 10px; padding: 5px 0; font-size: 12.5px;
-        }
-        .why .what { color: var(--text-2); }
-        .why .cause { color: var(--text-3); font-style: italic; }
-        .why .amt { margin-left: auto; font-weight: 500; }
-        .why .of { color: var(--text-3); width: 84px; text-align: right; white-space: nowrap; }
-
-        .find {
-          width: 100%; height: 32px; padding: 0 12px; margin-bottom: 6px;
-          font: inherit; font-size: 13px; color: var(--text);
-          background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
-        }
-        .beside { display: flex; flex-direction: column; max-height: 260px; overflow-y: auto; }
-        .beside label {
-          display: flex; align-items: center; gap: 10px; padding: 7px 2px; font-size: 12.5px;
-          cursor: pointer;
-        }
-        .beside label + label { border-top: 1px solid var(--border); }
-        .beside .nm { font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .beside .c { margin-left: auto; font-family: var(--mono); color: var(--text-3); white-space: nowrap; }
-        .jump { display: flex; flex-wrap: wrap; gap: 8px; }
-      `}</style>
     </>
   );
 }
+
+const sx = stylex.create({
+  tiles: { display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' },
+  two: {
+    display: 'grid',
+    gap: '20px',
+    gridTemplateColumns: {
+      default: 'minmax(0, 1.55fr) minmax(0, 1fr)',
+      '@media (max-width: 1180px)': '1fr',
+    },
+    alignItems: 'start',
+  },
+  col: { display: 'flex', flexDirection: 'column', gap: '20px', minWidth: 0 },
+
+  tools: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '14px',
+    flexWrap: 'wrap',
+    paddingTop: 0,
+    paddingInline: '20px',
+    paddingBottom: '12px',
+  },
+  lb: { fontSize: '12px', fontWeight: 500, color: chrome.text3 },
+  pad: { marginBlock: 0, paddingTop: 0, paddingInline: '20px', paddingBottom: '16px' },
+  note: { fontSize: '12.5px', color: chrome.text3 },
+  scroll: { overflowX: 'auto', paddingTop: 0, paddingInline: '20px', paddingBottom: '8px' },
+  right: { textAlign: 'right', fontVariantNumeric: 'tabular-nums' },
+  /** The figure that is this row's point, against the ones that give it context. */
+  strong: { color: chrome.text, fontWeight: 500 },
+  id: { fontFamily: font.mono, fontWeight: 500 },
+  dot: { display: 'inline-block', width: '8px', height: '8px', borderRadius: '2px', marginRight: '7px' },
+  /** The same dot in a heading, where the column is narrower than the words. */
+  tight: { marginRight: '5px' },
+  ring: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' },
+
+  /* Every row is a question — "and what is that for?" — so every row opens. */
+  row: { cursor: 'pointer', backgroundColor: { default: null, ':hover': chrome.surface2 } },
+  open: { backgroundColor: chrome.surface2 },
+  tw: { display: 'inline-block', width: '14px', color: chrome.text3 },
+  /** The line nobody is answerable for, set apart from the nodes above it. */
+  rest: { color: chrome.text3, fontSize: '12.5px' },
+  nobody: { fontStyle: 'italic' },
+  where: { whiteSpace: 'nowrap' },
+
+  whyCell: { paddingTop: 0, paddingRight: 0, paddingBottom: '12px', paddingLeft: '34px' },
+  why: { listStyle: 'none', margin: 0, padding: 0 },
+  reason: { display: 'flex', alignItems: 'baseline', gap: '10px', paddingBlock: '5px', fontSize: '12.5px' },
+  what: { color: chrome.text2 },
+  cause: { color: chrome.text3, fontStyle: 'italic' },
+  amt: { marginLeft: 'auto', fontWeight: 500 },
+  of: { color: chrome.text3, width: '84px', textAlign: 'right', whiteSpace: 'nowrap' },
+
+  find: {
+    width: '100%',
+    height: '32px',
+    paddingBlock: 0,
+    paddingInline: '12px',
+    marginBottom: '6px',
+    font: 'inherit',
+    fontSize: '13px',
+    color: chrome.text,
+    backgroundColor: chrome.surface,
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: chrome.border,
+    borderRadius: '999px',
+  },
+  beside: { display: 'flex', flexDirection: 'column', maxHeight: '260px', overflowY: 'auto' },
+  pick: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    paddingBlock: '7px',
+    paddingInline: '2px',
+    fontSize: '12.5px',
+    cursor: 'pointer',
+  },
+  /** What `label + label` used to draw: a rule between, not above the first. */
+  ruled: { borderTopWidth: '1px', borderTopStyle: 'solid', borderTopColor: chrome.border },
+  nm: { fontFamily: font.mono, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  total: { marginLeft: 'auto', fontFamily: font.mono, color: chrome.text3, whiteSpace: 'nowrap' },
+  jump: { display: 'flex', flexWrap: 'wrap', gap: '8px' },
+});

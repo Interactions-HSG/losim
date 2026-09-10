@@ -15,6 +15,7 @@
  * prices would be a second accountant, and two accountants disagree.
  */
 import { useMemo, useState } from 'react';
+import * as stylex from '@stylexjs/stylex';
 
 import { Head, Panel } from './Shell.tsx';
 import { COLOUR } from '../Ledger.tsx';
@@ -23,6 +24,8 @@ import { BUCKETS, money } from '../../lib/ledger.ts';
 import { refTime } from '../../lib/playback.ts';
 import type { RunRef } from '../../lib/runs.ts';
 import { Code, P } from '../../lib/text.tsx';
+import { ui } from '../../lib/ui.stylex.ts';
+import { chrome, font, radius, shadow } from '../../lib/tokens.stylex.ts';
 
 const GROUPS = [
   { key: 'yours', label: 'Your runs', note: 'whatever you have run in this project' },
@@ -62,7 +65,7 @@ export function Gallery() {
         }
         actions={
           <input
-            className="find"
+            {...stylex.props(sx.find)}
             placeholder="Filter by name, entry or simulation"
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -71,15 +74,24 @@ export function Gallery() {
         }
       />
 
-      <div className="seg" role="group" aria-label="whose runs">
-        <button aria-pressed={only === ''} onClick={() => setOnly('')}>
+      <div {...stylex.props(ui.seg)} role="group" aria-label="whose runs">
+        <button
+          {...stylex.props(ui.segButton, only === '' && ui.segOn)}
+          aria-pressed={only === ''}
+          onClick={() => setOnly('')}
+        >
           all {runs.length}
         </button>
         {GROUPS.map((g) => {
           const n = runs.filter((r) => (r.from ?? 'gallery') === g.key).length;
           if (!n) return null;
           return (
-            <button key={g.key} aria-pressed={only === g.key} onClick={() => setOnly(g.key)}>
+            <button
+              key={g.key}
+              {...stylex.props(ui.segButton, only === g.key && ui.segOn)}
+              aria-pressed={only === g.key}
+              onClick={() => setOnly(g.key)}
+            >
               {g.label.toLowerCase()} {n}
             </button>
           );
@@ -91,7 +103,7 @@ export function Gallery() {
         if (!some.length) return null;
         return (
           <Panel key={g.key} title={g.label} note={`${some.length} · ${g.note}`}>
-            <div className="cards">
+            <div {...stylex.props(sx.cards)}>
               {some.map((r) => (
                 <Card
                   key={r.name}
@@ -108,7 +120,7 @@ export function Gallery() {
 
       {!shown.length && (
         <Panel>
-          <P className="muted">
+          <P style={ui.muted}>
             Nothing matches <strong>{q}</strong>. Every result is named for the simulation it
             came from, so <Code>kill</Code>, <Code>scale</Code> and <Code>deadline</Code> are
             all worth trying.
@@ -116,53 +128,6 @@ export function Gallery() {
         </Panel>
       )}
 
-      <style>{`
-        .find {
-          height: 36px; width: 300px; max-width: 46vw; padding: 0 14px;
-          font: inherit; font-size: 13.5px; color: var(--text);
-          background: var(--surface); border: 1px solid var(--border);
-          border-radius: 999px; box-shadow: var(--shadow-1);
-        }
-        .cards {
-          display: grid; gap: 16px;
-          grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
-        }
-        .run {
-          display: flex; flex-direction: column; overflow: hidden;
-          background: var(--surface); border: 1px solid var(--border);
-          border-radius: var(--r-lg); box-shadow: var(--shadow-1);
-          transition: box-shadow .14s ease, border-color .14s ease;
-        }
-        .run:hover { box-shadow: var(--shadow-2); }
-        .run.here { border-color: var(--accent); }
-        .cover { display: block; padding: 0; border: 0; background: none; cursor: pointer; }
-        .in { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 16px; }
-        .line { display: flex; align-items: center; gap: 8px; }
-        .name {
-          padding: 0; border: 0; background: none; cursor: pointer;
-          font: inherit; font-family: var(--mono); font-size: 13.5px; font-weight: 500;
-          color: var(--text); text-align: left;
-        }
-        .name:hover { color: var(--accent); }
-        .of { margin: 0; font-size: 12.5px; color: var(--text-2); }
-        dl { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin: 2px 0 0; }
-        dl div { display: flex; justify-content: space-between; gap: 8px; }
-        dt { font-size: 11.5px; color: var(--text-3); }
-        dd {
-          margin: 0; font-family: var(--mono); font-size: 12px;
-          font-variant-numeric: tabular-nums; color: var(--text-2);
-        }
-        dd.cost { color: var(--text); font-weight: 500; }
-        .far { color: var(--warn); }
-        .stack {
-          display: flex; height: 6px; border-radius: 3px; overflow: hidden;
-          background: var(--surface-2); margin-top: 2px;
-        }
-        .stack i { display: block; height: 100%; }
-        .chip.bad { color: #fff; background: var(--danger); border-color: transparent; align-self: flex-start; }
-        .cvr { display: block; width: 100%; height: auto; }
-        .cvr .zl { font: 400 9.5px var(--mono); fill: var(--text-3); }
-      `}</style>
     </>
   );
 }
@@ -181,50 +146,51 @@ function Card({
   const zones = r.zones ?? [];
   const regions = [...new Set(zones.map((z) => z.replace(/[a-z0-9]$/, '')))];
   return (
-    <article className={`run${here ? ' here' : ''}`}>
-      <button className="cover" onClick={onOpen} aria-label={`open ${r.name}`}>
+    <article {...stylex.props(sx.run, here && sx.here)}>
+      <button {...stylex.props(sx.cover)} onClick={onOpen} aria-label={`open ${r.name}`}>
         <Cover nodes={r.nodes ?? 1} zones={zones} broke={r.completed === false} />
       </button>
-      <div className="in">
-        <div className="line">
-          <button className="name" onClick={onOpen}>{r.name}</button>
-          {here && <span className="chip">open</span>}
+      <div {...stylex.props(sx.in)}>
+        <div {...stylex.props(sx.line)}>
+          <button {...stylex.props(sx.name)} onClick={onOpen}>{r.name}</button>
+          {here && <span {...stylex.props(ui.chip)}>open</span>}
         </div>
-        <P className="of">
+        <P style={sx.of}>
           {r.simulation ?? 'a simulation'}
-          {r.entry && <span className="muted"> · entered at {r.entry}</span>}
+          {r.entry && <span {...stylex.props(ui.muted)}> · entered at {r.entry}</span>}
         </P>
-        <dl>
-          <div>
-            <dt>nodes</dt>
-            <dd>{r.nodes ?? '—'}</dd>
+        <dl {...stylex.props(sx.dl)}>
+          <div {...stylex.props(sx.pair)}>
+            <dt {...stylex.props(sx.dt)}>nodes</dt>
+            <dd {...stylex.props(sx.dd)}>{r.nodes ?? '—'}</dd>
           </div>
-          <div>
-            <dt>zones</dt>
-            <dd>
+          <div {...stylex.props(sx.pair)}>
+            <dt {...stylex.props(sx.dt)}>zones</dt>
+            <dd {...stylex.props(sx.dd)}>
               {zones.length || '—'}
-              {regions.length > 1 && <span className="far"> · {regions.length} regions</span>}
+              {regions.length > 1 && <span {...stylex.props(sx.far)}> · {regions.length} regions</span>}
             </dd>
           </div>
-          <div>
-            <dt>took</dt>
-            <dd>{r.durationRefMs === undefined ? '—' : refTime(r.durationRefMs)}</dd>
+          <div {...stylex.props(sx.pair)}>
+            <dt {...stylex.props(sx.dt)}>took</dt>
+            <dd {...stylex.props(sx.dd)}>{r.durationRefMs === undefined ? '—' : refTime(r.durationRefMs)}</dd>
           </div>
-          <div>
-            <dt>cost</dt>
-            <dd className="cost">
+          <div {...stylex.props(sx.pair)}>
+            <dt {...stylex.props(sx.dt)}>cost</dt>
+            <dd {...stylex.props(sx.dd, sx.cost)}>
               {r.cost === undefined ? '—' : money(r.cost, r.currency ?? currency)}
             </dd>
           </div>
         </dl>
         {r.buckets && (
-          <div className="stack" title="build · capacity · consumption · incidents">
+          <div {...stylex.props(sx.stack)} title="build · capacity · consumption · incidents">
             {BUCKETS.map((b) => {
               const v = r.buckets?.[b] ?? 0;
               if (v <= 0) return null;
               return (
                 <i
                   key={b}
+                  {...stylex.props(sx.slice)}
                   style={{
                     width: `${(v / Math.max(r.cost ?? 1, 1e-9)) * 100}%`,
                     background: COLOUR[b],
@@ -234,7 +200,7 @@ function Card({
             })}
           </div>
         )}
-        {r.completed === false && <span className="chip bad">did not finish</span>}
+        {r.completed === false && <span {...stylex.props(ui.chip, sx.badChip)}>did not finish</span>}
       </div>
 
     </article>
@@ -260,8 +226,8 @@ function Cover({ nodes, zones, broke }: { nodes: number; zones: string[]; broke:
 
   let left = nodes;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="cvr" aria-hidden>
-      <rect x={0} y={0} width={W} height={H} style={{ fill: 'var(--surface-2)' }} />
+    <svg viewBox={`0 0 ${W} ${H}`} {...stylex.props(sx.cvr)} aria-hidden>
+      <rect x={0} y={0} width={W} height={H} {...stylex.props(sx.plate)} />
       {Array.from({ length: n }, (_, i) => {
         const x = pad + i * (w + gap);
         const here = Math.min(left, per);
@@ -270,7 +236,7 @@ function Cover({ nodes, zones, broke }: { nodes: number; zones: string[]; broke:
           <g key={i}>
             <rect
               x={x} y={12} width={w} height={H - 30} rx={6}
-              style={{ fill: 'var(--surface)', stroke: 'var(--border-strong)' }}
+              {...stylex.props(sx.zone)}
             />
             {Array.from({ length: here }, (_, k) => (
               <circle
@@ -278,14 +244,113 @@ function Cover({ nodes, zones, broke }: { nodes: number; zones: string[]; broke:
                 cx={x + 14 + (k % cols) * 17}
                 cy={28 + Math.floor(k / cols) * 17}
                 r={5.5}
-                style={{ fill: broke && k === 0 && i === 0 ? 'var(--danger)' : 'var(--accent)' }}
+                {...stylex.props(broke && k === 0 && i === 0 ? sx.dotBad : sx.dot)}
                 opacity={0.82}
               />
             ))}
-            <text x={x + 6} y={H - 6} className="zl">{zones[i] ?? 'one zone'}</text>
+            <text x={x + 6} y={H - 6} {...stylex.props(sx.zl)}>{zones[i] ?? 'one zone'}</text>
           </g>
         );
       })}
     </svg>
   );
 }
+
+const sx = stylex.create({
+  find: {
+    height: '36px',
+    width: '300px',
+    maxWidth: '46vw',
+    paddingBlock: 0,
+    paddingInline: '14px',
+    font: 'inherit',
+    fontSize: '13.5px',
+    color: chrome.text,
+    backgroundColor: chrome.surface,
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: chrome.border,
+    borderRadius: '999px',
+    boxShadow: shadow.s1,
+  },
+  cards: {
+    display: 'grid',
+    gap: '16px',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))',
+  },
+  run: {
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+    backgroundColor: chrome.surface,
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: chrome.border,
+    borderRadius: radius.lg,
+    boxShadow: { default: shadow.s1, ':hover': shadow.s2 },
+    transitionProperty: 'box-shadow, border-color',
+    transitionDuration: '.14s',
+    transitionTimingFunction: 'ease',
+  },
+  /** The run that is open, named by its border rather than by a badge. */
+  here: { borderColor: chrome.accent },
+  cover: { display: 'block', padding: 0, borderWidth: 0, background: 'none', cursor: 'pointer' },
+  in: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    paddingTop: '14px',
+    paddingInline: '16px',
+    paddingBottom: '16px',
+  },
+  line: { display: 'flex', alignItems: 'center', gap: '8px' },
+  name: {
+    padding: 0,
+    borderWidth: 0,
+    background: 'none',
+    cursor: 'pointer',
+    fontFamily: font.mono,
+    fontSize: '13.5px',
+    fontWeight: 500,
+    color: { default: chrome.text, ':hover': chrome.accent },
+    textAlign: 'left',
+  },
+  of: { margin: 0, fontSize: '12.5px', color: chrome.text2 },
+  dl: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '6px 12px',
+    marginTop: '2px',
+    marginRight: 0,
+    marginBottom: 0,
+    marginLeft: 0,
+  },
+  pair: { display: 'flex', justifyContent: 'space-between', gap: '8px' },
+  dt: { fontSize: '11.5px', color: chrome.text3 },
+  dd: {
+    margin: 0,
+    fontFamily: font.mono,
+    fontSize: '12px',
+    fontVariantNumeric: 'tabular-nums',
+    color: chrome.text2,
+  },
+  cost: { color: chrome.text, fontWeight: 500 },
+  /** More than one region is worth noticing before you read the bill. */
+  far: { color: chrome.warn },
+  stack: {
+    display: 'flex',
+    height: '6px',
+    borderRadius: '3px',
+    overflow: 'hidden',
+    backgroundColor: chrome.surface2,
+    marginTop: '2px',
+  },
+  slice: { display: 'block', height: '100%' },
+  badChip: { color: '#fff', backgroundColor: chrome.danger, borderColor: 'transparent', alignSelf: 'flex-start' },
+  cvr: { display: 'block', width: '100%', height: 'auto' },
+  plate: { fill: chrome.surface2 },
+  zone: { fill: chrome.surface, stroke: chrome.borderStrong },
+  dot: { fill: chrome.accent },
+  dotBad: { fill: chrome.danger },
+  zl: { fontFamily: font.mono, fontWeight: 400, fontSize: '9.5px', fill: chrome.text3 },
+});

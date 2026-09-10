@@ -10,6 +10,7 @@
  * A chart of load against time has nothing that flickers past and should not
  * pay for that — on the rest of the console a reference second takes a second.
  */
+import * as stylex from '@stylexjs/stylex';
 import { useCallback, useState } from 'react';
 
 import { Head, Panel } from './Shell.tsx';
@@ -18,6 +19,8 @@ import { useConsole } from '../../lib/console.tsx';
 import { refTime } from '../../lib/playback.ts';
 import { openUrl, type Run } from '../../lib/runs.ts';
 import { A } from '../../lib/text.tsx';
+import { ui } from '../../lib/ui.stylex.ts';
+import { chrome } from '../../lib/tokens.stylex.ts';
 
 export function FilmView() {
   const { run, runs, go } = useConsole();
@@ -72,7 +75,7 @@ export function FilmView() {
         }
         actions={
           <select
-            className="picker"
+            {...stylex.props(ui.picker)}
             value={against?.name ?? ''}
             onChange={(e) => void compare(e.target.value)}
             aria-label="compare with"
@@ -91,25 +94,34 @@ export function FilmView() {
       />
 
       <Panel flush>
-        <div className="c-stage">
-          {busy && <div className="c-over">opening…</div>}
+        <div {...stylex.props(sx.stage)}>
+          {busy && <div {...stylex.props(sx.over)}>opening…</div>}
           <Film key={run.name + (against?.name ?? '')} run={run} against={against} transport />
         </div>
       </Panel>
 
-      <style>{`
-        .c-stage {
-          position: relative;
-          display: flex; flex-direction: column;
-          height: clamp(460px, calc(100vh - 300px), 900px);
-          padding: 0 20px 20px;
-        }
-        .c-over {
-          position: absolute; inset: 0; display: grid; place-items: center;
-          background: color-mix(in srgb, var(--surface) 78%, transparent);
-          color: var(--text-3); z-index: 2;
-        }
-      `}</style>
     </>
   );
 }
+
+const sx = stylex.create({
+  stage: {
+    position: 'relative',
+    display: 'flex',
+    flexDirection: 'column',
+    height: 'clamp(460px, calc(100vh - 300px), 900px)',
+    paddingTop: 0,
+    paddingInline: '20px',
+    paddingBottom: '20px',
+  },
+  /** Over the film while another run is being read, not instead of it. */
+  over: {
+    position: 'absolute',
+    inset: 0,
+    display: 'grid',
+    placeItems: 'center',
+    backgroundColor: `color-mix(in srgb, ${chrome.surface} 78%, transparent)`,
+    color: chrome.text3,
+    zIndex: 2,
+  },
+});

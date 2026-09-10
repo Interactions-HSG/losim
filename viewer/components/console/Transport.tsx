@@ -18,10 +18,13 @@
  * instant this playhead is at.
  */
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
+import * as stylex from '@stylexjs/stylex';
 
 import { Scrubber } from '../Scrubber.tsx';
-import { Clock, FIT_SECONDS, RATES, refTime } from '../../lib/playback.ts';
+import { Clock, FIT_SECONDS, RATES, rateSays, refTime } from '../../lib/playback.ts';
 import type { Run } from '../../lib/runs.ts';
+import { ui } from '../../lib/ui.stylex.ts';
+import { chrome } from '../../lib/tokens.stylex.ts';
 
 export function Transport({ run, clock }: { run: Run; clock: Clock }) {
   const { trace, index } = run;
@@ -62,25 +65,25 @@ export function Transport({ run, clock }: { run: Run; clock: Clock }) {
   }, [clock, events]);
 
   return (
-    <div className="transport">
+    <div {...stylex.props(sx.transport)}>
       <button
-        className="btn icon primary"
+        {...stylex.props(ui.btn, ui.icon, ui.primary)}
         onClick={() => clock.toggle()}
         title={playing ? 'pause (space)' : 'play (space)'}
         aria-label={playing ? 'pause' : 'play'}
       >
         {playing ? <Pause /> : <Play />}
       </button>
-      <button className="btn icon" onClick={() => clock.step(-1)} title="back one frame (←)">
+      <button {...stylex.props(ui.btn, ui.icon)} onClick={() => clock.step(-1)} title="back one frame (←)">
         ◀
       </button>
-      <button className="btn icon" onClick={() => clock.step(1)} title="on one frame (→)">
+      <button {...stylex.props(ui.btn, ui.icon)} onClick={() => clock.step(1)} title="on one frame (→)">
         ▶
       </button>
 
-      <span className="at mono">
-        <b>{refTime(t)}</b>
-        <span className="muted"> / {refTime(trace.duration)}</span>
+      <span {...stylex.props(sx.at, ui.mono)}>
+        <b {...stylex.props(sx.now)}>{refTime(t)}</b>
+        <span {...stylex.props(ui.muted)}> / {refTime(trace.duration)}</span>
       </span>
 
       <Scrubber
@@ -93,22 +96,20 @@ export function Transport({ run, clock }: { run: Run; clock: Clock }) {
         }}
       />
 
-      <div className="seg" role="group" aria-label="speed">
+      <div {...stylex.props(ui.seg)} role="group" aria-label="speed">
         {RATES.map((r) => (
           <button
             key={r}
+            {...stylex.props(ui.segButton, rateLabel === `${r}x` && ui.segOn)}
             aria-pressed={rateLabel === `${r}x`}
             onClick={() => clock.setRate(r)}
-            title={
-              r === 1
-                ? 'one reference second per second — the run at the speed it happened'
-                : `${r}x that: a reference second every ${(1 / r).toFixed(2)}s.`
-            }
+            title={rateSays(r)}
           >
             {r}x
           </button>
         ))}
         <button
+          {...stylex.props(ui.segButton, rateLabel === 'fit' && ui.segOn)}
           aria-pressed={rateLabel === 'fit'}
           onClick={() => clock.fit()}
           title={`the whole run in ${FIT_SECONDS} seconds, whatever it took.`}
@@ -117,28 +118,35 @@ export function Transport({ run, clock }: { run: Run; clock: Clock }) {
         </button>
       </div>
 
-      <span className="scope muted">
+      <span {...stylex.props(ui.muted, sx.scope)}>
         every panel below is drawn from the events up to here
       </span>
-
-      <style>{`
-        .transport {
-          display: flex; align-items: center; gap: 10px;
-          padding: 10px 24px;
-          background: var(--surface);
-          border-bottom: 1px solid var(--border);
-        }
-        .transport .at {
-          font-size: 12.5px; color: var(--text-3); white-space: nowrap;
-          font-variant-numeric: tabular-nums;
-        }
-        .transport .at b { color: var(--text); font-weight: 600; }
-        .transport .scope { font-size: 11.5px; white-space: nowrap; }
-        @media (max-width: 1400px) { .transport .scope { display: none; } }
-      `}</style>
     </div>
   );
 }
+
+const sx = stylex.create({
+  transport: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    paddingBlock: '10px',
+    paddingInline: '24px',
+    backgroundColor: chrome.surface,
+    borderBottomWidth: '1px',
+    borderBottomStyle: 'solid',
+    borderBottomColor: chrome.border,
+  },
+  at: { fontSize: '12.5px', color: chrome.text3, whiteSpace: 'nowrap' },
+  /** The instant itself, against the run's length beside it. */
+  now: { color: chrome.text, fontWeight: 600 },
+  /** The sentence explaining the cursor is the first thing a narrow window loses. */
+  scope: {
+    fontSize: '11.5px',
+    whiteSpace: 'nowrap',
+    display: { default: 'inline', '@media (max-width: 1400px)': 'none' },
+  },
+});
 
 function Play() {
   return (

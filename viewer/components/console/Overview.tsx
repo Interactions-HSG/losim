@@ -19,6 +19,7 @@
  * five at once — which is the point of having them on one page.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
+import * as stylex from '@stylexjs/stylex';
 
 import { LineChart } from './Chart.tsx';
 import { Head, Panel, Tile } from './Shell.tsx';
@@ -30,6 +31,8 @@ import { BUCKETS, money } from '../../lib/ledger.ts';
 import { refTime } from '../../lib/playback.ts';
 import { useTheme } from '../../lib/theme.ts';
 import { A, Code, H2, Kbd, P, Table, Td, Th } from '../../lib/text.tsx';
+import { ui } from '../../lib/ui.stylex.ts';
+import { chrome, font, state } from '../../lib/tokens.stylex.ts';
 
 /**
  * What a trace's event kinds are, said the way somebody would say them.
@@ -73,32 +76,16 @@ function Step({
   children: React.ReactNode;
 }) {
   return (
-    <section className="step">
-      <header>
-        <span className="step-n" aria-hidden>{n}</span>
-        <div className="step-q">
-          <H2>{q}</H2>
-          <P>{say}</P>
+    <section {...stylex.props(sx.step)}>
+      <header {...stylex.props(sx.header)}>
+        <span {...stylex.props(sx.count)} aria-hidden>{n}</span>
+        <div {...stylex.props(sx.question)}>
+          <H2 style={sx.ask}>{q}</H2>
+          <P style={sx.say}>{say}</P>
         </div>
-        {aside && <div className="step-aside">{aside}</div>}
+        {aside && <div {...stylex.props(sx.aside)}>{aside}</div>}
       </header>
       {children}
-      <style>{`
-        .step { display: flex; flex-direction: column; gap: 12px; }
-        .step > header { display: flex; align-items: flex-start; gap: 14px; }
-        /* Named apart from the table conventions on purpose: a bare .n here
-           would also match every right-aligned number cell inside the section. */
-        .step-n {
-          flex: none; width: 26px; height: 26px; border-radius: 50%;
-          display: grid; place-items: center; margin-top: 1px;
-          background: var(--accent-soft); color: var(--accent);
-          font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums;
-        }
-        .step-q { min-width: 0; }
-        .step-q h2 { margin: 0; font-size: 17px; font-weight: 500; letter-spacing: -0.01em; }
-        .step-q p { margin: 3px 0 0; font-size: 13px; color: var(--text-3); max-width: 68ch; }
-        .step-aside { margin-left: auto; flex: none; display: flex; gap: 8px; align-items: center; }
-      `}</style>
     </section>
   );
 }
@@ -199,12 +186,12 @@ export function Overview() {
             and all five sections move together.
           </>
         }
-        actions={<button className="btn primary" onClick={() => go('film')}>▶ Watch it</button>}
+        actions={<button {...stylex.props(ui.btn, ui.primary)} onClick={() => go('film')}>▶ Watch it</button>}
       />
 
       {/* Four numbers, and each one is a sentence. A tile that says `19` and
           nothing else is a number somebody has to go and find the meaning of. */}
-      <div className="tiles">
+      <div {...stylex.props(sx.tiles)}>
         <Tile
           k="Where we are"
           v={refTime(now)}
@@ -238,7 +225,7 @@ export function Overview() {
           </>
         }
       >
-        <div className="map card" ref={mapBox}>
+        <div {...stylex.props(ui.card, sx.map)} ref={mapBox}>
           {layout && (
             <Topology
               trace={trace}
@@ -263,9 +250,9 @@ export function Overview() {
             actually waiting on, and the only ones worth making faster.
           </>
         }
-        aside={<button className="btn" onClick={() => go('film')}>Watch it instead</button>}
+        aside={<button {...stylex.props(ui.btn)} onClick={() => go('film')}>Watch it instead</button>}
       >
-        <div className="calls">
+        <div {...stylex.props(sx.calls)}>
           <Spans
             trace={trace}
             theme={theme}
@@ -293,32 +280,32 @@ export function Overview() {
             )}
           </>
         }
-        aside={<button className="btn" onClick={() => go('usage')}>Charts over time</button>}
+        aside={<button {...stylex.props(ui.btn)} onClick={() => go('usage')}>Charts over time</button>}
       >
         <Panel flush>
-          <div className="scroll">
+          <div {...stylex.props(sx.scroll)}>
             <Table>
               <thead>
                 <tr>
                   <Th>Node</Th>
                   <Th>Zone</Th>
                   <Th>Serves</Th>
-                  <Th className="r">In flight</Th>
-                  <Th className="r">Queued</Th>
+                  <Th style={sx.right}>In flight</Th>
+                  <Th style={sx.right}>Queued</Th>
                   <Th>Doing</Th>
                 </tr>
               </thead>
               <tbody>
                 {(frame?.nodes ?? []).map((m) => (
                   <tr key={m.name}>
-                    <Td className="id">{m.name}</Td>
-                    <Td className="muted">{m.zone}</Td>
-                    <Td className="muted">{m.serves.join(', ') || '—'}</Td>
-                    <Td num>{m.inflight}</Td>
-                    <Td num>{m.queued}</Td>
+                    <Td style={sx.id}>{m.name}</Td>
+                    <Td style={ui.muted}>{m.zone}</Td>
+                    <Td style={ui.muted}>{m.serves.join(', ') || '—'}</Td>
+                    <Td num style={sx.right}>{m.inflight}</Td>
+                    <Td num style={sx.right}>{m.queued}</Td>
                     <Td>
-                      <span className={`state ${m.state}`}>{m.state}</span>
-                      {m.work.length > 0 && <span className="muted"> · {m.work[0].method}</span>}
+                      <span {...stylex.props(sx.state, STATE[m.state] ?? sx.alive)}>{m.state}</span>
+                      {m.work.length > 0 && <span {...stylex.props(ui.muted)}> · {m.work[0].method}</span>}
                     </Td>
                   </tr>
                 ))}
@@ -348,29 +335,30 @@ export function Overview() {
       >
         <Panel flush>
           {wrong.length ? (
-            <ul className="events">
+            <ul {...stylex.props(sx.events)}>
               {[...wrong].reverse().slice(0, 14).map((e, i) => (
-                <li key={i}>
+                <li key={i} {...stylex.props(i > 0 && sx.ruled)}>
                   <button
+                    {...stylex.props(sx.event)}
                     onClick={() => {
                       clock?.pause();
                       clock?.seek(Number(e.t ?? 0));
                     }}
                     title="move the clock to this moment"
                   >
-                    <span className="when mono">{refTime(Number(e.t ?? 0))}</span>
-                    <span className={`kind ${e.kind}`}>{e.kind}</span>
-                    <span className="said">{PLAIN[String(e.kind)] ?? 'something the trace records'}</span>
-                    {e.vm && <span className="who mono">{String(e.vm)}</span>}
+                    <span {...stylex.props(sx.when, ui.mono)}>{refTime(Number(e.t ?? 0))}</span>
+                    <span {...stylex.props(sx.kind, KIND[String(e.kind)])}>{e.kind}</span>
+                    <span {...stylex.props(ui.muted)}>{PLAIN[String(e.kind)] ?? 'something the trace records'}</span>
+                    {e.vm && <span {...stylex.props(sx.who, ui.mono)}>{String(e.vm)}</span>}
                   </button>
                 </li>
               ))}
             </ul>
           ) : (
-            <P className="pad muted">Nothing yet.</P>
+            <P style={[sx.pad, ui.muted]}>Nothing yet.</P>
           )}
           {wrong.length > 14 && (
-            <P className="pad muted">{wrong.length - 14} earlier ones, not listed.</P>
+            <P style={[sx.pad, ui.muted]}>{wrong.length - 14} earlier ones, not listed.</P>
           )}
         </Panel>
       </Step>
@@ -390,20 +378,21 @@ export function Overview() {
             <>There is no bill beside this trace, so there is no money to show.</>
           )
         }
-        aside={<button className="btn" onClick={() => go('cost')}>The full bill</button>}
+        aside={<button {...stylex.props(ui.btn)} onClick={() => go('cost')}>The full bill</button>}
       >
         {l && finalBuckets ? (
           <Panel>
-            <div className="money">
-              <div className="sum">
-                <div className="big">{money(l.cost, l.currency)}</div>
-                <P className="note">
-                  as at <span className="mono">{refTime(now)}</span> of {refTime(trace.duration)}
+            <div {...stylex.props(sx.money)}>
+              <div>
+                <div {...stylex.props(sx.big)}>{money(l.cost, l.currency)}</div>
+                <P style={sx.note}>
+                  as at <span {...stylex.props(ui.mono)}>{refTime(now)}</span> of {refTime(trace.duration)}
                 </P>
-                <div className="stack">
+                <div {...stylex.props(sx.stack)}>
                   {BUCKETS.map((b) => (
                     <i
                       key={b}
+                      {...stylex.props(sx.slice)}
                       style={{
                         width: `${(l.buckets[b] / Math.max(l.cost, 1e-9)) * 100}%`,
                         background: COLOUR[b],
@@ -411,23 +400,23 @@ export function Overview() {
                     />
                   ))}
                 </div>
-                <dl className="kv">
-                  {BUCKETS.map((b) => (
-                    <div key={b}>
-                      <dt>
-                        <i style={{ background: COLOUR[b] }} />
+                <dl {...stylex.props(sx.kv)}>
+                  {BUCKETS.map((b, i) => (
+                    <div key={b} {...stylex.props(sx.kvRow, i > 0 && sx.ruled)}>
+                      <dt {...stylex.props(sx.kvKey)}>
+                        <i {...stylex.props(sx.swatch)} style={{ background: COLOUR[b] }} />
                         {b}
                       </dt>
-                      <dd>{money(l.buckets[b], l.currency)}</dd>
+                      <dd {...stylex.props(sx.kvValue)}>{money(l.buckets[b], l.currency)}</dd>
                     </div>
                   ))}
-                  <div className="tot">
-                    <dt>Total</dt>
-                    <dd>{money(l.cost, l.currency)}</dd>
+                  <div {...stylex.props(sx.kvRow, sx.total)}>
+                    <dt {...stylex.props(sx.kvKey)}>Total</dt>
+                    <dd {...stylex.props(sx.kvValue)}>{money(l.cost, l.currency)}</dd>
                   </div>
                 </dl>
               </div>
-              <div className="curve">
+              <div>
                 <LineChart
                   series={[{ name: 'cost', color: COLOUR.capacity, pts: drawn }]}
                   duration={trace.duration}
@@ -438,7 +427,7 @@ export function Overview() {
                   unit={l.currency}
                   label="what this run had cost, over the run"
                 />
-                <P className="note">
+                <P style={sx.afterChart}>
                   {(() => {
                     // Against the *whole* run, not against what has accrued: the
                     // claim is about what the design fixed in advance, and that is
@@ -466,7 +455,7 @@ export function Overview() {
           </Panel>
         ) : (
           <Panel>
-            <P className="muted">
+            <P style={ui.muted}>
               Run <Code>losim bill</Code> next to this trace and this fills in — the viewer will
               not invent prices of its own.
             </P>
@@ -474,57 +463,142 @@ export function Overview() {
         )}
       </Step>
 
-      <style>{`
-        .tiles { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
-
-        /* The map and the call tree both draw into whatever room they are given,
-           so they are the two things on this page with a height of their own. */
-        .map { height: clamp(300px, 42vh, 480px); padding: 0; overflow: hidden; display: flex; }
-        .calls { display: flex; flex-direction: column; height: clamp(400px, 56vh, 660px); }
-
-        .scroll { overflow-x: auto; padding: 0 20px 8px; }
-        .pad { padding: 14px 20px; margin: 0; }
-        td.id, .id { font-family: var(--mono); font-weight: 500; }
-        th.r, td.n { text-align: right; font-variant-numeric: tabular-nums; }
-        td.n { font-family: var(--mono); }
-        .state { font-size: 11.5px; font-weight: 500; }
-        .state.alive { color: var(--text-2); }
-        .state.degraded { color: var(--warn); }
-        .state.frozen { color: #7c93a8; }
-        .state.dead, .state.reclaiming { color: var(--danger); }
-
-        .money { display: grid; gap: 24px; grid-template-columns: minmax(0, 260px) minmax(0, 1fr); align-items: start; }
-        @media (max-width: 900px) { .money { grid-template-columns: 1fr; } }
-        .big { font-size: 30px; font-weight: 500; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-        .note { margin: 4px 0 12px; font-size: 12.5px; color: var(--text-3); }
-        .curve .note { margin: 10px 0 0; }
-        .stack { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--surface-2); }
-        .stack i { display: block; height: 100%; }
-        .kv { margin: 12px 0 0; display: flex; flex-direction: column; }
-        .kv div { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; font-size: 13px; }
-        .kv div + div { border-top: 1px solid var(--border); }
-        .kv dt { display: flex; align-items: center; gap: 8px; color: var(--text-2); }
-        .kv dt i { width: 9px; height: 9px; border-radius: 2px; }
-        .kv dd { margin: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; }
-        .kv .tot { font-weight: 600; border-top: 2px solid var(--text) !important; margin-top: 4px; }
-
-        /* Every accident is a place on the clock, so every accident is a button. */
-        .events { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-        .events li + li { border-top: 1px solid var(--border); }
-        .events button {
-          display: flex; gap: 12px; align-items: baseline; width: 100%;
-          padding: 9px 20px; font: inherit; font-size: 13px; text-align: left;
-          background: none; border: 0; cursor: pointer; color: var(--text);
-        }
-        .events button:hover { background: var(--surface-2); }
-        .events .when { color: var(--text-3); width: 76px; flex: none; }
-        .events .kind { font-weight: 500; width: 108px; flex: none; }
-        .events .said { color: var(--text-2); }
-        .events .who { margin-left: auto; color: var(--text-3); font-size: 12px; }
-        .events .kind.kill, .events .kind.oom, .events .kind.disk_full, .events .kind.failed { color: var(--danger); }
-        .events .kind.retry, .events .kind.rpc_timeout, .events .kind.degrade, .events .kind.spot_notice { color: var(--warn); }
-        .events .kind.freeze, .events .kind.thaw { color: #7c93a8; }
-      `}</style>
     </>
   );
 }
+
+const sx = stylex.create({
+  step: { display: 'flex', flexDirection: 'column', gap: '12px' },
+  header: { display: 'flex', alignItems: 'flex-start', gap: '14px' },
+  /* Named apart from the table conventions on purpose: a bare `n` here would
+     also have matched every right-aligned number cell inside the section. */
+  count: {
+    flexGrow: 0,
+    flexShrink: 0,
+    width: '26px',
+    height: '26px',
+    borderRadius: '50%',
+    display: 'grid',
+    placeItems: 'center',
+    marginTop: '1px',
+    backgroundColor: chrome.accentSoft,
+    color: chrome.accent,
+    fontSize: '13px',
+    fontWeight: 600,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  question: { minWidth: 0 },
+  ask: { margin: 0, fontSize: '17px', fontWeight: 500, letterSpacing: '-0.01em' },
+  say: {
+    marginTop: '3px',
+    marginRight: 0,
+    marginBottom: 0,
+    marginLeft: 0,
+    fontSize: '13px',
+    color: chrome.text3,
+    maxWidth: '68ch',
+  },
+  aside: { marginLeft: 'auto', flexGrow: 0, flexShrink: 0, display: 'flex', gap: '8px', alignItems: 'center' },
+
+  tiles: { display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' },
+  /* The map and the call tree both draw into whatever room they are given, so
+     they are the two things on this page with a height of their own. */
+  map: { height: 'clamp(300px, 42vh, 480px)', padding: 0, overflow: 'hidden', display: 'flex' },
+  calls: { display: 'flex', flexDirection: 'column', height: 'clamp(400px, 56vh, 660px)' },
+
+  scroll: { overflowX: 'auto', paddingTop: 0, paddingInline: '20px', paddingBottom: '8px' },
+  pad: { marginBlock: 0, paddingBlock: '14px', paddingInline: '20px' },
+  id: { fontFamily: font.mono, fontWeight: 500 },
+  right: { textAlign: 'right', fontVariantNumeric: 'tabular-nums' },
+
+  state: { fontSize: '11.5px', fontWeight: 500 },
+  alive: { color: chrome.text2 },
+  degraded: { color: state.degradedInk },
+  frozen: { color: state.frozenInk },
+  dead: { color: chrome.danger },
+
+  money: {
+    display: 'grid',
+    gap: '24px',
+    gridTemplateColumns: {
+      default: 'minmax(0, 260px) minmax(0, 1fr)',
+      '@media (max-width: 900px)': '1fr',
+    },
+    alignItems: 'start',
+  },
+  big: { fontSize: '30px', fontWeight: 500, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' },
+  note: { marginTop: '4px', marginRight: 0, marginBottom: '12px', marginLeft: 0, fontSize: '12.5px', color: chrome.text3 },
+  /** The same note, under the chart instead of over the stack. */
+  afterChart: { marginTop: '10px', marginRight: 0, marginBottom: 0, marginLeft: 0, fontSize: '12.5px', color: chrome.text3 },
+  stack: { display: 'flex', height: '10px', borderRadius: '5px', overflow: 'hidden', backgroundColor: chrome.surface2 },
+  slice: { display: 'block', height: '100%' },
+  kv: { marginTop: '12px', marginRight: 0, marginBottom: 0, marginLeft: 0, display: 'flex', flexDirection: 'column' },
+  kvRow: { display: 'flex', justifyContent: 'space-between', gap: '12px', paddingBlock: '7px', fontSize: '13px' },
+  kvKey: { display: 'flex', alignItems: 'center', gap: '8px', color: chrome.text2 },
+  kvValue: { margin: 0, fontFamily: font.mono, fontVariantNumeric: 'tabular-nums' },
+  swatch: { width: '9px', height: '9px', borderRadius: '2px' },
+  /**
+   * What `+ div` used to draw. The row knows whether it is the first one, which
+   * is the same fact the sibling selector was reading — and the total's heavier
+   * rule no longer needs `!important` to win, because nothing is competing.
+   */
+  ruled: { borderTopWidth: '1px', borderTopStyle: 'solid', borderTopColor: chrome.border },
+  total: {
+    fontWeight: 600,
+    borderTopWidth: '2px',
+    borderTopStyle: 'solid',
+    borderTopColor: chrome.text,
+    marginTop: '4px',
+  },
+
+  /* Every accident is a place on the clock, so every accident is a button. */
+  events: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' },
+  event: {
+    display: 'flex',
+    gap: '12px',
+    alignItems: 'baseline',
+    width: '100%',
+    paddingBlock: '9px',
+    paddingInline: '20px',
+    font: 'inherit',
+    fontSize: '13px',
+    textAlign: 'left',
+    backgroundColor: { default: 'transparent', ':hover': chrome.surface2 },
+    borderWidth: 0,
+    cursor: 'pointer',
+    color: chrome.text,
+  },
+  when: { color: chrome.text3, width: '76px', flexGrow: 0, flexShrink: 0 },
+  kind: { fontWeight: 500, width: '108px', flexGrow: 0, flexShrink: 0 },
+  who: { marginLeft: 'auto', color: chrome.text3, fontSize: '12px' },
+  bad: { color: chrome.danger },
+  warn: { color: chrome.warn },
+  cool: { color: state.frozenInk },
+});
+
+/**
+ * The five node states, and the ten event kinds, as styles rather than as class
+ * names built from the value. `state ${m.state}` was a string the CSS had to
+ * agree with; this is a lookup that fails visibly when the trace grows a state
+ * nobody has styled yet.
+ */
+const STATE: Record<string, stylex.StyleXStyles> = {
+  alive: sx.alive,
+  degraded: sx.degraded,
+  frozen: sx.frozen,
+  dead: sx.dead,
+  reclaiming: sx.dead,
+};
+
+const KIND: Record<string, stylex.StyleXStyles> = {
+  kill: sx.bad,
+  oom: sx.bad,
+  disk_full: sx.bad,
+  failed: sx.bad,
+  retry: sx.warn,
+  rpc_timeout: sx.warn,
+  degrade: sx.warn,
+  spot_notice: sx.warn,
+  freeze: sx.cool,
+  thaw: sx.cool,
+};

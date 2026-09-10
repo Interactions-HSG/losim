@@ -9,6 +9,8 @@
  * in, and that a real navigation would unmount the clock every time you changed
  * tab.
  */
+import * as stylex from '@stylexjs/stylex';
+
 import { Cost } from '../components/console/Cost.tsx';
 import { Simulations } from '../components/console/Simulations.tsx';
 import { FilmView } from '../components/console/FilmView.tsx';
@@ -36,7 +38,7 @@ function View() {
           there is a lab behind this page at all — and hidden rather than
           unmounted, so a run started here goes on being followed while you look
           at something else. */}
-      <div className="host" hidden={view !== 'simulations'}>
+      <div {...stylex.props(sx.host, view !== 'simulations' && sx.away)} hidden={view !== 'simulations'}>
         <Simulations />
       </div>
 
@@ -45,11 +47,17 @@ function View() {
       {run && view === 'film' && <FilmView />}
       {run && view === 'usage' && <Usage />}
       {run && view === 'cost' && <Cost />}
-
-      <style>{`
-        .host { display: flex; flex-direction: column; gap: 20px; }
-        .host[hidden] { display: none; }
-      `}</style>
     </>
   );
 }
+
+const sx = stylex.create({
+  host: { display: 'flex', flexDirection: 'column', gap: '20px' },
+  /**
+   * `hidden` is still on the element, for anything reading the page rather than
+   * looking at it. The display rule is written beside it rather than as
+   * `.host[hidden]`, because StyleX has no attribute selectors — and a component
+   * that already knows why it is hidden does not need one to find out.
+   */
+  away: { display: 'none' },
+});

@@ -14,6 +14,7 @@
  * modelled, smoothed or filled in.
  */
 import { useMemo, useState } from 'react';
+import * as stylex from '@stylexjs/stylex';
 
 import { colourOf, LineChart, Legend, Spark, type Series } from './Chart.tsx';
 import { Head, Panel } from './Shell.tsx';
@@ -21,6 +22,8 @@ import { useConsole, useNow } from '../../lib/console.tsx';
 import { refTime } from '../../lib/playback.ts';
 import type { Trace } from '../../lib/trace.ts';
 import { A, Code, P, Table, Td, Th } from '../../lib/text.tsx';
+import { ui } from '../../lib/ui.stylex.ts';
+import { chrome, font } from '../../lib/tokens.stylex.ts';
 
 interface Metric {
   id: string;
@@ -128,7 +131,7 @@ export function Usage() {
       <>
         <Head title="Usage" sub="what each node was doing" />
         <Panel>
-          <P className="muted">
+          <P style={ui.muted}>
             This trace carries no channels — it was recorded with telemetry off. Run it again
             without <Code>--quiet</Code> and every node gets a line here.
           </P>
@@ -166,16 +169,21 @@ export function Usage() {
       />
 
       <Panel flush>
-        <div className="tools">
-          <span className="lb">Metric</span>
-          <div className="seg" role="group" aria-label="metric">
+        <div {...stylex.props(sx.tools)}>
+          <span {...stylex.props(sx.lb)}>Metric</span>
+          <div {...stylex.props(ui.seg)} role="group" aria-label="metric">
             {have.map((m) => (
-              <button key={m.id} aria-pressed={m.id === metric.id} onClick={() => setPick(m.id)}>
+              <button
+                key={m.id}
+                {...stylex.props(ui.segButton, m.id === metric.id && ui.segOn)}
+                aria-pressed={m.id === metric.id}
+                onClick={() => setPick(m.id)}
+              >
                 {m.label}
               </button>
             ))}
           </div>
-          <span className="note">{metric.note}</span>
+          <span {...stylex.props(sx.note)}>{metric.note}</span>
         </div>
         <LineChart
           series={series(metric)}
@@ -187,17 +195,17 @@ export function Usage() {
           unit={metric.unit}
           label={metric.label}
         />
-        <div className="pad">
+        <div {...stylex.props(sx.pad)}>
           <Legend keys={trace.nodes.map((m) => m.name)} colour={(k) => colourOf(trace.nodes.findIndex((m) => m.name === k))} />
         </div>
       </Panel>
 
-      <div className="grid">
+      <div {...stylex.props(sx.grid)}>
         {have
           .filter((m) => m.id !== metric.id)
           .map((m) => (
             <Panel key={m.id} title={m.label} note={m.unit || 'count'} flush
-                   actions={<button className="btn" onClick={() => setPick(m.id)}>Expand</button>}>
+                   actions={<button {...stylex.props(ui.btn)} onClick={() => setPick(m.id)}>Expand</button>}>
               <LineChart
                 series={series(m)}
                 duration={trace.duration}
@@ -213,15 +221,15 @@ export function Usage() {
       </div>
 
       <Panel title="Per node, up to the clock" note={`everything below counts only what has happened by ${refTime(now)}`} flush>
-        <div className="scroll">
+        <div {...stylex.props(sx.scroll)}>
           <Table>
             <thead>
               <tr>
                 <Th>Node</Th>
                 <Th>Instance</Th>
                 <Th>Zone</Th>
-                <Th className="r">{metric.label} now</Th>
-                <Th className="r">Peak so far</Th>
+                <Th style={sx.right}>{metric.label} now</Th>
+                <Th style={sx.right}>Peak so far</Th>
                 <Th>Shape so far</Th>
               </tr>
             </thead>
@@ -232,12 +240,12 @@ export function Usage() {
                 const value = pts.length ? pts[pts.length - 1][1] : 0;
                 return (
                   <tr key={mc.name}>
-                    <Td className="id">{mc.name}</Td>
+                    <Td style={sx.id}>{mc.name}</Td>
                     <Td>{mc.instance}</Td>
-                    <Td className="muted">{mc.zone}</Td>
-                    <Td num>{reading(value, metric)}</Td>
-                    <Td num>{reading(peak, metric)}</Td>
-                    <Td className="sp">
+                    <Td style={ui.muted}>{mc.zone}</Td>
+                    <Td num style={sx.right}>{reading(value, metric)}</Td>
+                    <Td num style={sx.right}>{reading(peak, metric)}</Td>
+                    <Td style={sx.sp}>
                       <Spark pts={pts} colour={colourOf(i)} max={tops.get(metric.id) ?? 1} />
                     </Td>
                   </tr>
@@ -248,18 +256,31 @@ export function Usage() {
         </div>
       </Panel>
 
-      <style>{`
-        .tools { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 0 20px 12px; }
-        .tools .lb { font-size: 12px; font-weight: 500; color: var(--text-3); }
-        .tools .note { font-size: 12.5px; color: var(--text-3); }
-        .pad { padding: 0 20px 16px; }
-        .grid { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
-        .scroll { overflow-x: auto; padding: 0 20px 8px; }
-        td.id, .id { font-family: var(--mono); font-weight: 500; }
-        th.r, td.n { text-align: right; font-variant-numeric: tabular-nums; }
-        td.n { font-family: var(--mono); }
-        td.sp { width: 130px; }
-      `}</style>
     </>
   );
 }
+
+const sx = stylex.create({
+  tools: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '14px',
+    flexWrap: 'wrap',
+    paddingTop: 0,
+    paddingInline: '20px',
+    paddingBottom: '12px',
+  },
+  lb: { fontSize: '12px', fontWeight: 500, color: chrome.text3 },
+  note: { fontSize: '12.5px', color: chrome.text3 },
+  pad: { paddingTop: 0, paddingInline: '20px', paddingBottom: '16px' },
+  grid: {
+    display: 'grid',
+    gap: '20px',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+  },
+  scroll: { overflowX: 'auto', paddingTop: 0, paddingInline: '20px', paddingBottom: '8px' },
+  id: { fontFamily: font.mono, fontWeight: 500 },
+  /** Numbers and the headings over them, on the same edge. `Td num` does the rest. */
+  right: { textAlign: 'right', fontVariantNumeric: 'tabular-nums' },
+  sp: { width: '130px' },
+});
