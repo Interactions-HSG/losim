@@ -34,7 +34,7 @@
  * bug this can see.
  */
 import { execFileSync } from 'node:child_process';
-import { readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { closeSync, openSync, readFileSync, readSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -142,13 +142,37 @@ try {
 const mine = new Set(
   index.filter((r) => r.from !== 'gallery').map((r) => `${r.name}.json`),
 );
+
+/**
+ * Is this trace a model of something bigger?
+ *
+ * From the head of the file rather than by parsing it: the index does not
+ * record it, and a scaled run has to be in the sample whether or not the
+ * gallery's every-fifth happens to land on one — otherwise the projection check
+ * below is a check that can pass while checking nothing. `meta.scale` opens
+ * around byte 110, so two kilobytes is a decision made without reading a
+ * trace that may be tens of megabytes.
+ */
+function isModel(file: string): boolean {
+  const fd = openSync(join(TRACES, file), 'r');
+  try {
+    const head = Buffer.alloc(2048);
+    const n = readSync(fd, head, 0, head.length, 0);
+    return /"scale"\s*:\s*\{/.test(head.subarray(0, n).toString('utf8'));
+  } finally {
+    closeSync(fd);
+  }
+}
+
 const files = readdirSync(TRACES)
   .filter((f) => f.endsWith('.json') && !f.endsWith('.bill.json') && f !== 'index.json')
   .filter((f) => !only || f.includes(only))
   // Yours and the suite always, and a fifth of the gallery. The gallery is
   // eighty-one variations on a handful of designs; checking every one of them
   // turns a two-second check into a minute-long one and finds the same bugs.
-  .filter((f, i) => all || only || mine.has(f) || i % 5 === 0);
+  // Every scaled run as well, whichever fifth it falls in: a model is the one
+  // kind of run whose whole answer is in a panel rather than on a chart.
+  .filter((f, i) => all || only || mine.has(f) || i % 5 === 0 || isModel(f));
 
 if (!files.length) {
   // An index with nothing in it is what a fresh export looks like — a build
@@ -226,6 +250,8 @@ function unbalanced(html: string): string | null {
 let bad = 0;
 let renders = 0;
 let charts = 0;
+/** How many scaled runs had their projections held against the markup. */
+let models = 0;
 const say = (m: string) => {
   console.log(`  !! ${m}`);
   bad++;
@@ -251,6 +277,103 @@ for (const f of ['components/Film.tsx', 'components/console/FilmView.tsx']) {
   const src = readFileSync(join(ROOT, f), 'utf8');
   for (const m of src.matchAll(/searchParams\.(?:set|delete)\(\s*'([^']+)'/g)) {
     if (OWNED.has(m[1]!)) say(`${f} writes ?${m[1]}=, which the console owns`);
+  }
+}
+
+/*
+ * Does a scaled run's projection reach the screen?
+ *
+ * A model executes a workload small enough to fit on the machine in front of
+ * you and reports the one it stands for. Every chart on the usage page draws the
+ * first, because that is what the trace's channels hold — so if the panel that
+ * carries the second renders nothing, the page is left saying `0.04` about a
+ * cluster declared at forty-eight thousand frames, and every render check above
+ * passes while it does. That was the state this feature shipped in, and no
+ * amount of checking that a view does not throw would have found it.
+ *
+ * Three questions, and the second is the one with teeth. **Is the panel there?**
+ * **Is the value in it the projected one and not the measured one?** — a panel
+ * that renders the observed figure under a "at full size" heading is worse than
+ * no panel. And **does a number carry its unit?**, which is where this started.
+ *
+ * Drawn at the end of the clock, once: a projection does not accrue, so there is
+ * no instant of the run at which it is a different number.
+ */
+{
+  const { size } = await load('lib/units.js');
+  const scaled = files.filter(isModel);
+  models = scaled.length;
+  if (!models) {
+    say('no scaled trace among those checked, so nothing below was actually answered');
+  }
+  for (const file of scaled) {
+    const run = open(file);
+    const model = run.trace.scaled!;
+    const clock = new Clock(run.trace.duration);
+    clock.seek(run.trace.duration);
+    const draw = (view: View, C: unknown) =>
+      renderToStaticMarkup(
+        createElement(
+          ConsoleContext.Provider,
+          { value: state(run, clock, view) },
+          createElement(C as () => ReactNode),
+        ),
+      );
+    const usage = draw('usage', Usage);
+    const flat = usage.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+
+    if (!flat.includes(model.fullUnits.toLocaleString())) {
+      say(`${run.name}/usage: nothing on the page says what size it is a model of`);
+    }
+    for (const p of model.projections) {
+      if (!flat.includes(p.resource)) {
+        say(`${run.name}/usage: ${p.resource} was fitted and does not appear`);
+        continue;
+      }
+      // The condition, verbatim. A number that dropped the assumption it was
+      // produced under is a different claim from the one the engine made.
+      const why = p.assumed ?? p.refused;
+      if (why && !flat.includes(why.slice(0, 40))) {
+        say(`${run.name}/usage: ${p.resource} is shown without the condition it came with`);
+      }
+      if (p.projected === null) continue;
+      // Formatted through the same function the panel formats with, because the
+      // question is whether the value arrived, not whether it can be written
+      // down — the same claim `data-reveal` makes about a face.
+      const want = p.resource.endsWith('Mb') ? size(p.projected) : null;
+      if (want && !flat.includes(want)) {
+        say(`${run.name}/usage: ${p.resource} projects ${want} and no cell says it`);
+      }
+      // And it must not be the small number wearing the big number's heading.
+      const observed = p.resource.endsWith('Mb') ? size(p.observed) : null;
+      if (want && observed && want === observed && p.projected !== p.observed) {
+        say(`${run.name}/usage: ${p.resource} reads the same at both sizes — the unit is too coarse to tell them apart`);
+      }
+    }
+
+    // The unit, at the head of the axis rather than only in the `aria-label`,
+    // which is where it was for a release: available to a screen reader and to
+    // nobody looking at the page. Only where there are charts to put one on — a
+    // run recorded with telemetry off has no channels and draws none, and its
+    // projections are still owed.
+    if (run.trace.channelNames().length) {
+      const units = [...usage.matchAll(/<text[^>]*text-anchor="end"[^>]*>([A-Z]?B|%)<\/text>/g)];
+      if (!units.length) say(`${run.name}/usage: no chart says what its numbers are counted in`);
+    }
+
+    if (run.bill?.projected) {
+      const cost = draw('cost', Cost).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+      if (!cost.includes(String(run.bill.projected.cost.toFixed(2)))
+          && !cost.includes(String(run.bill.projected.cost.toFixed(4)))) {
+        say(`${run.name}/cost: the bill carries a projected total and the page does not show it`);
+      }
+      for (const [what] of Object.entries(run.bill.projected.unpriceable ?? {})) {
+        if (!cost.includes(what)) {
+          say(`${run.name}/cost: "${what}" is missing from the projected bill with no word about why`);
+        }
+      }
+    }
+    clock.dispose();
   }
 }
 
@@ -313,7 +436,8 @@ for (const file of files) {
 
 console.log(
   `\n${files.length} traces${all ? '' : ' (yours, the suite, and a fifth of the gallery — --all for every one)'}`
-  + ` · ${renders} renders · ${charts} axis labels held still`,
+  + ` · ${renders} renders · ${charts} axis labels held still`
+  + ` · ${models} of them models, projections held against the markup`,
 );
 if (bad) {
   console.error(`\n${bad} problem(s)`);

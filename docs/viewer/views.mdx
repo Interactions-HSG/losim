@@ -173,6 +173,66 @@ shape as it develops.
 
 ---
 
+## Usage, and what a scaled run shows there
+
+*The Usage page. Also section 3 of Overview, in miniature.*
+
+Every line on Usage is a channel the simulator recorded while it ran, at the rate it
+recorded it. Each chart's y axis carries its unit at the head, and a size is written in
+whatever unit it has grown into — a run that moves 1,270 MB says `1.24 GB`, and the
+ruler, the readings under it and the peaks in the table are all in that one unit so
+they can be compared with each other.
+
+A **scaled** run is a model. It executes a workload small enough to fit on the machine
+in front of you and reports the one it stands for, so every chart on the page draws the
+small run — that is what a chart is. The figures for the size it is a model of are in
+two panels of their own:
+
+| | |
+|---|---|
+| **At full size** | one row per resource: what the probe measured, what the law says at full size, the band around it, and what the law is a function of |
+| **At full size, node by node** | the same question asked of one machine at a time, beside the memory and disk that machine would really have |
+
+Three things on those panels are worth knowing how to read:
+
+<Columns cols={2}>
+  <Card title="The band" icon="arrows-left-right">
+    Written `×÷2.14`, and multiplicative: the claim is that the true figure lies
+    between the projection divided by that and multiplied by it. A resource with no
+    band at all says `exact`. A wide band is not a defect — it is the engine
+    reporting how far its own exponent moved between independent runs of the same
+    workload.
+  </Card>
+  <Card title="The condition" icon="circle-question">
+    A row followed by an `assuming` line was produced under a stated supposition —
+    that the upper half of a bent ladder is the half that holds at scale, say. The
+    condition is the part you are entitled to disagree with, and it is printed
+    rather than folded into the number.
+  </Card>
+  <Card title="assembled per node" icon="layer-group">
+    A peak or a total marked this way was combined from the per-machine laws rather
+    than fitted to the cluster figure. One machine runs out of memory, not the
+    average of them, so `max` has to be taken **after** projecting.
+  </Card>
+  <Card title="not projected" icon="ban">
+    The engine declining to answer, with its reason beside it. Rare — a ladder has
+    to come back empty in a way that has no *above* to fit before it happens — and
+    it is never a zero.
+  </Card>
+</Columns>
+
+<Warning>
+**The viewer computes none of this.** Every projection, band, condition and per-node
+figure is read out of the trace exactly as the simulator wrote it. Two programs with an
+opinion about one number will eventually disagree, and the viewer is not one of them.
+</Warning>
+
+The Cost page carries the matching pair: the bill for what ran, and — under **At full
+size** — the same design priced over the projected quantities at the same rates. That
+one is a total rather than a curve, because there is no clock to accrue it over.
+
+---
+
 ## Ledger
 
 <div id="the-ledger" />
