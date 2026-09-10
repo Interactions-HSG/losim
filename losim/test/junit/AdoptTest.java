@@ -3,8 +3,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import losim.cli.Adopt;
-import losim.cli.Scan;
+import dissaly.cli.Adopt;
+import dissaly.cli.Scan;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -105,9 +105,9 @@ class AdoptTest {
         Scan s = scaled();
         // Both halves, because a project converted in only one of them is the
         // ordinary half-done state and the report has to name what is left.
-        assertTrue(saw(s, Scan.Kind.REFUSED, "implements losim.api.Job"),
+        assertTrue(saw(s, Scan.Kind.REFUSED, "implements dissaly.api.Job"),
                 "a type that is gone is a project that will not compile, not a hint");
-        assertTrue(saw(s, Scan.Kind.REFUSED, "losim.api.Cluster"),
+        assertTrue(saw(s, Scan.Kind.REFUSED, "dissaly.api.Cluster"),
                 "and what the job was handed is gone with it");
         assertTrue(saw(s, Scan.Kind.REFUSED, "job: is not read any more"),
                 "the key that named it is gone too, and the file says so before javac does");
@@ -116,7 +116,7 @@ class AdoptTest {
         // running at all, so nothing here may come back as merely worth doing —
         // that heading is for a run that happens and is less than it could be.
         assertTrue(s.of(Scan.Kind.MISSING).stream()
-                        .noneMatch(f -> String.valueOf(f.what()).contains("losim.api")),
+                        .noneMatch(f -> String.valueOf(f.what()).contains("dissaly.api")),
                 "a deleted type is refused, never suggested");
     }
 

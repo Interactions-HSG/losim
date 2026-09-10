@@ -5,12 +5,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-import losim.scale.Fit;
-import losim.scale.Laws;
-import losim.scale.Plans;
-import losim.scale.Probe;
-import losim.scale.ScalePlan;
-import losim.trace.Json;
+import dissaly.scale.Fit;
+import dissaly.scale.Laws;
+import dissaly.scale.Plans;
+import dissaly.scale.Probe;
+import dissaly.scale.ScalePlan;
+import dissaly.trace.Json;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

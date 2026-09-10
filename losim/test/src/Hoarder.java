@@ -1,7 +1,7 @@
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import losim.t.Chunk;
-import losim.t.Counts;
+import dissaly.t.Chunk;
+import dissaly.t.Counts;
 
 /**
  * A worker that keeps its state where every other worker can reach it.

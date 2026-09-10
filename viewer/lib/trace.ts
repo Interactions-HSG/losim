@@ -47,11 +47,11 @@ export interface Span {
 /**
  * What losim's own call into the system is called in a span label.
  *
- * gRPC writes `losim.Job/Run`; the trace writes every method dotted, so this is
+ * gRPC writes `dissaly.Job/Run`; the trace writes every method dotted, so this is
  * the dotted form. The one string in the viewer that knows a name from losim's
  * own schema — everything else here is the assignment's.
  */
-export const RUN = 'losim.Job.Run';
+export const RUN = 'dissaly.Job.Run';
 
 export interface TraceEvent {
   kind?: string;
@@ -383,7 +383,7 @@ export class Trace {
    * How long the *simulation* took — which is what the bill was priced against.
    *
    * Distinct from `duration`, and the distinction matters wherever money is
-   * involved: capacity is billed for the period `losim.Job/Run` was open, not
+   * involved: capacity is billed for the period `dissaly.Job/Run` was open, not
    * for the extra moment the trace happens to carry after it.
    */
   get billedRefMs(): number {

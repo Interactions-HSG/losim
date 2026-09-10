@@ -1,5 +1,5 @@
-import losim.t.Chunk;
-import losim.t.Counts;
+import dissaly.t.Chunk;
+import dissaly.t.Counts;
 
 /**
  * A worker holding another machine's service directly.

@@ -18,7 +18,7 @@ public final class T2 {
         var calls = e.of("rpc_call");
         var starts = e.of("handler_start");
         var ends = e.of("handler_end");
-        // Two calls the system made, and three handlers: losim.Job/Run is the third,
+        // Two calls the system made, and three handlers: dissaly.Job/Run is the third,
         // because the thing that starts the work is a service like any other. It
         // opens no rpc_call, because nobody in the system called it — losim did,
         // from outside, and charged the call to nobody.

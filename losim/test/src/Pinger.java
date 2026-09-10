@@ -1,6 +1,6 @@
 import java.util.concurrent.atomic.AtomicInteger;
-import losim.api.Losim;
-import losim.t.Ping;
+import dissaly.api.Dissaly;
+import dissaly.t.Ping;
 
 /**
  * A service that counts how many times it was actually called.
@@ -16,7 +16,7 @@ public final class Pinger extends VolleyBase {
 
     @Override protected void hit(Ping p) {
         int n = HITS.incrementAndGet();
-        Losim.current().reveal("seq", p.getSeq());
+        Dissaly.current().reveal("seq", p.getSeq());
         if (n <= failFirst)
             throw new IllegalStateException("not this time (attempt " + n + ")");
     }

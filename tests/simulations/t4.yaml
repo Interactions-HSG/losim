@@ -3,7 +3,7 @@
 seed: 1
 
 nodes:
-  umpire: { instance: m5.large, zone: eu-central-1a, runs: { losim.Job: tests/systems/Rally.java } }
+  umpire: { instance: m5.large, zone: eu-central-1a, runs: { dissaly.Job: tests/systems/Rally.java } }
   left:   { instance: m5.large, zone: eu-central-1a, runs: { Volley: tests/systems/Volleyer.java } }
   right:  { instance: m5.large, zone: eu-central-1a, runs: { Volley: tests/systems/Volleyer.java } }
 

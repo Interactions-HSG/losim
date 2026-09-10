@@ -1,13 +1,13 @@
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import losim.t.Chunk;
-import losim.t.Counts;
+import dissaly.t.Chunk;
+import dissaly.t.Counts;
 
 /**
  * A worker that spills to a real disk rather than to the modelled one.
  *
- * <p>losim accounts disk through {@code Losim.current().wroteDisk(n)} and caps it per
+ * <p>losim accounts disk through {@code Dissaly.current().wroteDisk(n)} and caps it per
  * machine, which is how a machine that fills up says so. These bytes are invisible to
  * the cap, to the series and to every projection of either, and they are on the host,
  * outside the one machine everything is meant to happen on.

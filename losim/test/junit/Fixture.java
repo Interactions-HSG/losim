@@ -8,12 +8,12 @@ import java.util.stream.Stream;
 /**
  * A real lab, built once per test class, torn down after.
  *
- * <p>{@link losim.cli.Lab}, {@link losim.cli.Palette} and {@link losim.cli.Experiments}
+ * <p>{@link dissaly.cli.Lab}, {@link dissaly.cli.Palette} and {@link dissaly.cli.Experiments}
  * are all orchestration over real subprocesses — protoc, javac, a forked
  * simulation JVM — so testing them against a fixture of pre-baked classes would
  * be testing something else. This builds the smallest lab that has one of every
- * case {@link losim.cli.Palette} has to tell apart: a class answering to
- * {@code losim.Job}, a service with rpcs declared safe to retry, an abstract base
+ * case {@link dissaly.cli.Palette} has to tell apart: a class answering to
+ * {@code dissaly.Job}, a service with rpcs declared safe to retry, an abstract base
  * nothing can run, a service nested where no path reaches it, and a class that is
  * none of those.
  *
@@ -31,7 +31,7 @@ final class Fixture {
               master:
                 instance: m5.large
                 zone: eu-central-1a
-                runs: { losim.Job: src/WordCountJob.java }
+                runs: { dissaly.Job: src/WordCountJob.java }
               workers:
                 instance: c5.large
                 zone: eu-central-1a
@@ -66,7 +66,7 @@ final class Fixture {
         // writes the marker file `Palette.of` must never cause to appear.
         String markerPath = marker(root).toAbsolutePath().toString().replace("\\", "\\\\");
         Files.writeString(root.resolve("src/NoisyJob.java"), """
-                public final class NoisyJob extends losim.pb.JobGrpc.JobImplBase {
+                public final class NoisyJob extends dissaly.pb.JobGrpc.JobImplBase {
                     static {
                         try {
                             java.nio.file.Files.writeString(java.nio.file.Path.of("%s"), "touched");
@@ -81,7 +81,7 @@ final class Fixture {
         // line that places Bundle — which serves nothing.
         Files.writeString(root.resolve("src/Bundle.java"), """
                 public final class Bundle {
-                    public static final class Inner extends losim.t.VolleyGrpc.VolleyImplBase { }
+                    public static final class Inner extends dissaly.t.VolleyGrpc.VolleyImplBase { }
                 }
                 """);
 
@@ -115,9 +115,9 @@ final class Fixture {
                 }
             }
         }
-        var said = new StringBuilder("losim=" + losim.Version.get() + "\n");
+        var said = new StringBuilder("losim=" + dissaly.Version.get() + "\n");
         said.append("classpath=").append(cp).append('\n');
-        String platform = losim.cli.Lab.platform();
+        String platform = dissaly.cli.Lab.platform();
         for (String tool : new String[] {"protoc", "protoc-gen-grpc-java"}) {
             Path from = Path.of("vendor/bin", tool + "-" + platform);
             // An unsupported platform: `run` says so itself, and says it before it
@@ -125,7 +125,7 @@ final class Fixture {
             if (!Files.isExecutable(from)) continue;
             said.append(tool).append('=').append(from.toAbsolutePath()).append('\n');
         }
-        Path file = root.resolve(losim.cli.Lab.TOOLCHAIN);
+        Path file = root.resolve(dissaly.cli.Lab.TOOLCHAIN);
         Files.createDirectories(file.getParent());
         Files.writeString(file, said.toString());
     }

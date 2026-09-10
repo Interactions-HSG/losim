@@ -1,6 +1,6 @@
 import lab.pb.Chunk;
 import lab.pb.Counts;
-import losim.api.Losim;
+import dissaly.api.Dissaly;
 
 /**
  * The same combiner, watched a thousand times harder.
@@ -22,7 +22,7 @@ public final class Chatty extends Combiner {
 
     @Override protected Counts map(Chunk c) {
         Counts out = super.map(c);
-        var ctx = Losim.current();
+        var ctx = Dissaly.current();
         for (int i = 0; i < REVEALS; i++) ctx.reveal("chatter", i);
         return out;
     }

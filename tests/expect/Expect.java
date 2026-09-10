@@ -1,7 +1,7 @@
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import losim.trace.JsonReader;
+import dissaly.trace.JsonReader;
 
 /**
  * What a case asserts against: the trace, as anything downstream would read it.

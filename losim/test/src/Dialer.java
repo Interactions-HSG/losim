@@ -1,6 +1,6 @@
 import io.grpc.inprocess.InProcessChannelBuilder;
-import losim.t.Chunk;
-import losim.t.Counts;
+import dissaly.t.Chunk;
+import dissaly.t.Counts;
 
 /**
  * A worker that opens its own channel.

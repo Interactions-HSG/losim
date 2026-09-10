@@ -147,7 +147,7 @@ tasks.named<Jar>("jar") {
         attributes(
             "Implementation-Title" to "losim",
             "Implementation-Version" to version,
-            "Main-Class" to "losim.cli.Main",
+            "Main-Class" to "dissaly.cli.Main",
         )
     }
 }

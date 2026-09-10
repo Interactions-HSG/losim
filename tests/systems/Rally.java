@@ -4,11 +4,11 @@ import java.util.concurrent.TimeUnit;
 import lab.pb.Empty;
 import lab.pb.Ping;
 import lab.pb.VolleyGrpc;
-import losim.api.Losim;
-import losim.pb.Input;
-import losim.pb.JobGrpc;
-import losim.pb.Result;
-import losim.pb.Workload;
+import dissaly.api.Dissaly;
+import dissaly.pb.Input;
+import dissaly.pb.JobGrpc;
+import dissaly.pb.Result;
+import dissaly.pb.Workload;
 
 /** Five rallies, each way, on async stubs — so the caller never waits for one. */
 public final class Rally extends JobGrpc.JobImplBase {
@@ -21,7 +21,7 @@ public final class Rally extends JobGrpc.JobImplBase {
     }
 
     @Override public void run(Workload work, StreamObserver<Result> out) {
-        var here = Losim.current();
+        var here = Dissaly.current();
         var left = VolleyGrpc.newStub(here.channelTo("left"));
         var right = VolleyGrpc.newStub(here.channelTo("right"));
         // One rally each way first, awaited: the first call through a channel loads

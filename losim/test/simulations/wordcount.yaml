@@ -6,7 +6,7 @@ seed: 7
 
 nodes:
   master:
-    runs: { losim.Job: losim/test/src/WordCountJob.java }
+    runs: { dissaly.Job: losim/test/src/WordCountJob.java }
     instance: m5.large
     zone: eu-central-1a
 

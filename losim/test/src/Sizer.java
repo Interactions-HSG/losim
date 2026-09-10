@@ -1,8 +1,8 @@
 import io.grpc.stub.StreamObserver;
-import losim.pb.Input;
-import losim.pb.JobGrpc;
-import losim.pb.Result;
-import losim.pb.Workload;
+import dissaly.pb.Input;
+import dissaly.pb.JobGrpc;
+import dissaly.pb.Result;
+import dissaly.pb.Workload;
 
 /**
  * A Job that does nothing but say what it was handed.

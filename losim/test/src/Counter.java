@@ -1,9 +1,9 @@
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import losim.api.Losim;
-import losim.t.Chunk;
-import losim.t.Counts;
+import dissaly.api.Dissaly;
+import dissaly.t.Chunk;
+import dissaly.t.Counts;
 
 /**
  * A worker that maps cheaply and reduces by accumulating — which is what kills it.
@@ -13,7 +13,7 @@ import losim.t.Counts;
  * memory for the same reason a real one would, in this code.
  *
  * <p>A no-argument constructor, because losim builds a fresh instance when a
- * machine restarts. Whatever it needs to know, it asks {@code Losim.current()}.
+ * machine restarts. Whatever it needs to know, it asks {@code Dissaly.current()}.
  */
 public final class Counter extends WorkerBase {
 
@@ -23,8 +23,8 @@ public final class Counter extends WorkerBase {
     @Override protected Counts map(Chunk c) {
         var out = new HashMap<String, Integer>();
         for (String word : c.getText().split("\\s+")) out.merge(word, 1, Integer::sum);
-        Losim.current().units(c.getLines());
-        Losim.current().reveal("keys", out.size());
+        Dissaly.current().units(c.getLines());
+        Dissaly.current().reveal("keys", out.size());
         return Counts.newBuilder().putAllCounts(out).build();
     }
 
@@ -33,8 +33,8 @@ public final class Counter extends WorkerBase {
             holding.merge(k, v, Integer::sum);
             ballast.computeIfAbsent(k, x -> new long[180_000]);      // the bucket's payload
         });
-        Losim.current().wroteDisk(holding.size() * 350_000L);
-        Losim.current().reveal("distinctKeys", holding.size());
+        Dissaly.current().wroteDisk(holding.size() * 350_000L);
+        Dissaly.current().reveal("distinctKeys", holding.size());
         return Counts.newBuilder().putAllCounts(holding).build();
     }
 }

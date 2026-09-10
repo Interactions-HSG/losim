@@ -1,7 +1,7 @@
 import java.io.IOException;
 import java.net.Socket;
-import losim.t.Chunk;
-import losim.t.Counts;
+import dissaly.t.Chunk;
+import dissaly.t.Counts;
 
 /**
  * A worker that opens a socket.

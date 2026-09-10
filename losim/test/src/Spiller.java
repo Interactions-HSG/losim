@@ -1,9 +1,9 @@
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import losim.api.Losim;
-import losim.t.Chunk;
-import losim.t.Counts;
+import dissaly.api.Dissaly;
+import dissaly.t.Chunk;
+import dissaly.t.Counts;
 
 /**
  * The same accumulator, except that it spills to disk above a key count.
@@ -39,10 +39,10 @@ public final class Spiller extends WorkerBase {
             if (payload.size() < keepInMemory) payload.computeIfAbsent(word, k -> new long[PAYLOAD_PER_KEY]);
             else spilled += PAYLOAD_PER_KEY * 8L;
         }
-        Losim.current().units(c.getLines());
-        Losim.current().wroteDisk(c.getText().length());
-        Losim.current().reveal("distinctKeys", holding.size());
-        Losim.current().reveal("spilledBytes", spilled);
+        Dissaly.current().units(c.getLines());
+        Dissaly.current().wroteDisk(c.getText().length());
+        Dissaly.current().reveal("distinctKeys", holding.size());
+        Dissaly.current().reveal("spilledBytes", spilled);
         return Counts.newBuilder().putAllCounts(chunk).build();
     }
 

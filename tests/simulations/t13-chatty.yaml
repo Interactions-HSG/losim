@@ -7,7 +7,7 @@ seed: 13
 scale: 6
 
 nodes:
-  master: { instance: m5.2xlarge, zone: eu-central-1a, runs: { losim.Job: tests/systems/Elastic.java } }
+  master: { instance: m5.2xlarge, zone: eu-central-1a, runs: { dissaly.Job: tests/systems/Elastic.java } }
   workers:
     count: 4
     prefix: w

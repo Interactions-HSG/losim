@@ -1,9 +1,9 @@
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.Map;
-import losim.runtime.Simulate;
-import losim.sim.Loader;
-import losim.sim.Yaml;
+import dissaly.runtime.Simulate;
+import dissaly.sim.Loader;
+import dissaly.sim.Yaml;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -29,7 +29,7 @@ class RpcFailuresTest {
               master:
                 instance: m5.large
                 zone: z
-                runs: { losim.Job: losim/test/src/Prober.java }
+                runs: { dissaly.Job: losim/test/src/Prober.java }
               w0:
                 instance: c5.large
                 zone: z

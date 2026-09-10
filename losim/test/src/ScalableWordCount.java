@@ -2,12 +2,12 @@ import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import losim.api.Losim;
-import losim.pb.Input;
-import losim.pb.JobGrpc;
-import losim.pb.Result;
-import losim.pb.Workload;
-import losim.t.*;
+import dissaly.api.Dissaly;
+import dissaly.pb.Input;
+import dissaly.pb.JobGrpc;
+import dissaly.pb.Result;
+import dissaly.pb.Workload;
+import dissaly.t.*;
 
 /**
  * A word count whose size is whatever it is asked for.
@@ -39,7 +39,7 @@ public final class ScalableWordCount extends JobGrpc.JobImplBase {
     }
 
     @Override public void run(Workload work, StreamObserver<Result> out) {
-        var here = Losim.current();
+        var here = Dissaly.current();
         var workers = here.peersServing("Worker");
         if (workers.isEmpty()) throw new IllegalStateException("nobody serves Worker");
 

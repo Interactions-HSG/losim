@@ -4,9 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeMap;
 import java.util.function.DoubleUnaryOperator;
-import losim.scale.Grid;
-import losim.scale.Laws;
-import losim.scale.Probe;
+import dissaly.scale.Grid;
+import dissaly.scale.Laws;
+import dissaly.scale.Probe;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

@@ -1,8 +1,8 @@
 import java.util.*;
 import java.util.stream.Collectors;
-import losim.trace.Telemetry;
-import losim.trace.Trace;
-import losim.trace.Values;
+import dissaly.trace.Telemetry;
+import dissaly.trace.Trace;
+import dissaly.trace.Values;
 
 /**
  * The questions a debugger would have answered, asked of the telemetry instead.
@@ -197,12 +197,12 @@ public class Debugger {
                     Values.summary(s.detail.get("arg")), s.detail.get("error"));
         // Work no call carried used to need a span kind of its own, because the
         // thing driving the run was a driver object that ran outside every call and
-        // so had no span and no occupancy. It is a handler now — losim.Job/Run —
+        // so had no span and no occupancy. It is a handler now — dissaly.Job/Run —
         // and everything the master does locally happens inside it, on a
         // thread of the node it is on. So the question is the same and the answer
         // is one of the two span kinds left.
         var driving = tel.spans().stream()
-                .filter(s -> s.kind.equals("handler") && s.label.startsWith("losim.Job")).findFirst();
+                .filter(s -> s.kind.equals("handler") && s.label.startsWith("dissaly.Job")).findFirst();
         driving.ifPresent(s -> System.out.printf("    %-7s %-24s ->  %s%n",
                 s.vm, s.label, Values.summary(s.detail.get("result"))));
         long accounted = handlers.stream()

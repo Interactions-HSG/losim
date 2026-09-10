@@ -332,7 +332,7 @@ export function nodes(draft: Draft): Node[] {
 
 export type Link = 'same zone' | 'same region' | 'same continent' | 'across an ocean';
 
-/** The region a zone is in, spelled the way `losim.res.Regions` parses it. */
+/** The region a zone is in, spelled the way `dissaly.res.Regions` parses it. */
 export function regionOf(zone: string, regions: Region[]): string {
   for (const r of regions) if (r.zones.includes(zone)) return r.name;
   // Unknown is its own region, which is the honest answer: nothing here knows
@@ -389,10 +389,10 @@ export function unplaced(draft: Draft, palette: Palette): Offered[] {
   return palette.services.filter((s) => !placed.has(s.file));
 }
 
-/** The one entry a simulation starts in, or none — `losim.Job`, wherever it is placed. */
+/** The one entry a simulation starts in, or none — `dissaly.Job`, wherever it is placed. */
 export function entryOf(draft: Draft): Runs | null {
   for (const p of draft.pools) {
-    for (const r of p.runs) if (r.service === 'losim.Job') return r;
+    for (const r of p.runs) if (r.service === 'dissaly.Job') return r;
   }
   return null;
 }

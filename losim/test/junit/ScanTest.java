@@ -5,7 +5,7 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
-import losim.cli.Scan;
+import dissaly.cli.Scan;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -54,7 +54,7 @@ class ScanTest {
                 + "public final class Measurer extends lab.SizerGrpc.SizerImplBase { }\n");
         Files.writeString(root.resolve("src/RenderMaster.java"),
                 "package lab;\n"
-                + "public final class RenderMaster extends losim.pb.JobGrpc.JobImplBase { }\n");
+                + "public final class RenderMaster extends dissaly.pb.JobGrpc.JobImplBase { }\n");
         Files.writeString(root.resolve("simulations/one.yaml"), yaml);
         return root;
     }
@@ -87,7 +87,7 @@ class ScanTest {
             nodes:
               master:
                 instance: m5.large
-                runs: { losim.Job: src/RenderMaster.java }
+                runs: { dissaly.Job: src/RenderMaster.java }
               w9:
                 instance: c5.large
                 runs:

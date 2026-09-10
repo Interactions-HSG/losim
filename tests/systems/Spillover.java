@@ -1,4 +1,4 @@
-import losim.api.Losim;
+import dissaly.api.Dissaly;
 
 /**
  * The same combiner, except that it spills to disk above a key count.
@@ -24,7 +24,7 @@ public final class Spillover extends Combiner {
             payload.computeIfAbsent(word, k -> new long[PAYLOAD_PER_KEY]);
         } else if (!payload.containsKey(word)) {
             spilled += PAYLOAD_PER_KEY * 8L;
-            Losim.current().reveal("spilledBytes", spilled);
+            Dissaly.current().reveal("spilledBytes", spilled);
         }
     }
 }

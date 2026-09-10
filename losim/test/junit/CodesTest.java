@@ -1,7 +1,7 @@
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
-import losim.sim.Codes;
+import dissaly.sim.Codes;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -29,7 +29,7 @@ class CodesTest {
                 .filter(n -> !n.equals("OK"))
                 .toList();
         assertEquals(theirs, Codes.ALL,
-                "losim.sim.Codes is a copy of io.grpc.Status.Code, and they have parted ways."
+                "dissaly.sim.Codes is a copy of io.grpc.Status.Code, and they have parted ways."
                 + " Update the copy: the loader reads it where gRPC is not on the classpath.");
     }
 

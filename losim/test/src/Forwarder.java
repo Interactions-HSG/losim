@@ -1,8 +1,8 @@
 import io.grpc.Channel;
-import losim.api.Losim;
-import losim.t.Chunk;
-import losim.t.Counts;
-import losim.t.WorkerGrpc;
+import dissaly.api.Dissaly;
+import dissaly.t.Chunk;
+import dissaly.t.Counts;
+import dissaly.t.WorkerGrpc;
 
 /**
  * A handler that calls another machine — the shape half a master is made of.
@@ -16,7 +16,7 @@ import losim.t.WorkerGrpc;
 public final class Forwarder extends WorkerBase {
 
     @Override protected Counts map(Chunk c) {
-        var here = Losim.current();
+        var here = Dissaly.current();
         var workers = here.peersServing("Worker");
         if (workers.isEmpty()) return Counts.newBuilder().putCounts("nobody-to-ask", 1).build();
 

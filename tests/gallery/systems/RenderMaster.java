@@ -6,11 +6,11 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
-import losim.api.Losim;
-import losim.pb.Input;
-import losim.pb.JobGrpc;
-import losim.pb.Result;
-import losim.pb.Workload;
+import dissaly.api.Dissaly;
+import dissaly.pb.Input;
+import dissaly.pb.JobGrpc;
+import dissaly.pb.Result;
+import dissaly.pb.Workload;
 import thumbs.pb.Split;
 import thumbs.pb.Nothing;
 import thumbs.pb.Sizes;
@@ -62,7 +62,7 @@ public final class RenderMaster extends JobGrpc.JobImplBase {
     }
 
     @Override public void run(Workload work, StreamObserver<Result> out) {
-        var here = Losim.current();
+        var here = Dissaly.current();
         var renderers = here.peersServing("Thumbnailer");
         if (renderers.isEmpty()) throw new IllegalStateException("nobody serves Thumbnailer");
 
@@ -136,7 +136,7 @@ public final class RenderMaster extends JobGrpc.JobImplBase {
 
         // And this is one call per renderer and a merge here, so a bigger cluster
         // makes it no shorter. Nothing distinguishes the two stretches but their
-        // shape — and the merge happens on the thread serving losim.Job/Run, so
+        // shape — and the merge happens on the thread serving dissaly.Job/Run, so
         // this node is busy for it without anything having to say so.
         var merged = new TreeMap<String, Integer>();
         for (int i = 0; i < blocking.size(); i++) {

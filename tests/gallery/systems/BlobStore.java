@@ -1,5 +1,5 @@
 import io.grpc.stub.StreamObserver;
-import losim.api.Losim;
+import dissaly.api.Dissaly;
 import thumbs.pb.Blob;
 import thumbs.pb.Receipt;
 import thumbs.pb.StoreGrpc;
@@ -15,7 +15,7 @@ import thumbs.pb.StoreGrpc;
 public final class BlobStore extends StoreGrpc.StoreImplBase {
 
     @Override public void put(Blob blob, StreamObserver<Receipt> out) {
-        var here = Losim.current();
+        var here = Dissaly.current();
         here.wroteDisk(blob.getBytes());
         here.units(1);
         out.onNext(Receipt.newBuilder().setKey(blob.getKey()).setStored(true).build());

@@ -1,6 +1,6 @@
 import lab.pb.Chunk;
 import lab.pb.Counts;
-import losim.api.Losim;
+import dissaly.api.Dissaly;
 
 /**
  * A combiner that writes a fixed-size index before it is any use.
@@ -27,8 +27,8 @@ public final class Prefill extends Combiner {
     @Override protected Counts map(Chunk c) {
         if (!built) {
             built = true;
-            Losim.current().wroteDisk(INDEX_BYTES);
-            Losim.current().log("built the index: 64 MB, the same at every scale");
+            Dissaly.current().wroteDisk(INDEX_BYTES);
+            Dissaly.current().log("built the index: 64 MB, the same at every scale");
         }
         return super.map(c);
     }

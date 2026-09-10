@@ -1,8 +1,8 @@
 import io.grpc.stub.StreamObserver;
-import losim.pb.Input;
-import losim.pb.JobGrpc;
-import losim.pb.Result;
-import losim.pb.Workload;
+import dissaly.pb.Input;
+import dissaly.pb.JobGrpc;
+import dissaly.pb.Result;
+import dissaly.pb.Workload;
 
 /** A Job that does nothing, for simulations whose point is what happens before one runs. */
 public final class NoopJob extends JobGrpc.JobImplBase {

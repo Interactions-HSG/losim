@@ -1,12 +1,12 @@
 import io.grpc.ManagedChannel;
 import java.util.*;
 import java.util.concurrent.*;
-import losim.api.Losim;
-import losim.runtime.Machines;
-import losim.runtime.Machine;
-import losim.t.*;
-import losim.trace.Telemetry;
-import losim.time.Clock;
+import dissaly.api.Dissaly;
+import dissaly.runtime.Machines;
+import dissaly.runtime.Machine;
+import dissaly.t.*;
+import dissaly.trace.Telemetry;
+import dissaly.time.Clock;
 
 /**
  * One word count over real gRPC, at a chosen size and a chosen amount of losim.
@@ -47,11 +47,11 @@ public final class Load {
                     held.computeIfAbsent(w, k -> new int[1])[0]++;
                 }
             }
-            Losim.current().units(lines);
+            Dissaly.current().units(lines);
             // The whole point of the extreme case: at one call per handler an
             // accounting leak is undetectable, and at a thousand it halves the
             // fitted exponent.
-            for (int i = 0; i < reveals; i++) Losim.current().reveal("emitted", out.size());
+            for (int i = 0; i < reveals; i++) Dissaly.current().reveal("emitted", out.size());
             return Counts.newBuilder().putAllCounts(out).build();
         }
     }

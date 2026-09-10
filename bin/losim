@@ -29,4 +29,4 @@ G=./gradlew
 }
 
 "$G" -q jar
-exec java -cp build/losim.jar losim.cli.Main "$@"
+exec java -cp build/losim.jar dissaly.cli.Main "$@"

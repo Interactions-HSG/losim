@@ -5,7 +5,7 @@
 seed: 1
 
 nodes:
-  client: { instance: m5.large, zone: eu-central-1a, runs: { losim.Job: tests/systems/Impatient.java } }
+  client: { instance: m5.large, zone: eu-central-1a, runs: { dissaly.Job: tests/systems/Impatient.java } }
   srv:    { instance: m5.large, zone: eu-central-1a, runs: { Worker: tests/systems/Slow.java } }
 
 # What each rpc costs on the reference machine, under the class that serves it.

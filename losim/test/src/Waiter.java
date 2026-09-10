@@ -1,6 +1,6 @@
-import losim.api.Losim;
-import losim.t.Chunk;
-import losim.t.Counts;
+import dissaly.api.Dissaly;
+import dissaly.t.Chunk;
+import dissaly.t.Counts;
 
 /**
  * The same wait as {@link Napper}, written in the unit everything else is written in.
@@ -15,7 +15,7 @@ public final class Waiter extends WorkerBase {
     @Override protected Counts map(Chunk c) {
         double backoff = 25;
         for (int attempt = 0; attempt < 3; attempt++) {
-            Losim.current().sleep(backoff);
+            Dissaly.current().sleep(backoff);
             backoff *= 2;
         }
         return Counts.newBuilder().putCounts(c.getText().trim(), 1).build();

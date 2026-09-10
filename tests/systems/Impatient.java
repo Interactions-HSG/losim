@@ -3,11 +3,11 @@ import io.grpc.stub.StreamObserver;
 import java.util.concurrent.TimeUnit;
 import lab.pb.Chunk;
 import lab.pb.WorkerGrpc;
-import losim.api.Losim;
-import losim.pb.Input;
-import losim.pb.JobGrpc;
-import losim.pb.Result;
-import losim.pb.Workload;
+import dissaly.api.Dissaly;
+import dissaly.pb.Input;
+import dissaly.pb.JobGrpc;
+import dissaly.pb.Result;
+import dissaly.pb.Workload;
 
 /**
  * Asks for something that takes 500 refMs and waits 200 for it.
@@ -25,7 +25,7 @@ public final class Impatient extends JobGrpc.JobImplBase {
     }
 
     @Override public void run(Workload work, StreamObserver<Result> out) {
-        var channel = Losim.current().channelTo("srv");
+        var channel = Dissaly.current().channelTo("srv");
         var request = Chunk.newBuilder().setText("anything").setLines(1).build();
 
         // Twice. The first call through a channel pays for every class on the path

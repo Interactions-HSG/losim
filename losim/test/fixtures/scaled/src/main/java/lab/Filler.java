@@ -1,7 +1,7 @@
 package lab;
 
-import losim.api.Cluster;
-import losim.api.Job;
+import dissaly.api.Cluster;
+import dissaly.api.Job;
 
 /**
  * A lab from before 2.0.0: the workload size is read from the cluster, and the

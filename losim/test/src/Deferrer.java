@@ -1,6 +1,6 @@
 import java.util.function.LongSupplier;
-import losim.t.Chunk;
-import losim.t.Counts;
+import dissaly.t.Chunk;
+import dissaly.t.Counts;
 
 /**
  * The same wrong clock as {@link Peeker}, reached by a method reference.

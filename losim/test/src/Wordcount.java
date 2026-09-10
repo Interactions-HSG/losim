@@ -1,7 +1,7 @@
 import java.nio.file.Path;
-import losim.runtime.Simulate;
-import losim.sim.Loader;
-import losim.trace.Telemetry;
+import dissaly.runtime.Simulate;
+import dissaly.sim.Loader;
+import dissaly.trace.Telemetry;
 
 /**
  * The reference run, loaded from the simulation the way anyone else would load it.

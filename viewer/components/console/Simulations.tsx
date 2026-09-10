@@ -364,9 +364,9 @@ export function Simulations() {
               </button>
               {!entry && (
                 <P style={sx.note}>
-                  No node runs <Code>losim.Job</Code>, so there is nothing to start. It is a
+                  No node runs <Code>dissaly.Job</Code>, so there is nothing to start. It is a
                   gRPC service like any other: a class extending
-                  {' '}<Code>losim.pb.JobGrpc.JobImplBase</Code>, placed on a node like
+                  {' '}<Code>dissaly.pb.JobGrpc.JobImplBase</Code>, placed on a node like
                   everything else. Exactly one node has one.
                 </P>
               )}
@@ -582,7 +582,7 @@ function PoolCard({
         <span {...stylex.props(ui.chip)}>
           {p.count === 1 ? '1 node' : `${p.count} nodes`}
         </span>
-        {p.runs.some((r) => r.service === 'losim.Job') && (
+        {p.runs.some((r) => r.service === 'dissaly.Job') && (
           <span {...stylex.props(ui.chip, sx.entryChip)}>the simulation starts here</span>
         )}
         <span {...stylex.props(sx.acts)}>
@@ -649,7 +649,7 @@ function PoolCard({
       </div>
 
       {/* What this pool runs. One control, because there is one kind of thing to
-          place: `losim.Job` is a service like any other and is in this list with
+          place: `dissaly.Job` is a service like any other and is in this list with
           the rest of them. Read off the compiled classes, so nothing here can
           name a file that is not there or a service it does not implement. */}
       <div {...stylex.props(sx.group)}>
@@ -673,7 +673,7 @@ function PoolCard({
                 // that is refused with a line number for obeying the form.
                 if (sv.entry) {
                   for (const q of d.pools) {
-                    const was = q.runs.findIndex((r) => r.service === 'losim.Job');
+                    const was = q.runs.findIndex((r) => r.service === 'dissaly.Job');
                     if (was >= 0) q.runs.splice(was, 1);
                   }
                 }

@@ -53,14 +53,14 @@ public final class T6 {
 
         // Bytes are counted on both sides of every call, from the marshaller. Drift
         // between the two is the accounting quietly coming apart.
-        // losim.Job/Run apart, on both counts: nobody in this system called it, and
+        // dissaly.Job/Run apart, on both counts: nobody in this system called it, and
         // its argument is a Workload the entry node built itself. It carries no
         // inBytes at all, which is what makes this sum an equality rather than an
         // inequality with an allowance in it.
         long sent = 0, received = 0;
         for (var s : e.spansOf("rpc")) sent += Expect.lng(Expect.detail(s).get("bytes"));
         for (var s : e.spansOf("handler")) {
-            if (String.valueOf(s.get("label")).startsWith("losim.Job")) continue;
+            if (String.valueOf(s.get("label")).startsWith("dissaly.Job")) continue;
             received += Expect.lng(Expect.detail(s).get("inBytes"));
         }
         e.note("client counted " + sent + " bytes out, servers counted " + received + " in");

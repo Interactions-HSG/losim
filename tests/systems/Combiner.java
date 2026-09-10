@@ -3,7 +3,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lab.pb.Chunk;
 import lab.pb.Counts;
-import losim.api.Losim;
+import dissaly.api.Dissaly;
 
 /**
  * A worker that folds every chunk into what it is already holding.
@@ -46,12 +46,12 @@ public class Combiner extends WorkerBase {
             holding.merge(word, 1, Integer::sum);
             keep(word);
         }
-        Losim.current().units(c.getLines());
+        Dissaly.current().units(c.getLines());
         // Every chunk is spilled, new words or not — so disk follows volume while
         // memory follows vocabulary, and the two part company as the run grows.
-        Losim.current().wroteDisk(c.getText().length());
+        Dissaly.current().wroteDisk(c.getText().length());
         // How the engine learns what this machine's memory is really a function of.
-        Losim.current().reveal("distinctKeys", holding.size());
+        Dissaly.current().reveal("distinctKeys", holding.size());
         return Counts.newBuilder().putAllCounts(chunk).build();
     }
 
@@ -65,7 +65,7 @@ public class Combiner extends WorkerBase {
             holding.merge(word, n, Integer::sum);
             keep(word);
         });
-        Losim.current().reveal("distinctKeys", holding.size());
+        Dissaly.current().reveal("distinctKeys", holding.size());
         return Counts.newBuilder().putAllCounts(holding).build();
     }
 }

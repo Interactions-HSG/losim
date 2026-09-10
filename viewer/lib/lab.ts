@@ -131,7 +131,7 @@ export interface Offered {
   service: string;
   /** Its last segment, for a column with room for one word. */
   bare: string;
-  /** Whether this is `losim.Job`. Exactly one node in a simulation runs one. */
+  /** Whether this is `dissaly.Job`. Exactly one node in a simulation runs one. */
   entry: boolean;
   rpcs: Rpc[];
 }

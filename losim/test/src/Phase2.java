@@ -1,12 +1,12 @@
 import io.grpc.StatusRuntimeException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import losim.runtime.Simulate;
-import losim.sim.Loader;
-import losim.sim.Simulation;
-import losim.sim.Yaml;
-import losim.t.*;
-import losim.trace.Telemetry;
+import dissaly.runtime.Simulate;
+import dissaly.sim.Loader;
+import dissaly.sim.Simulation;
+import dissaly.sim.Yaml;
+import dissaly.t.*;
+import dissaly.trace.Telemetry;
 
 /**
  * Phase 2, direct mode: everything a simulation declares, and everything it is
@@ -52,7 +52,7 @@ public class Phase2 {
      */
     static String workers(String extra) {
         return "nodes:\n"
-             + "  master: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/WaitJob.java } }\n"
+             + "  master: { instance: m5.large, zone: z, runs: { dissaly.Job: losim/test/src/WaitJob.java } }\n"
              + "  workers:\n"
              + "    count: 2\n"
              + "    prefix: w\n"
@@ -66,7 +66,7 @@ public class Phase2 {
 
     static final String CLUSTER = """
         nodes:
-          master: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/NoopJob.java } }
+          master: { instance: m5.large, zone: z, runs: { dissaly.Job: losim/test/src/NoopJob.java } }
           workers: { count: 2, prefix: w, instance: m5.large, zone: z, runs: { Volley: losim/test/src/Pinger.java } }
         simulatedDuration:
           losim/test/src/Pinger.java: { Hit: { fixed: 1 refMs } }
@@ -88,7 +88,7 @@ public class Phase2 {
             seed: 3
             network: { sameZone: 20 refMs }
             nodes:
-              master: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/ForwardJob.java } }
+              master: { instance: m5.large, zone: z, runs: { dissaly.Job: losim/test/src/ForwardJob.java } }
               front:  { instance: m5.large, zone: z, runs: { Worker: losim/test/src/Forwarder.java } }
               back:   { instance: m5.large, zone: z, runs: { Worker: losim/test/src/Counter.java } }
             simulatedDuration:
@@ -311,7 +311,7 @@ public class Phase2 {
         Pinger.failFirst = 2;
         var result = Simulate.of(Loader.of(Yaml.parse("simulation.yaml", """
                 nodes:
-                  master: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/RetryJob.java } }
+                  master: { instance: m5.large, zone: z, runs: { dissaly.Job: losim/test/src/RetryJob.java } }
                   workers: { count: 1, prefix: w, instance: m5.large, zone: z, runs: { Volley: losim/test/src/Pinger.java } }
                 retries:
                   - { method: Volley.Poll, attempts: 4, backoff: 20 refMs, multiplier: 2 }
@@ -352,7 +352,7 @@ public class Phase2 {
         var result = Simulate.of(Loader.of(Yaml.parse("simulation.yaml", """
                 seed: 3
                 nodes:
-                  master: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/WaitJob.java } }
+                  master: { instance: m5.large, zone: z, runs: { dissaly.Job: losim/test/src/WaitJob.java } }
                   workers:
                     count: 4
                     prefix: w
@@ -422,7 +422,7 @@ public class Phase2 {
 
         String yaml = "seed: %d\n"
                     + "nodes:\n"
-                    + "  master: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/WaitJob.java } }\n"
+                    + "  master: { instance: m5.large, zone: z, runs: { dissaly.Job: losim/test/src/WaitJob.java } }\n"
                     + "  workers:\n"
                     + "    count: 6\n"
                     + "    prefix: w\n"
@@ -471,7 +471,7 @@ public class Phase2 {
     static String badRpc(String rules) {
         return "seed: 4\n"
              + "nodes:\n"
-             + "  master: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/WaitJob.java } }\n"
+             + "  master: { instance: m5.large, zone: z, runs: { dissaly.Job: losim/test/src/WaitJob.java } }\n"
              + "  workers:\n"
              + "    count: 2\n"
              + "    prefix: w\n"
@@ -535,7 +535,7 @@ public class Phase2 {
         System.out.println("    " + refused.size() + " calls refused, on " + nodes);
         check(!refused.isEmpty(), "the rpc fails, one call in two");
         long handled = tel.events().stream().filter(e -> e.kind().equals("handler_start")
-                && "losim.t.Volley.Hit".equals(e.detail().get("method"))).count();
+                && "dissaly.t.Volley.Hit".equals(e.detail().get("method"))).count();
         check(handled + refused.size() > handled,
               "and a refused call never reaches the handler: " + handled + " ran, "
               + refused.size() + " were turned away before one could");
@@ -548,7 +548,7 @@ public class Phase2 {
         System.out.println("=== a full disk refuses the write ===");
         var result = Simulate.of(Loader.of(Yaml.parse("simulation.yaml", """
                 nodes:
-                  master: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/WordCountJob.java } }
+                  master: { instance: m5.large, zone: z, runs: { dissaly.Job: losim/test/src/WordCountJob.java } }
                   workers:
                     count: 2
                     prefix: w
@@ -597,7 +597,7 @@ public class Phase2 {
         // Read off the master's own narration rather than off a span kind.
         // It used to be a `compute` span, which existed because a driver object
         // running outside every call had no span of its own; the merge now happens
-        // inside the losim.Job/Run handler, where the node is already busy for it.
+        // inside the dissaly.Job/Run handler, where the node is already busy for it.
         boolean redid = tel.events().stream().anyMatch(e -> e.kind().equals("log")
                 && String.valueOf(e.detail().get("message")).startsWith("reducer"));
         boolean without = tel.events().stream().anyMatch(e -> e.kind().equals("log")
@@ -609,7 +609,7 @@ public class Phase2 {
               "and coped with the machine that was not there, rather than losing the answer");
         check(tel.events().stream().anyMatch(e -> e.kind().equals("oom")),
               "the machine too small for its bucket ran out of memory, in its own code");
-        // One level down, because the answer is a losim.Result now and the map is
+        // One level down, because the answer is a dissaly.Result now and the map is
         // its `answer` field. Structural either way: the point was never the string.
         var answer = tel.events().stream().filter(e -> e.kind().equals("done")).findFirst();
         Object counts = answer.isPresent() && answer.get().detail().get("value") instanceof Map<?, ?> v

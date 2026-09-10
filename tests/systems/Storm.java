@@ -4,11 +4,11 @@ import java.util.concurrent.TimeUnit;
 import lab.pb.Chunk;
 import lab.pb.Counts;
 import lab.pb.WorkerGrpc;
-import losim.api.Losim;
-import losim.pb.Input;
-import losim.pb.JobGrpc;
-import losim.pb.Result;
-import losim.pb.Workload;
+import dissaly.api.Dissaly;
+import dissaly.pb.Input;
+import dissaly.pb.JobGrpc;
+import dissaly.pb.Result;
+import dissaly.pb.Workload;
 
 /**
  * Eight calls at once into a node with two vCPUs.
@@ -28,7 +28,7 @@ public final class Storm extends JobGrpc.JobImplBase {
     }
 
     @Override public void run(Workload work, StreamObserver<Result> out) {
-        var stub = WorkerGrpc.newStub(Losim.current().channelTo("srv"));
+        var stub = WorkerGrpc.newStub(Dissaly.current().channelTo("srv"));
         var request = Chunk.newBuilder().setText("grind").setLines(1).build();
 
         try {

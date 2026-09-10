@@ -10,10 +10,10 @@ import io.grpc.stub.StreamObserver;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import losim.res.InstanceCatalog;
-import losim.runtime.Machines;
-import losim.time.Clock;
-import losim.trace.Telemetry;
+import dissaly.res.InstanceCatalog;
+import dissaly.runtime.Machines;
+import dissaly.time.Clock;
+import dissaly.trace.Telemetry;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

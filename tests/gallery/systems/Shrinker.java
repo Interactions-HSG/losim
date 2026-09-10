@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import losim.api.Losim;
+import dissaly.api.Dissaly;
 import thumbs.pb.Split;
 import thumbs.pb.Blob;
 import thumbs.pb.Format;
@@ -56,7 +56,7 @@ public final class Shrinker extends ThumbnailerGrpc.ThumbnailerImplBase {
 
     @Override public void thumbnail(Split split, StreamObserver<Sizes> out) {
         try {
-            var here = Losim.current();
+            var here = Dissaly.current();
             var mine = new HashMap<String, Integer>();
             for (String asset : split.getAssets().split(" ")) {
                 if (asset.isEmpty()) continue;
@@ -100,7 +100,7 @@ public final class Shrinker extends ThumbnailerGrpc.ThumbnailerImplBase {
      * topology decides, not the code.
      */
     private void keepInStore(Split split) {
-        var here = Losim.current();
+        var here = Dissaly.current();
         var stores = here.peersServing("Store");
         if (stores.isEmpty()) return;
         String key = here.node() + "/" + split.hashCode();

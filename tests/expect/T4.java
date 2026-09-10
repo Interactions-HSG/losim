@@ -18,11 +18,11 @@ public final class T4 {
                 + "the path — each an ordinary unary call, because that is what it is ("
                 + calls.size() + ")");
 
-        // The two players. The umpire is in this list too, because losim.Job/Run is
+        // The two players. The umpire is in this list too, because dissaly.Job/Run is
         // a handler served on it — which is the point of the flip and not a third
         // arrow: nobody in this system called it.
         Set<String> served = e.of("handler_end").stream()
-                .filter(x -> !String.valueOf(Expect.detail(x).get("method")).startsWith("losim.Job"))
+                .filter(x -> !String.valueOf(Expect.detail(x).get("method")).startsWith("dissaly.Job"))
                 .map(x -> String.valueOf(x.get("vm"))).collect(Collectors.toSet());
         e.check(served.equals(Set.of("left", "right")),
                 "both directions were served — " + served + " — so the topology has two "

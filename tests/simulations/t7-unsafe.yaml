@@ -3,7 +3,7 @@
 seed: 5
 
 nodes:
-  master:  { instance: m5.large, zone: eu-central-1a, runs: { losim.Job: tests/systems/WordCount.java } }
+  master:  { instance: m5.large, zone: eu-central-1a, runs: { dissaly.Job: tests/systems/WordCount.java } }
   m0:      { instance: c5.large, zone: eu-central-1a, runs: { Worker: tests/systems/Mapper.java } }
   r0:      { instance: r5.large, zone: eu-central-1a, runs: { Shuffler: tests/systems/Reducer.java } }
   umpire:  { instance: m5.large, zone: eu-central-1a, runs: { Volley: tests/systems/Volleyer.java } }

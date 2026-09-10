@@ -6,7 +6,7 @@
  * a metadata header (D8 rule 2), so the chain is a real distributed call stack
  * rather than a per-node one:
  *
- *     handler losim.Job.Run          master   1991 → 3581
+ *     handler dissaly.Job.Run          master   1991 → 3581
  *       rpc    Sorter.Sort             master   2040 → 3575     to s2
  *         handler Sorter.Sort          s2       2042 → 3554
  *           rpc  Puller.Pull           s2       2069 → 2140     to m0
@@ -103,7 +103,7 @@ export class SpanTree {
     for (const list of kids.values()) list.sort((a, b) => a.t0 - b.t0 || a.id - b.id);
 
     // Span 0 is nobody's span: it is the absent parent every root points at. In
-    // an ordinary simulation there is one root — the losim.Job/Run handler — and
+    // an ordinary simulation there is one root — the dissaly.Job/Run handler — and
     // everything else hangs beneath it; a forest is what a trace looks like when
     // something opened a span outside that call.
     const build = (span: Span, depth: number, parent: SpanNode | null): SpanNode => {

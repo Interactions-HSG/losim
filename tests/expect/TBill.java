@@ -1,8 +1,8 @@
 import java.util.List;
 import java.util.Map;
-import losim.price.Bill;
-import losim.price.Account;
-import losim.price.PriceList;
+import dissaly.price.Bill;
+import dissaly.price.Account;
+import dissaly.price.PriceList;
 
 /**
  * bill — the five-bucket account, over the metrics a run actually produces.
@@ -110,7 +110,7 @@ public final class TBill {
     }
 
     static Map<String, Object> read(String path) throws Exception {
-        return losim.trace.JsonReader.readObject(
+        return dissaly.trace.JsonReader.readObject(
                 java.nio.file.Files.readString(java.nio.file.Path.of(path)));
     }
 }

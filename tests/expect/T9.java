@@ -19,18 +19,18 @@ public final class T9 {
         // Every server span opened under the client span of the call that reached it,
         // and that client span belongs to a different machine. Both halves matter: the
         // first is causality, the second is that it crossed a boundary to get there.
-        // losim.Job/Run apart: it is the root, because losim called it from outside
+        // dissaly.Job/Run apart: it is the root, because losim called it from outside
         // the system and there is no client span above it. Everything else in the
         // trace hangs beneath it.
         var roots = e.spansOf("handler").stream()
-                .filter(s -> String.valueOf(s.get("label")).startsWith("losim.Job")).toList();
+                .filter(s -> String.valueOf(s.get("label")).startsWith("dissaly.Job")).toList();
         e.check(roots.size() == 1 && Expect.lng(roots.get(0).get("parent")) == 0,
-                "the losim.Job/Run handler is the one root — there is no separate span kind "
+                "the dissaly.Job/Run handler is the one root — there is no separate span kind "
                 + "for the thing that starts the work, because it is an ordinary handler on "
                 + "an ordinary node");
 
         var handlers = e.spansOf("handler").stream()
-                .filter(s -> !String.valueOf(s.get("label")).startsWith("losim.Job")).toList();
+                .filter(s -> !String.valueOf(s.get("label")).startsWith("dissaly.Job")).toList();
         int crossed = 0;
         var orphans = new ArrayList<String>();
         for (var h : handlers) {

@@ -1,6 +1,6 @@
 import java.util.concurrent.CompletableFuture;
-import losim.t.Chunk;
-import losim.t.Counts;
+import dissaly.t.Chunk;
+import dissaly.t.Counts;
 
 /**
  * A worker that hands its work to somebody else's thread.

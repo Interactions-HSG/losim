@@ -2,7 +2,7 @@ import java.util.HashMap;
 import lab.pb.Chunk;
 import lab.pb.Counts;
 import lab.pb.Report;
-import losim.api.Losim;
+import dissaly.api.Dissaly;
 
 /**
  * The service most of the suite is written against: count the words in a chunk.
@@ -17,8 +17,8 @@ public class Mapper extends WorkerBase {
     @Override protected Counts map(Chunk c) {
         var out = new HashMap<String, Integer>();
         for (String word : c.getText().split("\\s+")) if (!word.isEmpty()) out.merge(word, 1, Integer::sum);
-        Losim.current().units(c.getLines());
-        Losim.current().reveal("emitted", out.size());
+        Dissaly.current().units(c.getLines());
+        Dissaly.current().reveal("emitted", out.size());
         return Counts.newBuilder().putAllCounts(out).build();
     }
 

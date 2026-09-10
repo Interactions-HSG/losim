@@ -1,8 +1,8 @@
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
-import losim.t.Empty;
-import losim.t.Ping;
-import losim.t.VolleyGrpc;
+import dissaly.t.Empty;
+import dissaly.t.Ping;
+import dissaly.t.VolleyGrpc;
 
 /** The same adapter shape for methods whose answer is nothing. */
 public abstract class VolleyBase extends VolleyGrpc.VolleyImplBase {

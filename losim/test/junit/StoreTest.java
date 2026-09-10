@@ -2,10 +2,10 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import io.grpc.BindableService;
 import java.util.concurrent.ConcurrentMap;
-import losim.api.Losim;
-import losim.runtime.Machines;
-import losim.time.Clock;
-import losim.trace.Telemetry;
+import dissaly.api.Dissaly;
+import dissaly.runtime.Machines;
+import dissaly.time.Clock;
+import dissaly.trace.Telemetry;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -38,8 +38,8 @@ class StoreTest {
 
             // Two separate arrivals on the machine's own threads, which is what two
             // handlers on two rpcs are.
-            m.submit(() -> Losim.current().local().put("index", "built")).get();
-            Object seen = m.submit(() -> Losim.current().local().get("index")).get();
+            m.submit(() -> Dissaly.current().local().put("index", "built")).get();
+            Object seen = m.submit(() -> Dissaly.current().local().get("index")).get();
 
             assertEquals("built", seen,
                     "a second service on the same machine could not see what the first left");
@@ -53,9 +53,9 @@ class StoreTest {
             var a = machines.machine("a", "m5.large", "z");
             var b = machines.machine("b", "m5.large", "z");
 
-            a.submit(() -> Losim.current().local().put("index", "a's")).get();
+            a.submit(() -> Dissaly.current().local().put("index", "a's")).get();
 
-            assertNull(b.submit(() -> Losim.current().local().get("index")).get(),
+            assertNull(b.submit(() -> Dissaly.current().local().get("index")).get(),
                     "the store crossed a machine boundary, which no process's memory does");
             assertNotSame(a.local(), b.local(), "one map for the whole cluster is a static");
         }
@@ -71,7 +71,7 @@ class StoreTest {
             // restart would mean two different things in one machine.
             m.serves(Nothing::new, "Nothing", "test:1");
 
-            m.submit(() -> Losim.current().local().put("index", "built")).get();
+            m.submit(() -> Dissaly.current().local().put("index", "built")).get();
             assertEquals("built", m.local().get("index"));
 
             m.kill("under test");
@@ -95,7 +95,7 @@ class StoreTest {
 
             // Eight megabytes, because the walk reports in bytes and the assertion
             // has to survive whatever the empty machine already holds.
-            m.submit(() -> Losim.current().local().put("blob", new byte[8 << 20])).get();
+            m.submit(() -> Dissaly.current().local().put("blob", new byte[8 << 20])).get();
             m.measureRetained();
             long after = m.retainedBytes();
 
@@ -110,9 +110,9 @@ class StoreTest {
     void seedComesFromTheScenario() throws Exception {
         try (var machines = new Machines(
                 new Telemetry(new Clock(1.0, 1.0), Telemetry.Level.FULL),
-                new losim.runtime.Net(7), 7)) {
+                new dissaly.runtime.Net(7), 7)) {
             var m = machines.machine("m", "m5.large", "z");
-            assertEquals(7L, (long) m.submit(() -> Losim.current().seed()).get());
+            assertEquals(7L, (long) m.submit(() -> Dissaly.current().seed()).get());
         }
     }
 

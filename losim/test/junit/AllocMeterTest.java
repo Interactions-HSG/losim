@@ -1,10 +1,10 @@
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.concurrent.atomic.AtomicBoolean;
-import losim.res.Meter;
-import losim.runtime.Machines;
-import losim.time.Clock;
-import losim.trace.Telemetry;
+import dissaly.res.Meter;
+import dissaly.runtime.Machines;
+import dissaly.time.Clock;
+import dissaly.trace.Telemetry;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

@@ -2,17 +2,17 @@ import io.grpc.ManagedChannel;
 import io.grpc.stub.StreamObserver;
 import java.util.*;
 import java.util.concurrent.*;
-import losim.api.Losim;
-import losim.runtime.Cost;
-import losim.runtime.Machines;
-import losim.runtime.Machine;
-import losim.runtime.Net;
-import losim.runtime.Wire;
-import losim.scale.Fit;
-import losim.t.*;
-import losim.time.Clock;
-import losim.trace.Telemetry;
-import losim.trace.Trace;
+import dissaly.api.Dissaly;
+import dissaly.runtime.Cost;
+import dissaly.runtime.Machines;
+import dissaly.runtime.Machine;
+import dissaly.runtime.Net;
+import dissaly.runtime.Wire;
+import dissaly.scale.Fit;
+import dissaly.t.*;
+import dissaly.time.Clock;
+import dissaly.trace.Telemetry;
+import dissaly.trace.Trace;
 
 /**
  * Phase 1: the cluster, checked against what it claimed.
@@ -64,7 +64,7 @@ public class Phase1 {
                 ? Counts.getDefaultInstance() : Counts.getDefaultInstance(); }
 
         @Override protected Counts reduce(Counts c) {
-            Losim.current().sleep(500);
+            Dissaly.current().sleep(500);
             return Counts.newBuilder().putCounts("waited", 500).build();
         }
     }
@@ -72,7 +72,7 @@ public class Phase1 {
     /** A handler whose cost is proportional to what it was given. */
     static final class PerRecord extends WorkerBase {
         @Override protected Counts map(Chunk c) {
-            Losim.current().units(c.getLines());
+            Dissaly.current().units(c.getLines());
             return Counts.newBuilder().putCounts("seen", c.getLines()).build();
         }
     }
@@ -80,10 +80,10 @@ public class Phase1 {
     /** A handler that says who served it, so the ambient context can be checked. */
     static final class Reporter extends WorkerBase {
         @Override protected Counts map(Chunk c) {
-            Losim.current().reveal("served-by", Losim.current().node());
+            Dissaly.current().reveal("served-by", Dissaly.current().node());
             return Counts.newBuilder()
-                    .putCounts(Losim.current().node(), 1)
-                    .putCounts("peers", Losim.current().peersServing("Worker").size())
+                    .putCounts(Dissaly.current().node(), 1)
+                    .putCounts("peers", Dissaly.current().peersServing("Worker").size())
                     .build();
         }
     }
@@ -182,7 +182,7 @@ public class Phase1 {
 
             check(handler.parent == rpc.id,
                   "the server span opened under the caller's span, so causality crossed the RPC");
-            check(handler.label.equals("losim.t.Worker.Map") && !handler.label.contains("/"),
+            check(handler.label.equals("dissaly.t.Worker.Map") && !handler.label.contains("/"),
                   "method is dotted (" + handler.label + "), which every view downstream requires");
             check(tel.events().stream().anyMatch(e -> e.kind().equals("state")
                   && "served-by".equals(e.detail().get("key"))),
@@ -250,16 +250,16 @@ public class Phase1 {
         // callable from a bare test with no simulation at all.
         var counter = new WorkerBase() {
             @Override protected Counts map(Chunk c) {
-                Losim.current().reveal("emitted", 3);
-                Losim.current().log("counted");
-                Losim.current().units(c.getLines());
+                Dissaly.current().reveal("emitted", 3);
+                Dissaly.current().log("counted");
+                Dissaly.current().units(c.getLines());
                 return Counts.newBuilder().putCounts("a", 1).build();
             }
         };
         Counts got = counter.map(Chunk.newBuilder().setText("a").setLines(1).build());
         check(got.getCountsOrDefault("a", 0) == 1,
               "a handler runs, and returns, with no simulation running at all");
-        check(!Losim.current().isRunning(), "and knows nothing is running");
+        check(!Dissaly.current().isRunning(), "and knows nothing is running");
 
         boolean threw = false;
         try { handler.map(Chunk.getDefaultInstance()); }
@@ -311,7 +311,7 @@ public class Phase1 {
             System.out.printf("    sleep(500 refMs) at k_time 100 -> %.2f ms of real time, "
                             + "%.0f refMs on the simulated clock%n", waitReal, waited);
             check(waitReal > 3.5 && waitReal < 60 && waited > 400, String.format(
-                    "Losim.current().sleep() divides by k_time exactly as a declared cost does (%.1f ms "
+                    "Dissaly.current().sleep() divides by k_time exactly as a declared cost does (%.1f ms "
                     + "real, %.0f refMs simulated) — a wait is a declared duration, and every "
                     + "declared duration is reference time", waitReal, waited));
             check(machines.telemetry().events().stream().anyMatch(e -> e.kind().equals("sleep")),
@@ -418,9 +418,9 @@ public class Phase1 {
                     .filter(s -> s.kind.equals("rpc") && s.id > warm)
                     .sorted(Comparator.comparingDouble(s -> s.t0)).toList();
             double near = median(rpcs.stream().filter(s -> "near".equals(s.detail.get("to")))
-                    .map(losim.trace.Telemetry.Span::grossMs).toList());
+                    .map(dissaly.trace.Telemetry.Span::grossMs).toList());
             double far = median(rpcs.stream().filter(s -> "far".equals(s.detail.get("to")))
-                    .map(losim.trace.Telemetry.Span::grossMs).toList());
+                    .map(dissaly.trace.Telemetry.Span::grossMs).toList());
             System.out.printf("    same zone %.0f refMs, cross zone %.0f refMs "
                             + "(declared 10 and 240 for the round trip)%n", near, far);
             check(far - near > 200 && far - near < 260, String.format(
@@ -502,7 +502,7 @@ public class Phase1 {
         final int N = 40;
         var err = new double[N];
         var done = new CountDownLatch(N);
-        try (var d = new losim.time.Dispatcher(clock)) {
+        try (var d = new dissaly.time.Dispatcher(clock)) {
             for (int i = 0; i < N; i++) {
                 final int k = i;
                 final double at = (k + 1) * 5.0;
@@ -579,7 +579,7 @@ public class Phase1 {
     /** A handler that reveals a primitive, N times. */
     static final class Primitive extends WorkerBase {
         @Override protected Counts map(Chunk c) {
-            for (int i = 0; i < c.getLines(); i++) Losim.current().reveal("n", 1000 + i);
+            for (int i = 0; i < c.getLines(); i++) Dissaly.current().reveal("n", 1000 + i);
             return Counts.getDefaultInstance();
         }
     }
@@ -587,7 +587,7 @@ public class Phase1 {
     /** The same handler, one keyword different: that keyword is the bug. */
     static final class Boxed extends WorkerBase {
         @Override protected Counts map(Chunk c) {
-            for (int i = 0; i < c.getLines(); i++) Losim.current().reveal("n", (Object) (1000 + i));
+            for (int i = 0; i < c.getLines(); i++) Dissaly.current().reveal("n", (Object) (1000 + i));
             return Counts.getDefaultInstance();
         }
     }
@@ -611,7 +611,7 @@ public class Phase1 {
     static void exclusion() throws Exception {
         System.out.println("=== what losim gives back, and what it cannot ===");
         System.out.printf("    a bracket cannot fully see itself: %d ns per metered stop, "
-                        + "measured once and charged back%n", losim.res.Meter.UNSEEN_NANOS_PER_REGION);
+                        + "measured once and charged back%n", dissaly.res.Meter.UNSEEN_NANOS_PER_REGION);
 
         final int N = 200_000;
         long prim = revealCost(new Primitive(), N);

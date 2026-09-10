@@ -5,11 +5,11 @@ import lab.pb.Counts;
 import lab.pb.Report;
 import lab.pb.Severity;
 import lab.pb.WorkerGrpc;
-import losim.api.Losim;
-import losim.pb.Input;
-import losim.pb.JobGrpc;
-import losim.pb.Result;
-import losim.pb.Workload;
+import dissaly.api.Dissaly;
+import dissaly.pb.Input;
+import dissaly.pb.JobGrpc;
+import dissaly.pb.Result;
+import dissaly.pb.Workload;
 
 /** One client, one server, one unary call — and one message worth rendering. */
 public final class OneCall extends JobGrpc.JobImplBase {
@@ -31,7 +31,7 @@ public final class OneCall extends JobGrpc.JobImplBase {
     }
 
     @Override public void run(Workload work, StreamObserver<Result> out) {
-        var stub = WorkerGrpc.newBlockingStub(Losim.current().channelTo("srv"))
+        var stub = WorkerGrpc.newBlockingStub(Dissaly.current().channelTo("srv"))
                 .withDeadlineAfter(2000, TimeUnit.MILLISECONDS);
         Counts counted = stub.map(request());
         Report noted = stub.note(report());

@@ -1,7 +1,7 @@
 import java.util.HashMap;
 import lab.pb.Chunk;
 import lab.pb.Counts;
-import losim.api.Losim;
+import dissaly.api.Dissaly;
 
 /**
  * Cheap to start and dear per unit: 2 refMs, and 0.02 refMs for each one.
@@ -15,7 +15,7 @@ public final class Steady extends Mapper {
     @Override protected Counts map(Chunk c) {
         var out = new HashMap<String, Integer>();
         for (String word : c.getText().split("\\s+")) if (!word.isEmpty()) out.merge(word, 1, Integer::sum);
-        Losim.current().units(c.getLines());
+        Dissaly.current().units(c.getLines());
         return Counts.newBuilder().putAllCounts(out).build();
     }
 }

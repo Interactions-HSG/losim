@@ -2,7 +2,7 @@ import io.grpc.stub.StreamObserver;
 import lab.pb.Empty;
 import lab.pb.Ping;
 import lab.pb.VolleyGrpc;
-import losim.api.Losim;
+import dissaly.api.Dissaly;
 
 /**
  * Fire-and-forget, which is not a second messaging path.
@@ -15,7 +15,7 @@ import losim.api.Losim;
 public final class Volleyer extends VolleyGrpc.VolleyImplBase {
 
     @Override public void hit(Ping p, StreamObserver<Empty> out) {
-        Losim.current().reveal("rally", p.getSeq());
+        Dissaly.current().reveal("rally", p.getSeq());
         out.onNext(Empty.getDefaultInstance());
         out.onCompleted();
     }

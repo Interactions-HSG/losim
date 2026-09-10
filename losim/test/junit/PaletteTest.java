@@ -3,8 +3,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import losim.cli.Lab;
-import losim.cli.Palette;
+import dissaly.cli.Lab;
+import dissaly.cli.Palette;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
  * <p>{@code Palette} answers the question a {@code runs:} entry asks: which file
  * can a node be given, and what does it thereby serve. Everything it lists is a
  * pair somebody could write down — so a class that is bindable and has no path to
- * it is counted rather than named, and the one that answers to {@code losim.Job}
+ * it is counted rather than named, and the one that answers to {@code dissaly.Job}
  * is in the same list as everything else with a flag on it. {@link Fixture} ships
  * one of each, plus {@code Volley} — a second gRPC service in the schema that
  * nothing implements — so the "generated but unimplemented" case is exercised
@@ -57,7 +57,7 @@ class PaletteTest {
                 .filter(sv -> sv.file().equals("src/Counter.java")).findFirst().orElseThrow();
         // The name gRPC puts on the wire, which is what peersServing finds it by —
         // and not the name of the class, which a simulation never says at all.
-        assertEquals("losim.t.Worker", worker.service());
+        assertEquals("dissaly.t.Worker", worker.service());
         assertEquals("Worker", worker.bare());
         assertFalse(worker.entry(), "Worker is not where the simulation starts");
 
@@ -72,14 +72,14 @@ class PaletteTest {
     }
 
     @Test
-    @DisplayName("a class answering to losim.Job is marked in the one list, not held in a second")
+    @DisplayName("a class answering to dissaly.Job is marked in the one list, not held in a second")
     void marksTheEntries() {
         assertEquals(List.of("src/NoisyJob.java", "src/WordCountJob.java"),
                 offer.services().stream().filter(Palette.Service::entry)
                         .map(Palette.Service::file).toList());
         assertTrue(offer.services().stream().filter(Palette.Service::entry)
-                        .allMatch(sv -> sv.service().equals("losim.Job")),
-                "the entry is the service called losim.Job, and nothing else makes it one");
+                        .allMatch(sv -> sv.service().equals("dissaly.Job")),
+                "the entry is the service called dissaly.Job, and nothing else makes it one");
     }
 
     @Test

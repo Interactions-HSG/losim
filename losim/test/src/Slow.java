@@ -1,4 +1,4 @@
-import losim.t.Ping;
+import dissaly.t.Ping;
 
 /**
  * A handler whose duration is declared rather than measured.

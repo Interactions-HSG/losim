@@ -1,7 +1,7 @@
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lab.pb.Counts;
-import losim.api.Losim;
+import dissaly.api.Dissaly;
 
 /**
  * A reducer that accumulates, which is the whole reason it can run out of memory.
@@ -23,8 +23,8 @@ public final class Reducer extends ShufflerBase {
             holding.merge(word, n, Integer::sum);
             payload.computeIfAbsent(word, k -> new long[PER_KEY / 8]);
         });
-        Losim.current().units(bucket.getCountsCount());
-        Losim.current().reveal("distinctKeys", holding.size());
+        Dissaly.current().units(bucket.getCountsCount());
+        Dissaly.current().reveal("distinctKeys", holding.size());
         return Counts.newBuilder().putAllCounts(holding).build();
     }
 }

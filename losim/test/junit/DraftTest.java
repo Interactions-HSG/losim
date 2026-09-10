@@ -1,7 +1,7 @@
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
-import losim.cli.Draft;
+import dissaly.cli.Draft;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

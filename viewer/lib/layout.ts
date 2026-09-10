@@ -161,7 +161,7 @@ export class Layout {
   private buildColumns(): string[][] {
     const first = this.firstCallTo();
 
-    // The entry is named by the trace rather than guessed at: `losim.Job/Run`
+    // The entry is named by the trace rather than guessed at: `dissaly.Job/Run`
     // was served there, and `meta.entry` says so too. Inferring it from "was
     // never called" almost works, and stops working the moment a node reports
     // something back to it — which is exactly what a cluster with a monitor on

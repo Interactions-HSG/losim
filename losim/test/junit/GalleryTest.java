@@ -4,8 +4,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import losim.sim.Loader;
-import losim.sim.Yaml;
+import dissaly.sim.Loader;
+import dissaly.sim.Yaml;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

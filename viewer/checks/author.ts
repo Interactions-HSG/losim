@@ -69,12 +69,12 @@ function fails(kind: Failure['kind'], over: Partial<Failure> = {}): Failure {
 const PALETTE: Palette = {
   compiled: true,
   services: [
-    { file: ENTRY_FILE, service: 'losim.Job', bare: 'Job', entry: true,
+    { file: ENTRY_FILE, service: 'dissaly.Job', bare: 'Job', entry: true,
       rpcs: [{ name: 'Load', idempotent: true }, { name: 'Run', idempotent: false }] },
-    { file: WORKER_FILE, service: 'losim.t.Worker', bare: 'Worker', entry: false,
+    { file: WORKER_FILE, service: 'dissaly.t.Worker', bare: 'Worker', entry: false,
       rpcs: [{ name: 'Map', idempotent: true }, { name: 'Reduce', idempotent: true },
              { name: 'Note', idempotent: false }] },
-    { file: SHUFFLER_FILE, service: 'losim.t.Shuffler', bare: 'Shuffler', entry: false,
+    { file: SHUFFLER_FILE, service: 'dissaly.t.Shuffler', bare: 'Shuffler', entry: false,
       rpcs: [{ name: 'Fold', idempotent: true }] },
   ],
   other: 12,
@@ -99,7 +99,7 @@ const base = firstDraft(PALETTE);
 /** The entry node, unchanged, for a draft that is about something else. */
 const entryPool = () => ({
   name: 'master', count: 1, prefix: 'master', instance: 'm5.large',
-  zones: ['eu-central-1a'], runs: [runs('losim.Job', ENTRY_FILE)],
+  zones: ['eu-central-1a'], runs: [runs('dissaly.Job', ENTRY_FILE)],
   failures: [], memoryMb: null, diskMb: null, overrides: [],
 });
 
@@ -115,7 +115,7 @@ const DRAFTS: [string, Draft][] = [
       entryPool(),
       { name: 'workers', count: 6, prefix: 'workers', instance: 'c5.large',
         zones: ['eu-central-1a', 'eu-central-1b', 'eu-central-1c'],
-        runs: [runs('losim.t.Worker', WORKER_FILE)],
+        runs: [runs('dissaly.t.Worker', WORKER_FILE)],
         failures: [], memoryMb: null, diskMb: null, overrides: [] },
     ],
   }],
@@ -124,10 +124,10 @@ const DRAFTS: [string, Draft][] = [
     pools: [
       entryPool(),
       { name: 'edge', count: 1, prefix: 'edge', instance: 'a1.medium', zones: ['ap-northeast-1a'],
-        runs: [runs('losim.t.Worker', WORKER_FILE)],
+        runs: [runs('dissaly.t.Worker', WORKER_FILE)],
         failures: [], memoryMb: null, diskMb: null, overrides: [] },
       { name: 'vault', count: 2, prefix: 'vault', instance: 'm5.large', zones: ['switzerlandnorth-1'],
-        runs: [runs('losim.t.Shuffler', SHUFFLER_FILE)],
+        runs: [runs('dissaly.t.Shuffler', SHUFFLER_FILE)],
         failures: [], memoryMb: null, diskMb: null, overrides: [] },
     ],
   }],
@@ -146,7 +146,7 @@ const DRAFTS: [string, Draft][] = [
     pools: [
       entryPool(),
       { name: 'workers', count: 3, prefix: 'w', instance: 'c5.large', zones: ['eu-central-1a'],
-        runs: [runs('losim.t.Worker', WORKER_FILE)],
+        runs: [runs('dissaly.t.Worker', WORKER_FILE)],
         failures: [fails('kill', { atRefMs: 300, restartAfterRefMs: 2000 })],
         memoryMb: null, diskMb: null,
         overrides: [{ node: 'w1', instance: '', zone: '', memoryMb: null, diskMb: null,
@@ -158,7 +158,7 @@ const DRAFTS: [string, Draft][] = [
     pools: [
       entryPool(),
       { name: 'workers', count: 2, prefix: 'w', instance: 'c5.large', zones: ['eu-central-1a'],
-        runs: [runs('losim.t.Worker', WORKER_FILE)],
+        runs: [runs('dissaly.t.Worker', WORKER_FILE)],
         failures: [fails('freeze', { atRefMs: 300, forRefMs: 800 }),
                    fails('degrade', { atRefMs: 900, factor: 4 })],
         memoryMb: null, diskMb: null, overrides: [] },
@@ -169,7 +169,7 @@ const DRAFTS: [string, Draft][] = [
     pools: [
       entryPool(),
       { name: 'workers', count: 4, prefix: 'w', instance: 'c5.large', zones: ['eu-central-1a'],
-        runs: [runs('losim.t.Worker', WORKER_FILE)],
+        runs: [runs('dissaly.t.Worker', WORKER_FILE)],
         // All three the loader lets stand as a rate. The other four either bring
         // a node back or take it away for good, and it refuses a `per:` on them.
         failures: [fails('kill', { perRefMs: 2000 }),
@@ -183,13 +183,13 @@ const DRAFTS: [string, Draft][] = [
     pools: [
       entryPool(),
       { name: 'workers', count: 3, prefix: 'w', instance: 'c5.large', zones: ['eu-central-1a'],
-        runs: [runs('losim.t.Worker', WORKER_FILE)],
+        runs: [runs('dissaly.t.Worker', WORKER_FILE)],
         failures: [], memoryMb: null, diskMb: null, overrides: [] },
       // The whole reason rpc failures are written inside `runs:`: this node
       // serves the same service as the pool above and is the only one that is
       // bad at it, which is the case every design handles worst.
       { name: 'w9', count: 1, prefix: 'w9', instance: 'c5.large', zones: ['eu-central-1a'],
-        runs: [runs('losim.t.Worker', WORKER_FILE, {
+        runs: [runs('dissaly.t.Worker', WORKER_FILE, {
           Map: [{ kind: 'status', status: 'UNAVAILABLE', factor: 1, perCalls: 20 }],
           Reduce: [{ kind: 'slow', status: '', factor: 6, perCalls: 4 },
                    { kind: 'drop', status: '', factor: 1, perCalls: 50 }],
@@ -204,7 +204,7 @@ const DRAFTS: [string, Draft][] = [
       entryPool(),
       { name: 'workers', count: 3, prefix: 'workers', instance: 'c5.large',
         zones: ['eu-central-1a', 'ap-northeast-1a'],
-        runs: [runs('losim.t.Worker', WORKER_FILE)],
+        runs: [runs('dissaly.t.Worker', WORKER_FILE)],
         failures: [], memoryMb: null, diskMb: null, overrides: [] },
     ],
   }],
@@ -225,8 +225,8 @@ const DRAFTS: [string, Draft][] = [
   ['retries, safe and deliberately not', {
     ...base, name: 'retried',
     retries: [
-      { method: 'losim.t.Worker.Map', attempts: 3, backoffRefMs: 40, multiplier: 1, unsafe: false },
-      { method: 'losim.t.Worker.Note', attempts: 2, backoffRefMs: 0, multiplier: 1, unsafe: true },
+      { method: 'dissaly.t.Worker.Map', attempts: 3, backoffRefMs: 40, multiplier: 1, unsafe: false },
+      { method: 'dissaly.t.Worker.Note', attempts: 2, backoffRefMs: 0, multiplier: 1, unsafe: true },
     ],
   }],
   ['a pool capped below what its instance comes with', {
@@ -236,7 +236,7 @@ const DRAFTS: [string, Draft][] = [
       // 4 MB is the wordcount simulation's own trick: a node far too small for
       // what it is given, which fills up and says so.
       { name: 'workers', count: 3, prefix: 'workers', instance: 'c5.large', zones: ['eu-central-1a'],
-        runs: [runs('losim.t.Worker', WORKER_FILE)],
+        runs: [runs('dissaly.t.Worker', WORKER_FILE)],
         failures: [], memoryMb: 4, diskMb: 2048, overrides: [] },
     ],
   }],
@@ -247,7 +247,7 @@ const DRAFTS: [string, Draft][] = [
         failures: [fails('partition', { atRefMs: 300, other: 'w0' }),
                    fails('heal', { atRefMs: 1200, other: 'w0' })] },
       { name: 'workers', count: 2, prefix: 'w', instance: 'c5.large', zones: ['eu-central-1a'],
-        runs: [runs('losim.t.Worker', WORKER_FILE)],
+        runs: [runs('dissaly.t.Worker', WORKER_FILE)],
         failures: [], memoryMb: null, diskMb: null, overrides: [] },
     ],
   }],
@@ -256,7 +256,7 @@ const DRAFTS: [string, Draft][] = [
     pools: [
       entryPool(),
       { name: 'workers', count: 2, prefix: 'w', instance: 'c5.large', zones: ['eu-central-1a'],
-        runs: [runs('losim.t.Worker', WORKER_FILE)],
+        runs: [runs('dissaly.t.Worker', WORKER_FILE)],
         failures: [fails('spotReclaim', { atRefMs: 400, noticeRefMs: 250 })],
         memoryMb: null, diskMb: null,
         overrides: [{ node: 'w1', instance: '', zone: '', memoryMb: null, diskMb: null,
@@ -268,7 +268,7 @@ const DRAFTS: [string, Draft][] = [
     pools: [
       entryPool(),
       { name: 'workers', count: 2, prefix: 'w', instance: 'c5.large', zones: ['eu-central-1a'],
-        runs: [runs('losim.t.Worker', WORKER_FILE)],
+        runs: [runs('dissaly.t.Worker', WORKER_FILE)],
         failures: [fails('restart', { atRefMs: 500 })],
         memoryMb: null, diskMb: null, overrides: [] },
     ],
@@ -281,10 +281,10 @@ const DRAFTS: [string, Draft][] = [
     pools: [
       entryPool(),
       { name: 'mappers', count: 4, prefix: 'm', instance: 'c5.large', zones: ['eu-central-1a'],
-        runs: [runs('losim.t.Worker', WORKER_FILE)],
+        runs: [runs('dissaly.t.Worker', WORKER_FILE)],
         failures: [], memoryMb: null, diskMb: null, overrides: [] },
       { name: 'reducers', count: 2, prefix: 'r', instance: 'c5.large', zones: ['eu-central-1b'],
-        runs: [runs('losim.t.Shuffler', SHUFFLER_FILE)],
+        runs: [runs('dissaly.t.Shuffler', SHUFFLER_FILE)],
         failures: [fails('partition', { atRefMs: 600, other: 'm0' })],
         memoryMb: null, diskMb: null, overrides: [] },
     ],
@@ -297,7 +297,7 @@ const DRAFTS: [string, Draft][] = [
     pools: [
       entryPool(),
       { name: 'solo', count: 1, prefix: 's', instance: 'm5.large', zones: ['eu-central-1a'],
-        runs: [runs('losim.t.Worker', WORKER_FILE)],
+        runs: [runs('dissaly.t.Worker', WORKER_FILE)],
         failures: [fails('kill', { atRefMs: 300 })],
         memoryMb: null, diskMb: null, overrides: [] },
     ],
@@ -307,7 +307,7 @@ const DRAFTS: [string, Draft][] = [
     pools: [
       entryPool(),
       { name: 'workers', count: 4, prefix: 'w', instance: 'c5.large', zones: ['eu-central-1a'],
-        runs: [runs('losim.t.Worker', WORKER_FILE)],
+        runs: [runs('dissaly.t.Worker', WORKER_FILE)],
         failures: [], memoryMb: null, diskMb: null,
         overrides: [
           // Every shape an override can take, so a writer that learns to skip
@@ -321,8 +321,8 @@ const DRAFTS: [string, Draft][] = [
   ['retries that ease off, and ones that do not', {
     ...base, name: 'backing-off',
     retries: [
-      { method: 'losim.t.Worker.Map', attempts: 5, backoffRefMs: 20, multiplier: 2, unsafe: false },
-      { method: 'losim.t.Shuffler.Fold', attempts: 3, backoffRefMs: 40, multiplier: 1, unsafe: false },
+      { method: 'dissaly.t.Worker.Map', attempts: 5, backoffRefMs: 20, multiplier: 2, unsafe: false },
+      { method: 'dissaly.t.Shuffler.Fold', attempts: 3, backoffRefMs: 40, multiplier: 1, unsafe: false },
     ],
   }],
   ['all of it at once', {
@@ -333,23 +333,23 @@ const DRAFTS: [string, Draft][] = [
                    fails('heal', { atRefMs: 2400, other: 'edge' })] },
       { name: 'workers', count: 4, prefix: 'workers', instance: 'c5.large',
         zones: ['eu-central-1a', 'eu-central-1b'],
-        runs: [runs('losim.t.Worker', WORKER_FILE, {
+        runs: [runs('dissaly.t.Worker', WORKER_FILE, {
                  Note: [{ kind: 'drop', status: '', factor: 1, perCalls: 12 }] }),
-               runs('losim.t.Shuffler', SHUFFLER_FILE)],
+               runs('dissaly.t.Shuffler', SHUFFLER_FILE)],
         failures: [fails('kill', { atRefMs: 300, restartAfterRefMs: 2000 }),
                    fails('freeze', { perRefMs: 700, forRefMs: 150 })],
         memoryMb: null, diskMb: null,
         overrides: [{ node: 'workers3', instance: '', zone: '', memoryMb: null, diskMb: null,
                       failures: [fails('spotReclaim', { atRefMs: 1500, noticeRefMs: 300 })] }] },
       { name: 'edge', count: 1, prefix: 'edge', instance: 'a1.medium', zones: ['ap-northeast-1a'],
-        runs: [runs('losim.t.Worker', WORKER_FILE)],
+        runs: [runs('dissaly.t.Worker', WORKER_FILE)],
         failures: [fails('degrade', { atRefMs: 1200, factor: 3 }),
                    fails('restart', { atRefMs: 2600 })],
         memoryMb: null, diskMb: null, overrides: [] },
     ],
     net: { sameZoneRefMs: 0.4, crossZoneRefMs: 25, jitterRefMs: 3, loss: 0.005 },
     input: { source: '', unit: 'line', count: 4096 },
-    retries: [{ method: 'losim.t.Worker.Map', attempts: 3, backoffRefMs: 40, multiplier: 1, unsafe: false }],
+    retries: [{ method: 'dissaly.t.Worker.Map', attempts: 3, backoffRefMs: 40, multiplier: 1, unsafe: false }],
     simulatedDuration: [
       { runs: WORKER_FILE, rpc: 'Map', fixedRefMs: 2, perUnitRefNs: 20000 },
       { runs: SHUFFLER_FILE, rpc: 'Fold', fixedRefMs: 5, perUnitRefNs: 0 },
@@ -363,7 +363,7 @@ nodes:
   a:
     instance: m5.large
     zone: eu-central-1a
-    runs: { losim.Job: ${ENTRY_FILE} }
+    runs: { dissaly.Job: ${ENTRY_FILE} }
 `;
 
 /** And the ones that must be refused, with the loader's own words. */
@@ -390,12 +390,12 @@ const REFUSED: [string, string][] = [
    `${ONE_NODE}    failures:\n      - { drop: true, per: 4 calls }\n`],
   ['a node failure written under an rpc',
    `seed: 1\nnodes:\n  a:\n    instance: m5.large\n    zone: eu-central-1a\n    runs:\n`
-   + `      losim.Job:\n        file: ${ENTRY_FILE}\n        failures:\n`
+   + `      dissaly.Job:\n        file: ${ENTRY_FILE}\n        failures:\n`
    + `          Run:\n            - { kill: true, per: 4 calls }\n`],
   ['a runs: value that is not a .java file',
-   'seed: 1\nnodes:\n  a: { instance: m5.large, zone: eu-central-1a, runs: { losim.Job: lab.Render } }\n'],
+   'seed: 1\nnodes:\n  a: { instance: m5.large, zone: eu-central-1a, runs: { dissaly.Job: lab.Render } }\n'],
   ['a runs: value naming a file that is not there',
-   'seed: 1\nnodes:\n  a: { instance: m5.large, zone: eu-central-1a, runs: { losim.Job: src/Nowhere.java } }\n'],
+   'seed: 1\nnodes:\n  a: { instance: m5.large, zone: eu-central-1a, runs: { dissaly.Job: src/Nowhere.java } }\n'],
   ['a workload counted in nothing at all',
    `${ONE_NODE}\ninput:\n  unit: ""\n  count: 4\n`],
   ['a workload read from somewhere that does not exist',
@@ -427,7 +427,7 @@ const port = await freePort();
 // matter: files are written into the lab, and a `runs:` value is a path the
 // loader stats against the working directory — so the drafts below can name real
 // `.java` files without this check having to write anything into the repository.
-const server = spawn('java', ['-cp', JAR, 'losim.cli.Main', 'serve',
+const server = spawn('java', ['-cp', JAR, 'dissaly.cli.Main', 'serve',
   '--root', dir, '--runs', join(dir, 'results'), '--port', String(port), '--no-open'],
   { cwd: ROOT, stdio: 'ignore' });
 

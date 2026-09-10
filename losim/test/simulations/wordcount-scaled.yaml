@@ -13,7 +13,7 @@ nodes:
   master:
     instance: m5.2xlarge
     zone: eu-central-1a
-    runs: { losim.Job: losim/test/src/ScalableWordCount.java }
+    runs: { dissaly.Job: losim/test/src/ScalableWordCount.java }
 
   workers:
     count: 4

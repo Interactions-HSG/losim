@@ -3,12 +3,12 @@ import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import java.util.*;
 import java.util.concurrent.*;
-import losim.api.Losim;
-import losim.pb.Input;
-import losim.pb.JobGrpc;
-import losim.pb.Result;
-import losim.pb.Workload;
-import losim.t.*;
+import dissaly.api.Dissaly;
+import dissaly.pb.Input;
+import dissaly.pb.JobGrpc;
+import dissaly.pb.Result;
+import dissaly.pb.Workload;
+import dissaly.t.*;
 
 /**
  * Map across the system, then reduce, and cope with a node that is not there.
@@ -32,7 +32,7 @@ public final class WordCountJob extends JobGrpc.JobImplBase {
     }
 
     @Override public void run(Workload work, StreamObserver<Result> out) {
-        var here = Losim.current();
+        var here = Dissaly.current();
         List<String> workers = here.peersServing("Worker");
         if (workers.isEmpty()) throw new IllegalStateException("nobody serves Worker");
 
@@ -69,7 +69,7 @@ public final class WordCountJob extends JobGrpc.JobImplBase {
             } catch (StatusRuntimeException e) {
                 // Not "is it alive?": there is no such question. It did not answer
                 // in the time this master was willing to wait, so the work is
-                // its own again. Done here, on the thread serving losim.Job/Run,
+                // its own again. Done here, on the thread serving dissaly.Job/Run,
                 // which is what makes the node busy for as long as it takes.
                 here.log("reducer " + worker + " did not answer ("
                        + e.getStatus().getCode() + ") — merging locally");

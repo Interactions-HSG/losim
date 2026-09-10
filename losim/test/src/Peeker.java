@@ -1,6 +1,6 @@
 import java.util.HashMap;
-import losim.t.Chunk;
-import losim.t.Counts;
+import dissaly.t.Chunk;
+import dissaly.t.Counts;
 
 /**
  * A worker that times itself, with the wrong clock.

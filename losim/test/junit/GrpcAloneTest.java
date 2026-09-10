@@ -6,10 +6,10 @@ import io.grpc.StatusRuntimeException;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import java.util.concurrent.TimeUnit;
-import losim.api.Losim;
-import losim.t.Chunk;
-import losim.t.Counts;
-import losim.t.WorkerGrpc;
+import dissaly.api.Dissaly;
+import dissaly.t.Chunk;
+import dissaly.t.Counts;
+import dissaly.t.WorkerGrpc;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -119,9 +119,9 @@ class GrpcAloneTest {
     @Test
     @DisplayName("losim is on the classpath and is not running")
     void nothingIsSimulated() {
-        // losim.jar is here because Counter calls Losim.current(), which has to
+        // losim.jar is here because Counter calls Dissaly.current(), which has to
         // resolve. If this ever comes back true, something started a simulation
         // and the tests above stopped proving what they say.
-        assertFalse(Losim.current().isRunning());
+        assertFalse(Dissaly.current().isRunning());
     }
 }

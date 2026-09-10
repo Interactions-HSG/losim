@@ -1,11 +1,11 @@
 import java.nio.file.Path;
 import java.util.*;
-import losim.runtime.Simulate;
-import losim.sim.Loader;
-import losim.sim.Simulation;
-import losim.sim.Yaml;
-import losim.trace.Telemetry;
-import losim.verify.*;
+import dissaly.runtime.Simulate;
+import dissaly.sim.Loader;
+import dissaly.sim.Simulation;
+import dissaly.sim.Yaml;
+import dissaly.trace.Telemetry;
+import dissaly.verify.*;
 
 /**
  * Phase 4: trust markers.
@@ -87,7 +87,7 @@ public class Phase4 {
         // building your own channel. A handler that had no way to do the first would
         // be flagged for doing the only thing left.
         check(look("Forwarder").clean(),
-              "a handler that calls a peer through Losim.current().channelTo() is not "
+              "a handler that calls a peer through Dissaly.current().channelTo() is not "
               + "flagged — what OWN_CHANNEL objects to is a channel with no interceptor "
               + "on it, not the fanning out");
 
@@ -102,7 +102,7 @@ public class Phase4 {
         // And the rule is about the unit, not about waiting: the same backoff written
         // in reference time is not a finding, because k_time divides it like everything else.
         check(look("Waiter").clean(),
-              "a handler that waits through Losim.current().sleep(refMs) is not flagged — a "
+              "a handler that waits through Dissaly.current().sleep(refMs) is not flagged — a "
               + "growing backoff cannot be an annotation, so the remedy for Thread.sleep is a "
               + "duration in the right unit rather than no duration at all");
 
@@ -149,8 +149,8 @@ public class Phase4 {
     static void generated() {
         System.out.println("=== generated code is skipped, and that is what flagging buys ===");
         var report = look("Counter");
-        check(report.generated().contains("losim.t.Chunk")
-              && report.generated().stream().anyMatch(n -> n.startsWith("losim.t.WorkerGrpc")),
+        check(report.generated().contains("dissaly.t.Chunk")
+              && report.generated().stream().anyMatch(n -> n.startsWith("dissaly.t.WorkerGrpc")),
               "the walk reaches protoc's output — " + report.generated().size() + " classes,"
               + " recognised by protobuf's superclass and grpc-java's own @GrpcGenerated"
               + " rather than by a guess about their names");
@@ -176,7 +176,7 @@ public class Phase4 {
         return """
             seed: 4
             nodes:
-              master: { instance: m5.large, zone: z, runs: { losim.Job: %s } }
+              master: { instance: m5.large, zone: z, runs: { dissaly.Job: %s } }
               w0: { instance: m5.large, zone: z, runs: { Worker: %s } }
               w1: { instance: m5.large, zone: z, runs: { Worker: %s } }
             simulatedDuration:
@@ -266,7 +266,7 @@ public class Phase4 {
             nodes:
               master: { instance: m5.large, zone: z }
               w0: { instance: m5.large, zone: z, runs: { Worker: losim/test/src/Counter.java } }
-              w1: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/Peeker.java } }
+              w1: { instance: m5.large, zone: z, runs: { dissaly.Job: losim/test/src/Peeker.java } }
             """));
         var jobTrust = Trust.of(byJob, List.of(CODE));
         check(jobTrust.machines().equals(Set.of("w1")),

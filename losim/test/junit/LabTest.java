@@ -4,7 +4,7 @@ import java.nio.file.attribute.FileTime;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import losim.cli.Lab;
+import dissaly.cli.Lab;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;

@@ -31,7 +31,7 @@
  *   over nine nodes would invent a claim nothing supports, so it is left
  *   unattributed and says so
  *
- * The classification is matched against the exact line labels `losim.price.Bill`
+ * The classification is matched against the exact line labels `dissaly.price.Bill`
  * writes. That coupling is on purpose and it is checked: an unrecognised line is
  * `unknown`, attributed to nobody rather than guessed at.
  */
@@ -160,7 +160,7 @@ export class LedgerModel {
     this.lines = account.lines;
 
     const duration = trace.duration;
-    // The bill priced what `losim.Job/Run` was open for, so the shapes that
+    // The bill priced what `dissaly.Job/Run` was open for, so the shapes that
     // follow the bill's own arithmetic follow that clock — the film may run a
     // moment longer.
     const job = trace.billedRefMs;

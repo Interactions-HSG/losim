@@ -5,8 +5,8 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import losim.cli.Experiments;
-import losim.cli.Lab;
+import dissaly.cli.Experiments;
+import dissaly.cli.Lab;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -63,7 +63,7 @@ class ExperimentsTest {
     void chainsMultipleRuns() throws Exception {
         Files.writeString(root.resolve("simulations/second.yaml"), """
                 nodes:
-                  a: { instance: m5.large, zone: eu-central-1a, runs: { losim.Job: src/WordCountJob.java } }
+                  a: { instance: m5.large, zone: eu-central-1a, runs: { dissaly.Job: src/WordCountJob.java } }
                   b: { instance: c5.large, zone: eu-central-1a, count: 2, prefix: b, runs: { Worker: src/Counter.java } }
                 """);
         try {
@@ -94,7 +94,7 @@ class ExperimentsTest {
     void runsEverything() throws Exception {
         Files.writeString(root.resolve("simulations/third.yaml"), """
                 nodes:
-                  a: { instance: m5.large, zone: eu-central-1a, runs: { losim.Job: src/WordCountJob.java } }
+                  a: { instance: m5.large, zone: eu-central-1a, runs: { dissaly.Job: src/WordCountJob.java } }
                   b: { instance: c5.large, zone: eu-central-1a, count: 2, prefix: b, runs: { Worker: src/Counter.java } }
                 """);
         try {

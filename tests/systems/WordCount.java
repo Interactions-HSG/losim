@@ -5,11 +5,11 @@ import lab.pb.Chunk;
 import lab.pb.Counts;
 import lab.pb.ShufflerGrpc;
 import lab.pb.WorkerGrpc;
-import losim.api.Losim;
-import losim.pb.Input;
-import losim.pb.JobGrpc;
-import losim.pb.Result;
-import losim.pb.Workload;
+import dissaly.api.Dissaly;
+import dissaly.pb.Input;
+import dissaly.pb.JobGrpc;
+import dissaly.pb.Result;
+import dissaly.pb.Workload;
 
 /**
  * Split, map, shuffle, reduce — the pipeline most of the suite's harder cases run on.
@@ -47,7 +47,7 @@ public final class WordCount extends JobGrpc.JobImplBase {
     }
 
     @Override public void run(Workload work, StreamObserver<Result> out) {
-        var here = Losim.current();
+        var here = Dissaly.current();
         List<String> mappers = here.peersServing("Worker");
         List<String> reducers = here.peersServing("Shuffler");
         if (mappers.isEmpty() || reducers.isEmpty())
@@ -104,7 +104,7 @@ public final class WordCount extends JobGrpc.JobImplBase {
                 answer.putAll(folded.getCountsMap());
             } catch (RuntimeException e) {
                 // The reducer did not answer. Nobody said why, and nobody will: redo
-                // its bucket here, on the thread serving losim.Job/Run — which is
+                // its bucket here, on the thread serving dissaly.Job/Run — which is
                 // what makes this node busy for exactly as long as it takes.
                 answer.putAll(bucket);
             }

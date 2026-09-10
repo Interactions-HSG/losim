@@ -22,7 +22,7 @@ nodes:
   master:
     instance: m5.2xlarge
     zone:     eu-central-1a
-    runs:     { losim.Job: tests/gallery/systems/RenderMaster.java }
+    runs:     { dissaly.Job: tests/gallery/systems/RenderMaster.java }
   renderers:
     count:    4
     prefix:   r

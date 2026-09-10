@@ -3,13 +3,13 @@ import io.grpc.stub.StreamObserver;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import losim.api.Losim;
-import losim.pb.Input;
-import losim.pb.JobGrpc;
-import losim.pb.Result;
-import losim.pb.Workload;
-import losim.t.Chunk;
-import losim.t.WorkerGrpc;
+import dissaly.api.Dissaly;
+import dissaly.pb.Input;
+import dissaly.pb.JobGrpc;
+import dissaly.pb.Result;
+import dissaly.pb.Workload;
+import dissaly.t.Chunk;
+import dissaly.t.WorkerGrpc;
 
 /**
  * A Job that calls every peer once and says what came back.
@@ -31,7 +31,7 @@ public final class Prober extends JobGrpc.JobImplBase {
     }
 
     @Override public void run(Workload work, StreamObserver<Result> out) {
-        var here = Losim.current();
+        var here = Dissaly.current();
         var said = new ArrayList<String>();
         List<String> peers = here.peersServing("Worker");
         for (String peer : peers) {

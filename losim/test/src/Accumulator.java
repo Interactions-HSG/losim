@@ -1,9 +1,9 @@
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import losim.api.Losim;
-import losim.t.Chunk;
-import losim.t.Counts;
+import dissaly.api.Dissaly;
+import dissaly.t.Chunk;
+import dissaly.t.Counts;
 
 /**
  * A combiner: it folds every chunk it is given into what it is already holding.
@@ -38,12 +38,12 @@ public final class Accumulator extends WorkerBase {
             holding.merge(word, 1, Integer::sum);
             payload.computeIfAbsent(word, k -> new long[PAYLOAD_PER_KEY]);
         }
-        Losim.current().units(c.getLines());
+        Dissaly.current().units(c.getLines());
         // Every chunk is spilled, new words or not — so disk follows volume while
         // memory follows vocabulary, and the two part company as the run grows.
-        Losim.current().wroteDisk(c.getText().length());
+        Dissaly.current().wroteDisk(c.getText().length());
         // How the engine learns what this machine's memory is really a function of.
-        Losim.current().reveal("distinctKeys", holding.size());
+        Dissaly.current().reveal("distinctKeys", holding.size());
         return Counts.newBuilder().putAllCounts(chunk).build();
     }
 
@@ -52,7 +52,7 @@ public final class Accumulator extends WorkerBase {
             holding.merge(k, v, Integer::sum);
             payload.computeIfAbsent(k, x -> new long[PAYLOAD_PER_KEY]);
         });
-        Losim.current().reveal("distinctKeys", holding.size());
+        Dissaly.current().reveal("distinctKeys", holding.size());
         return Counts.newBuilder().putAllCounts(holding).build();
     }
 }

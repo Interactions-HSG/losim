@@ -5,17 +5,17 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.MetadataUtils;
 import io.grpc.stub.StreamObserver;
-import losim.pb.JobGrpc;
-import losim.pb.Result;
-import losim.pb.Workload;
-import losim.runtime.Machines;
-import losim.time.Clock;
-import losim.trace.Telemetry;
+import dissaly.pb.JobGrpc;
+import dissaly.pb.Result;
+import dissaly.pb.Workload;
+import dissaly.runtime.Machines;
+import dissaly.time.Clock;
+import dissaly.trace.Telemetry;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * losim.Job is losim's way in, and it is used once.
+ * dissaly.Job is losim's way in, and it is used once.
  *
  * <p>Neither half is checkable when the file is read: a node can only make this
  * call while running, and the header marking losim's own call is one line of
@@ -108,7 +108,7 @@ class EntryOnceTest {
                     .withInterceptors(MetadataUtils.newAttachHeadersInterceptor(forged()));
 
             var e = assertThrows(StatusRuntimeException.class,
-                    () -> stub.load(losim.pb.Input.newBuilder().setUnit("line").setCount(1).build()),
+                    () -> stub.load(dissaly.pb.Input.newBuilder().setUnit("line").setCount(1).build()),
                     "this Entry does not implement Load, so it must fail as UNIMPLEMENTED");
             assertEquals(Status.Code.UNIMPLEMENTED, e.getStatus().getCode(),
                     "a Load that got through must not have been refused as a second entry");

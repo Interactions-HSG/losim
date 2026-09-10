@@ -1,10 +1,10 @@
 import java.nio.file.Path;
 import java.util.*;
-import losim.scale.*;
-import losim.sim.Loader;
-import losim.sim.Simulation;
-import losim.sim.Yaml;
-import losim.trace.Telemetry;
+import dissaly.scale.*;
+import dissaly.sim.Loader;
+import dissaly.sim.Simulation;
+import dissaly.sim.Yaml;
+import dissaly.trace.Telemetry;
 
 /**
  * Phase 3: the scaler engine, which is what losim is for.
@@ -39,7 +39,7 @@ public class Phase3 {
               master:
                 instance: m5.2xlarge
                 zone: z
-                runs: { losim.Job: %s }
+                runs: { dissaly.Job: %s }
               workers:
                 count: 4
                 prefix: w
@@ -100,7 +100,7 @@ public class Phase3 {
               master:
                 instance: m5.large
                 zone: z
-                runs: { losim.Job: losim/test/src/Sizer.java }
+                runs: { dissaly.Job: losim/test/src/Sizer.java }
             """;
         var s = Loader.of(Yaml.parse("sized.yaml", cluster + """
             input:
@@ -128,16 +128,16 @@ public class Phase3 {
             seed: 1
             nodes:
               master: { instance: m5.large, zone: z }
-            """)), ":3:").contains("no node in this simulation runs losim.Job"),
+            """)), ":3:").contains("no node in this simulation runs dissaly.Job"),
               "backwards: a system with nothing to start it is refused, at the nodes: block");
 
         check(refusedBy(Loader.of(Yaml.parse("sized.yaml", """
             seed: 1
             nodes:
-              a: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/Sizer.java } }
-              b: { instance: m5.large, zone: z, runs: { losim.Job: losim/test/src/NoopJob.java } }
+              a: { instance: m5.large, zone: z, runs: { dissaly.Job: losim/test/src/Sizer.java } }
+              b: { instance: m5.large, zone: z, runs: { dissaly.Job: losim/test/src/NoopJob.java } }
             """)), ":4:").contains("A simulation starts in one place"),
-              "backwards: two nodes running losim.Job is refused at the second one — two"
+              "backwards: two nodes running dissaly.Job is refused at the second one — two"
               + " designs are two files, and nothing here picks between them");
 
         check(refusedBy(Loader.of(Yaml.parse("sized.yaml", """
@@ -146,12 +146,12 @@ public class Phase3 {
               master:
                 instance: m5.large
                 zone: z
-                runs: { losim.Job: losim/test/src/Sizer.java }
+                runs: { dissaly.Job: losim/test/src/Sizer.java }
               w0:
                 instance: m5.large
                 zone: z
                 runs: { Workr: losim/test/src/Counter.java }
-            """)), ":10:").contains("serves losim.t.Worker"),
+            """)), ":10:").contains("serves dissaly.t.Worker"),
               "backwards: a runs: key the class does not answer to is refused on its own"
               + " line. Nothing else would ever say so — peersServing returns an empty"
               + " list, and a design that copes with a missing peer looks like one that"
@@ -210,7 +210,7 @@ public class Phase3 {
 
     /** What {@link Sizer} answered, which is the only thing it does. */
     static String ran(Simulation s) throws Exception {
-        var result = losim.runtime.Simulate.of(s, loader());
+        var result = dissaly.runtime.Simulate.of(s, loader());
         if (!result.completed()) throw new IllegalStateException(
                 "the run did not finish: " + result.failure());
         var done = result.telemetry().events().stream()
@@ -224,7 +224,7 @@ public class Phase3 {
     /** The refusal a simulation earns, checked to carry the line it is about. */
     static String refusedBy(Simulation s, String line) throws Exception {
         try {
-            losim.runtime.Simulate.of(s, loader());
+            dissaly.runtime.Simulate.of(s, loader());
         } catch (IllegalArgumentException e) {
             String said = e.getMessage();
             System.out.println("    " + said);
@@ -384,7 +384,7 @@ public class Phase3 {
               master:
                 instance: m5.2xlarge
                 zone: z
-                runs: { losim.Job: losim/test/src/BatchJob.java }
+                runs: { dissaly.Job: losim/test/src/BatchJob.java }
               workers:
                 count: 4
                 prefix: w
@@ -405,13 +405,13 @@ public class Phase3 {
         var small = Loader.of(Yaml.parse("sched.yaml", yaml.formatted(2, 4)));
         var big = Loader.of(Yaml.parse("sched.yaml", yaml.formatted(16, 32)));
 
-        var observed = losim.runtime.Simulate.of(small, loader(), Telemetry.Level.NO_PAYLOAD);
-        var truth = losim.runtime.Simulate.of(big, loader(), Telemetry.Level.NO_PAYLOAD);
+        var observed = dissaly.runtime.Simulate.of(small, loader(), Telemetry.Level.NO_PAYLOAD);
+        var truth = dissaly.runtime.Simulate.of(big, loader(), Telemetry.Level.NO_PAYLOAD);
 
         // Every call costs the same 200 refMs whatever the run size, so the cost
         // site's law is flat and the whole question is the schedule.
         var projected = new HashMap<String, Double>();
-        projected.put("losim.t.Volley.Poll", 200.0);
+        projected.put("dissaly.t.Volley.Poll", 200.0);
 
         var tasks = new ArrayList<Schedule.Task>();
         var perCall = Schedule.tasksOf(observed.telemetry(), projected);
