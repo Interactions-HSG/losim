@@ -46,10 +46,10 @@ const SHUFFLER_FILE = 'losim/test/src/Accumulator.java';
  * this repository and the files below are real ones.
  */
 function lab(): string {
-  const dir = mkdtempSync(join(tmpdir(), 'losim-author-'));
+  const dir = mkdtempSync(join(tmpdir(), 'dissaly-author-'));
   mkdirSync(join(dir, 'build'), { recursive: true });
   mkdirSync(join(dir, 'simulations'), { recursive: true });
-  // What a lab's build writes, and all losim reads to know it is one.
+  // What a lab's build writes, and all DISSALy reads to know it is one.
   writeFileSync(join(dir, 'build/losim-toolchain.properties'), `classpath=${JAR}\n`);
   return dir;
 }
@@ -405,7 +405,7 @@ const REFUSED: [string, string][] = [
 /**
  * A port nothing else is on.
  *
- * Not a number picked out of the air: `losim serve` answers a taken port by
+ * Not a number picked out of the air: `dissaly serve` answers a taken port by
  * saying it is already running and staying quiet, so a guess that collided
  * would leave this check talking to somebody else's lab and believing it.
  */

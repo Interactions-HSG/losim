@@ -1,12 +1,12 @@
 # losim, under a gRPC system that already works
 
 You are working in a project that has a working gRPC Java system in it, and losim
-has just been put underneath it by `losim adopt`. losim is a simulator for
+has just been put underneath it by `dissaly adopt`. losim is a simulator for
 decentralized systems: it runs **your** handlers, unchanged, on many simulated
 nodes over a simulated network, on one laptop, and tells you what the design
 cost.
 
-`losim adopt` moved files and wrote the build. **It did not touch a single
+`dissaly adopt` moved files and wrote the build. **It did not touch a single
 `.java`, on purpose** — guessing what a program means produces a system its author
 did not write. That half is yours, and this file is how it gets done.
 
@@ -233,9 +233,9 @@ node runs — `runs:` names the concrete file.
 ## How to check the work, and when to stop
 
 ```
-./losim check     the same findings this file was written from, re-run
-./losim build     generate from the schema and compile
-./losim simulate simulations/1-one-call.yaml
+./dissaly check     the same findings this file was written from, re-run
+./dissaly build     generate from the schema and compile
+./dissaly simulate simulations/1-one-call.yaml
 ```
 
 Then **read the trust markers at the end**. They name what is left, by node and by
@@ -246,7 +246,7 @@ trust: 2 nodes report figures that do not mean what they say
   w0  built its own channel or server, which no interceptor is attached to
 ```
 
-You are done when `./losim check` finds nothing, the simulation completes, and no
+You are done when `./dissaly check` finds nothing, the simulation completes, and no
 node is flagged.
 
 ---

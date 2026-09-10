@@ -24,7 +24,7 @@ Each run writes one JSON file. The bill, viewer, and user assertions read this f
 
 Event kinds and their keys are extended **only additively**. `spans` and `series`
 are new top-level channels; they do not change `events`. The acceptance test compares
-a trace's event kinds and keys before and after a change. [`losim compare`](/ref/cli-compare)
+a trace's event kinds and keys before and after a change. [`dissaly compare`](/ref/cli-compare)
 performs the same check across environments.
 
 `schema` is bumped only when a shape changes incompatibly. It is currently **4**.
@@ -32,7 +32,7 @@ performs the same check across environments.
 
 <Note>
 Schema version **4** records the current trace shape. Readers reject incompatible
-shapes. `losim compare` reports schema differences before field-level differences.
+shapes. `dissaly compare` reports schema differences before field-level differences.
 </Note>
 
 ## meta

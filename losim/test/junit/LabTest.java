@@ -29,7 +29,7 @@ class LabTest {
     void classesAreTheFallback() throws Exception {
         // The reason there is a fallback at all: the classpath the build resolves is
         // the simulator and gRPC, and the lab's own output is deliberately not on it,
-        // so the JVM running `losim run` has never heard of the class a simulation
+        // so the JVM running `dissaly run` has never heard of the class a simulation
         // names. Nothing caught that for a release, because the console passes --cp
         // itself and every test went through the console.
         var log = new StringBuilder();

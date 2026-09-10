@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * {@code losim compare}, on the two shapes {@code meta.scale} actually has.
+ * {@code dissaly compare}, on the two shapes {@code meta.scale} actually has.
  *
  * <p>It has two, and that is the whole reason this file exists. A direct run writes
  * the number it ran at; a scaled run writes the plan it was projected from. Reading

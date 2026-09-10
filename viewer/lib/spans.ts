@@ -2,7 +2,7 @@
  * The distributed call stack.
  *
  * A trace's **events** say what happened. **Spans** say *why*, because every span
- * carries a parent — and losim propagates that parent across the RPC boundary in
+ * carries a parent — and DISSALy propagates that parent across the RPC boundary in
  * a metadata header (D8 rule 2), so the chain is a real distributed call stack
  * rather than a per-node one:
  *
@@ -12,7 +12,7 @@
  *           rpc  Puller.Pull           s2       2069 → 2140     to m0
  *             handler Puller.Pull      m0       2072 → 2116
  *
- * Four nodes deep, reading as one stack, and the top of it is losim's own call
+ * Four nodes deep, reading as one stack, and the top of it is DISSALy's own call
  * into the system — an ordinary handler on an ordinary node. That is the thing a student cannot
  * get from reading the code: that asking one node to sort a partition causes
  * it to go and read from four others, and that most of the wall clock at the top
@@ -155,7 +155,7 @@ export class SpanTree {
     for (const r of this.roots) walk(r);
 
     // The critical path: at each level, the child that finished last, starting
-    // from losim's own call in.
+    // from DISSALy's own call in.
     //
     // Named rather than found by finishing last, which is the rule that looks
     // right and is not. A span still open when the trace ends is drawn to the

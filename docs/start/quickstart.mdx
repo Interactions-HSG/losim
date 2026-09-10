@@ -62,26 +62,26 @@ The published site and the `.mdx` files under `docs/` also contain the manual.
 
 ## Command line
 
-The lab console provides common operations. Commands under `losim dev` are for losim
+The lab console provides common operations. Commands under `dissaly dev` are for losim
 maintainers.
 
 The console invokes the same launcher from the command line:
 
 <Note>
-`losim` is a command. `losim adopt` writes `./losim` into your project, like
+`losim` is a command. `dissaly adopt` writes `./dissaly` into your project, like
 `gradlew`. It builds the project and runs the simulator with the required classpath:
 
 ```bash
-./losim simulate thumbs.yaml
+./dissaly simulate thumbs.yaml
 ```
 
-In losim's own repository the same launcher is `bin/losim`, because the source
+In losim's own repository the same launcher is `bin/dissaly`, because the source
 lives in `losim/` and a file cannot be a directory. Some pages here write
-`bin/losim` for that reason.
+`bin/dissaly` for that reason.
 </Note>
 
 ```bash
-losim simulate thumbs.yaml --cp build/losim/classes --out build/results/thumbs.json
+dissaly simulate thumbs.yaml --cp build/losim/classes --out build/results/thumbs.json
 ```
 
 At a terminal this opens the viewer on the new run. It serves the trace directory, so
@@ -112,7 +112,7 @@ These fields are the important parts of the report:
 | **events / spans / series** | the three telemetry channels. Events are moments, spans are intervals that carry a parent, series are dense numbers on a fixed cadence. |
 | the trace path | the file that matters. Everything downstream reads it. |
 
-The exit code matters when scripting `losim simulate`; the button reports the failed
+The exit code matters when scripting `dissaly simulate`; the button reports the failed
 step for you:
 
 | code | meaning |

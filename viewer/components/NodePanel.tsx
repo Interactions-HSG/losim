@@ -176,7 +176,7 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
                 <Row key={region} k={`↳ ${region}`} v={mb(sent)} />
               ))}
               <Row
-                k="losim's own cost"
+                k="DISSALy's own cost"
                 v={mb(num(totals.raw, 'losimMb'))}
                 hint="metered and taken back off everything above"
               />
@@ -217,7 +217,7 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
               ))}
           </ul>
           <P style={[ui.muted, panel.small]}>
-            Its share of lines <Code>losim bill</Code> already computed. The late-finish
+            Its share of lines <Code>dissaly bill</Code> already computed. The late-finish
             penalty belongs to the job and is not here.
           </P>
         </section>
@@ -408,7 +408,7 @@ function num(raw: Record<string, number | string | boolean>, key: string): numbe
 /**
  * Where this node's cross-zone bytes went, largest first.
  *
- * Absent on a trace written before losim recorded the split, and then simply not
+ * Absent on a trace written before DISSALy recorded the split, and then simply not
  * shown — the total above is still right, and inventing a breakdown for it would
  * be inventing where the traffic went.
  */

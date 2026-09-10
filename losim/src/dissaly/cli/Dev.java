@@ -31,7 +31,7 @@ import java.util.stream.Stream;
  * code is running <i>out of</i> {@code build/losim.jar}, and a Gradle jar task
  * truncates its output file in place. A class loaded lazily after that point
  * reads a jar that is being rewritten under it. Building is the launcher's job —
- * {@code ./losim} runs Gradle and only then starts a JVM — so by the time any of
+ * {@code ./dissaly} runs Gradle and only then starts a JVM — so by the time any of
  * this executes, the jar is both current and finished.
  */
 public final class Dev {
@@ -58,7 +58,7 @@ public final class Dev {
         Path root = Path.of(Main.option(args, "--root", "."));
         if (!here(root)) {
             System.err.println("""
-                `losim dev` is for losim's own repository, and this is not one: it has no
+                `dissaly dev` is for losim's own repository, and this is not one: it has no
                 losim/src and no vendor/jars. Nothing a lab does needs any of these verbs.""");
             return 2;
         }
@@ -75,22 +75,22 @@ public final class Dev {
             case "proto"  -> dev.proto();
             default -> {
                 System.err.println("""
-                    usage: losim dev test  [Phase1 Phase2 …]   losim's own acceptance criteria
-                           losim dev suite [t1 t2 … bill]      the reference suite, end to end
+                    usage: dissaly dev test  [Phase1 Phase2 …]   losim's own acceptance criteria
+                           dissaly dev suite [t1 t2 … bill]      the reference suite, end to end
 
-                           losim dev viewer traces [dir] [--suite] [--gallery] [--all]
-                           losim dev viewer serve  [dir] [--port 8000]   sweep, then serve
-                           losim dev viewer build                        npx next build
-                           losim dev viewer dev    [--port 8000]         the Next dev server
-                           losim dev viewer check                        the node checks
+                           dissaly dev viewer traces [dir] [--suite] [--gallery] [--all]
+                           dissaly dev viewer serve  [dir] [--port 8000]   sweep, then serve
+                           dissaly dev viewer build                        npx next build
+                           dissaly dev viewer dev    [--port 8000]         the Next dev server
+                           dissaly dev viewer check                        the node checks
 
-                           losim dev docs check [--rules]   does the manual give an assignment away
+                           dissaly dev docs check [--rules]   does the manual give an assignment away
 
-                           losim dev vendor                 fetch the toolchain into vendor/
-                           losim dev proto                  regenerate losim/src/dissaly/pb from
+                           dissaly dev vendor                 fetch the toolchain into vendor/
+                           dissaly dev proto                  regenerate losim/src/dissaly/pb from
                                                             losim/proto, and say if it changed
 
-                    All of them assume build/losim.jar is current. `bin/losim` makes sure of
+                    All of them assume build/losim.jar is current. `bin/dissaly` makes sure of
                     that before it starts a JVM; if you are calling java directly, run
                     `gradle jar` first.""");
                 yield 2;
@@ -330,7 +330,7 @@ public final class Dev {
                 traces(rest);
                 Path site = root.resolve("viewer/out");
                 if (!Files.isRegularFile(site.resolve("index.html"))) {
-                    System.err.println("no export yet — bin/losim dev viewer build (needs npm, once)");
+                    System.err.println("no export yet — bin/dissaly dev viewer build (needs npm, once)");
                     yield 1;
                 }
                 System.out.println();
@@ -338,7 +338,7 @@ public final class Dev {
                                  port, Main.host(), false, true);
             }
             default -> {
-                System.err.println("losim dev viewer: traces, serve, build, dev or check");
+                System.err.println("dissaly dev viewer: traces, serve, build, dev or check");
                 yield 2;
             }
         };
@@ -458,8 +458,8 @@ public final class Dev {
             System.err.println("""
 
                   Nothing of yours in build/traces yet. To make one:
-                    losim simulate yours.yaml --cp <your classes> --out build/traces/mine.json
-                  Then `bin/losim dev viewer serve`, and it is the result the viewer opens.
+                    dissaly simulate yours.yaml --cp <your classes> --out build/traces/mine.json
+                  Then `bin/dissaly dev viewer serve`, and it is the result the viewer opens.
                   (Working on losim itself? --gallery or --suite bring those in too.)""");
         }
         return 0;
@@ -512,7 +512,7 @@ public final class Dev {
         // prove nothing — and an empty run set is what two of these checks quietly
         // pass on and two others fail on for reasons that read like a regression.
         if (!written.replaceAll("\\s+", "").contains("\"runs\":[{")) {
-            System.err.println("no traces yet — bin/losim dev viewer traces first");
+            System.err.println("no traces yet — bin/dissaly dev viewer traces first");
             return 1;
         }
         boolean fail = false;
@@ -554,7 +554,7 @@ public final class Dev {
     private int docs(String[] args) throws Exception {
         String what = args.length > 2 ? args[2] : "";
         if (!what.equals("check")) {
-            System.err.println("losim dev docs: check");
+            System.err.println("dissaly dev docs: check");
             return 2;
         }
         // Two sets, because two things are being checked. `everywhere` is what no

@@ -29,7 +29,7 @@ import { chrome, font, radius, shadow } from '../../lib/tokens.stylex.ts';
 
 const GROUPS = [
   { key: 'yours', label: 'Your runs', note: 'whatever you have run in this project' },
-  { key: 'suite', label: 'Reference suite', note: 'the runs losim checks itself against' },
+  { key: 'suite', label: 'Reference suite', note: 'the runs DISSALy checks itself against' },
   { key: 'gallery', label: 'Gallery', note: 'worked examples, written to teach with' },
 ] as const;
 

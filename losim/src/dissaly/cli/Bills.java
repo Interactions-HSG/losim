@@ -9,7 +9,7 @@ import dissaly.trace.Json;
 import dissaly.trace.JsonReader;
 
 /**
- * {@code losim bill} — what a run cost, and what the job it modelled would cost.
+ * {@code dissaly bill} — what a run cost, and what the job it modelled would cost.
  *
  * <p>Five buckets, printed apart rather than summed, because they are five different
  * kinds of decision and adding them up hides the trade. Replication triples capacity

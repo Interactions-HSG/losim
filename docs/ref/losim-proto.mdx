@@ -46,7 +46,7 @@ import "losim/job.proto";
 **Do not pass `losim/job.proto` to protoc as an input file.** The import resolves
 `losim.pb.*` to the classes in `losim.jar`. Compiling the file yourself creates a
 second copy in `gen/`, which can cause a `ClassCastException` when the in-process
-transport passes an `Input` between classloaders. `losim build` sets the include
+transport passes an `Input` between classloaders. `dissaly build` sets the include
 path for you.
 </Warning>
 
@@ -177,7 +177,7 @@ nodes:
 **Exactly one node**, using the service name gRPC puts on the wire: `losim.Job`,
 dotted, not `Job`. Zero nodes is refused in the `nodes:` block, as is a second node.
 Use separate simulation files for separate designs, and compare them with
-[`losim compare`](/ref/cli-compare).
+[`dissaly compare`](/ref/cli-compare).
 
 The node is otherwise ordinary. `Run` occupies one of its pool threads and queues
 behind other work, so leave capacity for it. If the node fails, the call closes
@@ -191,6 +191,6 @@ and `Input.Shape` around it. Those types formed a separate API beside YAML and
 protobuf.
 
 An assignment now consists of the simulation file and the `.proto` plus its Java
-implementation. `losim check` refuses `implements Job` by name and tells you what
+implementation. `dissaly check` refuses `implements Job` by name and tells you what
 to write instead.
 </Note>

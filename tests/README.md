@@ -4,20 +4,20 @@ The suite covers gRPC systems and scaler-engine cases. Each case runs through th
 student-facing command line and is asserted against its trace.
 
 ```bash
-bin/losim dev suite            # all of them, about five minutes
-bin/losim dev suite t5 t8      # one or two
-bin/losim dev suite t10        # the engine against ground truth
+bin/dissaly dev suite            # all of them, about five minutes
+bin/dissaly dev suite t5 t8      # one or two
+bin/dissaly dev suite t10        # the engine against ground truth
 ```
 
 The system cases take under a minute. The engine cases take longer because each
 scaled run fits a plan from about thirty small runs.
 
-`losim dev suite` is separate from `losim dev test`. The latter tests losim's own
+`dissaly dev suite` is separate from `dissaly dev test`. The latter tests losim's own
 classes; the suite tests the student-facing workflow:
 
 - the systems compile against `build/losim.jar` and the vendored gRPC only, never
   against `losim/src`, matching the lab classpath;
-- every case runs through `losim run <scenario.yaml> --cp ...`, so the scenario
+- every case runs through `dissaly run <scenario.yaml> --cp ...`, so the scenario
   grammar, class loading, and exit codes are exercised;
 - every assertion reads the **trace JSON off disk**. The trace is the interchange
   format (D9), so unreadable output fails the assertion;
@@ -136,10 +136,10 @@ javac --release 21 -d $OUT/classes \
 
 for s in tests/gallery/simulations/*.yaml; do
   n=$(basename "$s" .yaml)
-  bin/losim simulate --no-view "$s" --cp $OUT/classes --out $OUT/traces/$n.json
+  bin/dissaly simulate --no-view "$s" --cp $OUT/classes --out $OUT/traces/$n.json
 done
 ```
 
-`losim dev viewer traces --gallery` copies the traces into the picker and prices each
+`dissaly dev viewer traces --gallery` copies the traces into the picker and prices each
 one beside it. Most finish in seconds; **scaled** takes about twelve because it fits
 its plan from twenty-eight probe results first.

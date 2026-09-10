@@ -448,8 +448,8 @@ export class Layout {
 
   /** What to call a column, in the quiet register under it. */
   columnLabel(i: number): string {
-    // Where losim came in, and the one column not named by what it serves. Not
-    // "master": a design that has one is a design that chose to, and losim
+    // Where DISSALy came in, and the one column not named by what it serves. Not
+    // "master": a design that has one is a design that chose to, and DISSALy
     // does not know or care whether this node directs anything.
     if (i === 0 && this.columns.length && this.columns[0].length) return 'entry';
     const j = i - 1;

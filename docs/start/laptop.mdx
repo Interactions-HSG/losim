@@ -11,7 +11,7 @@ icon: "laptop"
 | **A JDK, 21 or newer** | losim compiles at `--release 21`. The container ships 25. |
 | **git** | for the vendored jars, which are committed. |
 
-Gradle is not in that list. `./gradlew` is committed, and `bin/losim` runs it, so the
+Gradle is not in that list. `./gradlew` is committed, and `bin/dissaly` runs it, so the
 build is the same 9.2.0 on a laptop as it is in CI rather than whatever a package
 manager last installed. It fetches that one Gradle on first use and checks its
 sha256; nothing else is fetched to build or to run.
@@ -19,11 +19,11 @@ sha256; nothing else is fetched to build or to run.
 ## Build and check
 
 ```bash
-bin/losim dev test    # losim's own acceptance criteria, plus one plain JUnit test
-bin/losim dev suite   # the reference suite
+bin/dissaly dev test    # losim's own acceptance criteria, plus one plain JUnit test
+bin/dissaly dev suite   # the reference suite
 ```
 
-Both commands build `build/losim.jar` first. `bin/losim` runs `./gradlew jar` and then
+Both commands build `build/losim.jar` first. `bin/dissaly` runs `./gradlew jar` and then
 starts the JVM.
 
 ## Supported platforms for `protoc`

@@ -5,7 +5,7 @@
  *
  * The scrubber's `]` and `[` walk the set in `lib/frame.ts` called NOTABLE, and
  * the pinned node's history draws the set in `NodePanel.tsx` called TOLD.
- * A kind that losim emits and neither set contains is a moment a reader cannot
+ * A kind that DISSALy emits and neither set contains is a moment a reader cannot
  * get to except by dragging the bar and guessing.
  *
  * This checks the general property rather than only the shapes already known:
@@ -78,7 +78,7 @@ try {
     .map((f) => f.replace(/\.json$/, ''))
     .sort();
 } catch {
-  console.error(`no traces in ${TRACES} — run \`losim dev viewer traces\` first`);
+  console.error(`no traces in ${TRACES} — run \`dissaly dev viewer traces\` first`);
   process.exit(1);
 }
 
@@ -141,7 +141,7 @@ if (withLog === 0) {
 }
 if (withHeal === 0) {
   console.log('  note: no trace here partitions anything, so heal is unexercised —');
-  console.log('        `losim dev viewer traces --gallery` brings in a run that does');
+  console.log('        `dissaly dev viewer traces --gallery` brings in a run that does');
 }
 // The same treatment, and for the same reason: `rpc_failure` is in NOTABLE and
 // in TOLD, and nothing here proves it, because no simulation in the reference

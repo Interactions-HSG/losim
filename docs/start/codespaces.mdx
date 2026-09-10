@@ -47,7 +47,7 @@ Read the manual through this port, the published site, or the `.mdx` files under
 
 ```bash
 ./gradlew jar                                       # on create:  the simulator
-bin/losim serve --detach && bin/losim serve docs --detach   # on attach: both ports
+bin/dissaly serve --detach && bin/dissaly serve docs --detach   # on attach: both ports
 ```
 
 `--detach` checks the port before starting a process, so re-attaching does not create
@@ -63,26 +63,26 @@ through npm.
 
 <CodeGroup>
 ```bash losim
-bin/losim dev test        # losim's own acceptance criteria
-bin/losim dev suite       # the reference suite: gRPC systems, end to end
-bin/losim dev docs check  # that this manual gives no assignment away
+bin/dissaly dev test        # losim's own acceptance criteria
+bin/dissaly dev suite       # the reference suite: gRPC systems, end to end
+bin/dissaly dev docs check  # that this manual gives no assignment away
 ```
 
-Each command builds the simulator first. `bin/losim` runs `./gradlew jar` and then the
+Each command builds the simulator first. `bin/dissaly` runs `./gradlew jar` and then the
 JVM command.
 
 ```bash your work
-./losim simulate  mine.yaml --cp build/losim/classes --out build/results/mine.json
-./losim bill build/results/mine.json
-./losim compare build/results/a.json build/results/b.json
+./dissaly simulate  mine.yaml --cp build/losim/classes --out build/results/mine.json
+./dissaly bill build/results/mine.json
+./dissaly compare build/results/a.json build/results/b.json
 ```
 
 
 
 ```bash the servers
 # started for you on attach; this is what runs
-./losim serve         # the lab    -> :8000
-./losim serve docs    # the manual -> :3000
+./dissaly serve         # the lab    -> :8000
+./dissaly serve docs    # the manual -> :3000
 
 ```
 
@@ -103,7 +103,7 @@ The same simulation on different hosts should use the *same simulator*.
 If the gRPC version drifted, serialized byte counts could change with the host.
 
 CI checks this by running the reference suite on a plain runner and **inside the
-Codespace image**, then comparing the traces with `losim compare`. Structure and
+Codespace image**, then comparing the traces with `dissaly compare`. Structure and
 attribution must agree, while measurements may differ because hosts are different.
 
 <Warning>

@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
  * file" on the line it is written on, and the class name is derived rather than
  * typed twice.
  *
- * <p><b>Text, never bytecode.</b> The same discipline {@code losim check} is under
+ * <p><b>Text, never bytecode.</b> The same discipline {@code dissaly check} is under
  * and for the same reason: this runs before anything is compiled, so there is no
  * class to reflect on and no classloader to ask. Both read a {@code package} line
  * with this, so the loader and the checker cannot come to different conclusions

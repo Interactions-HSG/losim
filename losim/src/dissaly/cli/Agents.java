@@ -37,8 +37,8 @@ final class Agents {
     /** Formats the findings with their source lines. */
     private static String here(Scan scan, Path root) {
         var sb = new StringBuilder("## This project\n\n");
-        sb.append("What `losim adopt` found in this repository, at the moment it ran."
-                + " `./losim check` re-runs exactly this.\n\n");
+        sb.append("What `dissaly adopt` found in this repository, at the moment it ran."
+                + " `./dissaly check` re-runs exactly this.\n\n");
 
         if (!scan.services().isEmpty()) {
             // Keep the source file and the service it provides together.

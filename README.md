@@ -18,13 +18,13 @@ The node is made small, so a design that would fail at 16 GiB can fail here at
 ## Run it
 
 ```bash
-bin/losim dev test    # losim's own checks: every phase's acceptance criteria
-bin/losim dev suite   # the reference suite: gRPC systems, run the way a student runs them
+bin/dissaly dev test    # losim's own checks: every phase's acceptance criteria
+bin/dissaly dev suite   # the reference suite: gRPC systems, run the way a student runs them
 
-bin/losim simulate losim/test/simulations/wordcount.yaml \
+bin/dissaly simulate losim/test/simulations/wordcount.yaml \
                    --cp build/test-classes --out build/wordcount.json
-bin/losim bill build/wordcount.json
-bin/losim compare build/a.json build/b.json
+bin/dissaly bill build/wordcount.json
+bin/dissaly compare build/a.json build/b.json
 ```
 
 The repository includes the toolchain. The commands work on a laptop, in the
@@ -291,10 +291,10 @@ losim/src/losim/res/       instance types, the heap walk, losim's own meter
 losim/proto/losim/         losim.Job — the one service losim ships
 losim/src/losim/verify/    what makes a number stop meaning what it says
   losim/src/losim/price/     cost buckets and excluded quantities
-losim/src/losim/cli/       losim simulate | bill | compare
-losim/test/                every phase's acceptance criteria, run by `losim dev test`
-tests/                     the reference suite: gRPC systems, run by `losim dev suite`
-bin/losim                  the CLI: build the simulator, then run it
+losim/src/losim/cli/       dissaly simulate | bill | compare
+losim/test/                every phase's acceptance criteria, run by `dissaly dev test`
+tests/                     the reference suite: gRPC systems, run by `dissaly dev suite`
+bin/dissaly                  the CLI: build the simulator, then run it
 prices/                    course data — what egress costs, what being late costs
 vendor/                    grpc 1.83.1, protobuf 4.36.0, protoc for two platforms
 ```
@@ -311,11 +311,11 @@ The manual is a Mintlify site in [docs/](docs/). It covers the quickstart,
 simulation grammar, trace format, scale engine, bill, and viewer.
 
 ```bash
-bin/losim serve docs        # preview at http://localhost:3000
-bin/losim dev docs check    # the manual's own check
+bin/dissaly serve docs        # preview at http://localhost:3000
+bin/dissaly dev docs check    # the manual's own check
 ```
 
-`losim dev docs check` checks the manual. This repository ships worked
+`dissaly dev docs check` checks the manual. This repository ships worked
 solutions to the coursework, and the manual must not contain them. Every page is
 scanned against a rule set in [docs-check/](docs-check/), and the check tests
 itself before it scans. Every rule has a sample it must catch and a nearby sample

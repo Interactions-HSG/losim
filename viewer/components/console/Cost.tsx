@@ -9,7 +9,7 @@
  * with the work and incidents land at the instant something breaks. Drag the
  * clock and watch which of the four actually moves.
  *
- * Every number here comes from `losim bill`, accrued over the run by
+ * Every number here comes from `dissaly bill`, accrued over the run by
  * `lib/ledger.ts`. Nothing is priced in this app. A viewer with prices of its
  * own would be a second accountant, and two accountants disagree.
  */
@@ -223,8 +223,8 @@ export function Cost() {
         <Panel>
           <P style={ui.muted}>
             There is no bill beside <Code>{run.name}</Code>, so there is nothing to report. Bills
-            are written by <Code>losim bill --json</Code> next to the trace, and{' '}
-            <Code>losim dev viewer traces</Code> writes one for every run it sweeps.
+            are written by <Code>dissaly bill --json</Code> next to the trace, and{' '}
+            <Code>dissaly dev viewer traces</Code> writes one for every run it sweeps.
           </P>
         </Panel>
       </>
@@ -248,7 +248,7 @@ export function Cost() {
         title="Cost"
         sub={
           <>
-            {run.name} as it stood {refTime(now)} in, from <Code>losim bill</Code>. Tick another
+            {run.name} as it stood {refTime(now)} in, from <Code>dissaly bill</Code>. Tick another
             run below and it is drawn at the same instant of its own clock.
           </>
         }
@@ -514,7 +514,7 @@ export function Cost() {
           </div>
           <P style={[sx.pad, sx.note]}>
             Click a node for its own lines, and why each one is charged to it. Every amount is
-            a line <Code>losim bill</Code> already computed — only the claim about who is
+            a line <Code>dissaly bill</Code> already computed — only the claim about who is
             answerable for it is added here.
           </P>
         </Panel>

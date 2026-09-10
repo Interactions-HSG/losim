@@ -1,12 +1,12 @@
 ---
-title: "losim adopt / check"
+title: "dissaly adopt / check"
 description: "Put losim under a project that already works, and ask what is left."
 icon: "arrow-right-to-bracket"
 ---
 
 ```bash
 java -jar losim.jar adopt [<dir>] [--force] [--dirty]
-./losim check [--root .]
+./dissaly check [--root .]
 ```
 
 The migration guide explains the process: [adopting a gRPC system](/start/adopt).
@@ -20,7 +20,7 @@ The migration guide explains the process: [adopting a gRPC system](/start/adopt)
 | `--dirty` | adopt a tree with uncommitted changes. Without it, the command refuses because it moves files with `git mv` |
 
 The command never edits a `.java`. It moves `src/main/proto` to `proto/` and
-`src/main/java` to `src/`. It writes `build.gradle.kts`, `./losim`, `AGENTS.md`,
+`src/main/java` to `src/`. It writes `build.gradle.kts`, `./dissaly`, `AGENTS.md`,
 `simulations/1-one-call.yaml`, and two lines of `.gitignore`. It moves
 `build.gradle` to `build.gradle.bak` and prints the remaining work.
 

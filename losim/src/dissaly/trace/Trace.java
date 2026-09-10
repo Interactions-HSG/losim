@@ -34,7 +34,7 @@ public final class Trace {
      * {@code handler}. The {@code dissaly.Job/Run} handler span is the root.
      *
      * <p>This is the escape hatch to the extend-additively rule, used
-     * deliberately and once. {@code losim compare} reads this number first and
+     * deliberately and once. {@code dissaly compare} reads this number first and
      * refuses to say anything else when two traces disagree on it, which is the
      * only reason a rename is survivable at all.
      */

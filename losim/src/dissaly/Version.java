@@ -7,7 +7,7 @@ import java.nio.charset.StandardCharsets;
  * Which losim this is.
  *
  * <p>This exists so that a bug report from a fork made in March is answerable
- * without asking somebody to describe a jar. {@code losim version} prints it,
+ * without asking somebody to describe a jar. {@code dissaly version} prints it,
  * and with {@code --check} compares it against the newest release.
  *
  * <p>The number lives in one file — {@code VERSION} at the root of the

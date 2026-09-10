@@ -15,9 +15,9 @@ is for viewer development.
 ```bash
 cd viewer && npm install && cd ..    # once
 
-bin/losim dev viewer dev      # the Next dev server on :8000, with hot reload
-bin/losim dev viewer check    # everything a node can decide
-bin/losim dev viewer build    # the static export into viewer/out
+bin/dissaly dev viewer dev      # the Next dev server on :8000, with hot reload
+bin/dissaly dev viewer check    # everything a node can decide
+bin/dissaly dev viewer build    # the static export into viewer/out
 ```
 
 `build` produces the committed export:
@@ -26,7 +26,7 @@ bin/losim dev viewer build    # the static export into viewer/out
 npx next build
 ```
 
-Next writes `viewer/out`. `dev viewer serve`, the devcontainer, and `losim serve` read
+Next writes `viewer/out`. `dev viewer serve`, the devcontainer, and `dissaly serve` read
 that directory directly.
 
 <Note>
@@ -60,17 +60,17 @@ build/traces/     this repo's own scratch directory, for the sweep below
 The CLI uses one verb for each viewer operation: `build`, `serve`, `dev`, `check`, and
 `traces`. This keeps export and serving paths consistent.
 
-## `losim dev viewer check`
+## `dissaly dev viewer check`
 
 Everything about the viewer that **a node can decide** is checked in one command. It
-needs `losim dev viewer traces` because checks use generated runs rather than fixed
+needs `dissaly dev viewer traces` because checks use generated runs rather than fixed
 fixtures.
 
 | | |
 |---|---|
 | `glyphs` | do the glyph paths match the Python, **character for character** |
 | `parity` | does the layout port compute the same layout, on every trace |
-| `ledger` | does the accruing ledger close on `losim bill`, to the rappen |
+| `ledger` | does the accruing ledger close on `dissaly bill`, to the rappen |
 | `cost` | is a frame cheap enough to be a frame, at the largest system |
 | `console` | do the console's views render, and does any ruler move under the clock |
 | `author` | does what the designer writes load, and is what it must refuse refused |
@@ -87,7 +87,7 @@ view/losim_view/trace.py      335         imported by viewer/checks/layout_ref.p
 ```
 
 The reference scripts put `view/` on `sys.path` and import these modules directly, so
-deleting any of the four breaks `losim dev viewer check`.
+deleting any of the four breaks `dissaly dev viewer check`.
 
 `view/losim_view/film.py`, `view/dataflow.py`, and `view/sheet.py` are the manim
 sidecar. The last two have no importers, and `film.py` is imported only by them.
@@ -98,7 +98,7 @@ The glyph paths use SVG's convention and are compared by **string equality** rat
 than by visual inspection.
 </Note>
 
-Use `losim dev viewer serve` to check MP4 playback, larger systems, and serving
+Use `dissaly dev viewer serve` to check MP4 playback, larger systems, and serving
 without npm.
 
 ## Implementation decisions
@@ -163,7 +163,7 @@ without npm.
 
 | | |
 |---|---|
-| `output: 'export'` | a static site served by `losim serve` or another static server |
+| `output: 'export'` | a static site served by `dissaly serve` or another static server |
 | `trailingSlash: true` | `/index.html` paths, which static servers can serve without Next-specific routing |
 | `turbopack.root` | a pinned project root, so an unrelated `package.json` higher in the tree cannot change it |
 
@@ -179,18 +179,18 @@ can occur *after* the job it ended. Clipping the trace at the job's end would re
 that event from the scrubber and the bill.
 
 <Warning>
-Use `jobRefMs` for anything that must agree with `losim bill`, and `duration` for
+Use `jobRefMs` for anything that must agree with `dissaly bill`, and `duration` for
 anything that must be able to *show* the whole run.
 </Warning>
 
-## `losim dev viewer traces`
+## `dissaly dev viewer traces`
 
 Writes what a static page cannot discover for itself:
 
 ```bash
-bin/losim dev viewer traces                 # build/traces — your runs, and nothing else
-bin/losim dev viewer traces build/mine      # one directory, or one file, anywhere on disk
-bin/losim dev viewer traces --suite         # ...and the reference suite's
+bin/dissaly dev viewer traces                 # build/traces — your runs, and nothing else
+bin/dissaly dev viewer traces build/mine      # one directory, or one file, anywhere on disk
+bin/dissaly dev viewer traces --suite         # ...and the reference suite's
 ```
 
 **Only `build/traces` is used by default.** Other collections must be requested, so
@@ -201,7 +201,7 @@ server. A listed directory that exists but yields no traces reports that result.
 
 Each run is tagged with its source, and the picker groups runs by that tag with
 yours first. `dev viewer serve` forwards its arguments here, so
-`bin/losim dev viewer serve ~/my-project/runs` serves traces from another project.
+`bin/dissaly dev viewer serve ~/my-project/runs` serves traces from another project.
 losim is a library, and project traces can live outside this repository.
 
 <Warning>

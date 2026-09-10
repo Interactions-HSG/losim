@@ -59,7 +59,7 @@ export interface ConsoleState {
   view: View;
   busy: boolean;
   error: string | null;
-  /** Whether `losim serve` is behind this page. */
+  /** Whether `dissaly serve` is behind this page. */
   hasLab: boolean;
   /** Bumped when something starts a run, so the panel that follows one asks again. */
   watching: number;
@@ -260,7 +260,7 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
       if (!live) return;
       if (!said) {
         setBuilding(null);
-        setError('the lab stopped answering — is `losim serve` still running?');
+        setError('the lab stopped answering — is `dissaly serve` still running?');
         return;
       }
       at = said.next;

@@ -384,7 +384,7 @@ public final class Simulate {
      * The one node that runs {@code dissaly.Job}, which is where the work starts.
      *
      * <p>Exactly one. Zero is a system nothing can start; two is two designs, and
-     * two designs are two files compared with {@code losim compare} rather than
+     * two designs are two files compared with {@code dissaly compare} rather than
      * one file that has to pick. There is no key that picks, which is the point:
      * the system's shape is the design.
      */
@@ -400,7 +400,7 @@ public final class Simulate {
         throw new IllegalArgumentException(found.get(1).where() + ": '" + found.get(1).name()
                 + "' runs " + JobGrpc.SERVICE_NAME + ", and so does '" + found.get(0).name()
                 + "' at " + found.get(0).where() + ". A simulation starts in one place. Two"
-                + " designs are two files, compared with losim compare.");
+                + " designs are two files, compared with dissaly compare.");
     }
 
     /**

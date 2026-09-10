@@ -11,7 +11,7 @@
  * Three things are read off the lab rather than written down here, so you do not
  * have to already know them: the **files** and what each of them serves (from
  * the compiled bytecode, so a service that does not exist cannot be placed), the
- * **instance types** and the **regions** (losim's own catalogues, so a zone
+ * **instance types** and the **regions** (DISSALy's own catalogues, so a zone
  * cannot be misspelled into being its own region).
  *
  * The form is all on one page with the file beside it. Not a wizard: a wizard
@@ -317,7 +317,7 @@ export function Simulations() {
                 </>
               )}
               <P style={sx.note}>
-                A rate, not a bill. What the run costs is what <Code>losim bill</Code> says
+                A rate, not a bill. What the run costs is what <Code>dissaly bill</Code> says
                 afterwards, against a price list this page has never seen — a second number here
                 that looked like a prediction would be a second accountant.
               </P>
@@ -1333,7 +1333,7 @@ function TheInput({
         : `${draft.input.count.toLocaleString()} ${draft.input.unit}s`}
     >
       <div {...stylex.props(form.rule)}>
-        <span>losim hands</span>
+        <span>DISSALy hands</span>
         <Input small style={sx.numberWide} type="number" min={1} step={1} value={draft.input.count}
                onChange={(e) => set((w) => {
                  w.count = Math.max(1, Math.round(Number(e.target.value) || 1));
@@ -1344,7 +1344,7 @@ function TheInput({
       </div>
       <P style={sx.paraAside}>
         Singular — frame, line, order. It is the same word{' '}
-        <Code>Losim.current().units(n)</Code> counts and <Code>perUnit</Code> prices, so a
+        <Code>Dissaly.current().units(n)</Code> counts and <Code>perUnit</Code> prices, so a
         blank one leaves three numbers counting something nobody named.
       </P>
       <div {...stylex.props(form.rule)}>
@@ -1357,7 +1357,7 @@ function TheInput({
         {draft.input.source
           ? 'A file or a folder, from the project root. It has to be there: the loader stats it '
             + 'and refuses a simulation that would spend its setup reading something that is not.'
-          : 'Left empty, Load generates the workload from Losim.current().seed() — reproducible '
+          : 'Left empty, Load generates the workload from Dissaly.current().seed() — reproducible '
             + 'from the seed, different across a sweep, and free, because Load is off the clock.'}
       </P>
       {draft.scale > 1 && (

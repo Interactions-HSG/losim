@@ -52,7 +52,7 @@ export const SpanBar = memo(function SpanBar({
 
   // A phase or a job is a bracket over other things, not a thing itself: drawn
   // as an outline so it frames its children rather than burying them.
-  // The one span that brackets rather than does: losim's own call in.
+  // The one span that brackets rather than does: DISSALy's own call in.
   const bracket = n.span.label === RUN;
 
   return (

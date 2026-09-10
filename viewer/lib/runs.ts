@@ -6,7 +6,7 @@
  * the page loads. And a **file** the viewer drops on the page opens the same way,
  * because the case this whole viewer exists for is a student pointing it at
  * their own result — which is also why nothing is baked: what is read here is a
- * raw losim trace, exactly as `losim simulate` wrote it.
+ * raw losim trace, exactly as `dissaly simulate` wrote it.
  */
 import { RunIndex } from './frame.ts';
 import { loadBill, type BillJson } from './ledger.ts';
@@ -26,7 +26,7 @@ export interface RunRef {
   from?: 'yours' | 'suite' | 'gallery';
   nodes?: number;
   durationRefMs?: number;
-  /** The node losim entered the system through. */
+  /** The node DISSALy entered the system through. */
   entry?: string;
   note?: string;
   /** Every distinct zone the nodes sat in, so a card can say how far apart they were. */
@@ -36,7 +36,7 @@ export interface RunRef {
   /** Absent unless the run did not finish. */
   completed?: boolean;
   /**
-   * What `losim bill` said, copied into the index by the sweep.
+   * What `dissaly bill` said, copied into the index by the sweep.
    *
    * Here so the gallery and the cost report can put a hundred results beside
    * each other without fetching a hundred bills — and never computed in this app,
@@ -52,7 +52,7 @@ export interface Run {
   trace: Trace;
   index: RunIndex;
   /**
-   * What `losim bill --json` said this cost, when it is beside the trace.
+   * What `dissaly bill --json` said this cost, when it is beside the trace.
    *
    * Optional, because a trace a student drops on the page has no bill next to it.
    * Absent, the money is simply not shown — which is better than the viewer
@@ -93,7 +93,7 @@ function build(name: string, text: string, bill: BillJson | null): Run {
   try {
     trace = Trace.parse(text);
   } catch (e) {
-    throw new Error(`${name} is not a losim trace: ${(e as Error).message}`);
+    throw new Error(`${name} is not a DISSALy trace: ${(e as Error).message}`);
   }
   if (!trace.nodes.length) throw new Error(`${name} has no nodes in it`);
   return { name, trace, index: new RunIndex(trace), bill };

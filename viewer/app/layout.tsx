@@ -6,7 +6,7 @@ import { chrome, font, size } from '../lib/tokens.stylex.ts';
 import { hsg, hsgBar, hsgType } from '../lib/themes.stylex.ts';
 
 export const metadata = {
-  title: 'losim',
+  title: 'DISSALy',
   description: 'A decentralized system, on one clock.',
 };
 

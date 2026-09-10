@@ -10,7 +10,7 @@ import java.util.Optional;
 import dissaly.Version;
 
 /**
- * {@code losim version} — which losim this is, and whether it is the current one.
+ * {@code dissaly version} — which losim this is, and whether it is the current one.
  *
  * <p>What replaced {@code losim update}. A lab used to carry the simulator as
  * committed jars, so the simulator had to be able to fetch and replace itself; a
@@ -77,7 +77,7 @@ public final class Released {
         System.out.print("""
                 %s is released.
 
-                  Change losimVersion in build.gradle.kts to %s and run ./losim.
+                  Change losimVersion in build.gradle.kts to %s and run ./dissaly.
                   Nothing else moves: the viewer and the manual are inside the jar,
                   and your simulations, schema and Java are untouched by a version.
                 """.formatted(there, there));

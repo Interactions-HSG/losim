@@ -9,7 +9,7 @@
  * *shape* for every line. A shape that does not reach exactly 1 at the end is a
  * second accountant, and the whole design of `lib/ledger.ts` is that there is
  * only one. So: accrue to `t = duration`, and compare against what
- * `losim bill --json` said, to the rappen.
+ * `dissaly bill --json` said, to the rappen.
  *
  * **Is the attribution a partition?** Pointing at a node shows its share.
  * Shares that sum past 1 charge the cluster more than it was billed; shares that

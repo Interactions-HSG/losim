@@ -8,9 +8,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * {@code losim check} reports findings that prevent or qualify a run.
+ * {@code dissaly check} reports findings that prevent or qualify a run.
  *
- * <p>The command uses the same {@link Scan} as {@code losim adopt}. It reads source
+ * <p>The command uses the same {@link Scan} as {@code dissaly adopt}. It reads source
  * files without compiling or running the project, so findings are available before
  * the first build.
  */

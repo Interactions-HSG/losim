@@ -5,7 +5,7 @@
  *
  * One row per span in tree order, indented by depth, bars on a shared time axis.
  * Every distributed-tracing tool converged on this shape because it is right;
- * what losim adds is underneath — segmented bars (SpanBar), self time drawn, the
+ * what DISSALy adds is underneath — segmented bars (SpanBar), self time drawn, the
  * critical path outlined, and **the payload on the span**, which a production
  * tracer cannot record and this one does deliberately (D8 rule 4).
  *

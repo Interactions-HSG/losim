@@ -24,7 +24,7 @@ import java.util.Map;
  * question either of them asks is where its root is.
  *
  * <p>Nothing is unpacked to a temporary directory. That would add a lifetime to
- * manage, two processes to race over it — {@code losim serve} and {@code losim
+ * manage, two processes to race over it — {@code dissaly serve} and {@code losim
  * serve docs} are deliberately separate — and a pause on the first request, in
  * exchange for nothing: the zip filesystem reads the same bytes from the same
  * file.

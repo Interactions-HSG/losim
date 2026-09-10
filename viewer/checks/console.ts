@@ -29,7 +29,7 @@
  *
  * What is *not* answered here is whether the film moves: it is drawn into a live
  * SVG by a layout search and a ResizeObserver, and that is a browser's job.
- * `losim dev viewer serve` is where it is answered. Its first frame is rendered all
+ * `dissaly dev viewer serve` is where it is answered. Its first frame is rendered all
  * the same, because a film page that throws before it has drawn anything is a
  * bug this can see.
  */
@@ -135,7 +135,7 @@ let index: RunRef[] = [];
 try {
   index = (JSON.parse(readFileSync(join(TRACES, 'index.json'), 'utf8')) as { runs: RunRef[] }).runs;
 } catch {
-  console.error('no traces yet — run `losim dev viewer traces` first');
+  console.error('no traces yet — run `dissaly dev viewer traces` first');
   process.exit(1);
 }
 
@@ -154,7 +154,7 @@ if (!files.length) {
   // An index with nothing in it is what a fresh export looks like — a build
   // writes one on purpose — so say the thing that fixes it rather than the thing
   // that is true.
-  console.error(only ? `no traces match ${only}` : 'no traces yet — run `losim dev viewer traces` first');
+  console.error(only ? `no traces match ${only}` : 'no traces yet — run `dissaly dev viewer traces` first');
   process.exit(1);
 }
 

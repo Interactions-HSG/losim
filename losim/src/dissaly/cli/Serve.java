@@ -208,7 +208,7 @@ public final class Serve {
         java.lang.System.out.printf("losim is running on http://localhost:%d%n", port);
         if (!s.lab.isLab()) {
             java.lang.System.out.println("  systems  none — no build here has resolved losim,");
-            java.lang.System.out.println("           so " + base + " is not a lab. Run ./losim, or");
+            java.lang.System.out.println("           so " + base + " is not a lab. Run ./dissaly, or");
             java.lang.System.out.println("           point --root at a lab.");
         } else {
             java.lang.System.out.printf("  simulations  %d in %s%n", s.lab.simulations().size(), base);
@@ -729,7 +729,7 @@ public final class Serve {
     /**
      * Whose run each trace is, when somebody has written it down.
      *
-     * `losim dev viewer traces` leaves a `.origins` file beside the traces it
+     * `dissaly dev viewer traces` leaves a `.origins` file beside the traces it
      * sweeps, because a student's own first run must not appear as one line among a
      * hundred worked examples. Absent — the ordinary case, a lab serving the
      * runs it just made — everything here is yours, which it is.

@@ -23,7 +23,7 @@ you pass `--dirty`.
 | action | excluded |
 |---|---|
 | `git mv src/main/proto -> proto/`, `src/main/java -> src/` | rename a package or rewrite an import |
-| write `build.gradle.kts`, `./losim`, `AGENTS.md`, a first simulation, `.gitignore` | overwrite a file it did not author |
+| write `build.gradle.kts`, `./dissaly`, `AGENTS.md`, a first simulation, `.gitignore` | overwrite a file it did not author |
 | move `build.gradle` aside to `build.gradle.bak` | delete a `.java` |
 | print every Java edit still needed, with a line number | make one |
 
@@ -133,16 +133,16 @@ src/              your Java, moved and otherwise untouched
 gen/              what protoc writes, beside the schema. Generated; gitignored
 simulations/        1-one-call.yaml, and every one you write after it
 build.gradle.kts  losim, protoc, and the toolchain task
-losim             the launcher: `./losim build`, `./losim simulate`, `./losim serve`
+losim             the launcher: `./dissaly build`, `./dissaly simulate`, `./dissaly serve`
 AGENTS.md         findings from the classes below
 build.gradle.bak  what your build used to be
 ```
 
 ```bash
-./losim check     what is still between this and a run
-./losim build     generate from the schema and compile
-./losim simulate simulations/1-one-call.yaml
-./losim serve     the lab, on :8000
+./dissaly check     what is still between this and a run
+./dissaly build     generate from the schema and compile
+./dissaly simulate simulations/1-one-call.yaml
+./dissaly serve     the lab, on :8000
 ```
 
 ## Finding categories

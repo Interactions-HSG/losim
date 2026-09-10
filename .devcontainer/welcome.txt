@@ -3,11 +3,11 @@ ready. The lab is on :8000 and the manual on :3000 — the container puts them
 there on every attach, so neither is something you have to start.
 
 Try:
-  bin/losim dev test        losim's own checks — every phase's acceptance criteria
-  bin/losim dev suite       the reference suite — gRPC systems, run the way a student runs them
-  bin/losim dev docs check  the manual's own check — that it gives no assignment away
-  bin/losim serve docs      the manual, at http://localhost:3000
-  bin/losim                 everything else
+  bin/dissaly dev test        losim's own checks — every phase's acceptance criteria
+  bin/dissaly dev suite       the reference suite — gRPC systems, run the way a student runs them
+  bin/dissaly dev docs check  the manual's own check — that it gives no assignment away
+  bin/dissaly serve docs      the manual, at http://localhost:3000
+  bin/dissaly                 everything else
 
 Every one of those builds the simulator first, so there is no separate step and
 nothing to have forgotten.

@@ -282,7 +282,7 @@ export interface Draft {
    *
    * Nothing in a handler declares this: a duration is a claim about the machine
    * a design would run on, so it belongs to the simulation — which leaves a
-   * student's Java with no losim symbol in it at all. A system that declares
+   * student's Java with no DISSALy symbol in it at all. A system that declares
    * none of these runs, and every call in it is instant.
    */
   simulatedDuration: CostRule[];
@@ -344,7 +344,7 @@ export function regionOf(zone: string, regions: Region[]): string {
  * How far apart two nodes are, in the only four steps a bill distinguishes.
  *
  * Client-side so the form can say what a placement costs before it is written —
- * the arithmetic is losim's, and this is a copy of it against the same region
+ * the arithmetic is DISSALy's, and this is a copy of it against the same region
  * table the lab just sent.
  */
 export function linkOf(a: string, b: string, regions: Region[]): Link {
@@ -370,7 +370,7 @@ export function distances(draft: Draft, regions: Region[]): Record<Link, number>
 /**
  * What this system costs per hour, on the catalogue's own default prices.
  *
- * A rate, not a bill. What a simulation costs is what `losim bill` says after it
+ * A rate, not a bill. What a simulation costs is what `dissaly bill` says after it
  * has happened, against a price list this app has never seen — and a second
  * number here that looked like a prediction would be a second accountant. This
  * one is a property of the nodes you drew, and it is true before anything runs.

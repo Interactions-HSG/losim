@@ -5,7 +5,7 @@
  *
  * The envelope on screen can only ever say a little — a method, a route, a
  * digest of two or three fields — because it is moving and it is small. The
- * question anybody asks next is *what is actually in it*, and losim records
+ * question anybody asks next is *what is actually in it*, and DISSALy records
  * exactly that: a real system would never keep every argument and every result,
  * and this one does deliberately, because watching a computation happen is the
  * whole point of the film.

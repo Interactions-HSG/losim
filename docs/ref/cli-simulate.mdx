@@ -1,14 +1,14 @@
 ---
-title: "losim simulate"
+title: "dissaly simulate"
 description: "Simulate one file and write the trace everything downstream reads."
 icon: "terminal"
 ---
 
 ```bash
-./losim simulate <simulation.yaml> [options]
+./dissaly simulate <simulation.yaml> [options]
 ```
 
-The wrapper written by `losim adopt` resolves the simulator. Without the wrapper,
+The wrapper written by `dissaly adopt` resolves the simulator. Without the wrapper,
 run the command directly:
 
 ```bash
@@ -17,8 +17,8 @@ java -cp "$(cat build/losim/classpath)" \
 ```
 
 <Note>
-`losim run` is refused and the message names `simulate`. One simulation produces
-one **result**. Compare two designs with [`losim compare`](/ref/cli-compare).
+`dissaly run` is refused and the message names `simulate`. One simulation produces
+one **result**. Compare two designs with [`dissaly compare`](/ref/cli-compare).
 </Note>
 
 ## Options
@@ -28,7 +28,7 @@ one **result**. Compare two designs with [`losim compare`](/ref/cli-compare).
   the classes the `runs:` paths resolve to from here, and the trust verifier reads
   their bytecode from here.
 
-  Defaults to where `./losim build` compiles to, when that directory is there. It
+  Defaults to where `./dissaly build` compiles to, when that directory is there. It
   has to: the classpath the build resolves is the simulator and gRPC and
   deliberately not your own output, so the JVM running this has never heard of the
   class a `runs:` path names.

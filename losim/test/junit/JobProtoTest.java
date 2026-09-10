@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
  * then shadows — and the simulation would run, correctly, forever. What it costs is
  * a protoc run and a javac run producing classes nothing loads, in an output
  * directory that then claims to hold losim's own. What it breaks is everything that
- * counts a project's schemas rather than loading them: {@code losim check} would
+ * counts a project's schemas rather than loading them: {@code dissaly check} would
  * report rpcs nobody wrote.
  *
  * <p>So the rule — {@code dissaly/job.proto} on protoc's include path and never in its
@@ -142,7 +142,7 @@ class JobProtoTest {
         Lab.Code c = lab.code();
         var names = c.protos().stream().map(p -> p.getFileName().toString()).sorted().toList();
         assertEquals(java.util.List.of("frames.proto", "lab.proto"), names,
-                "losim's schema was counted as one of the project's, so `losim check` would "
+                "losim's schema was counted as one of the project's, so `dissaly check` would "
                 + "report rpcs nobody wrote");
     }
 }

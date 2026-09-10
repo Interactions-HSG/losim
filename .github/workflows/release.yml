@@ -1,4 +1,4 @@
-# Cutting a release: the jar a POM points at, and the jar `losim adopt` bootstraps from.
+# Cutting a release: the jar a POM points at, and the jar `dissaly adopt` bootstraps from.
 #
 # Releasing is pushing a tag. There is no button and no version to type twice:
 # ./VERSION is the number, the tag has to agree with it, and the job stops if it
@@ -10,14 +10,14 @@
 # What it publishes, and who reads it:
 #
 #   losim.jar       one asset, and the only one. A lab resolves losim from Maven
-#                   and never touches this; it is what somebody with no ./losim
+#                   and never touches this; it is what somebody with no ./dissaly
 #                   yet downloads to run `java -jar losim.jar adopt .` once. The
 #                   viewer and the manual are inside it, so there is nothing
 #                   beside it to keep in step.
 #   the Maven tree  what a lab actually resolves, pushed to the maven-repo branch
 #                   and attached here as losim-maven-repo.zip.
 #
-# The tag itself is the version check: `losim version --check` does one HEAD on
+# The tag itself is the version check: `dissaly version --check` does one HEAD on
 # /releases/latest and reads the tag out of the Location header. Nothing has to
 # be published for that to work, which is why no VERSION asset is cut any more.
 #
@@ -77,16 +77,16 @@ jobs:
           echo "releasing losim $FILE"
 
       # Before the checks, not after: Gradle builds the simulator, and
-      # `bin/losim` is a Gradle build followed by a JVM.
+      # `bin/dissaly` is a Gradle build followed by a JVM.
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '9.2.0' }
 
       # Not a fast gate, and deliberately not skipped. CI has already run this on
       # the commit; running it again here is what makes "this tag was tested" a
       # fact about the tag rather than about a branch it was once on.
-      - run: bin/losim dev test
+      - run: bin/dissaly dev test
 
-      # The one asset. `bin/losim dev test` above has already built it; this is
+      # The one asset. `bin/dissaly dev test` above has already built it; this is
       # here so that a change to where the jar lands fails the release rather
       # than publishing whatever was in build/ from something else.
       - name: the jar exists

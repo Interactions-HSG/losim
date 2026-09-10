@@ -26,7 +26,7 @@
   // on attach rather than on start because reconnecting to a container that has
   // been running for a week must also leave the lab up; `--detach` probes the
   // port first, so a second attach starts nothing and leaves no JVM behind.
-  "postAttachCommand": "bin/losim serve --detach && bin/losim serve docs --detach",
+  "postAttachCommand": "bin/dissaly serve --detach && bin/dissaly serve docs --detach",
 
   "forwardPorts": [3000, 8000],
   "portsAttributes": {

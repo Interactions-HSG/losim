@@ -34,7 +34,7 @@ named in a javadoc.
 **The manual and the lecture now use one vocabulary.** Nothing in the engine
 changed and no simulation produces a different trace. A lab on 3.0.x keeps
 working untouched; what changes is what things are called, and one line of what
-`losim adopt` writes into a new project.
+`dissaly adopt` writes into a new project.
 
 ### The node that hands out work is a master
 
@@ -44,7 +44,7 @@ the gallery, the reference suite, the viewer's fixtures and the README all say
 `master:`. Only the manual said `coordinator`, in its prose *and* in the YAML it
 prints, so a student read one word on the page and typed another into the file.
 
-127 lines over 67 files, and `losim adopt` writes `master:` now. A simulation you
+127 lines over 67 files, and `dissaly adopt` writes `master:` now. A simulation you
 already have is unaffected: the name is yours to choose and always was, and
 nothing in the loader knows either word.
 
@@ -119,7 +119,7 @@ break.
 applies to this release.** It is a hard break: `losim.api.Job`, `Scalable`,
 `Cluster` and `Input.Shape` are deleted rather than deprecated, `machines:` is
 `nodes:`, `faults:` and `chaos:` are one `failures:` list written inside whatever
-it happens to, `takes:` is `simulatedDuration:`, and `losim run` and `losim diff`
+it happens to, `takes:` is `simulatedDuration:`, and `dissaly run` and `dissaly diff`
 are refused with the new name printed. Read it before changing `losimVersion`. A
 project pinned to 2.x keeps resolving and is untouched.
 
@@ -207,7 +207,7 @@ the signature rather than asked for in the manual.
 
 **Deleted:** `losim.api.Job`, `Scalable`, `Cluster`, `Cluster.Phase`, `Input`,
 `Input.Shape`, `Input.Shape.Part`. Nine public types are two: `Losim.current()` and
-`Spec`. `losim check` refuses `implements Job` by name and says what to write.
+`Spec`. `dissaly check` refuses `implements Job` by name and says what to write.
 
 ### `runs:` names a file, and the key says what it serves
 
@@ -254,17 +254,17 @@ peers are fine, which is the partial failure every design handles worst.
 | the thing | now | was |
 |---|---|---|
 | the YAML file | simulation | scenario |
-| executing it | `losim simulate` | `losim run` |
-| comparing two results | `losim compare` | `losim diff` |
+| executing it | `dissaly simulate` | `dissaly run` |
+| comparing two results | `dissaly compare` | `dissaly diff` |
 | one computer | node | machine |
 | where results go | `build/results/` | `build/runs/` |
 
-`losim run` and `losim diff` are refused with the new name printed, not aliased.
+`dissaly run` and `dissaly diff` are refused with the new name printed, not aliased.
 
 ### The trace is schema 4
 
 The `machines` channel is `nodes`; `meta.job` is `meta.entry`; `job_failed` is
-`failed`; the five span kinds are two, `rpc` and `handler`. `losim compare` reports
+`failed`; the five span kinds are two, `rpc` and `handler`. `dissaly compare` reports
 a schema difference first and alone, rather than a wall of differences with one
 cause.
 
@@ -284,13 +284,13 @@ cause.
 
 ## 2.0.2
 
-**`./losim run <scenario>` could not find the lab's own classes.**
+**`./dissaly run <scenario>` could not find the lab's own classes.**
 
 ```
 no class called 'thumbs.Shrinker' is on the classpath to run as the job
 ```
 
-The wrapper `losim adopt` writes runs on the classpath the build resolved, which is
+The wrapper `dissaly adopt` writes runs on the classpath the build resolved, which is
 the simulator and gRPC and deliberately **not** the project's own output — the task
 that writes that classpath must not depend on compiling, because compiling needs
 the generated sources that same task's output is read to produce. `--cp` then
@@ -302,7 +302,7 @@ The arrow in the lab always worked, because the console passes `--cp` itself. Th
 is why this survived a release: every test exercised the path that already said it.
 
 `--cp` now defaults to `build/losim/classes` when that directory is there, so
-`./losim build && ./losim run thumbs.yaml` works. A project that has not been built
+`./dissaly build && ./dissaly run thumbs.yaml` works. A project that has not been built
 yet gets the refusal about the class, which is the true one, and it now says to
 compile first.
 
@@ -318,12 +318,12 @@ the Markdown, and one file where the flattening was worse than cosmetic.
 ### `AGENTS.md` was not valid UTF-8
 
 `losim/agents/AGENTS.md` is bundled in the jar and written into every project
-`losim adopt` touches. The pass substituted at the byte level rather than the
+`dissaly adopt` touches. The pass substituted at the byte level rather than the
 character level, replacing bytes inside multi-byte sequences and leaving the rest
 behind: `…` became `; ; \xa6`, `←` became `; \x86\x90`. Eleven bytes in that file
 were not decodable at all, which is what a reader saw as `\ufffd\ufffd`.
 
-If a lab took an `AGENTS.md` from 2.0.0, re-run `losim adopt . --force`, or take
+If a lab took an `AGENTS.md` from 2.0.0, re-run `dissaly adopt . --force`, or take
 the file from this release.
 
 ### The manual read as `;` where it meant an em-dash
@@ -399,7 +399,7 @@ input:
   valueBytes: 65536    # a constant: shape rather than size, held at every rung
 ```
 
-`losim adopt` and `losim check` find the old call and print this with the line it
+`dissaly adopt` and `dissaly check` find the old call and print this with the line it
 is on, and the AGENTS.md they write carries the conversion as a numbered edit. See
 [Scalable ->](/ref/api-scalable) and [input: ->](/ref/input).
 
@@ -433,7 +433,7 @@ A blob store has no records, and neither does a sort. The engine's own axis is
 
 <Note>
 **Old traces.** Nothing in the viewer reads either field, so they open as before.
-`losim bill --diff` against a pre-2.0.0 trace reports the run size as `null`, and
+`dissaly bill --diff` against a pre-2.0.0 trace reports the run size as `null`, and
 the plan cache under `build/.losim-plans/` is regenerated on the next scaled run.
 </Note>
 
@@ -449,7 +449,7 @@ console and every refusal message say one word.
 - **The console writes `input:`.** The palette carries each `Scalable` class's
   `shape()`, so the form draws one row per part with the job's own noun beside it,
   and cannot write a part the job does not consume or leave out one it does.
-- **`losim check` reads scenarios.** A scenario above `scale: 1` naming a plain
+- **`dissaly check` reads scenarios.** A scenario above `scale: 1` naming a plain
   `Job` is reported before anything is built.
 - A test guard written as `if (sink.hashCode() == 42) fail("unreachable")` was
   reachable on about one run in seventy-six. Fixed, and measured rather than
@@ -475,13 +475,13 @@ dependencies { implementation("io.github.interactions-hsg:losim:1.5.0") }
 java -jar losim.jar adopt .     # losim.jar from the release below
 ```
 
-It writes `build.gradle.kts`, `./losim` and `AGENTS.md`, appends three lines to
+It writes `build.gradle.kts`, `./dissaly` and `AGENTS.md`, appends three lines to
 `.gitignore`, and takes `lib/`, `viewer/` and `docs/` out of the index with
 `git rm --cached` — **out of the index, not off the disk**. Every byte is still
 there afterwards, so the conversion is one commit to revert.
 
 By hand it is the block above plus the `losimToolchain` task, which is twenty
-lines: [./losim and the toolchain file ->](/ref/cli-losim).
+lines: [./dissaly and the toolchain file ->](/ref/cli-losim).
 
 Then one edit to your Java, and it is a deletion: **every `@Takes` comes off, and
 its numbers go into the scenario** — see below. Nothing else in a `.java` moves,
@@ -491,7 +491,7 @@ produces are what they were.
 
 ### Where the viewer and the manual went
 
-Into the jar. `losim serve` and `losim serve docs` serve them from the classpath, so
+Into the jar. `dissaly serve` and `dissaly serve docs` serve them from the classpath, so
 a lab with nothing in it but a `build.gradle.kts` and a `src/` still opens both. A
 `viewer/` on disk still wins if there is one, which is how this repository serves
 its own.
@@ -500,7 +500,7 @@ That is also why there is no more `losim update`. It existed to replace three
 directories a lab carried; a lab carries none of them.
 
 ```bash
-./losim version --check     # is there a newer one?
+./dissaly version --check     # is there a newer one?
 ```
 
 One `HEAD` on the releases page and no token. Updating is then `losimVersion` in
@@ -553,10 +553,10 @@ Nothing in this repository declared a `stream`, so nothing here changed.
 
 | gone | what does it now |
 |---|---|
-| `losim update` | `./losim version --check`, then one line in the build file |
+| `losim update` | `./dissaly version --check`, then one line in the build file |
 | `publish.sh`, `dist.sh` | a Maven coordinate |
 | `lib/`, and `Lab`'s fallback to it | `build/losim-toolchain.properties`, which the build writes |
-| `build.sh` and ten more scripts | `losim` verbs; `losim dev …` for the maintainer ones |
+| `build.sh` and ten more scripts | `losim` verbs; `dissaly dev …` for the maintainer ones |
 | the release zips | one asset, `losim.jar`, for the `adopt` bootstrap |
 
 `build/classes` moved to `build/losim/classes`. Gradle's java plugin writes
@@ -752,7 +752,7 @@ that fires every run is a warning nobody reads.
 
 ### A price list is found inside the jar
 
-`losim bill` looked for `lib/prices/<region>.yaml` and then `prices/<region>.yaml`
+`dissaly bill` looked for `lib/prices/<region>.yaml` and then `prices/<region>.yaml`
 on disk. A lab that resolves losim from Maven has neither, because it has no
 `lib/` — so it billed at the built-in defaults and said so in one line on stderr.
 That is correct for Frankfurt, which is what the defaults are, and silently wrong

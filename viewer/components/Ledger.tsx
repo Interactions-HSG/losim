@@ -178,7 +178,7 @@ export function LedgerStrip({
             </tbody>
           </Table>
           <P style={styles.fine}>
-            Every amount here is a line <Code>losim bill</Code> already computed; what is added
+            Every amount here is a line <Code>dissaly bill</Code> already computed; what is added
             is only when it arrives, and who it belongs to. The closing total is the
             bill&rsquo;s, exactly.
             {focus && (

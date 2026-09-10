@@ -63,7 +63,7 @@ class LabToolchainTest {
     @Test
     @DisplayName("the file is read again, not remembered")
     void notCached(@TempDir Path root) throws Exception {
-        // `losim serve` outlives any number of Gradle invocations. A server holding
+        // `dissaly serve` outlives any number of Gradle invocations. A server holding
         // the classpath from before a dependency was added fails a build in a way
         // nobody can explain from the error.
         Lab lab = at(root);
@@ -110,7 +110,7 @@ class LabToolchainTest {
         String note = at(root).toolchainNote();
         assertTrue(note.contains("classpath"), () -> "the classpath is not named: " + note);
         assertTrue(note.contains("protoc"), () -> "the compiler is not named: " + note);
-        assertTrue(note.contains("./losim"), () -> "what to do about it is not named: " + note);
+        assertTrue(note.contains("./dissaly"), () -> "what to do about it is not named: " + note);
     }
 
     @Test

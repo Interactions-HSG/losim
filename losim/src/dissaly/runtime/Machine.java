@@ -257,7 +257,7 @@ public final class Machine implements Bound, Telemetry.Sampled {
      * <p>The instances are kept as they are, so a machine that dies and comes back
      * comes back <i>remembering</i>. That is usually not what a restart means, and
      * the restart event says so. Use {@link #serves(java.util.function.Supplier)}
-     * to have losim build fresh ones.
+     * to have dissaly build fresh ones.
      */
     public Machine serving(BindableService... services) {
         // Unnamed: nothing placed these by a name, so start() takes their own.

@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * What {@code losim adopt} sees in a project shaped like the grpc-java quickstart.
+ * What {@code dissaly adopt} sees in a project shaped like the grpc-java quickstart.
  *
  * <p>Against a checked-in fixture rather than against a string built here, because
  * the thing being tested is a reading of somebody else's file — and a fixture
@@ -31,7 +31,7 @@ class AdoptTest {
     /** The fixture, found from this test's own working directory. */
     private static Path fixture() {
         for (Path p : List.of(Path.of("losim/test/fixtures/quickstart"),
-                              Path.of("../losim/test/fixtures/quickstart"))) {
+                              Path.of("../dissaly/test/fixtures/quickstart"))) {
             if (Files.isDirectory(p)) return p;
         }
         throw new IllegalStateException("no quickstart fixture beside this test");
@@ -44,7 +44,7 @@ class AdoptTest {
     /** A lab written against 1.5.0: it reads its size from the cluster. */
     private static Scan scaled() throws Exception {
         for (Path p : List.of(Path.of("losim/test/fixtures/scaled"),
-                              Path.of("../losim/test/fixtures/scaled"))) {
+                              Path.of("../dissaly/test/fixtures/scaled"))) {
             if (Files.isDirectory(p)) return Scan.of(p);
         }
         throw new IllegalStateException("no scaled fixture beside this test");

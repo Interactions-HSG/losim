@@ -10,7 +10,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * What {@code losim check} says about a simulation, before anything is compiled.
+ * What {@code dissaly check} says about a simulation, before anything is compiled.
  *
  * <p>This is the first of three answers to the same question, and the only one
  * that answers while somebody is still typing. The loader gives the second, and it

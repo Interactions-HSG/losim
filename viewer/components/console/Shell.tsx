@@ -36,7 +36,7 @@ import { H1, H2, P } from '../../lib/text.tsx';
  * The read is wrapped because a browser set to refuse site data throws on
  * access rather than returning null.
  */
-const RAIL_KEY = 'losim.rail.collapsed';
+const RAIL_KEY = 'dissaly.rail.collapsed';
 
 interface Item {
   id: View;
@@ -106,7 +106,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <span aria-hidden>☰</span>
           <span {...stylex.props(styles.away)}>{tight ? 'show the menu' : 'hide the menu'}</span>
         </button>
-        <span {...stylex.props(styles.brand)}>DISSAL</span>
+        <span {...stylex.props(styles.brand)}>DISSALy</span>
         <span {...stylex.props(styles.svc)}>Distributed Systems Simulation Analysis Lab</span>
         <span {...stylex.props(styles.grow)} />
         {/* The one chip that belongs here: a build is true globally, not of one

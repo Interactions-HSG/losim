@@ -28,7 +28,7 @@ jobs:
         with: { distribution: temurin, java-version: '25' }
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '9.2.0' }
-      - run: bin/losim dev test
+      - run: bin/dissaly dev test
 
   # The manual, checked for the one thing a manual can get catastrophically wrong
   # here: containing an assignment the students are meant to write themselves. The
@@ -51,7 +51,7 @@ jobs:
       # node, for the structure check: it walks docs.json and every link in it.
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
-      - run: bin/losim dev docs check
+      - run: bin/dissaly dev docs check
 
   # The product surface: gRPC systems compiled against the jar alone, run through the
   # command line a student types, asserted against the trace on disk.
@@ -70,7 +70,7 @@ jobs:
         with: { distribution: temurin, java-version: '25' }
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '9.2.0' }
-      - run: bin/losim dev suite
+      - run: bin/dissaly dev suite
       # One direct trace and one scaled one. The direct trace carries every event
       # kind, span kind and sampled channel the cluster produces; the scaled one
       # carries what each resource was found to be a function of, which is a fact
@@ -100,7 +100,7 @@ jobs:
     container: mcr.microsoft.com/devcontainers/java:25-bookworm
     steps:
       - uses: actions/checkout@v4
-      - run: bin/losim dev suite
+      - run: bin/dissaly dev suite
       - uses: actions/upload-artifact@v4
         with:
           name: traces-codespace
@@ -126,6 +126,6 @@ jobs:
           set -e
           for trace in t6 t10; do
             echo "=== $trace ==="
-            bin/losim compare "build/parity/traces-runner/$trace.json" \
+            bin/dissaly compare "build/parity/traces-runner/$trace.json" \
                               "build/parity/traces-codespace/$trace.json"
           done

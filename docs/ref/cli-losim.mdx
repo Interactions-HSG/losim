@@ -1,15 +1,15 @@
 ---
-title: "./losim and losim version"
+title: "./dissaly and dissaly version"
 description: "The project launcher, toolchain file, and version command."
 icon: "terminal"
 ---
 
 ```bash
-./losim <verb> […]          # anything below, in this project
-./losim version [--check]
+./dissaly <verb> […]          # anything below, in this project
+./dissaly version [--check]
 ```
 
-`losim adopt` writes `./losim` into a project so the launcher can be committed.
+`dissaly adopt` writes `./dissaly` into a project so the launcher can be committed.
 The launcher is:
 
 ```sh
@@ -42,7 +42,7 @@ That file records the project toolchain used by losim. There is no separate
 It contains absolute paths for one machine, so it is generated and never
 committed; `build/` is gitignored. If the project moves to another machine, the
 paths are invalid. losim ignores the stale file and reports that fact. Running
-`./losim` rewrites it.
+`./dissaly` rewrites it.
 </Warning>
 
 The task also writes `build/losim/classpath` as one plain line for the launcher.
@@ -72,7 +72,7 @@ gRPC plugin used by a run.
 ## Take a newer losim
 
 ```bash
-./losim version --check
+./dissaly version --check
 ```
 
 The command checks the latest release tag without downloading the release.
@@ -81,7 +81,7 @@ The command checks the latest release tag without downloading the release.
 1.4.0
 2.0.2 is released.
 
-  Change losimVersion in build.gradle.kts to 2.0.2 and run ./losim.
+  Change losimVersion in build.gradle.kts to 2.0.2 and run ./dissaly.
   Nothing else moves: the viewer and the manual are inside the jar,
   and your simulations, schema and Java are untouched by a version.
 ```
@@ -94,7 +94,7 @@ build, so `losim update` is no longer needed.
 Builds and runs use already-resolved dependencies.
 </Note>
 
-## Without `./losim`
+## Without `./dissaly`
 
 Download the release jar, then use it to create the launcher:
 
@@ -103,4 +103,4 @@ curl -sSLo losim.jar https://github.com/Interactions-HSG/losim/releases/latest/d
 java -jar losim.jar adopt .
 ```
 
-After that, `./losim`.
+After that, `./dissaly`.

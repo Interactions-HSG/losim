@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * {@code losim adopt} adds losim to an existing gRPC project.
+ * {@code dissaly adopt} adds losim to an existing gRPC project.
  *
  * <p>The command targets projects with a Gradle build, {@code src/main/proto}, and
  * a gRPC server and client. It adapts that layout without changing application
@@ -23,7 +23,7 @@ import java.util.Map;
  * infer which code should become a {@code dissaly.Job}.
  *
  * <p>The command writes losim's files, moves project directories, and reports the
- * Java edits still required. {@code losim check} runs the same detector again.
+ * Java edits still required. {@code dissaly check} runs the same detector again.
  *
  * <h2>Projects with a committed {@code lib/}</h2>
  *
@@ -48,7 +48,7 @@ public final class Adopt {
             System.err.println("no such directory: " + root);
             return 2;
         }
-        System.out.println("losim adopt — reading " + short_(root, root) + " as a gRPC project");
+        System.out.println("dissaly adopt — reading " + short_(root, root) + " as a gRPC project");
         System.out.println();
 
     // Projects from before 1.5.0 may carry losim as committed jars. Keep their
@@ -185,7 +185,7 @@ public final class Adopt {
         var writes = new LinkedHashMap<String, String>();
         writes.put("build.gradle.kts", "losim " + Scaffold.version()
                 + ", protoc, and the toolchain task");
-        writes.put("losim", "the launcher: it builds, then runs");
+        writes.put("dissaly", "the launcher: it builds, then runs");
         writes.put("AGENTS.md", "what is left, for your agent");
     // Older projects may already contain simulations. Do not add an extra file
     // unless the project has no simulation to use.
@@ -223,7 +223,7 @@ public final class Adopt {
             throws IOException {
         put(root, "build.gradle.kts",
                 Scaffold.build(scan.grpcVersion(), scan.protobufVersion()), force);
-        put(root, "losim", Scaffold.launcher(), force);
+        put(root, "dissaly", Scaffold.launcher(), force);
         put(root, "AGENTS.md", Agents.forProject(scan, root), force);
         if (!vendored) put(root, "simulations/1-one-call.yaml", firstSimulation(scan, root), force);
 
@@ -250,7 +250,7 @@ public final class Adopt {
         // Keep the old build file as a backup so Gradle sees only one active build.
         Path old = root.resolve("build.gradle");
         if (Files.isRegularFile(old)) Files.move(old, root.resolve("build.gradle.bak"));
-        Path launcher = root.resolve("losim");
+        Path launcher = root.resolve("dissaly");
         if (Files.isRegularFile(launcher)) launcher.toFile().setExecutable(true);
     }
 
@@ -317,9 +317,9 @@ public final class Adopt {
         System.out.println();
         System.out.println("""
               next
-                ./losim build          generate, compile, and say what is wrong
-                ./losim check          re-run these findings without running anything
-                ./losim serve          the lab, on :8000
+                ./dissaly build          generate, compile, and say what is wrong
+                ./dissaly check          re-run these findings without running anything
+                ./dissaly serve          the lab, on :8000
                 gradle --write-locks losimToolchain
                                        once, then commit gradle.lockfile — your
                                        classpath is resolved now, and this pins it""");

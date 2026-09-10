@@ -1,7 +1,7 @@
 /**
  * What the run has cost *so far*, and whose fault it is.
  *
- * `losim bill` says what a run cost. That is the wrong tense for a film: the
+ * `dissaly bill` says what a run cost. That is the wrong tense for a film: the
  * whole point of watching `mr-cascade` is seeing the incidents bucket fill up
  * partway through, while it is still happening, and a total at the end cannot
  * show that.
@@ -14,7 +14,7 @@
  *
  * **Exact at the end, approximate in between**, and the approximation is only
  * ever in *when*. Every line's shape is normalised to reach exactly its billed
- * amount at the end of the run, so the closing total equals `losim bill` to the
+ * amount at the end of the run, so the closing total equals `dissaly bill` to the
  * rappen — which is a thing to check rather than to claim (S7).
  *
  * ## Attribution, which is not re-pricing either

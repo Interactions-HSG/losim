@@ -456,7 +456,7 @@ export function Overview() {
         ) : (
           <Panel>
             <P style={ui.muted}>
-              Run <Code>losim bill</Code> next to this trace and this fills in — the viewer will
+              Run <Code>dissaly bill</Code> next to this trace and this fills in — the viewer will
               not invent prices of its own.
             </P>
           </Panel>

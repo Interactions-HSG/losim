@@ -5,7 +5,7 @@
  * knows its shape. Everything downstream asks questions — *what was true at t?*
  * — rather than reading fields.
  *
- * It reads a **raw losim trace**, with no baking step in front of it. That is
+ * It reads a **raw DISSALy trace**, with no baking step in front of it. That is
  * what lets a student drop their own run onto the page; it is also why the
  * decoding below is not optional. The dense channels arrive encoded three
  * different ways, and payloads arrive truncated with the real count hidden in
@@ -25,7 +25,7 @@ export interface Node {
    *
    * Everything above is what the layout and the film need, named the way they
    * name it. What is left is the run's totals — allocated, bytes out, how much
-   * of that crossed a zone, what losim's own bookkeeping cost — which only the
+   * of that crossed a zone, what DISSALy's own bookkeeping cost — which only the
    * panel reads, and which would otherwise have to be re-derived from the
    * series by something that would eventually disagree with the bill.
    */
@@ -45,10 +45,10 @@ export interface Span {
 }
 
 /**
- * What losim's own call into the system is called in a span label.
+ * What DISSALy's own call into the system is called in a span label.
  *
  * gRPC writes `dissaly.Job/Run`; the trace writes every method dotted, so this is
- * the dotted form. The one string in the viewer that knows a name from losim's
+ * the dotted form. The one string in the viewer that knows a name from DISSALy's
  * own schema — everything else here is the assignment's.
  */
 export const RUN = 'dissaly.Job.Run';
@@ -74,7 +74,7 @@ export function liveAt(s: Span, t: number): boolean {
 // ----------------------------------------------------------------- payloads
 //
 // The trace carries every argument and every result, which no real system would
-// do and losim does deliberately: watching a computation happen is the point, and
+// do and DISSALy does deliberately: watching a computation happen is the point, and
 // a film of nodes exchanging opaque byte counts teaches nothing. What it does
 // not carry is a way to *show* them — a reducer's result is three thousand
 // key-value pairs, and three thousand of anything is not a thing anybody reads at
@@ -151,7 +151,7 @@ export function entries(value: unknown): [Entry[], number] {
  * What is actually *in* a message: the words, and how many there are.
  *
  * "1,118 keys" says how much; "the 1,729 · cat 402 · +1,116 more" says what,
- * and what is the reason losim records payloads at all. A film of nodes
+ * and what is the reason DISSALy records payloads at all. A film of nodes
  * passing each other counts teaches nothing that a bar chart would not.
  *
  * The sample is the largest values among those the trace kept, because a word
@@ -390,7 +390,7 @@ export class Trace {
     return Math.max(1.0, Number(this.meta['durationRefMs'] ?? 0));
   }
 
-  /** The node losim entered the system through, which is where `Run` was served. */
+  /** The node DISSALy entered the system through, which is where `Run` was served. */
   get entry(): string {
     return (this.meta['entry'] as string) ?? '';
   }
@@ -506,7 +506,7 @@ export class Trace {
  * Undo the constant/runs/raw encoding, once, into plain arrays.
  *
  * Most channels barely move — a node is alive for the whole simulation, idle for
- * most of it, and its cap never changes at all — so losim writes whichever of
+ * most of it, and its cap never changes at all — so DISSALy writes whichever of
  * the three forms is smallest (D8). That is worth about two orders of magnitude
  * on the wire and nothing at all here, where every form becomes the same array.
  */

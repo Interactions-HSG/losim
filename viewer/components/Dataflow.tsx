@@ -426,7 +426,7 @@ function Lanes({ m, theme }: { m: FrameNode; theme: Theme }) {
  * with traffic going both ways on it.
  *
  * **What is inside it.** The digest: *the words*. `the 1,729 · cat 402 · +1,116
- * more`. This is the whole reason losim records payloads at all (D8 rule 4), which
+ * more`. This is the whole reason DISSALy records payloads at all (D8 rule 4), which
  * no real tracing system would do — a film of nodes exchanging opaque byte
  * counts teaches nothing a bar chart would not.
  *

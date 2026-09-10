@@ -13,10 +13,10 @@ import java.util.stream.Stream;
 /**
  * Reads a gRPC project as source text.
  *
- * <p>{@link Adopt} and {@code losim check} use the same detector, so both commands
+ * <p>{@link Adopt} and {@code dissaly check} use the same detector, so both commands
  * report the same findings.
  *
- * <p>{@code losim adopt} reads source text rather than bytecode. It runs from
+ * <p>{@code dissaly adopt} reads source text rather than bytecode. It runs from
  * {@code java -jar losim.jar} with nothing else on the classpath — that is the
  * bootstrap, before the project has a build that knows about losim — so nothing
  * here loads a class, resolves a type or asks a compiler. It reads {@code .proto},
@@ -582,7 +582,7 @@ public final class Scan {
         if (build.contains("application") && build.contains("mainClass")) {
             findings.add(new Finding(Kind.DEAD, "the application plugin",
                     "the project stops being an application: nothing here has a main to"
-                    + " start, and `losim simulate` is what starts one.", null));
+                    + " start, and `dissaly simulate` is what starts one.", null));
         }
         for (Rpc r : rpcs) {
             if (r.streaming()) {

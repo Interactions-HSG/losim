@@ -49,7 +49,7 @@ final class Scaffold {
         String protobufVersion = protobuf.isEmpty() ? "4.36.0" : protobuf;
         String grpcVersion = grpc.isEmpty() ? "1.83.1" : grpc;
         return """
-            // Written by `losim adopt`. Everything here is the simulator's furniture;
+            // Written by `dissaly adopt`. Everything here is the simulator's furniture;
             // your Java and your schema are untouched.
             //
             // Imported rather than written out below: inside a Gradle build script
@@ -88,7 +88,7 @@ final class Scaffold {
                 options.compilerArgs.add("-nowarn")
             }
 
-            // Where the code is, after `losim adopt` moved it: your Java in src/, and
+            // Where the code is, after `dissaly adopt` moved it: your Java in src/, and
             // the protobuf sources losim generates beside the schema rather than off
             // in a build directory — so the editor resolves generated types where you
             // can also read them. Both, or `gradle build` compiles handlers whose
@@ -181,7 +181,7 @@ final class Scaffold {
                         "protoc=${p.absolutePath}\\n" +
                         "protoc-gen-grpc-java=${g.absolutePath}\\n"
                     )
-                    // The same classpath again, as one plain line. `./losim` has to
+                    // The same classpath again, as one plain line. `./dissaly` has to
                     // read it before it can start a JVM, and java.util.Properties
                     // escapes `:` and `\\` on the way out — so a shell reading the
                     // file above with sed gets a classpath that is subtly not the
@@ -204,10 +204,10 @@ final class Scaffold {
     static String launcher() {
         return """
             #!/usr/bin/env sh
-            # losim, in this project. `./losim simulate simulations/1-one-call.yaml`, `./losim serve`.
+            # losim, in this project. `./dissaly simulate simulations/1-one-call.yaml`, `./dissaly serve`.
             #
             # It builds before it runs, so there is no separate step to have forgotten
-            # and no stale classpath to explain. Written by `losim adopt`; commit it.
+            # and no stale classpath to explain. Written by `dissaly adopt`; commit it.
             set -e
             cd "$(dirname "$0")"
 
@@ -243,7 +243,7 @@ final class Scaffold {
     static String simulation(String entry, List<String[]> runs, List<String[]> costs) {
         var sb = new StringBuilder();
         sb.append("""
-            # Your first simulation, written by `losim adopt`.
+            # Your first simulation, written by `dissaly adopt`.
             #
             # Two nodes and one call, which is the smallest thing that is still a
             # distributed system. Everything past that — more nodes, a network that
@@ -262,7 +262,7 @@ final class Scaffold {
             sb.append("""
 
                 # There is one node and no call, because nothing here is yet a service a
-                # node could be given — `losim check` says why, with the line. A second
+                # node could be given — `dissaly check` says why, with the line. A second
                 # node is three lines: a name, an instance, and what it runs.
                 """);
         } else {

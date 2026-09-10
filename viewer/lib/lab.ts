@@ -1,7 +1,7 @@
 /**
  * The lab behind the page, when there is one.
  *
- * `losim serve` puts three things on the same port as this app: the simulations
+ * `dissaly serve` puts three things on the same port as this app: the simulations
  * in the lab, a way to simulate one, and the output of the one that is going.
  * This is the client for those three, and it exists because the alternative is a
  * student learning a command line before they learn anything this course is
@@ -93,7 +93,7 @@ export async function run(simulation: string): Promise<{ run?: number; error?: s
     const body = (await res.json()) as { run?: number; error?: string };
     return res.ok ? body : { error: body.error ?? `the lab said ${res.status}` };
   } catch {
-    return { error: 'the lab is not answering — is `losim serve` still running?' };
+    return { error: 'the lab is not answering — is `dissaly serve` still running?' };
   }
 }
 
@@ -157,9 +157,9 @@ export interface Region {
  * Everything needed to author a simulation for this lab.
  *
  * The files are read off their own compiled bytecode; the instances and the
- * regions are losim's own catalogues. Exposing all three here is what lets a
+ * regions are DISSALy's own catalogues. Exposing all three here is what lets a
  * simulation be composed from scratch rather than by copying one, without
- * reading losim's source to find out what a node can be given.
+ * reading DISSALy's source to find out what a node can be given.
  *
  * One list of services, and the one that starts the work is in it with a flag
  * on it. There used to be a second list saying what each driver object's input
@@ -217,7 +217,7 @@ export async function saveSimulation(
     const body = (await res.json()) as { simulation?: string; path?: string; error?: string };
     return res.ok ? body : { error: body.error ?? `the lab said ${res.status}` };
   } catch {
-    return { error: 'the lab is not answering — is `losim serve` still running?' };
+    return { error: 'the lab is not answering — is `dissaly serve` still running?' };
   }
 }
 
@@ -236,6 +236,6 @@ export async function openSimulation(name: string): Promise<{ draft?: Draft; err
     const body = (await res.json()) as { draft?: Draft; error?: string };
     return res.ok ? body : { error: body.error ?? `the lab said ${res.status}` };
   } catch {
-    return { error: 'the lab is not answering — is `losim serve` still running?' };
+    return { error: 'the lab is not answering — is `dissaly serve` still running?' };
   }
 }

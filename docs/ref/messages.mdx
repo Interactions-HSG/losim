@@ -44,7 +44,7 @@ its result.
 | `'src/Shrinker.java' declares no type called Shrinker` | a file and the class in it have to agree |
 | `this node runs 'Thumbnailer' twice` | |
 | `no node in this simulation runs losim.Job, so there is nothing to start` | one node's `runs:` says `{ losim.Job: <path>.java }` |
-| `'b' runs losim.Job, and so does 'a' at thumbs.yaml:6` | two designs are two files, compared with `losim compare` |
+| `'b' runs losim.Job, and so does 'a' at thumbs.yaml:6` | two designs are two files, compared with `dissaly compare` |
 
 ## Invalid `failures:` entries
 
@@ -96,7 +96,7 @@ while these RPC shapes prevent losim from producing a valid price.
 
 | message | fix |
 |---|---|
-| `no class called 'lab.Shrinker' is on the classpath` | the file exists but was not compiled; run `./losim build` and check `--cp` |
+| `no class called 'lab.Shrinker' is on the classpath` | the file exists but was not compiled; run `./dissaly build` and check `--cp` |
 | `'lab.Shrinker' is not a gRPC service` | it must extend the `ImplBase` protoc generated |
 | `'lab.Shrinker' needs a no-argument constructor` | losim builds a fresh one when a node restarts |
 | `this node runs 'Volley' under 'Thumbnailer', and the class in it serves Volley` | the `runs:` key is what peers find this node by; `peersServing` would find nobody |

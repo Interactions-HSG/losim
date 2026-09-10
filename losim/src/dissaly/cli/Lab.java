@@ -192,7 +192,7 @@ public final class Lab {
                   .append(" will not run here: ").append(stated).append("\n");
             }
         }
-        if (!sb.isEmpty()) sb.append("  Run ./losim, which rewrites that file before it starts anything.\n");
+        if (!sb.isEmpty()) sb.append("  Run ./dissaly, which rewrites that file before it starts anything.\n");
         return sb.toString();
     }
 
@@ -477,7 +477,7 @@ public final class Lab {
                 is into %s, so either that task has not run, or the file it wrote \
                 came from a machine this is not.
 
-                  Run ./losim, which runs the task first.
+                  Run ./dissaly, which runs the task first.
                 """.formatted(TOOLCHAIN);
     }
 

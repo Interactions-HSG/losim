@@ -51,7 +51,7 @@ sourceSets {
         compileClasspath = vendored
         runtimeClasspath = output + vendored
     }
-    // losim's own tests run under `losim dev test`, against the jar, with their own
+    // losim's own tests run under `dissaly dev test`, against the jar, with their own
     // generated protobuf. Gradle is not asked to reproduce that, so this source
     // set stays empty rather than being pointed at losim/test.
 }
@@ -79,7 +79,7 @@ tasks.named<ProcessResources>("processResources") {
     // The console and the manual, so that depending on losim is the whole of
     // getting losim. A lab used to carry both as committed directories, put there
     // by a maintainer running a script over its repository; now they ride in the
-    // jar and `losim serve` finds them there when there is nothing on disk.
+    // jar and `dissaly serve` finds them there when there is nothing on disk.
     //
     // Wholesale, both of them. The manual's pages link images and a favicon, and
     // Mintlify's docs.json names every page — a filtered copy would ship a sidebar
@@ -87,7 +87,7 @@ tasks.named<ProcessResources>("processResources") {
     from("viewer/out") { into("losim/viewer") }
     from("docs") { into("losim/docs") }
 
-    // What `losim adopt` writes into the project it adopts. A resource rather than
+    // What `dissaly adopt` writes into the project it adopts. A resource rather than
     // a string constant, so it is written and reviewed as prose.
     from("losim/agents") { include("AGENTS.md"); into("losim") }
 
@@ -112,7 +112,7 @@ val docsBundled by tasks.registering {
             val nav = zip.getEntry("losim/docs/docs.json")
                 ?: error("the jar carries no losim/docs/docs.json, so it has no manual")
             if (zip.getEntry("losim/viewer/index.html") == null)
-                error("the jar carries no losim/viewer/index.html, so `losim serve` has no console")
+                error("the jar carries no losim/viewer/index.html, so `dissaly serve` has no console")
 
             val text = zip.getInputStream(nav).readBytes().decodeToString()
             val pages = Regex("\"([a-z0-9-]+/[a-z0-9-]+)\"").findAll(text)
@@ -155,7 +155,7 @@ tasks.named<Jar>("jar") {
 // What a consumer needs, at the versions vendor/jars holds. Declared for the POM
 // only: see the header, and the parity check below.
 //
-// Read from the file `losim dev vendor` downloads by, so there is one pinning
+// Read from the file `dissaly dev vendor` downloads by, so there is one pinning
 // rather than two that agree until somebody bumps one of them.
 val pinned = Properties().apply {
     file("vendor/versions.properties").inputStream().use { load(it) }

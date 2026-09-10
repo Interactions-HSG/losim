@@ -1,5 +1,5 @@
 /**
- * The visual language of a losim picture, as data.
+ * The visual language of a DISSALy picture, as data.
  *
  * Nothing here imports d3, or React, or anything else. These are tokens —
  * colours, sizes, proportions and the rules about when to use which — and every
@@ -77,7 +77,7 @@ export const HATCH = '#9AA3AE';
 
 // Every state a node can be in, and the one colour that says so. Kept here
 // rather than in the views so that "amber means near the cap" is a fact about
-// losim and not a coincidence between two files.
+// DISSALy and not a coincidence between two files.
 export const LEVEL_OK = DATA_FILL;
 export const LEVEL_WARN = WARN;
 export const LEVEL_FULL = ALARM;

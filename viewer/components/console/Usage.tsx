@@ -9,7 +9,7 @@
  * last because it is far away look identical on a total. They do not look
  * identical here: one of them is at ninety percent and one of them is at twenty.
  *
- * Everything is read straight off the trace's own channels — the numbers losim
+ * Everything is read straight off the trace's own channels — the numbers DISSALy
  * recorded while it ran, at the tick rate it recorded them at. Nothing is
  * modelled, smoothed or filled in.
  */

@@ -13,7 +13,7 @@
     {
       "label": "losim: check",
       "type": "shell",
-      "command": "bin/losim dev test",
+      "command": "bin/dissaly dev test",
       "group": {
         "kind": "test",
         "isDefault": true
@@ -23,14 +23,14 @@
     {
       "label": "losim: reference suite",
       "type": "shell",
-      "command": "bin/losim dev suite",
+      "command": "bin/dissaly dev suite",
       "group": "test",
       "problemMatcher": []
     },
     {
       "label": "docs: the manual (localhost:3000)",
       "type": "shell",
-      "command": "bin/losim serve docs",
+      "command": "bin/dissaly serve docs",
       "isBackground": true,
       "problemMatcher": [],
       "presentation": { "reveal": "silent" }
@@ -38,7 +38,7 @@
     {
       "label": "losim: the lab (localhost:8000)",
       "type": "shell",
-      "command": "bin/losim serve",
+      "command": "bin/dissaly serve",
       "isBackground": true,
       "problemMatcher": [],
       "presentation": { "reveal": "silent" }
@@ -47,7 +47,7 @@
     {
       "label": "docs: check for leaks",
       "type": "shell",
-      "command": "bin/losim dev docs check",
+      "command": "bin/dissaly dev docs check",
       "group": "test",
       "problemMatcher": []
     }
