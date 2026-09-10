@@ -12,6 +12,7 @@
  * difference is who advances the clock, which is why the film you download is
  * the film you watched.
  */
+import * as stylex from '@stylexjs/stylex';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { flushSync } from 'react-dom';
 
@@ -22,44 +23,24 @@ import { MessagePanel } from './MessagePanel.tsx';
 import { Scrubber } from './Scrubber.tsx';
 import type { Flight } from '../lib/frame.ts';
 import { LedgerModel, money as money2 } from '../lib/ledger.ts';
-import { HOLD_SECONDS } from '../lib/pace.ts';
 import { Clock, FIT_SECONDS, RATES, refTime } from '../lib/playback.ts';
 import { record, save, still, type Recording } from '../lib/record.ts';
 import type { Run } from '../lib/runs.ts';
 import { useTheme } from '../lib/theme.ts';
+
+import { chrome, figure, radius, shadow } from '../lib/tokens.stylex.ts';
+import { ui } from '../lib/ui.stylex.ts';
 
 const FPS = 30;
 
 /**
  * The longest film that will be written to a file, in seconds.
  *
- * A run under a standing rate of failure, paced so nothing is quicker than the eye, is very
- * nearly three minutes. That is the right thing to *watch* — you can stop it —
- * and the wrong thing to hand somebody as a download they did not ask the length
- * of. Past this the pacing is squeezed to fit, keeping its shape: the quick parts
- * still get far more of the film than their share of the run, just less than a
- * whole second each.
+ * A long run is the right thing to *watch* — you can stop it — and the wrong
+ * thing to hand somebody as a download they did not ask the length of. Past
+ * this the film is squeezed into the cap, evenly, the way `fit` squeezes it.
  */
 const MAX_RECORDING = 120;
-
-/** How long this film runs, in the shortest form that is still a duration. */
-function fmtFilm(seconds: number): string {
-  if (seconds >= 90) return `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, '0')}`;
-  return `${seconds.toFixed(0)}s`;
-}
-
-/**
- * Nothing on screen for less than this, in real seconds.
- *
- * There is no dwell. Holding a message *in place* after it had arrived would
- * make the picture say something false — that the call was still going — and
- * would not help a call whose entire life is shorter than one frame anyway.
- * Instead **the clock slows down** while anything short is happening
- * (`lib/pace.ts`), so the message really does take a second to cross.
- * Ordering, overlap and every number stay exactly as the trace has them;
- * only the pace of the playhead changes.
- */
-const HOLDS = [HOLD_SECONDS, 0.5, 0.25, 0] as const;
 
 export function Film({
   run,
@@ -97,17 +78,8 @@ export function Film({
    * there having ended, which is the argument.
    */
   const own = useMemo(
-    () =>
-      outer
-        ? null
-        : new Clock(Math.max(trace.duration, against?.trace.duration ?? 0), [
-            ...index.moments(),
-            // Both runs' moments when two are being compared, so the clock is slow
-            // enough for whichever of them is doing something quick. Paced against
-            // only its own, one film would race through the other's fast calls.
-            ...(against ? against.index.moments() : []),
-          ]),
-    [outer, trace, against, index],
+    () => (outer ? null : new Clock(Math.max(trace.duration, against?.trace.duration ?? 0))),
+    [outer, trace, against],
   );
   const clock = outer ?? (own as Clock);
   // Only what this component made is this component's to dispose.
@@ -130,14 +102,6 @@ export function Film({
   const [pinned, setPinned] = useState<string | null>(null);
   const [recording, setRecording] = useState<string | null>(null);
   const [made, setMade] = useState<Recording | null>(null);
-  const [hold, setHold] = useState<number>(HOLDS[0]);
-  const filmSeconds = useSyncExternalStore(clock.subscribe, clock.filmSeconds, () => 0);
-  const stretch = useSyncExternalStore(clock.subscribe, clock.stretch, () => 1);
-  // The pace belongs to the clock, so the toggle sets it there rather than being
-  // read by the frame. Re-applied when the clock changes: a new run starts held.
-  // Whoever owns the clock owns its pacing: with a console bar above, the hold
-  // button up there is the one that means anything.
-  useEffect(() => { if (!outer) clock.setHold(hold); }, [clock, hold, outer]);
   const [showLedger, setShowLedger] = useState(false);
   const [zone, setZone] = useState('');
   const [role, setRole] = useState('');
@@ -312,11 +276,9 @@ export function Film({
 
   const download = useCallback(async () => {
     clock.pause();
-    // **The film's own length, not a fixed thirty seconds.** Recording evenly
-    // across the run would spend the frames in trace time and undo all of the
-    // pacing — every quick message back to one frame, which is exactly the video
-    // a lecture cannot use. Capped, because a chaotic run paced to a one-second
-    // floor is minutes long and nobody wants that as a file by accident.
+    // **The film's own length, not a fixed thirty seconds**, so a downloaded
+    // film runs at the speed the run did. Capped, because a long run is minutes
+    // of video and nobody wants that as a file by accident.
     const seconds = Math.min(MAX_RECORDING, Math.max(2, clock.filmSeconds()));
     const frames = Math.max(2, Math.round(seconds * FPS));
     const squeeze = clock.filmSeconds() / seconds;
@@ -362,13 +324,13 @@ export function Film({
   );
 
   return (
-    <div className="film">
-      <div className="views">
-        <span className="muted vhint">what is true right now</span>
+    <div {...stylex.props(styles.film)}>
+      <div {...stylex.props(styles.views)}>
+        <span {...stylex.props(ui.muted, styles.vhint)}>what is true right now</span>
 
         {/* Filters set nodes aside rather than removing them, so the picture
             never jumps and a filtered node is still visibly among a cluster. */}
-        <div className="filters">
+        <div {...stylex.props(styles.filters)}>
           <select value={zone} onChange={(e) => setZone(e.target.value)} aria-label="zone">
             <option value="">every zone</option>
             {[...new Set(trace.nodes.map((m) => m.zone))].sort().map((z) => (
@@ -401,7 +363,7 @@ export function Film({
           )}
           {(zone || role || task !== null) && (
             <button
-              className="btn"
+              {...stylex.props(ui.btn)}
               onClick={() => {
                 setZone('');
                 setRole('');
@@ -414,9 +376,9 @@ export function Film({
         </div>
       </div>
 
-      <div className={`stage${pinned ? ' docked' : ''}${against ? ' twin' : ''}`}>
-        <div className="canvas" ref={stageRef}>
-        {against && <div className="who">{run.name}</div>}
+      <div {...stylex.props(styles.stage)}>
+        <div {...stylex.props(styles.canvas)} ref={stageRef}>
+        {against && <div {...stylex.props(styles.who)}>{run.name}</div>}
         <Dataflow
           ref={svgRef}
           layout={layout}
@@ -459,8 +421,8 @@ export function Film({
         </div>
 
         {against && vsFrame && vsLayout && (
-          <div className="canvas vs">
-            <div className="who">{against.name}</div>
+          <div {...stylex.props(styles.canvas, styles.vs)}>
+            <div {...stylex.props(styles.who)}>{against.name}</div>
             <Dataflow
               layout={vsLayout}
               frame={vsFrame}
@@ -471,18 +433,18 @@ export function Film({
               task={task}
             />
             {t > against.trace.duration && (
-              <div className="ended">
+              <div {...stylex.props(styles.ended)}>
                 finished at {refTime(against.trace.duration)}
               </div>
             )}
           </div>
         )}
         {against && t > trace.duration && (
-          <div className="ended left">finished at {refTime(trace.duration)}</div>
+          <div {...stylex.props(styles.ended, styles.endedLeft)}>finished at {refTime(trace.duration)}</div>
         )}
 
         {shownNode && (
-          <div className="dock">
+          <div {...stylex.props(styles.dock, !!pinned && styles.dockStatic)}>
             <NodePanel
               trace={trace}
               m={shownNode}
@@ -503,15 +465,15 @@ export function Film({
           argument: `mr-locality` against `mr-locality-blind` is a claim about
           what the second one's egress costs, and this is where it is settled. */}
       {against && vsMoney && money && (
-        <div className="verdict card">
+        <div {...stylex.props(ui.card, styles.verdict)}>
           <span>
             <strong>{run.name}</strong> {money2(money.cost, money.currency)}
           </span>
-          <span className="muted">against</span>
+          <span {...stylex.props(ui.muted)}>against</span>
           <span>
             <strong>{against.name}</strong> {money2(vsMoney.cost, vsMoney.currency)}
           </span>
-          <span className="gap">
+          <span {...stylex.props(styles.gap)}>
             {money.cost <= vsMoney.cost ? run.name : against.name} is cheaper by{' '}
             {money2(Math.abs(money.cost - vsMoney.cost), money.currency)}
           </span>
@@ -528,31 +490,24 @@ export function Film({
       )}
 
       {transport ? (
-      <div className="playbar card">
+      <div {...stylex.props(ui.card, styles.playbar)}>
         <button
-          className="btn icon primary"
+          {...stylex.props(ui.btn, ui.icon, ui.primary)}
           onClick={() => clock.toggle()}
           title={playing ? 'pause (space)' : 'play (space)'}
           aria-label={playing ? 'pause' : 'play'}
         >
           {playing ? <Pause /> : <Play />}
         </button>
-        <button className="btn icon" onClick={() => clock.step(-1)} title="back one frame (←)">
+        <button {...stylex.props(ui.btn, ui.icon)} onClick={() => clock.step(-1)} title="back one frame (←)">
           ◀
         </button>
-        <button className="btn icon" onClick={() => clock.step(1)} title="on one frame (→)">
+        <button {...stylex.props(ui.btn, ui.icon)} onClick={() => clock.step(1)} title="on one frame (→)">
           ▶
         </button>
 
-        <span className="clock mono">
-          {refTime(t)} <span className="muted">/ {refTime(trace.duration)}</span>
-          {hold > 0 && (
-            // What you are actually watching, said out loud. The run took five
-            // seconds and the film takes fifty-five; leaving somebody to work
-            // that out from a clock that moves at a changing rate is how a
-            // deliberate choice comes to look like a bug.
-            <span className="muted"> · {fmtFilm(filmSeconds)} film</span>
-          )}
+        <span {...stylex.props(styles.clock, ui.mono)}>
+          {refTime(t)} <span {...stylex.props(ui.muted)}>/ {refTime(trace.duration)}</span>
         </span>
 
         <Scrubber
@@ -565,7 +520,7 @@ export function Film({
           }}
         />
 
-        <div className="seg" role="group" aria-label="speed">
+        <div {...stylex.props(ui.seg)} role="group" aria-label="speed">
           {RATES.map((r) => (
             <button
               key={r}
@@ -573,8 +528,8 @@ export function Film({
               onClick={() => clock.setRate(r)}
               title={
                 r === 1
-                  ? 'the film at its own pace — nothing on screen for less than a second'
-                  : `${r}x that pace. Above 1x the quick messages go back under a second.`
+                  ? 'one reference second per second — the run at the speed it happened'
+                  : `${r}x that: a reference second every ${(1 / r).toFixed(2)}s.`
               }
             >
               {r}x
@@ -583,34 +538,13 @@ export function Film({
           <button
             aria-pressed={rateLabel === 'fit'}
             onClick={() => clock.fit()}
-            title={
-              `the whole film in ${FIT_SECONDS} seconds. It keeps the pacing — the quick parts still `
-              + 'get far more than their share of the run — but squeezed to fit, so the one-second '
-              + 'floor only holds at 1x.'
-            }
+            title={`the whole run in ${FIT_SECONDS} seconds, whatever it took.`}
           >
             fit
           </button>
         </div>
 
-        <button
-          className="btn"
-          onClick={() => setHold(HOLDS[(HOLDS.indexOf(hold as never) + 1) % HOLDS.length])}
-          aria-pressed={hold > 0}
-          title={
-            hold > 0
-              ? `The clock slows down where things are quick, so nothing is on screen for less than ${hold}s. `
-                + `This film runs ${fmtFilm(filmSeconds)} — ${stretch.toFixed(0)}x the run itself. `
-                + 'Every reading is still at its true instant; only the pace changes. '
-                + 'Press for a shorter hold, and a shorter film.'
-              : 'One simulated second per real second — where most calls are quicker than a single frame. '
-                + 'Press to slow the quick parts down again.'
-          }
-        >
-          {hold > 0 ? '\u25c9' : '\u25cb'} hold {hold > 0 ? `${hold}s` : 'off'}
-        </button>
-
-        <span className="seg" role="group" aria-label="save this instant">
+        <span {...stylex.props(ui.seg)} role="group" aria-label="save this instant">
           <button onClick={() => snap('png')} disabled={!!recording} title="this frame as a PNG, 1920x1080">
             png
           </button>
@@ -619,15 +553,15 @@ export function Film({
           </button>
         </span>
 
-        <button className="btn" onClick={download} disabled={!!recording}>
+        <button {...stylex.props(ui.btn)} onClick={download} disabled={!!recording}>
           {recording ?? (made ? 'download again' : 'download film')}
         </button>
       </div>
       ) : (
         // The console's bar has the clock. What is left is what only exists
         // where the picture is: this instant as a file, and the film as one.
-        <div className="savebar">
-          <span className="seg" role="group" aria-label="save this instant">
+        <div {...stylex.props(styles.savebar)}>
+          <span {...stylex.props(ui.seg)} role="group" aria-label="save this instant">
             <button onClick={() => snap('png')} disabled={!!recording} title="this frame as a PNG, 1920x1080">
               png
             </button>
@@ -635,78 +569,12 @@ export function Film({
               svg
             </button>
           </span>
-          <button className="btn" onClick={download} disabled={!!recording}>
+          <button {...stylex.props(ui.btn)} onClick={download} disabled={!!recording}>
             {recording ?? (made ? 'download again' : 'download film')}
           </button>
         </div>
       )}
 
-      <style>{`
-        .film { display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; }
-        .savebar { display: flex; align-items: center; gap: 8px; flex: none; }
-        .views { display: flex; align-items: center; gap: 10px; flex: none; }
-        .vhint { font-size: 11.5px; }
-        .filters { display: flex; gap: 6px; margin-left: auto; align-items: center; }
-        .stage {
-          position: relative; flex: 1; min-height: 0;
-          background: var(--paper); border: 1px solid var(--border);
-          border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--shadow-1);
-        }
-        .stage svg { width: 100%; height: 100%; }
-        .phase {
-          position: absolute; top: 12px; left: 14px;
-          font-size: 12px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase;
-          color: var(--pencil); background: rgba(255,255,255,.72);
-          border: 1px solid var(--rule); border-radius: 999px; padding: 3px 11px;
-          backdrop-filter: blur(6px);
-        }
-        /* Over the picture while hovering, **beside** it once pinned.
-           A hover is a peek and must not move the film under the cursor; a pin
-           says "I want to watch this one", and a watched node should not have
-           to be watched through a panel covering the reducers. Docked, the stage
-           narrows — and because the arrangement is searched against the stage's
-           real shape, the film re-fits into what is left rather than being
-           cropped by it. */
-        .stage { display: flex; }
-        .canvas { flex: 1; min-width: 0; position: relative; }
-        .stage.twin .canvas.vs { border-left: 1px solid var(--border); }
-        .who {
-          position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
-          font-size: 11.5px; font-weight: 600; letter-spacing: .04em;
-          text-transform: uppercase; color: var(--text-3); z-index: 2;
-        }
-        /* A run that has ended says so and stays on screen. Blanking it would
-           hide the very fact the comparison is about. */
-        .ended {
-          position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
-          font-size: 11.5px; color: var(--text-3); background: var(--surface);
-          border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px;
-          z-index: 2;
-        }
-        .ended.left { left: 25%; }
-        .verdict {
-          display: flex; align-items: baseline; gap: 12px; padding: 7px 12px;
-          flex: none; font-size: 12.5px; flex-wrap: wrap;
-        }
-        .verdict .gap { margin-left: auto; color: var(--text-2); }
-        .canvas svg { width: 100%; height: 100%; }
-        .dock {
-          position: absolute; top: 12px; right: 12px; bottom: 12px;
-          z-index: 5; display: flex; pointer-events: none;
-        }
-        .dock > * { pointer-events: auto; }
-        .stage.docked .dock {
-          position: static; flex: none; padding: 12px 12px 12px 0;
-          pointer-events: auto;
-        }
-
-        .playbar {
-          display: flex; align-items: center; gap: 8px;
-          padding: 8px 12px; flex: none; flex-wrap: wrap;
-        }
-        .clock { font-size: 12.5px; min-width: 120px; text-align: center; }
-        @media (max-width: 900px) { .clock { display: none; } }
-      `}</style>
     </div>
   );
 }
@@ -727,3 +595,122 @@ function Pause() {
     </svg>
   );
 }
+
+const NARROW = '@media (max-width: 900px)';
+
+const styles = stylex.create({
+  film: { display: 'flex', flexDirection: 'column', gap: '8px', minHeight: 0, flex: 1 },
+  savebar: { display: 'flex', alignItems: 'center', gap: '8px', flex: 'none' },
+  views: { display: 'flex', alignItems: 'center', gap: '10px', flex: 'none' },
+  vhint: { fontSize: '11.5px' },
+  filters: { display: 'flex', gap: '6px', marginLeft: 'auto', alignItems: 'center' },
+
+  /**
+   * Over the picture while hovering, beside it once pinned. A hover is a peek and
+   * must not move the film under the cursor; a pin says "I want to watch this
+   * one", and a watched node should not have to be watched through a panel
+   * covering the rest. Docked, the stage narrows — and because the arrangement is
+   * searched against the stage's real shape, the film re-fits into what is left
+   * rather than being cropped by it.
+   */
+  stage: {
+    position: 'relative',
+    flex: 1,
+    minHeight: 0,
+    backgroundColor: figure.paper,
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: chrome.border,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    boxShadow: shadow.s1,
+    display: 'flex',
+  },
+  canvas: { flex: 1, minWidth: 0, position: 'relative' },
+  /** The second run, when two are being compared, with a rule between them. */
+  vs: { borderLeftWidth: '1px', borderLeftStyle: 'solid', borderLeftColor: chrome.border },
+  who: {
+    position: 'absolute',
+    top: '12px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    fontSize: '11.5px',
+    fontWeight: 600,
+    letterSpacing: '0.04em',
+    textTransform: 'uppercase',
+    color: chrome.text3,
+    zIndex: 2,
+  },
+  /**
+   * A run that has ended says so and stays on screen. Blanking it would hide the
+   * very fact the comparison is about.
+   */
+  ended: {
+    position: 'absolute',
+    bottom: '12px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    fontSize: '11.5px',
+    color: chrome.text3,
+    backgroundColor: chrome.surface,
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: chrome.border,
+    borderRadius: '999px',
+    paddingBlock: '2px',
+    paddingInline: '10px',
+    zIndex: 2,
+  },
+  endedLeft: { left: '25%' },
+  verdict: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: '12px',
+    paddingBlock: '7px',
+    paddingInline: '12px',
+    flex: 'none',
+    fontSize: '12.5px',
+    flexWrap: 'wrap',
+  },
+  gap: { marginLeft: 'auto', color: chrome.text2 },
+
+  /**
+   * `pointerEvents: none` so the dock does not swallow clicks meant for the film
+   * behind it. The panels inside it turn it back on for themselves — the old CSS
+   * said that with `.dock > *`, which StyleX has no way to select.
+   */
+  dock: {
+    position: 'absolute',
+    top: '12px',
+    right: '12px',
+    bottom: '12px',
+    zIndex: 5,
+    display: 'flex',
+    pointerEvents: 'none',
+  },
+  /** Pinned: the dock stops floating and takes its own column beside the film. */
+  dockStatic: {
+    position: 'static',
+    flex: 'none',
+    paddingBlock: '12px',
+    paddingRight: '12px',
+    paddingLeft: 0,
+    pointerEvents: 'auto',
+  },
+
+  playbar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    paddingBlock: '8px',
+    paddingInline: '12px',
+    flex: 'none',
+    flexWrap: 'wrap',
+  },
+  clock: {
+    fontSize: '12.5px',
+    minWidth: '120px',
+    textAlign: 'center',
+    display: { default: 'inline', [NARROW]: 'none' },
+  },
+});

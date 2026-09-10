@@ -29,6 +29,9 @@ import * as D from '../lib/design.ts';
 import type { Layout } from '../lib/layout.ts';
 import type { Theme } from '../lib/theme.ts';
 import type { Trace } from '../lib/trace.ts';
+import * as stylex from '@stylexjs/stylex';
+
+import { ui } from '../lib/ui.stylex.ts';
 
 const MARGIN = 0.4;
 const CAPTION = 0.62;
@@ -102,8 +105,8 @@ export function Topology({
   const h = 2 * halfH + 2 * MARGIN + CAPTION;
 
   return (
-    <div className={plain ? 'topo' : 'topo card'}>
-      <svg viewBox={`${minX} ${minY} ${w} ${h}`} style={{ display: 'block', background: theme.surface }}>
+    <div {...stylex.props(topo.topo, !plain && ui.card)}>
+      <svg viewBox={`${minX} ${minY} ${w} ${h}`} style={{ display: 'block', background: theme.surface, width: '100%', height: '100%' }}>
         <defs>
           <marker id="tip" markerWidth="4" markerHeight="4" refX="3.4" refY="2" orient="auto">
             <path d="M0 0 L4 2 L0 4 z" fill={theme.pencil} />
@@ -233,10 +236,6 @@ export function Topology({
           </text>
         ))}
       </svg>
-      <style>{`
-        .topo { flex: 1; min-height: 0; padding: 0; overflow: hidden; }
-        .topo svg { width: 100%; height: 100%; }
-      `}</style>
     </div>
   );
 }
@@ -262,3 +261,8 @@ function fmt(bytes: number): string {
   if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${Math.round(bytes)} B`;
 }
+
+/** `.topo svg` is gone: the svg sizes itself, because StyleX cannot reach into it. */
+const topo = stylex.create({
+  topo: { flex: 1, minHeight: 0, padding: 0, overflow: 'hidden' },
+});

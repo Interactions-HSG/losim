@@ -25,6 +25,10 @@ import { BUCKETS, money, type Bucket, type Ledger as L } from '../lib/ledger.ts'
 import * as D from '../lib/design.ts';
 import { Code, P, Table, Td, Th } from '../lib/text.tsx';
 
+import { chrome, radius, shadow } from '../lib/tokens.stylex.ts';
+import { ui } from '../lib/ui.stylex.ts';
+import { rowVars } from './ledger.stylex.ts';
+
 /** One palette for the four buckets, wherever they are drawn. */
 export const COLOUR: Record<Bucket, string> = {
   build: '#8E6BA8',
@@ -56,38 +60,42 @@ export function LedgerStrip({
   const focus = l.focus;
 
   return (
-    <div className={`ledger${open ? ' open' : ''}${focus ? ' focused' : ''}`}>
-      <button className="ledger-head" onClick={onToggle} aria-expanded={open}>
-        <span className="ledger-pl">
-          <span className="lbl">cost</span>
-          <strong>{money(l.cost, l.currency)}</strong>
+    <div {...stylex.props(styles.ledger)}>
+      <button
+        {...stylex.props(styles.head, open && styles.headOpen, !!focus && styles.headFocused)}
+        onClick={onToggle}
+        aria-expanded={open}
+      >
+        <span {...stylex.props(styles.pl)}>
+          <span {...stylex.props(styles.lbl)}>cost</span>
+          <strong {...stylex.props(styles.big)}>{money(l.cost, l.currency)}</strong>
         </span>
         {/* What it will come to, beside what it has come to. A cost with nothing
             to be large against is a number nobody can read. */}
-        <span className="ledger-pl">
-          <span className="lbl">of</span>
-          <strong className="muted">{money(l.finalCost, l.currency)}</strong>
+        <span {...stylex.props(styles.pl)}>
+          <span {...stylex.props(styles.lbl)}>of</span>
+          <strong {...stylex.props(styles.big, styles.bigMuted)}>{money(l.finalCost, l.currency)}</strong>
         </span>
 
         {/* When a node is being pointed at, its own figure stands beside the
             cluster's rather than replacing it: what matters is the proportion, and
             a share shown alone is a number with nothing to be large against. */}
         {focus && (
-          <span className="ledger-pl mine">
-            <span className="lbl">{focus.name}</span>
-            <strong>{money(focus.cost, l.currency)}</strong>
-            <span className="pct">{Math.round((focus.cost / Math.max(l.cost, 1e-9)) * 100)}%</span>
+          <span {...stylex.props(styles.pl, styles.mine)}>
+            <span {...stylex.props(styles.lbl, styles.mineLbl)}>{focus.name}</span>
+            <strong {...stylex.props(styles.big, styles.mineBig)}>{money(focus.cost, l.currency)}</strong>
+            <span {...stylex.props(styles.pct)}>{Math.round((focus.cost / Math.max(l.cost, 1e-9)) * 100)}%</span>
           </span>
         )}
 
         {/* One stacked bar: what has been spent, against what the whole run comes
             to. The pale remainder is what is still coming, and the bright notch
             inside each segment is the pointed-at node's part of it. */}
-        <span className="ledger-bar" title="cost so far, against the whole run">
+        <span {...stylex.props(styles.bar)} title="cost so far, against the whole run">
           {BUCKETS.map((b) => (
             <span
               key={b}
-              className="seg"
+              {...stylex.props(styles.barSeg)}
               style={{ width: `${(l.buckets[b] / scale) * 100}%`, background: COLOUR[b] }}
               title={`${b} ${money(l.buckets[b], l.currency)}`}
             >
@@ -96,28 +104,32 @@ export function LedgerStrip({
               )}
             </span>
           ))}
-          <span className="rest" style={{ width: `${Math.max(0, ((l.finalCost - l.cost) / scale) * 100)}%` }} />
+          <span {...stylex.props(styles.rest)} style={{ width: `${Math.max(0, ((l.finalCost - l.cost) / scale) * 100)}%` }} />
         </span>
 
-        <span className="ledger-caret">{open ? '▾' : '▸'}</span>
+        <span {...stylex.props(styles.caret)}>{open ? '▾' : '▸'}</span>
       </button>
 
       {open && (
-        <div className="ledger-body">
-          <div className="ledger-buckets">
+        <div {...stylex.props(styles.body)}>
+          <div {...stylex.props(styles.buckets)}>
             {BUCKETS.map((b) => {
               const mine = focus?.buckets[b] ?? 0;
               return (
-                <div key={b} className={`ledger-bk${focus ? (mine > 0 ? ' hot' : ' cold') : ''}`} title={WHY[b]}>
-                  <span className="ledger-dot" style={{ background: COLOUR[b] }} />
-                  <span className="name">{b}</span>
-                  <span className="amt mono">{money(l.buckets[b], l.currency)}</span>
+                <div
+                  key={b}
+                  {...stylex.props(styles.bk, !!focus && (mine > 0 ? styles.hot : styles.cold))}
+                  title={WHY[b]}
+                >
+                  <span {...stylex.props(styles.dot)} style={{ background: COLOUR[b] }} />
+                  <span {...stylex.props(styles.bkName)}>{b}</span>
+                  <span {...stylex.props(styles.amt, ui.mono)}>{money(l.buckets[b], l.currency)}</span>
                   {focus && mine > 0 && (
-                    <span className="of mono">
+                    <span {...stylex.props(styles.bkOf, ui.mono)}>
                       {focus.name} {money(mine, l.currency)}
                     </span>
                   )}
-                  <P>{WHY[b]}</P>
+                  <P {...stylex.props(styles.bkWhy)}>{WHY[b]}</P>
                 </div>
               );
             })}
@@ -138,22 +150,22 @@ export function LedgerStrip({
                 return (
                   <tr
                     key={i}
-                    className={focus ? (mine > 0 ? 'hot' : 'cold') : ''}
+                    {...stylex.props(!!focus && (mine > 0 ? styles.rowHot : styles.rowCold), styles.row)}
                     onMouseEnter={() => node && onHover?.(node)}
                     onMouseLeave={() => node && onHover?.(null)}
                   >
-                    <Td>
-                      <span className="ledger-dot" style={{ background: COLOUR[line.bucket] }} />
+                    <Td style={styles.cell}>
+                      <span {...stylex.props(styles.dot)} style={{ background: COLOUR[line.bucket] }} />
                       {line.what}
-                      {why && <em className="why"> — {why}</em>}
+                      {why && <em {...stylex.props(styles.why)}> — {why}</em>}
                     </Td>
-                    <Td num style={cells.right}>
-                      {line.quantity.toPrecision(3)} <span className="muted">{line.unit}</span>
+                    <Td num style={[cells.right, styles.cell]}>
+                      {line.quantity.toPrecision(3)} <span {...stylex.props(ui.muted)}>{line.unit}</span>
                     </Td>
-                    <Td num style={cells.right}>
+                    <Td num style={[cells.right, styles.cell]}>
                       {money(sofar, l.currency)}
                     </Td>
-                    <Td num style={cells.right} className="muted">
+                    <Td num style={[cells.right, styles.cell, ui.muted]}>
                       {focus
                         ? mine > 0
                           ? money(mine, l.currency)
@@ -165,7 +177,7 @@ export function LedgerStrip({
               })}
             </tbody>
           </Table>
-          <P className="ledger-fine">
+          <P {...stylex.props(styles.fine)}>
             Every amount here is a line <Code>losim bill</Code> already computed; what is added
             is only when it arrives, and who it belongs to. The closing total is the
             bill&rsquo;s, exactly.
@@ -180,92 +192,140 @@ export function LedgerStrip({
         </div>
       )}
 
-      <style>{`
-        .ledger { flex: none; }
-        .ledger-head {
-          display: flex; align-items: center; gap: 14px; width: 100%;
-          padding: 7px 12px; font: inherit; color: var(--text); cursor: pointer;
-          background: var(--surface); border: 1px solid var(--border);
-          border-radius: var(--r-lg); box-shadow: var(--shadow-1);
-          transition: border-color .12s ease;
-        }
-        .ledger.open .ledger-head { border-radius: var(--r-lg) var(--r-lg) 0 0; border-bottom-color: transparent; }
-        .ledger-head:hover { background: var(--surface-2); }
-        .ledger.focused .ledger-head { border-color: var(--accent, ${D.DATA_EDGE}); }
-
-        .ledger-pl { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
-        .ledger-pl .lbl {
-          font-size: 10.5px; font-weight: 600; letter-spacing: .05em;
-          text-transform: uppercase; color: var(--text-3);
-        }
-        .ledger-pl strong { font-size: 15px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
-        .ledger-pl strong.muted { font-size: 13px; color: var(--text-3); font-weight: 500; }
-
-        .ledger-pl.mine {
-          padding: 2px 9px 3px; border-radius: 999px;
-          background: var(--surface-2); border: 1px solid var(--border);
-        }
-        .ledger-pl.mine .lbl { color: var(--text-2); text-transform: none; letter-spacing: 0; font-size: 12px; }
-        .ledger-pl.mine strong { font-size: 13.5px; }
-        .ledger-pl.mine .pct { font-size: 11.5px; color: var(--text-3); }
-
-        .ledger-bar {
-          flex: 1; display: flex; height: 8px; min-width: 80px;
-          border-radius: 999px; overflow: hidden; background: var(--surface-2);
-        }
-        .ledger-bar > span { height: 100%; }
-        .ledger-bar .seg { position: relative; }
-        /* The node's part of this bucket, drawn inside the bucket's own colour
-           rather than beside it — a share has to be a share of something. */
-        .ledger-bar .seg i {
-          position: absolute; inset: 0 auto 0 0; display: block;
-          background: rgba(255,255,255,.62);
-          box-shadow: 1px 0 0 rgba(0,0,0,.25);
-        }
-        .ledger-bar .rest { background: var(--border); }
-        .ledger-caret { color: var(--text-3); font-size: 11px; }
-
-        .ledger-body {
-          padding: 12px 14px 14px; background: var(--surface);
-          border: 1px solid var(--border); border-top: 0;
-          border-radius: 0 0 var(--r-lg) var(--r-lg); box-shadow: var(--shadow-1);
-          max-height: 38vh; overflow-y: auto;
-        }
-        .ledger-buckets {
-          display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-          gap: 10px; margin-bottom: 14px;
-        }
-        .ledger-bk {
-          padding: 9px 10px; border: 1px solid var(--border);
-          border-radius: var(--r); background: var(--surface-2);
-          display: grid; grid-template-columns: auto 1fr auto; gap: 6px; align-items: center;
-          transition: opacity .12s ease, border-color .12s ease;
-        }
-        .ledger-bk.cold { opacity: .38; }
-        .ledger-bk.hot { border-color: var(--text-3); }
-        .ledger-bk .name { font-weight: 600; font-size: 12.5px; }
-        .ledger-bk .amt { font-size: 12.5px; }
-        .ledger-bk .of {
-          grid-column: 1 / -1; font-size: 11.5px; color: var(--text-2);
-          padding-top: 1px;
-        }
-        .ledger-bk p {
-          grid-column: 1 / -1; margin: 2px 0 0; font-size: 11px; line-height: 1.4;
-          color: var(--text-3);
-        }
-        .ledger-dot {
-          width: 8px; height: 8px; border-radius: 50%; display: inline-block;
-          margin-right: 7px; vertical-align: 1px;
-        }
-        .ledger-body tbody tr.cold { opacity: .32; }
-        .ledger-body tbody tr.hot td { background: var(--surface-2); }
-        .ledger-body tbody tr:hover td { background: var(--surface-2); }
-        .why { color: var(--text-3); font-style: normal; font-size: 11.5px; }
-        .ledger-fine { font-size: 11px; color: var(--text-3); margin: 10px 0 0; }
-      `}</style>
     </div>
   );
 }
 
 /** The money columns line up on the right, where a column of numbers belongs. */
 const cells = stylex.create({ right: { textAlign: 'right' } });
+
+const styles = stylex.create({
+  ledger: { flex: 'none' },
+
+  head: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '14px',
+    width: '100%',
+    paddingBlock: '7px',
+    paddingInline: '12px',
+    font: 'inherit',
+    color: chrome.text,
+    cursor: 'pointer',
+    backgroundColor: { default: chrome.surface, ':hover': chrome.surface2 },
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: chrome.border,
+    borderRadius: radius.lg,
+    boxShadow: shadow.s1,
+    transitionProperty: 'border-color',
+    transitionDuration: '.12s',
+  },
+  /** Open, the head is the top of the panel rather than a thing of its own. */
+  headOpen: { borderRadius: `${radius.lg} ${radius.lg} 0 0`, borderBottomColor: 'transparent' },
+  headFocused: { borderColor: chrome.accent },
+
+  pl: { display: 'flex', alignItems: 'baseline', gap: '6px', whiteSpace: 'nowrap' },
+  lbl: {
+    fontSize: '10.5px',
+    fontWeight: 600,
+    letterSpacing: '.05em',
+    textTransform: 'uppercase',
+    color: chrome.text3,
+  },
+  big: { fontSize: '15px', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em' },
+  bigMuted: { fontSize: '13px', color: chrome.text3, fontWeight: 500 },
+  /** The pointed-at node's own figure, beside the cluster's rather than replacing it. */
+  mine: {
+    paddingTop: '2px',
+    paddingInline: '9px',
+    paddingBottom: '3px',
+    borderRadius: '999px',
+    backgroundColor: chrome.surface2,
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: chrome.border,
+  },
+  mineLbl: { color: chrome.text2, textTransform: 'none', letterSpacing: 0, fontSize: '12px' },
+  mineBig: { fontSize: '13.5px' },
+  pct: { fontSize: '11.5px', color: chrome.text3 },
+
+  bar: {
+    flex: 1,
+    display: 'flex',
+    height: '8px',
+    minWidth: '80px',
+    borderRadius: '999px',
+    overflow: 'hidden',
+    backgroundColor: chrome.surface2,
+  },
+  barSeg: { position: 'relative', height: '100%' },
+  rest: { height: '100%', backgroundColor: chrome.border },
+  caret: { color: chrome.text3, fontSize: '11px' },
+
+  body: {
+    paddingTop: '12px',
+    paddingInline: '14px',
+    paddingBottom: '14px',
+    backgroundColor: chrome.surface,
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: chrome.border,
+    borderTopWidth: 0,
+    borderRadius: `0 0 ${radius.lg} ${radius.lg}`,
+    boxShadow: shadow.s1,
+    maxHeight: '38vh',
+    overflowY: 'auto',
+  },
+  buckets: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+    gap: '10px',
+    marginBottom: '14px',
+  },
+  bk: {
+    paddingBlock: '9px',
+    paddingInline: '10px',
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: chrome.border,
+    borderRadius: radius.base,
+    backgroundColor: chrome.surface2,
+    display: 'grid',
+    gridTemplateColumns: 'auto 1fr auto',
+    gap: '6px',
+    alignItems: 'center',
+    transitionProperty: 'opacity, border-color',
+    transitionDuration: '.12s',
+  },
+  cold: { opacity: 0.38 },
+  hot: { borderColor: chrome.text3 },
+  bkName: { fontWeight: 600, fontSize: '12.5px' },
+  amt: { fontSize: '12.5px' },
+  bkOf: { gridColumn: '1 / -1', fontSize: '11.5px', color: chrome.text2, paddingTop: '1px' },
+  bkWhy: {
+    gridColumn: '1 / -1',
+    margin: '2px 0 0',
+    fontSize: '11px',
+    lineHeight: 1.4,
+    color: chrome.text3,
+    maxWidth: 'none',
+  },
+  dot: {
+    width: '8px',
+    height: '8px',
+    borderRadius: '50%',
+    display: 'inline-block',
+    marginRight: '7px',
+    verticalAlign: '1px',
+  },
+
+  /** The row owns the colour; every cell in it reads `cellBg`. */
+  row: { [rowVars.cellBg]: { default: 'transparent', ':hover': chrome.surface2 } },
+  rowHot: { [rowVars.cellBg]: chrome.surface2 },
+  rowCold: { opacity: 0.32 },
+  cell: { backgroundColor: rowVars.cellBg },
+
+  why: { color: chrome.text3, fontStyle: 'normal', fontSize: '11.5px' },
+  fine: { fontSize: '11px', color: chrome.text3, margin: '10px 0 0', maxWidth: 'none' },
+});

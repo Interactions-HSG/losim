@@ -5,10 +5,10 @@
  *
  * Zones are bands the nodes live inside; roles are columns left to right, so a
  * MapReduce still reads the way the figure on the whiteboard reads. A node is
- * drawn the size it *is* — wider with more memory, taller with more cores — and it
- * always says **how much is left**, not how much is used, because "holding 255 MB"
- * predicts nothing on its own and "180 MB left" is the number the out-of-memory is
- * going to be about.
+ * drawn the size it *is* — wider with more memory, taller with more cores — and a
+ * node with a disk says **how much is left** on it, not how much is used, because
+ * "holding 255 MB" predicts nothing on its own and "180 MB left" is the number the
+ * spill is going to be about.
  *
  * Every element is a function of the frame it is given: no state, no effect, no
  * imperative drawing. That is what makes scrubbing, playing and recording one code
@@ -109,7 +109,11 @@ export function Dataflow({
       ref={ref}
       viewBox={`${minX} ${minY} ${w} ${h}`}
       className={className}
-      style={{ display: 'block', background: theme.surface, ...style }}
+      style={{ display: 'block', background: theme.surface,
+        // Film.tsx used to size this from `.canvas svg`. StyleX has no
+        // descendant selectors, so the drawing fills its own frame — and a
+        // caller exporting it as an image still overrides both below.
+        width: '100%', height: '100%', ...style }}
       onMouseLeave={() => onHover?.(null)}
     >
       <defs>
@@ -238,13 +242,9 @@ const Node = memo(
     const { w, h } = m;
     const dead = m.state === 'dead';
     const frozen = m.state === 'frozen';
-    const fill = dead ? '' : G.liquid(w, h, m.memShare);
     const [bars, hatchWeight] = m.state === 'degraded' ? G.hatch(w, h) : [[], 0];
-    const over = m.memShare >= 1;
     const task = m.work.length ? m.work[0].task : null;
     const rim = dead || frozen ? chill(theme) : theme.ink;
-    const level =
-      m.memShare >= 1 ? alarm(theme) : m.memShare >= D.WARN_AT ? warn(theme) : 'url(#held)';
 
     return (
       <g
@@ -275,7 +275,6 @@ const Node = memo(
           strokeWidth={0.017}
           strokeDasharray={dead || frozen ? '0.09 0.06' : undefined}
         />
-        {fill && <path d={fill} fill={level} opacity={0.95} />}
         {bars.map((d, i) => (
           <path key={i} d={d} stroke={D.HATCH} strokeWidth={hatchWeight} fill="none" opacity={0.6} />
         ))}
@@ -286,7 +285,6 @@ const Node = memo(
           strokeWidth={0.017}
           strokeDasharray={dead || frozen ? '0.09 0.06' : undefined}
         />
-        {over && <path d={G.overflow(w, h)} fill="none" stroke={alarm(theme)} strokeWidth={0.035} />}
         {dead &&
           G.struck(w, h).map((d, i) => (
             <path key={i} d={d} stroke={alarm(theme)} strokeWidth={0.035} strokeLinecap="round" />
@@ -346,22 +344,18 @@ const Node = memo(
         <Lanes m={m} theme={theme} />
 
         {/* Headroom, in words. Not usage: what is left. */}
-        <text
-          textAnchor="middle"
-          y={h / 2 + 0.31}
-          fontSize={0.125}
-          fontWeight={500}
-          fill={m.memShare >= D.WARN_AT ? alarm(theme) : theme.pencil}
-          style={{ fontFamily: 'var(--sans)' }}
-        >
-          {mb(m.freeMb)} left
-          {m.diskCapMb > 0 && (
-            <tspan fill={m.diskShare >= D.WARN_AT ? alarm(theme) : theme.pencil} opacity={0.75}>
-              {' '}
-              · disk {mb(m.diskFreeMb)}
-            </tspan>
-          )}
-        </text>
+        {m.diskCapMb > 0 && (
+          <text
+            textAnchor="middle"
+            y={h / 2 + 0.31}
+            fontSize={0.125}
+            fontWeight={500}
+            fill={m.diskShare >= D.WARN_AT ? alarm(theme) : theme.pencil}
+            style={{ fontFamily: 'var(--sans)' }}
+          >
+            disk {mb(m.diskFreeMb)} left
+          </text>
+        )}
 
         {!dense && (
           <text
@@ -655,20 +649,18 @@ function shrink(
 /**
  * Has this node's *appearance* changed?
  *
- * The fill is bucketed to about the number of levels an eye can tell apart at the
- * size a node is drawn, so a reducer creeping up by a hundredth of a megabyte
- * does not re-render for it.
+ * The disk level is bucketed to about the number of levels an eye can tell apart
+ * at the size a node is drawn, so a spill creeping up by a hundredth of a
+ * megabyte does not re-render for it.
  */
 function same(a: FrameNode, b: FrameNode): boolean {
   return (
     a.name === b.name &&
     a.state === b.state &&
-    bucket(a.memShare) === bucket(b.memShare) &&
     bucket(a.diskShare) === bucket(b.diskShare) &&
     Math.round(a.busy / 12) === Math.round(b.busy / 12) &&
     Math.round(a.queued) === Math.round(b.queued) &&
     label(a) === label(b) &&
-    mb(a.freeMb) === mb(b.freeMb) &&
     mb(a.diskFreeMb) === mb(b.diskFreeMb)
   );
 }

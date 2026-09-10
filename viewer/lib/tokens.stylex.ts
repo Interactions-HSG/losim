@@ -79,3 +79,22 @@ export const font = stylex.defineVars({
   serif: "Charter, XCharter, 'Bitstream Charter', 'Source Serif 4', 'Iowan Old Style', Georgia, serif",
   mono: "ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace",
 });
+
+/**
+ * The three states a node can be in, as the node panel tints them.
+ *
+ * The inks are `ALARM`, `WARN` and `CHILL` from lib/design.ts, which owns what
+ * they mean. They are written out again here because StyleX resolves every value
+ * at build time and cannot read a constant out of another module — an imported
+ * one fails the build with "Referenced constant is not defined". So this is a
+ * copy, deliberately, and if design.ts changes one of those three, change it
+ * here too. The backgrounds are the panel's own and were never in design.ts.
+ */
+export const state = stylex.defineVars({
+  deadBg: { default: '#fbeae8', [DARK]: '#3a1d1a' },
+  deadInk: '#C4342A',
+  degradedBg: { default: '#fdf3e3', [DARK]: '#392c15' },
+  degradedInk: { default: '#9a6a1c', [DARK]: '#E8A33D' },
+  frozenBg: { default: '#eaeff4', [DARK]: '#1c2530' },
+  frozenInk: { default: '#4d6076', [DARK]: '#7C93A8' },
+});

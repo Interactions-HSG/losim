@@ -27,6 +27,10 @@ import { ms, SpanTree, type SpanNode } from '../lib/spans.ts';
 import type { Theme } from '../lib/theme.ts';
 import type { Trace } from '../lib/trace.ts';
 import { P } from '../lib/text.tsx';
+import * as stylex from '@stylexjs/stylex';
+
+import { chrome } from '../lib/tokens.stylex.ts';
+import { ui } from '../lib/ui.stylex.ts';
 
 type View = 'waterfall' | 'swimlanes' | 'rollup';
 
@@ -149,9 +153,9 @@ export function Spans({
   const zoomed = w0 > 0.5 || w1 < trace.duration - 0.5;
 
   return (
-    <div className="spans">
-      <div className="sbar card">
-        <div className="seg" role="group" aria-label="view">
+    <div {...stylex.props(sp.spans)}>
+      <div {...stylex.props(ui.card, sp.bar)}>
+        <div {...stylex.props(ui.seg)} role="group" aria-label="view">
           {(['waterfall', 'swimlanes', 'rollup'] as View[]).map((v) => (
             <button key={v} aria-pressed={view === v} onClick={() => setView(v)}>
               {v}
@@ -160,7 +164,7 @@ export function Spans({
         </div>
 
         {view === 'rollup' ? (
-          <div className="seg" role="group" aria-label="gather by">
+          <div {...stylex.props(ui.seg)} role="group" aria-label="gather by">
             {BYS.map((b) => (
               <button key={b} aria-pressed={by === b} onClick={() => setBy(b)}>
                 {b}
@@ -184,13 +188,13 @@ export function Spans({
               aria-label="method"
               size={10}
             />
-            <button className="btn" aria-pressed={failing} onClick={() => setFailing(!failing)}>
+            <button {...stylex.props(ui.btn)} aria-pressed={failing} onClick={() => setFailing(!failing)}>
               failed only
             </button>
-            <button className="btn" aria-pressed={critOnly} onClick={() => setCritOnly(!critOnly)}>
+            <button {...stylex.props(ui.btn)} aria-pressed={critOnly} onClick={() => setCritOnly(!critOnly)}>
               critical path
             </button>
-            <label className="slow">
+            <label {...stylex.props(sp.slow)}>
               slower than
               <input
                 type="number"
@@ -204,17 +208,17 @@ export function Spans({
           </>
         )}
 
-        <span className="count muted">
+        <span {...stylex.props(sp.count, ui.muted)}>
           {view === 'rollup' ? `${tree.flat.length} spans` : `${rows.length} of ${tree.flat.length} spans`}
         </span>
         {zoomed && (
-          <button className="btn" onClick={() => setWin([0, trace.duration])}>
+          <button {...stylex.props(ui.btn)} onClick={() => setWin([0, trace.duration])}>
             {ms(w1 - w0)} shown — reset
           </button>
         )}
       </div>
 
-      <div className="sbody card" ref={box} onWheel={onWheel}>
+      <div {...stylex.props(ui.card, sp.body)} ref={box} onWheel={onWheel}>
         {view === 'waterfall' && (
           <Waterfall
             rows={rows}
@@ -254,24 +258,35 @@ export function Spans({
         )}
       </div>
 
-      <P className="hint muted">
+      <P {...stylex.props(sp.hint, ui.muted)}>
         Click a span to seek the film to it. ⌘-scroll to zoom the axis, shift-scroll to pan.
         The outlined chain is the critical path — at every level, the child that finished last,
         which is what the makespan is actually made of.
       </P>
 
-      <style>{`
-        .spans { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; }
-        .sbar {
-          display: flex; align-items: center; gap: 8px; padding: 7px 10px;
-          flex: none; flex-wrap: wrap;
-        }
-        .sbar .count { font-size: 11.5px; margin-left: auto; }
-        .slow { font-size: 11.5px; color: var(--text-3); display: flex; align-items: center; gap: 5px; }
-        .slow input { width: 62px; }
-        .sbody { flex: 1; min-height: 0; overflow: hidden; padding: 0; position: relative; }
-        .hint { font-size: 11px; flex: none; margin: 0; }
-      `}</style>
     </div>
   );
 }
+
+const sp = stylex.create({
+  spans: { display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minHeight: 0 },
+  bar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    paddingBlock: '7px',
+    paddingInline: '10px',
+    flex: 'none',
+    flexWrap: 'wrap',
+  },
+  count: { fontSize: '11.5px', marginLeft: 'auto' },
+  slow: {
+    fontSize: '11.5px',
+    color: chrome.text3,
+    display: 'flex',
+    alignItems: 'center',
+    gap: '5px',
+  },
+  body: { flex: 1, minHeight: 0, overflow: 'hidden', padding: 0, position: 'relative' },
+  hint: { fontSize: '11px', flex: 'none', margin: 0, maxWidth: 'none' },
+});

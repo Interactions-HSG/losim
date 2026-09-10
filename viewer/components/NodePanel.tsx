@@ -32,6 +32,9 @@ import { money as chf, type Ledger } from '../lib/ledger.ts';
 import { digest, type Trace, type TraceEvent } from '../lib/trace.ts';
 import { Code, H1, H2, P, Table, Td, Th } from '../lib/text.tsx';
 
+import { chrome, shadow, state } from '../lib/tokens.stylex.ts';
+import { ui } from '../lib/ui.stylex.ts';
+
 export interface NodePanelProps {
   trace: Trace;
   m: FrameNode;
@@ -58,50 +61,59 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
 
   return (
     <aside
-      className="panel card"
+      {...stylex.props(ui.card, panel.panel)}
       role="dialog"
       aria-label={`node ${m.name}`}
       onKeyDown={(e) => {
         if (e.key === 'Escape') onClose();
       }}
     >
-      <header>
+      <header {...stylex.props(panel.head)}>
         <div>
           <H1>{m.name}</H1>
-          <div className="sub">
+          <div {...stylex.props(panel.sub)}>
             {m.instance} · {m.vcpu} vCPU · {m.zone}
           </div>
           {/* Hovering shows this over the picture, and moving the pointer onto it
               takes the pointer off the drawing — which closes it. So while it is
               only hovered it can be read and nothing else, and the way to scroll
               it, or to select anything in it, is to pin it first. */}
-          {!pinned && <div className="hintline">click the node to keep this open</div>}
+          {!pinned && <div {...stylex.props(panel.hint)}>click the node to keep this open</div>}
         </div>
-        <div className="acts">
-          <span className={`state ${m.state}`}>{m.state}</span>
-          <button className="btn icon" onClick={onPin} aria-pressed={pinned} title={pinned ? 'unpin' : 'pin'}>
+        <div {...stylex.props(panel.acts)}>
+          <span
+            {...stylex.props(
+              panel.state,
+              m.state === 'dead' && panel.dead,
+              m.state === 'degraded' && panel.degraded,
+              m.state === 'frozen' && panel.frozen,
+            )}
+          >
+            {m.state}
+          </span>
+          <button {...stylex.props(ui.btn, ui.icon)} onClick={onPin} aria-pressed={pinned} title={pinned ? 'unpin' : 'pin'}>
             {pinned ? '📌' : '📍'}
           </button>
         </div>
       </header>
 
-      <section>
+      <section {...stylex.props(panel.section)}>
         <H2>services offered</H2>
-        <div className="chips">
+        <div {...stylex.props(panel.chips)}>
           {m.serves.length ? (
             m.serves.map((s) => (
-              <span key={s} className="chip">
+              <span key={s} {...stylex.props(ui.chip)}>
                 {s}
               </span>
             ))
           ) : (
-            <span className="muted">nothing — it listens and offers no service</span>
+            <span {...stylex.props(ui.muted)}>nothing — it listens and offers no service</span>
           )}
         </div>
       </section>
 
       {m.diskCapMb > 0 && (
-        <section>
+        <section {...stylex.props(panel.section)}>
           <H2>capacity remaining</H2>
           <Gauge
             name="disk"
@@ -116,20 +128,20 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
         </section>
       )}
 
-      <section>
+      <section {...stylex.props(panel.section)}>
         <H2>current activity</H2>
         {m.work.length === 0 ? (
-          <P className="muted" style={bits.flat}>
+          <P {...stylex.props(ui.muted)} style={panel.flat}>
             idle
           </P>
         ) : (
           m.work.map((w) => (
-            <div key={w.span.id} className="work">
-              <div className="wtop">
-                <span className="dot" style={{ background: D.taskColour(w.task) }} />
+            <div key={w.span.id} {...stylex.props(panel.work)}>
+              <div {...stylex.props(panel.wtop)}>
+                <span {...stylex.props(panel.dot)} style={{ background: D.taskColour(w.task) }} />
                 <strong>{bare(w.label)}</strong>
-                {w.task !== null && <span className="muted">task {w.task}</span>}
-                <span className="muted mono" style={{ marginLeft: 'auto' }}>
+                {w.task !== null && <span {...stylex.props(ui.muted)}>task {w.task}</span>}
+                <span {...stylex.props(ui.muted, ui.mono)} style={{ marginLeft: 'auto' }}>
                   {refTime(t - w.span.t0)} in
                 </span>
               </div>
@@ -137,18 +149,18 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
             </div>
           ))
         )}
-        <div className="lanes">
-          <span className="muted">
+        <div {...stylex.props(panel.lanes)}>
+          <span {...stylex.props(ui.muted)}>
             {Math.round(m.busy)}% of {m.vcpu} cores
           </span>
           {m.queued > 0 && <span style={{ color: D.WARN }}>{Math.round(m.queued)} waiting for a core</span>}
-          {m.inflight > 0 && <span className="muted">{Math.round(m.inflight)} calls in flight</span>}
+          {m.inflight > 0 && <span {...stylex.props(ui.muted)}>{Math.round(m.inflight)} calls in flight</span>}
         </div>
         <Spark values={busy.v} times={busy.t} t={t} duration={trace.duration} colour={D.taskColour(0)} height={22} />
       </section>
 
       {totals && (
-        <section>
+        <section {...stylex.props(panel.section)}>
           <H2>over the whole run</H2>
           <Table>
             <tbody>
@@ -174,121 +186,64 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
       )}
 
       {money?.focus && money.focus.name === m.name && (
-        <section>
+        <section {...stylex.props(panel.section)}>
           <H2>cost</H2>
-          <div className="cost">
-            <div>
-              <span className="muted">so far</span>
-              <strong className="mono">{chf(money.focus.cost, money.currency)}</strong>
+          <div {...stylex.props(panel.cost)}>
+            <div {...stylex.props(panel.costCol)}>
+              <span {...stylex.props(ui.muted)}>so far</span>
+              <strong {...stylex.props(ui.mono)}>{chf(money.focus.cost, money.currency)}</strong>
             </div>
-            <div>
-              <span className="muted">by the end</span>
-              <strong className="mono">{chf(money.focus.finalCost, money.currency)}</strong>
+            <div {...stylex.props(panel.costCol)}>
+              <span {...stylex.props(ui.muted)}>by the end</span>
+              <strong {...stylex.props(ui.mono)}>{chf(money.focus.finalCost, money.currency)}</strong>
             </div>
-            <div>
-              <span className="muted">of the cluster</span>
-              <strong className="mono">
+            <div {...stylex.props(panel.costCol)}>
+              <span {...stylex.props(ui.muted)}>of the cluster</span>
+              <strong {...stylex.props(ui.mono)}>
                 {Math.round((money.focus.cost / Math.max(money.cost, 1e-9)) * 100)}%
               </strong>
             </div>
           </div>
-          <ul className="mylines">
+          <ul {...stylex.props(panel.mylines)}>
             {money.lines
               .filter((x) => x.mine > 0)
               .slice(0, 5)
               .map((x, i) => (
-                <li key={i}>
-                  <span className="what">{x.line.what}</span>
-                  <span className="mono">{chf(x.mine, money.currency)}</span>
-                  <em>{x.why}</em>
+                <li key={i} {...stylex.props(panel.myline)}>
+                  <span {...stylex.props(panel.what)}>{x.line.what}</span>
+                  <span {...stylex.props(ui.mono)}>{chf(x.mine, money.currency)}</span>
+                  <em {...stylex.props(panel.why)}>{x.why}</em>
                 </li>
               ))}
           </ul>
-          <P className="muted" style={bits.small}>
+          <P {...stylex.props(ui.muted)} style={panel.small}>
             Its share of lines <Code>losim bill</Code> already computed. The late-finish
             penalty belongs to the job and is not here.
           </P>
         </section>
       )}
 
-      <section>
+      <section {...stylex.props(panel.section)}>
         <H2>events</H2>
         {mine.length === 0 ? (
-          <P className="muted" style={bits.flat}>
+          <P {...stylex.props(ui.muted)} style={panel.flat}>
             nothing — it ran to the end untouched
           </P>
         ) : (
-          <ol className="events">
+          <ol {...stylex.props(panel.events)}>
             {mine.map((e, i) => (
-              <li key={i} className={Number(e.t ?? 0) <= t ? '' : 'later'}>
-                <span className="mono when">{refTime(Number(e.t ?? 0))}</span>
-                <span className="kind" style={{ color: kindColour(String(e.kind)) }}>
+              <li key={i} {...stylex.props(panel.ev, Number(e.t ?? 0) > t && panel.later)}>
+                <span {...stylex.props(ui.mono, panel.when)}>{refTime(Number(e.t ?? 0))}</span>
+                <span {...stylex.props(panel.kind)} style={{ color: kindColour(String(e.kind)) }}>
                   {String(e.kind).replace(/_/g, ' ')}
                 </span>
-                <span className="muted">{say(e)}</span>
+                <span {...stylex.props(ui.muted)}>{say(e)}</span>
               </li>
             ))}
           </ol>
         )}
       </section>
 
-      <style>{`
-        .panel {
-          width: 340px; max-height: 100%; overflow-y: auto;
-          padding: 14px 16px 18px; box-shadow: var(--shadow-3);
-        }
-        .panel header {
-          display: flex; align-items: flex-start; gap: 10px;
-          padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--border);
-          position: sticky; top: -14px; background: var(--surface); z-index: 2;
-          padding-top: 14px; margin-top: -14px;
-        }
-        .panel .sub { font-size: 12px; color: var(--text-3); margin-top: 1px; }
-        .panel .hintline { font-size: 11px; color: var(--text-3); margin-top: 3px; font-style: italic; }
-        .panel .acts { margin-left: auto; display: flex; align-items: center; gap: 6px; }
-        .state {
-          font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase;
-          padding: 2px 7px; border-radius: 999px;
-          background: var(--surface-2); color: var(--text-2);
-        }
-        .state.dead { background: #fbeae8; color: ${D.ALARM}; }
-        .state.degraded { background: #fdf3e3; color: #9a6a1c; }
-        .state.frozen { background: #eaeff4; color: #4d6076; }
-        @media (prefers-color-scheme: dark) {
-          .state.dead { background: #3a1d1a; }
-          .state.degraded { background: #392c15; color: ${D.WARN}; }
-          .state.frozen { background: #1c2530; color: ${D.CHILL}; }
-        }
-
-        .panel section { margin-bottom: 16px; }
-        .chips { display: flex; flex-wrap: wrap; gap: 5px; }
-
-        .work { padding: 8px 0; border-bottom: 1px solid var(--border); }
-        .work:last-of-type { border-bottom: 0; }
-        .wtop { display: flex; align-items: center; gap: 7px; font-size: 12.5px; margin-bottom: 5px; }
-        .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
-        .lanes { display: flex; gap: 12px; font-size: 12px; margin-top: 6px; }
-
-        .events { list-style: none; margin: 0; padding: 0; font-size: 12.5px; }
-        .events li { display: flex; gap: 8px; padding: 3px 0; align-items: baseline; }
-        .events li.later { opacity: .35; }
-        .events .when { color: var(--text-3); min-width: 54px; }
-        .events .kind { font-weight: 600; }
-
-        .cost { display: flex; gap: 14px; margin-bottom: 8px; }
-        .cost div { display: flex; flex-direction: column; gap: 1px; }
-        .cost span { font-size: 11px; }
-        .cost strong { font-size: 14px; letter-spacing: -0.01em; }
-        .mylines { list-style: none; margin: 0; padding: 0; font-size: 12px; }
-        .mylines li {
-          display: grid; grid-template-columns: 1fr auto; gap: 2px 10px;
-          padding: 4px 0; border-top: 1px solid var(--border);
-        }
-        .mylines .what { font-weight: 500; }
-        .mylines em {
-          grid-column: 1 / -1; font-style: normal; font-size: 11px; color: var(--text-3);
-        }
-      `}</style>
     </aside>
   );
 }
@@ -296,11 +251,11 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
 function Row({ k, v, hint }: { k: string; v: string; hint?: string }) {
   return (
     <tr>
-      <Th style={bits.plainHead}>
+      <Th style={panel.plainHead}>
         {k}
         {hint && <div style={{ color: 'var(--text-3)', fontSize: 11 }}>{hint}</div>}
       </Th>
-      <Td num style={bits.right}>
+      <Td num style={panel.right}>
         {v}
       </Td>
     </tr>
@@ -337,11 +292,11 @@ function Gauge({
   return (
     <div style={{ marginBottom: 10 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontSize: 12.5 }}>
-        <span className="muted">{name}</span>
-        <strong className="mono" style={{ color: colour, fontSize: 13.5 }}>
+        <span {...stylex.props(ui.muted)}>{name}</span>
+        <strong {...stylex.props(ui.mono)} style={{ color: colour, fontSize: 13.5 }}>
           {mb(free)} left
         </strong>
-        <span className="muted mono" style={{ marginLeft: 'auto', fontSize: 11.5 }}>
+        <span {...stylex.props(ui.muted, ui.mono)} style={{ marginLeft: 'auto', fontSize: 11.5 }}>
           {mb(used)} of {mb(cap)}
         </span>
       </div>
@@ -466,10 +421,96 @@ function egress(raw: Record<string, number | string | boolean>): [string, number
     .sort((a, b) => b[1] - a[1]);
 }
 
-const bits = stylex.create({
+
+const panel = stylex.create({
   flat: { margin: 0 },
   small: { fontSize: '11px', margin: '6px 0 0' },
   /** One header that is a label rather than a column name, so it is not shouted. */
   plainHead: { textTransform: 'none', letterSpacing: 0, fontSize: '12px' },
   right: { textAlign: 'right' },
+
+  /**
+   * `pointerEvents: auto` because the dock it sits in is `none`, so the film
+   * behind it stays clickable. Film.tsx said that with `.dock > *`, which StyleX
+   * cannot select.
+   */
+  panel: {
+    width: '340px',
+    maxHeight: '100%',
+    overflowY: 'auto',
+    paddingTop: '14px',
+    paddingInline: '16px',
+    paddingBottom: '18px',
+    boxShadow: shadow.s3,
+    pointerEvents: 'auto',
+  },
+  /** Sticky, so the node's name stays while its detail scrolls under it. */
+  head: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '10px',
+    paddingBottom: '12px',
+    marginBottom: '12px',
+    borderBottomWidth: '1px',
+    borderBottomStyle: 'solid',
+    borderBottomColor: chrome.border,
+    position: 'sticky',
+    top: '-14px',
+    backgroundColor: chrome.surface,
+    zIndex: 2,
+    paddingTop: '14px',
+    marginTop: '-14px',
+  },
+  section: { marginBottom: '16px' },
+  sub: { fontSize: '12px', color: chrome.text3, marginTop: '1px' },
+  hint: { fontSize: '11px', color: chrome.text3, marginTop: '3px', fontStyle: 'italic' },
+  acts: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' },
+
+  state: {
+    fontSize: '11px',
+    fontWeight: 600,
+    letterSpacing: '.03em',
+    textTransform: 'uppercase',
+    paddingBlock: '2px',
+    paddingInline: '7px',
+    borderRadius: '999px',
+    backgroundColor: chrome.surface2,
+    color: chrome.text2,
+  },
+  dead: { backgroundColor: state.deadBg, color: state.deadInk },
+  degraded: { backgroundColor: state.degradedBg, color: state.degradedInk },
+  frozen: { backgroundColor: state.frozenBg, color: state.frozenInk },
+
+  chips: { display: 'flex', flexWrap: 'wrap', gap: '5px' },
+  work: {
+    paddingBlock: '8px',
+    borderBottomWidth: '1px',
+    borderBottomStyle: 'solid',
+    borderBottomColor: chrome.border,
+  },
+  wtop: { display: 'flex', alignItems: 'center', gap: '7px', fontSize: '12.5px', marginBottom: '5px' },
+  dot: { width: '7px', height: '7px', borderRadius: '50%', flex: 'none' },
+  lanes: { display: 'flex', gap: '12px', fontSize: '12px', marginTop: '6px' },
+
+  events: { listStyle: 'none', margin: 0, padding: 0, fontSize: '12.5px' },
+  ev: { display: 'flex', gap: '8px', paddingBlock: '3px', alignItems: 'baseline' },
+  /** What has not happened yet, still on screen so the order is readable. */
+  later: { opacity: 0.35 },
+  when: { color: chrome.text3, minWidth: '54px' },
+  kind: { fontWeight: 600 },
+
+  cost: { display: 'flex', gap: '14px', marginBottom: '8px' },
+  costCol: { display: 'flex', flexDirection: 'column', gap: '1px' },
+  mylines: { listStyle: 'none', margin: 0, padding: 0, fontSize: '12px' },
+  myline: {
+    display: 'grid',
+    gridTemplateColumns: '1fr auto',
+    gap: '2px 10px',
+    paddingBlock: '4px',
+    borderTopWidth: '1px',
+    borderTopStyle: 'solid',
+    borderTopColor: chrome.border,
+  },
+  what: { fontWeight: 500 },
+  why: { gridColumn: '1 / -1', fontStyle: 'normal', fontSize: '11px', color: chrome.text3 },
 });

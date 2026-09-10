@@ -23,6 +23,10 @@ import { digest, entries } from '../lib/trace.ts';
 import type { Flight } from '../lib/frame.ts';
 import { refTime } from '../lib/playback.ts';
 import { Payload } from './Payload.tsx';
+import * as stylex from '@stylexjs/stylex';
+
+import { chrome, radius } from '../lib/tokens.stylex.ts';
+import { ui } from '../lib/ui.stylex.ts';
 
 export function MessagePanel({
   f,
@@ -60,55 +64,55 @@ export function MessagePanel({
 
   return (
     <div
-      className={`msg${pinned ? ' pinned' : ''}`}
+      {...stylex.props(msg.msg, pinned && msg.pinned)}
       style={{ left, top, width: W }}
       role="dialog"
       aria-label="this message"
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="head">
-        <strong>{f.method}</strong>
-        <span className="muted mono">
+      <div {...stylex.props(msg.head)}>
+        <strong {...stylex.props(msg.method)}>{f.method}</strong>
+        <span {...stylex.props(ui.muted, ui.mono)}>
           {from} → {to}
         </span>
         {pinned && (
-          <button className="x" onClick={onClose} aria-label="close">
+          <button {...stylex.props(msg.close)} onClick={onClose} aria-label="close">
             ×
           </button>
         )}
       </div>
-      <div className="sub muted">
+      <div {...stylex.props(msg.sub, ui.muted)}>
         {f.returning ? 'the answer, coming back' : 'the request, going out'}
       </div>
 
-      <dl>
-        <dt>carries</dt>
-        <dd className="mono">
+      <dl {...stylex.props(msg.dl)}>
+        <dt {...stylex.props(msg.dt)}>carries</dt>
+        <dd {...stylex.props(msg.dd)} {...stylex.props(ui.mono)}>
           {f.bytes.toLocaleString()} bytes{total > 0 && ` · ${total.toLocaleString()} entries`}
         </dd>
-        <dt>on the wire</dt>
-        <dd className="mono">{refTime(f.netRefMs)}</dd>
-        <dt>the whole call</dt>
-        <dd className="mono">
+        <dt {...stylex.props(msg.dt)}>on the wire</dt>
+        <dd {...stylex.props(msg.dd)} {...stylex.props(ui.mono)}>{refTime(f.netRefMs)}</dd>
+        <dt {...stylex.props(msg.dt)}>the whole call</dt>
+        <dd {...stylex.props(msg.dd)} {...stylex.props(ui.mono)}>
           {refTime(f.t0)} → {refTime(f.t1)} · {refTime(f.t1 - f.t0)}
         </dd>
         {f.crossZone && (
           <>
-            <dt>zone</dt>
-            <dd className="warn">crossed one: billed, and slower</dd>
+            <dt {...stylex.props(msg.dt)}>zone</dt>
+            <dd {...stylex.props(msg.dd)} {...stylex.props(msg.warn)}>crossed one: billed, and slower</dd>
           </>
         )}
         {f.failed && (
           <>
-            <dt>failed</dt>
-            <dd className="bad">{f.status || 'no status recorded'}</dd>
+            <dt {...stylex.props(msg.dt)}>failed</dt>
+            <dd {...stylex.props(msg.dd)} {...stylex.props(msg.bad)}>{f.status || 'no status recorded'}</dd>
           </>
         )}
       </dl>
 
-      <div className="body">
+      <div {...stylex.props(msg.body)}>
         {f.body === undefined || f.body === null ? (
-          <span className="muted">
+          <span {...stylex.props(ui.muted)}>
             {f.failed ? 'nothing came back' : 'no payload recorded on this leg'}
           </span>
         ) : (
@@ -124,44 +128,12 @@ export function MessagePanel({
         // The trace bounds a collection at twelve and records the real count in
         // the marker it appends. Saying so is the difference between a reader
         // believing a reducer folded thirteen keys and knowing it folded 1,118.
-        <div className="muted note">
+        <div {...stylex.props(ui.muted, msg.note)}>
           Showing the first entries of {total.toLocaleString()} — the trace keeps a bounded sample
           and the true count, never the whole of a large collection.
         </div>
       )}
 
-      <style>{`
-        .msg {
-          position: absolute; z-index: 30; pointer-events: none;
-          background: var(--surface); border: 1px solid var(--border);
-          border-radius: var(--r-md); padding: 10px 12px;
-          box-shadow: 0 10px 30px rgba(0,0,0,0.18); font-size: 12px;
-          max-height: 270px; overflow: auto;
-        }
-        .msg.pinned {
-          pointer-events: auto;
-          border-color: var(--accent);
-          box-shadow: 0 12px 36px rgba(0,0,0,0.24);
-        }
-        .msg .head { display: flex; gap: 8px; align-items: baseline; }
-        .msg .x {
-          margin-left: auto; border: 0; background: none; cursor: pointer;
-          color: var(--muted); font-size: 15px; line-height: 1; padding: 0 2px;
-        }
-        .msg .x:hover { color: var(--text); }
-        .msg .head strong { font-size: 13px; }
-        .msg .sub { margin: 1px 0 7px; }
-        .msg dl {
-          display: grid; grid-template-columns: auto 1fr; gap: 2px 10px;
-          margin: 0 0 8px; align-items: baseline;
-        }
-        .msg dt { color: var(--muted); }
-        .msg dd { margin: 0; }
-        .msg .warn { color: var(--warn); }
-        .msg .bad { color: var(--alarm); }
-        .msg .body { border-top: 1px solid var(--border); padding-top: 7px; }
-        .msg .note { margin-top: 7px; font-size: 11px; line-height: 1.4; }
-      `}</style>
     </div>
   );
 }
@@ -170,3 +142,64 @@ export function MessagePanel({
 export function brief(f: Flight): string {
   return `${f.method}: ${digest(f.body)}`;
 }
+
+const msg = stylex.create({
+  msg: {
+    position: 'absolute',
+    zIndex: 30,
+    pointerEvents: 'none',
+    backgroundColor: chrome.surface,
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    // `--r-md` was never defined, so this had no radius at all. `--r` is the
+    // one it meant.
+    borderColor: chrome.border,
+    borderRadius: radius.base,
+    paddingBlock: '10px',
+    paddingInline: '12px',
+    boxShadow: '0 10px 30px rgba(0,0,0,0.18)',
+    fontSize: '12px',
+    maxHeight: '270px',
+    overflow: 'auto',
+  },
+  /** Pinned: it stops being a peek and starts taking clicks. */
+  pinned: {
+    pointerEvents: 'auto',
+    borderColor: chrome.accent,
+    boxShadow: '0 12px 36px rgba(0,0,0,0.24)',
+  },
+  head: { display: 'flex', gap: '8px', alignItems: 'baseline' },
+  method: { fontSize: '13px' },
+  close: {
+    marginLeft: 'auto',
+    borderWidth: 0,
+    background: 'none',
+    cursor: 'pointer',
+    // `--muted` was never defined either; the token is `--text-2`.
+    color: { default: chrome.text2, ':hover': chrome.text },
+    fontSize: '15px',
+    lineHeight: 1,
+    paddingBlock: 0,
+    paddingInline: '2px',
+  },
+  sub: { margin: '1px 0 7px' },
+  dl: {
+    display: 'grid',
+    gridTemplateColumns: 'auto 1fr',
+    gap: '2px 10px',
+    margin: '0 0 8px',
+    alignItems: 'baseline',
+  },
+  dt: { color: chrome.text2 },
+  dd: { margin: 0 },
+  warn: { color: chrome.warn },
+  /** `--alarm` was never defined; `--danger` is the chrome's word for it. */
+  bad: { color: chrome.danger },
+  body: {
+    borderTopWidth: '1px',
+    borderTopStyle: 'solid',
+    borderTopColor: chrome.border,
+    paddingTop: '7px',
+  },
+  note: { marginTop: '7px', fontSize: '11px', lineHeight: 1.4 },
+});
