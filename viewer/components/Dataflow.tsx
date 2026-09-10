@@ -533,6 +533,10 @@ const Packet = memo(function Packet({
 
   const [x, y] = quad(src, ctrl, dst, f.progress);
   const [hx, hy] = quad(src, ctrl, dst, 0.985);
+  // A wire is drawn as far as the message got and no further. Drawn to the far
+  // node, a call that never arrived leaves a line into a dead machine with an
+  // arrowhead on it, which is a delivery.
+  const [cut, tip] = f.lost ? splitQuad(src, ctrl, dst, f.diedAt) : [ctrl, dst];
   const colour = f.failed ? alarm(theme) : taskColour(theme, f.task);
   const angle = (Math.atan2(dst[1] - hy, dst[0] - hx) * 180) / Math.PI;
 
@@ -550,7 +554,7 @@ const Packet = memo(function Packet({
     `${f.bytes.toLocaleString()} bytes`,
     f.items > 0 ? `${f.items.toLocaleString()} entries` : '',
     f.crossZone ? 'cross-zone transfer: billed and slower' : '',
-    f.failed ? 'failed' : '',
+    f.lost ? `sent, never arrived: ${f.why}` : f.failed ? 'failed' : '',
     f.held ? 'held on screen longer than it took' : '',
     f.digest,
   ]
@@ -573,19 +577,46 @@ const Packet = memo(function Packet({
           person gets; this is what the file remembers. */}
       <title>{says}</title>
       <path
-        d={`M ${src[0]} ${src[1]} Q ${ctrl[0]} ${ctrl[1]} ${dst[0]} ${dst[1]}`}
+        d={`M ${src[0]} ${src[1]} Q ${cut[0]} ${cut[1]} ${tip[0]} ${tip[1]}`}
         fill="none"
-        stroke={wire}
+        stroke={f.lost ? alarm(theme) : wire}
         strokeWidth={f.crossZone ? 0.017 : 0.01}
         strokeDasharray={f.crossZone ? '0.09 0.05' : '0.05 0.05'}
-        opacity={f.crossZone ? 0.85 : 0.6}
+        opacity={f.lost ? 0.5 : f.crossZone ? 0.85 : 0.6}
         strokeLinecap="round"
       />
-      <g transform={`translate(${dst[0]} ${dst[1]}) rotate(${angle})`}>
-        <path d="M -0.2 -0.08 L 0 0 L -0.2 0.08 Z" fill={wire} opacity={0.95} />
-      </g>
+      {!f.lost && (
+        <g transform={`translate(${dst[0]} ${dst[1]}) rotate(${angle})`}>
+          <path d="M -0.2 -0.08 L 0 0 L -0.2 0.08 Z" fill={wire} opacity={0.95} />
+        </g>
+      )}
 
-      <g transform={`translate(${x} ${y})`}>
+      {/* Where it died. The burst is on the message, at the point the trace
+          stopped it — not on the node, which has its own way of saying it is
+          gone and did nothing wrong by being asked. */}
+      {f.dying > 0 && (
+        <g
+          data-lost={f.why || 'undelivered'}
+          transform={`translate(${tip[0]} ${tip[1]}) scale(${(0.75 + 0.85 * f.dying).toFixed(3)})`}
+          opacity={1 - f.dying * 0.55}
+          stroke={alarm(theme)}
+          strokeWidth={0.028}
+          strokeLinecap="round"
+          fill="none"
+        >
+          <path d="M -0.085 -0.085 L 0.085 0.085" />
+          <path d="M 0.085 -0.085 L -0.085 0.085" />
+          <path d="M 0 -0.155 L 0 -0.215" opacity={0.7} />
+          <path d="M 0 0.155 L 0 0.215" opacity={0.7} />
+          <path d="M -0.155 0 L -0.215 0" opacity={0.7} />
+          <path d="M 0.155 0 L 0.215 0" opacity={0.7} />
+        </g>
+      )}
+
+      <g
+        transform={`translate(${x} ${y})${f.dying > 0 ? ` scale(${(1 - 0.4 * f.dying).toFixed(3)})` : ''}`}
+        opacity={1 - f.dying}
+      >
         <rect
           x={-pw / 2}
           y={-ph / 2 + 0.032}
@@ -678,6 +709,24 @@ function quad(
 }
 
 /**
+ * The first `u` of a quadratic curve, as its own control point and end.
+ *
+ * De Casteljau rather than a straight line to the point: a shortened curve has
+ * to lie on the curve it was cut from, or a dying message drifts off the wire
+ * it was flying down.
+ */
+function splitQuad(
+  a: [number, number],
+  c: [number, number],
+  b: [number, number],
+  u: number,
+): [[number, number], [number, number]] {
+  const p: [number, number] = [a[0] + (c[0] - a[0]) * u, a[1] + (c[1] - a[1]) * u];
+  const q: [number, number] = [c[0] + (b[0] - c[0]) * u, c[1] + (b[1] - c[1]) * u];
+  return [p, [p[0] + (q[0] - p[0]) * u, p[1] + (q[1] - p[1]) * u]];
+}
+
+/**
  * Moves a point from a node's centre out to its rim, along a direction.
  *
  * The exact ellipse radius rather than an approximation, because the cluster's
@@ -704,10 +753,20 @@ function shrink(
  * The disk level is bucketed to about the number of levels an eye can tell apart
  * at the size a node is drawn, so a spill creeping up by a hundredth of a
  * megabyte does not re-render for it.
+ *
+ * Where it is counts as part of how it looks. The arrangement is re-searched
+ * whenever the picture changes shape, and a node that moved but did not
+ * otherwise change — an idle one, a dead one — was skipped by this comparator
+ * and left drawn at the old arrangement's place: on `t11-chaos` that put w3
+ * outside its own zone box, reading as a worker in a zone the run never had.
  */
 export function same(a: FrameNode, b: FrameNode): boolean {
   return (
     a.name === b.name &&
+    a.x === b.x &&
+    a.y === b.y &&
+    a.w === b.w &&
+    a.h === b.h &&
     a.state === b.state &&
     bucket(a.diskShare) === bucket(b.diskShare) &&
     Math.round(a.busy / 12) === Math.round(b.busy / 12) &&

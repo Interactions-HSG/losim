@@ -82,7 +82,11 @@ export function MessagePanel({
         )}
       </div>
       <div {...stylex.props(msg.sub, ui.muted)}>
-        {f.returning ? 'Returning response' : 'Outbound request'}
+        {f.returning
+          ? 'Returning response'
+          : f.lost
+            ? `Outbound request — sent, never arrived (${f.why})`
+            : 'Outbound request'}
       </div>
 
       <dl {...stylex.props(msg.dl)}>

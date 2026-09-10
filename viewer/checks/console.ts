@@ -398,6 +398,92 @@ for (const f of ['components/Film.tsx', 'components/console/FilmView.tsx']) {
   if (same(one, { ...one, revealed: [{ ...one.revealed[0], value: 999 }] })) {
     say('Dataflow.same() calls two nodes identical when a revealed value changed');
   }
+  // And where it is. The arrangement is re-searched when the picture changes
+  // shape, and a comparator blind to the new position leaves a node that did
+  // not otherwise change — an idle one, a dead one — drawn where the old
+  // arrangement put it, which on t11-chaos was outside its own zone.
+  for (const moved of [{ x: one.x + 1 }, { y: one.y + 1 }, { w: one.w + 1 }, { h: one.h + 1 }]) {
+    const [where] = Object.keys(moved);
+    if (same(one, { ...one, ...moved })) {
+      say(`Dataflow.same() calls two nodes identical when \`${where}\` moved`);
+    }
+  }
+}
+
+/*
+ * Does a message that never arrived stay unanswered?
+ *
+ * The engine decides delivery, and writes it down: `ClientSide` refuses a call
+ * to a node that is not there and `Dropped` closes the span with
+ * `delivered: false` and the reason. Nothing runs at the far end, and on
+ * `t11-chaos` nothing does — no worker holds a span after its own kill.
+ *
+ * The film drew every rpc span as a journey out and a journey back regardless,
+ * so master's forty-one dead calls to w1 each came home carrying an answer:
+ * `w1 <- master`, arrowhead into master, from a machine that had been killed
+ * four minutes earlier. The frame was right and the drawing was not, which is
+ * the worst way for a teaching viewer to be wrong — the picture is the claim.
+ *
+ * Pinned to 64500 refMs, where three workers are dead, six calls are on the
+ * wire to them and a seventh is in the middle of dying. Both halves are
+ * asserted: no lost call gets a return leg, and the death actually reaches the
+ * markup — a mark drawn nowhere is the same bug wearing a data attribute.
+ */
+{
+  const el = (C: unknown, props: Record<string, unknown>) =>
+    createElement(C as (p: Record<string, unknown>) => ReactNode, props);
+  const trace = Trace.parse(
+    gunzipSync(readFileSync(join(HERE, 'traces/t11-chaos.json.gz'))).toString('utf8'),
+  );
+  const idx = new RunIndex(trace);
+
+  // Which calls never arrived is asked of the trace, not of the flag the film
+  // sets — a film that has forgotten how to lose a message answers `lost: false`
+  // to every question about it, and a check written against its own answer goes
+  // green on exactly the bug it was written for.
+  const undelivered = new Set(
+    trace.spans.filter((sp) => sp.kind === 'rpc' && sp.detail['delivered'] === false)
+      .map((sp) => sp.id),
+  );
+  let lost = 0;
+  let dying = 0;
+  // Said once per node rather than once per frame: the same call is sampled at
+  // twenty instants, and a wall of nine hundred identical lines is a check
+  // nobody reads to the end of.
+  const answered = new Set<string>();
+  const delivered = new Set<string>();
+  for (let i = 0; i <= 600; i++) {
+    for (const f of idx.frameAt((i / 600) * trace.duration).flights) {
+      if (!undelivered.has(f.id)) continue;
+      lost++;
+      if (f.dying > 0) dying++;
+      if (f.returning) answered.add(f.to);
+      if (!f.lost) delivered.add(`${f.from} -> ${f.to}`);
+    }
+  }
+  for (const who of answered) say(`t11-chaos: ${who} answers calls it never received`);
+  for (const pair of delivered) say(`t11-chaos: ${pair} never arrived and the film draws it delivered`);
+  if (!lost || !dying) {
+    say(`t11-chaos: ${lost} undelivered calls drawn and ${dying} of them seen to die`
+      + ' — the trace this check reads no longer holds the case it was written for');
+  }
+
+  const at = 64500;
+  const frame = idx.frameAt(at);
+  const html = renderToStaticMarkup(
+    el(Dataflow, { layout: idx.layout, frame, theme: LIGHT, show: '' }),
+  );
+  if (!frame.flights.some((f) => f.dying > 0)) {
+    say(`t11-chaos @${at} no longer holds a message mid-death — pick another instant`);
+  }
+  if (!html.includes('data-lost="unreachable"')) {
+    say(`t11-chaos @${at}: a message dies in the frame and nothing in the picture says so`);
+  }
+  // Every call on the wire here is one nothing can answer, so a returning
+  // envelope's own glyph must not appear anywhere in this frame.
+  if (frame.flights.every((f) => undelivered.has(f.id)) && html.includes('&lt;-')) {
+    say(`t11-chaos @${at}: an envelope is drawn coming back from a node that never got one`);
+  }
 }
 
 /*

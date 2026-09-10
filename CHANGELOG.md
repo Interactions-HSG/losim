@@ -6,6 +6,45 @@ A version is what an assignment resolves from Gradle, so it is a fact about a ja
 rather than about a branch. Every release is cut from a tag whose name and
 `./VERSION` are checked against each other before anything is built.
 
+## 4.0.1
+
+**The viewer, and nothing else.** No type changed, no simulation produces a
+different trace, and every number this touches was already right in the trace it
+was read from. What was wrong is the picture drawn over it, which on a run with
+failures in it showed two things that never happened.
+
+### A call that never arrived came back with an answer
+
+The film drew every rpc span as a journey out and a journey back. A call to a
+node that is not there is never sent — `ClientSide` refuses it and `Dropped`
+closes the span with `delivered: false` and a reason — so on `t11-chaos`, where
+all four workers are dead by twelve seconds, master's 139 refused calls each
+flew out to a corpse and came home carrying a reply. Nothing on the worker side
+agreed: no worker holds a span after its own kill, and one of them never handled
+a call at all.
+
+A message is still sent and still crosses the wire, because that is what
+happens. It now dies where the trace says it was lost: at the far end for a node
+that is gone or a call refused on arrival, halfway for one the network dropped
+or a partition swallowed. The wire is drawn that far and no further, the
+envelope comes apart, and then the wire is empty while the caller waits out its
+own deadline — which is all that wait has ever looked like.
+
+### A node could be drawn outside its own zone
+
+Nodes are memoised on their appearance, and where a node is was not part of it.
+The arrangement is re-searched whenever the picture changes shape, so a node
+that moved and did not otherwise change — an idle one, a dead one — stayed drawn
+where the previous arrangement had put it. On `t11-chaos` that left w3 a column
+outside the zone box it belongs in, reading as a worker in a zone the run never
+had.
+
+Both are held by `viewer/checks/console.ts`. Which calls never arrived is read
+from the trace's `delivered: false` rather than from the film's account of
+itself, so a film that forgets how to lose a message cannot answer its way to
+green; and the memo comparator is now asked about position as well as
+appearance.
+
 ## 4.0.0
 
 **The simulator is called DISSALy.** Every name it answers to changed: the

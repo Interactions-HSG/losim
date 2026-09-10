@@ -135,6 +135,21 @@ export interface Flight {
   failed: boolean;
   /** True when this message is being held on screen longer than it really took. */
   held: boolean;
+  /**
+   * The trace says this one never arrived: `delivered: false` on the span.
+   *
+   * It has no return leg. Drawn with one — which is what the film did until
+   * this — a call to a node that was killed before the question reached it
+   * comes back carrying an answer, and the frame shows a dead worker serving
+   * reads. Nothing about the run says that; the drawing said it.
+   */
+  lost: boolean;
+  /** Why, in the engine's own words: `unreachable`, `partitioned`, `lost`, `dropped by w2`. */
+  why: string;
+  /** How far it got before it died: 0 at the caller, 1 at the callee's door. */
+  diedAt: number;
+  /** 0 while it is still whole, 1 when it has finished dying. */
+  dying: number;
 }
 
 export interface FrameOptions {
@@ -440,6 +455,22 @@ export class RunIndex {
     const leg = this.legOf(span, end);
 
     const out = (t - span.t0) / leg;
+
+    // A call the engine never delivered has one leg and no answer. What is left
+    // of the span after it dies is the caller waiting out its own deadline, and
+    // an empty wire is what that looks like.
+    if (span.detail['delivered'] === false) {
+      const why = String(span.detail['why'] ?? '');
+      const far = diedAt(why);
+      if (out > far + DYING) return null;
+      const dying = Math.min(1, Math.max(0, (out - far) / DYING));
+      return this.flight(span, from, to, Math.min(far, Math.max(0, out)), false, held, {
+        why,
+        diedAt: far,
+        dying,
+      });
+    }
+
     if (out <= 1) {
       return this.flight(span, from, to, Math.max(0, out), false, held);
     }
@@ -457,6 +488,7 @@ export class RunIndex {
     progress: number,
     returning: boolean,
     held: boolean,
+    dead: { why: string; diedAt: number; dying: number } | null = null,
   ): Flight {
     const a = this.trace.byName.get(from);
     const b = this.trace.byName.get(to);
@@ -482,6 +514,10 @@ export class RunIndex {
       size: envelope(items, this.heaviest),
       held,
       failed: span.status !== 'OK',
+      lost: dead !== null,
+      why: dead?.why ?? '',
+      diedAt: dead?.diedAt ?? 1,
+      dying: dead?.dying ?? 0,
     };
   }
 }
@@ -499,6 +535,29 @@ interface RevealTrack {
  * written into another's.
  */
 const NOTHING_REVEALED: readonly Reveal[] = Object.freeze([]);
+
+/**
+ * How long a message takes to die, as a share of the leg it was flying.
+ *
+ * Long enough to be seen at 1x and short enough that a run losing forty calls
+ * to the same dead node is not forty marks stacked on one wire: the mark goes,
+ * and the caller goes on waiting for its deadline with nothing on the wire,
+ * which is the true picture of that wait.
+ */
+const DYING = 0.6;
+
+/**
+ * How far a lost message gets, read off the reason the engine recorded.
+ *
+ * `ClientSide` writes the reason beside `delivered: false`, and all this does is
+ * decide where to stop drawing. A call the network lost or a partition swallowed
+ * died between the two nodes. One addressed to a node that was already dead was
+ * still sent, and still crossed the wire — it died at the far end, where nothing
+ * was listening — and so did one the callee refused on arrival.
+ */
+function diedAt(why: string): number {
+  return why === 'lost' || why === 'partitioned' ? 0.5 : 1;
+}
 
 /** The last index whose time is at or before `t`, or -1 when none is. */
 function lastAtOrBefore(times: number[], t: number): number {
