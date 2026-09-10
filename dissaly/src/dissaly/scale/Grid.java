@@ -24,6 +24,14 @@ import dissaly.trace.Telemetry;
  * elsewhere, so a survivor absorbs its bucket: measured, that roughly doubles peak
  * reducer memory. A model fitted only on clean runs under-predicts by that much,
  * and it under-predicts <i>optimistically</i>.
+ *
+ * <p><b>The data ladder is warmed up and then climbed seed-major</b>, and both halves
+ * of that are load-bearing. Every probe here runs in one JVM, so the order they are
+ * run in decides which of them are executing interpreted code — and climbing
+ * smallest-first put every cold run at the bottom rung. That is a systematic error on
+ * the y axis correlated with the x axis, which no goodness-of-fit can see, because the
+ * fit is computed from the same biased points. What it did was subtract from every
+ * fitted exponent, which is how a design came to get cheaper the more of it there was.
  */
 public record Grid(List<List<Probe>> dataLadder,
                    List<List<Probe>> clusterLadder,
@@ -55,13 +63,32 @@ public record Grid(List<List<Probe>> dataLadder,
         // The data ladder is climbed with the weather off, so what moves is the data.
         var bare = s.withoutWeather().withWorkers(baseCluster);
 
+        // Thrown away, and the ladder is not worth anything without it. Every probe in
+        // this grid runs in one JVM, so the first few are executing interpreted code
+        // against cold caches and the last few are not — and the ladder used to be
+        // climbed smallest-first, which put every cold run at the bottom rung and every
+        // warm one at the top. That is a bias on the y axis correlated with the x axis,
+        // which is the one kind a fit cannot see: R², the residuals and the seed-set
+        // wobble are all computed from the same biased points.
+        //
+        // It was not subtle once it was looked for. Reversing the ladder's order and
+        // changing nothing else moved four consecutive fits of one unchanged file from
+        // exponents of +0.02, -0.09, -0.03, +0.06 to +0.05, +0.44, +0.95, +0.06 — the
+        // engine twice projecting that forty-eight thousand frames finish sooner than
+        // eight thousand, because the small runs had been timed on a cold JVM.
+        for (int size : sizes) Probe.run(bare.withUnits(size).withSeed(seeds[0]), loader, level);
+
         var dataLadder = new ArrayList<List<Probe>>();
-        for (int size : sizes) {
-            var rung = new ArrayList<Probe>();
-            for (long seed : seeds)
-                rung.add(Probe.run(bare.withUnits(size).withSeed(seed), loader, level));
-            dataLadder.add(rung);
-        }
+        for (int i = 0; i < sizes.size(); i++) dataLadder.add(new ArrayList<>());
+        // Seed-major, so each size is visited once early and once late. What warm-up
+        // survives the pass above is then common to every rung instead of concentrated
+        // in one of them, which lands it in the law's fixed term — where a constant
+        // belongs — rather than in its exponent, where it was quietly deciding whether
+        // the design got cheaper with scale.
+        for (long seed : seeds)
+            for (int i = 0; i < sizes.size(); i++)
+                dataLadder.get(i).add(
+                        Probe.run(bare.withUnits(sizes.get(i)).withSeed(seed), loader, level));
 
         // The cluster ladder holds the data still, so what moves is the cluster.
         int midSize = sizes.get(sizes.size() / 2);
@@ -99,7 +126,10 @@ public record Grid(List<List<Probe>> dataLadder,
 
     /** How many runs this grid cost. Worth saying out loud, since the plan is cached on it. */
     public int runs() {
-        int n = weathered.size();
+        // Including the discarded warm-up pass, one per rung. It costs what a measured
+        // run costs and reporting only the runs that were kept would understate what a
+        // plan takes to fit by a seventh.
+        int n = weathered.size() + dataLadder.size();
         for (var rung : dataLadder) n += rung.size();
         for (var rung : clusterLadder) n += rung.size();
         return n;

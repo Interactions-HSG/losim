@@ -42,6 +42,9 @@ public record ScalePlan(long units, long fullUnits,
      * already, to the change that made 3 out of 2.
      *
      * <ul>
+     *   <li><b>9</b> — the data ladder is warmed up before it is measured and
+     *       climbed seed-major, so JVM warm-up no longer correlates with rung
+     *       size and lands in a law's exponent.</li>
      *   <li><b>8</b> — the notes describe the figure the table reports, so a
      *       resource assembled from its machines is not explained by the cluster
      *       law it was assembled instead of.</li>
@@ -61,7 +64,7 @@ public record ScalePlan(long units, long fullUnits,
      *   <li><b>1</b> — cluster laws, solved caps.</li>
      * </ul>
      */
-    public static final int FORMAT = 8;
+    public static final int FORMAT = 9;
 
     public boolean feasible() { return infeasible == null; }
 

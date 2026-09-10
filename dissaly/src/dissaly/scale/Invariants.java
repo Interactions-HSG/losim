@@ -378,7 +378,13 @@ public final class Invariants {
             // precondition excluded the only case anybody would want caught. Every
             // guard written as "unless the author thought this was impossible" has that
             // shape available to it.
-            if (b >= a * (1 - TOLERANCE)) continue;
+            // The same threshold `Solve.overheadNote` calls "barely moves", so the two
+            // cannot both have something to say about one resource. Below it the run
+            // already carries a note explaining that the workload does not drive this
+            // quantity, and a second line calling the same flatness a decline is how a
+            // reader learns that a shallow negative means nothing here. Above it the
+            // engine is making a claim about the design, and that is what this catches.
+            if (b >= a * (1 - 1.0 / Solve.VARIABLE_MUST_DOMINATE)) continue;
             double beta = e.getValue().beta();
             out.add(new Violation("projection-shrinks", resource, String.format(Locale.ROOT,
                     "falls from %.4g at %,d units to %.4g at %,d. %s",

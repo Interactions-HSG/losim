@@ -64,7 +64,14 @@ public final class Solve {
                     + " without being able to project anything back from it");
         for (var e : laws.refused().entrySet())
             notes.add(e.getKey() + " is not projected: " + e.getValue());
-        for (String resource : List.of(Probe.MEMORY, Probe.DISK)) {
+        // Every cluster resource, not the two the solver happens to cap. Time was
+        // excluded for no reason anybody wrote down, and time is where it matters
+        // most: this design's makespan is a fixed cost plus a few hundred
+        // milliseconds of thumbnail work, so it barely moves across the ladder, and
+        // without this the engine reported a shallow decline as though it were a
+        // finding instead of saying the workload does not drive it.
+        for (String resource : laws.byResource().keySet()) {
+            if (Probe.isPerNode(resource)) continue;
             String overhead = overheadNote(laws, resource, n, full);
             if (overhead != null) notes.add(resource + ": " + overhead);
         }
@@ -196,11 +203,16 @@ public final class Solve {
         double from = here.getAsDouble(), to = there.getAsDouble();
         double growth = (to - from) / from * 100;
         if (Math.abs(growth) >= 100.0 / VARIABLE_MUST_DOMINATE) return null;
+        // "The law gives", not "%,d units gives". The second reads as the measurement
+        // and is not: it is the fitted law evaluated at the run size, which on a noisy
+        // quantity sits some way off the one run that happened. Printing it beside a
+        // column headed "observed" and letting a reader assume they are the same number
+        // is how a note stops being worth reading.
         return String.format(Locale.ROOT,
-                "the workload barely moves it: %,d units gives %.3f and %,d gives %.3f, a change"
-                + " of %.2f%% for %.0fx the work. Whatever this resource costs, it is not a cost"
-                + " of the workload, and a bigger run will not change it",
-                n, from, full, to, growth, full / (double) Math.max(1, n));
+                "the workload barely moves it: the law gives %.3f at %,d units and %.3f at %,d,"
+                + " a change of %.2f%% for %.0fx the work. Whatever this resource costs, it is"
+                + " not a cost of the workload, and a bigger run will not change it",
+                from, n, to, full, growth, full / (double) Math.max(1, n));
     }
 
     private static double ratio(Laws laws, String resource, long n, long full) {
