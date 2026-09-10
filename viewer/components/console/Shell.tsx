@@ -14,15 +14,29 @@
  * the language of the whiteboard, and it looks the same in any theme so that a
  * recorded film is one file rather than two.
  */
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import * as stylex from '@stylexjs/stylex';
 
-import { bar, chrome, font, radius } from '../../lib/tokens.stylex.ts';
+import { bar, chrome, font, radius, size } from '../../lib/tokens.stylex.ts';
 import { ui } from '../../lib/ui.stylex.ts';
 
 import { Transport } from './Transport.tsx';
 import { TIMED, useConsole, type View } from '../../lib/console.tsx';
 import { H1, H2, P } from '../../lib/text.tsx';
+
+/**
+ * Where the rail's state is kept between visits.
+ *
+ * Read in an effect rather than during render: this app is a static export, so
+ * the first paint is prerendered where there is no `localStorage`, and reading
+ * it while rendering would be a hydration mismatch. The rail therefore opens
+ * and then closes itself, which is one frame and is the correct trade — the
+ * alternative is a rail that renders nothing until the browser has spoken.
+ *
+ * The read is wrapped because a browser set to refuse site data throws on
+ * access rather than returning null.
+ */
+const RAIL_KEY = 'losim.rail.collapsed';
 
 interface Item {
   id: View;
@@ -35,6 +49,26 @@ export function Shell({ children }: { children: ReactNode }) {
   const {
     runs, run, clock, view, go, hasLab, error, busy, openDropped, setError, building,
   } = useConsole();
+
+  const [tight, setTight] = useState(false);
+  useEffect(() => {
+    try {
+      setTight(window.localStorage.getItem(RAIL_KEY) === '1');
+    } catch {
+      /* site data refused; the rail stays open, which is the better default */
+    }
+  }, []);
+  const toggleRail = () => {
+    setTight((was) => {
+      const now = !was;
+      try {
+        window.localStorage.setItem(RAIL_KEY, now ? '1' : '0');
+      } catch {
+        /* nothing to remember it with; the rail still collapses for this visit */
+      }
+      return now;
+    });
+  };
 
   const lab: Item[] = [
     { id: 'runs', label: 'Runs', icon: '▤', tag: String(runs.length || '') },
@@ -62,6 +96,16 @@ export function Shell({ children }: { children: ReactNode }) {
       }}
     >
       <header {...stylex.props(styles.bar)}>
+        <button
+          {...stylex.props(styles.hamburger)}
+          onClick={toggleRail}
+          aria-expanded={!tight}
+          aria-controls="console-rail"
+          title={tight ? 'show the menu' : 'hide the menu'}
+        >
+          <span aria-hidden>☰</span>
+          <span {...stylex.props(styles.away)}>{tight ? 'show the menu' : 'hide the menu'}</span>
+        </button>
         <span {...stylex.props(styles.brand)}>DISSAL</span>
         <span {...stylex.props(styles.svc)}>Distributed Systems Simulation Analysis Lab</span>
         <span {...stylex.props(styles.grow)} />
@@ -75,49 +119,70 @@ export function Shell({ children }: { children: ReactNode }) {
         )}
       </header>
 
-      <div {...stylex.props(styles.body)}>
-        <nav {...stylex.props(styles.rail)} aria-label="console">
-          <h2 {...stylex.props(styles.grp, styles.grpFirst)}>Lab</h2>
+      <div {...stylex.props(styles.body, tight && styles.bodyTight)}>
+        <nav
+          id="console-rail"
+          {...stylex.props(styles.rail, tight && styles.railTight)}
+          aria-label="console"
+        >
+          {tight
+            ? <hr {...stylex.props(styles.rule, styles.ruleFirst)} />
+            : <h2 {...stylex.props(styles.grp, styles.grpFirst)}>Lab</h2>}
           <ul {...stylex.props(styles.list)}>
             {lab.map((n) => (
               <li key={n.id}>
                 <button
-                  {...stylex.props(styles.nav, view === n.id && styles.navOn)}
+                  {...stylex.props(styles.nav, tight && styles.navTight, view === n.id && styles.navOn)}
                   aria-current={view === n.id}
+                  aria-label={n.label}
+                  title={tight ? n.label : undefined}
                   onClick={() => go(n.id)}
                 >
                   <i {...stylex.props(styles.icon)}>{n.icon}</i>
-                  {n.label}
-                  {n.tag && <span {...stylex.props(styles.tag)}>{n.tag}</span>}
+                  {!tight && n.label}
+                  {!tight && n.tag && <span {...stylex.props(styles.tag)}>{n.tag}</span>}
                 </button>
               </li>
             ))}
           </ul>
 
-          <h2 {...stylex.props(styles.grp)}>
-            The open run
-            {run && <span {...stylex.props(styles.of)}>{run.name}</span>}
-          </h2>
+          {tight
+            ? <hr {...stylex.props(styles.rule)} />
+            : (
+              <h2 {...stylex.props(styles.grp)}>
+                The open run
+                {run && <span {...stylex.props(styles.of)}>{run.name}</span>}
+              </h2>
+            )}
           <ul {...stylex.props(styles.list)}>
             {open.map((n) => (
               <li key={n.id}>
                 <button
-                  {...stylex.props(styles.nav, view === n.id && styles.navOn, !run && styles.navOff)}
+                  {...stylex.props(
+                    styles.nav,
+                    tight && styles.navTight,
+                    view === n.id && styles.navOn,
+                    !run && styles.navOff,
+                  )}
                   aria-current={view === n.id}
+                  aria-label={n.label}
+                  title={tight ? n.label : undefined}
                   disabled={!run}
                   onClick={() => go(n.id)}
                 >
                   <i {...stylex.props(styles.icon)}>{n.icon}</i>
-                  {n.label}
+                  {!tight && n.label}
                 </button>
               </li>
             ))}
           </ul>
 
-          <p {...stylex.props(styles.fine)}>
-            Drop a trace anywhere on this window to open it — a run from anybody, on any
-            node, reads the same way.
-          </p>
+          {!tight && (
+            <p {...stylex.props(styles.fine)}>
+              Drop a trace anywhere on this window to open it — a run from anybody, on any
+              node, reads the same way.
+            </p>
+          )}
         </nav>
 
         <div {...stylex.props(styles.pane)}>
@@ -234,10 +299,47 @@ const styles = stylex.create({
     backgroundColor: bar.bg,
     color: bar.ink,
   },
-  brand: { fontSize: '17px', fontWeight: 600, letterSpacing: '-0.02em' },
+  /**
+   * The rail's switch, in the bar rather than in the rail — a control that hides
+   * something has to stay put when that thing is hidden.
+   */
+  hamburger: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '30px',
+    height: '30px',
+    marginLeft: '-6px',
+    marginRight: '2px',
+    font: 'inherit',
+    fontSize: '15px',
+    lineHeight: 1,
+    color: bar.ink,
+    backgroundColor: { default: 'transparent', ':hover': 'rgba(255,255,255,0.14)' },
+    borderWidth: 0,
+    borderRadius: radius.sm,
+    cursor: 'pointer',
+    transitionProperty: 'background-color',
+    transitionDuration: '0.1s',
+    outline: { default: null, ':focus-visible': `2px solid ${bar.ink}` },
+    outlineOffset: '1px',
+  },
+  /** Read aloud, never drawn: the button's own word for what it is about to do. */
+  away: {
+    position: 'absolute',
+    width: '1px',
+    height: '1px',
+    padding: 0,
+    margin: '-1px',
+    overflow: 'hidden',
+    clipPath: 'inset(50%)',
+    whiteSpace: 'nowrap',
+    borderWidth: 0,
+  },
+  brand: { fontSize: '18px', fontWeight: 600, letterSpacing: '-0.02em' },
   // The title is long enough to wrap, and a wrapped one puts "Lab" under the
   // sidebar heading where it reads as a stray word.
-  svc: { fontSize: '13.5px', color: bar.dim, whiteSpace: 'nowrap' },
+  svc: { fontSize: size.md, color: bar.dim, whiteSpace: 'nowrap' },
   grow: { flex: 1 },
 
   chipDark: {
@@ -263,10 +365,15 @@ const styles = stylex.create({
 
   body: {
     display: 'grid',
-    gridTemplateColumns: { default: '244px minmax(0, 1fr)', [NARROW]: '1fr' },
+    gridTemplateColumns: { default: '248px minmax(0, 1fr)', [NARROW]: '1fr' },
+    transitionProperty: 'grid-template-columns',
+    transitionDuration: '0.14s',
+    transitionTimingFunction: 'ease',
     flex: 1,
     minHeight: 0,
   },
+  /** Collapsed: wide enough for an icon and its target, and nothing else. */
+  bodyTight: { gridTemplateColumns: { default: '56px minmax(0, 1fr)', [NARROW]: '1fr' } },
   rail: {
     paddingTop: '10px',
     paddingBottom: '20px',
@@ -278,7 +385,23 @@ const styles = stylex.create({
     display: { default: 'flex', [NARROW]: 'none' },
     flexDirection: 'column',
     overflowY: 'auto',
+    overflowX: 'hidden',
   },
+  railTight: { paddingInline: '8px' },
+  /**
+   * What a group heading becomes when there is no room to read one. A rule
+   * rather than a truncated word: the grouping is still there to be seen, and
+   * nothing pretends to be a label it is too narrow to be.
+   */
+  rule: {
+    width: '100%',
+    height: '1px',
+    borderWidth: 0,
+    backgroundColor: chrome.border,
+    marginTop: '14px',
+    marginBottom: '10px',
+  },
+  ruleFirst: { marginTop: '6px' },
   /**
    * A group heading, in the app's own heading idiom rather than a paragraph that
    * happened to be grey: small, upper case, tracked out. It is padded to the
@@ -291,7 +414,7 @@ const styles = stylex.create({
     marginBottom: '4px',
     marginLeft: 0,
     paddingInline: '10px',
-    fontSize: '10.5px',
+    fontSize: '11.5px',
     fontWeight: 600,
     letterSpacing: '0.07em',
     textTransform: 'uppercase',
@@ -302,7 +425,7 @@ const styles = stylex.create({
   of: {
     display: 'block',
     fontFamily: font.mono,
-    fontSize: '11px',
+    fontSize: size.xs,
     letterSpacing: 0,
     textTransform: 'none',
     fontWeight: 400,
@@ -325,11 +448,11 @@ const styles = stylex.create({
     alignItems: 'center',
     gap: '10px',
     width: '100%',
-    height: '34px',
+    height: '38px',
     paddingBlock: 0,
     paddingInline: '10px',
     font: 'inherit',
-    fontSize: '13.5px',
+    fontSize: size.base,
     color: { default: chrome.text2, ':hover': chrome.text },
     textAlign: 'left',
     backgroundColor: { default: 'transparent', ':hover': chrome.surface2 },
@@ -355,6 +478,7 @@ const styles = stylex.create({
     fontWeight: 500,
     boxShadow: `inset 3px 0 0 ${chrome.accent}`,
   },
+  navTight: { justifyContent: 'center', paddingInline: 0, gap: 0 },
   navOff: { color: chrome.text3, opacity: 0.55, cursor: 'default', backgroundColor: 'transparent' },
   icon: {
     fontStyle: 'normal',
@@ -362,19 +486,19 @@ const styles = stylex.create({
     flexGrow: 0,
     flexShrink: 0,
     textAlign: 'center',
-    fontSize: '13px',
+    fontSize: size.sm,
     opacity: 0.75,
   },
   /** How many runs there are. A count, so it is set like one and sits in a well. */
   tag: {
     marginLeft: 'auto',
-    minWidth: '20px',
-    paddingInline: '6px',
+    minWidth: '22px',
+    paddingInline: '7px',
     borderRadius: '999px',
     backgroundColor: chrome.surface2,
     fontFamily: font.mono,
-    fontSize: '11px',
-    lineHeight: '17px',
+    fontSize: size.xs,
+    lineHeight: '19px',
     textAlign: 'center',
     color: chrome.text3,
     fontWeight: 400,
@@ -386,7 +510,7 @@ const styles = stylex.create({
     marginLeft: 0,
     paddingTop: '18px',
     paddingInline: '10px',
-    fontSize: '11px',
+    fontSize: size.sm,
     lineHeight: 1.5,
     color: chrome.text3,
   },
@@ -414,15 +538,15 @@ const styles = stylex.create({
     borderWidth: '1px',
     borderStyle: 'solid',
     borderColor: { default: '#f3c9c5', [DARK]: '#4a221d' },
-    fontSize: '13px',
+    fontSize: size.md,
   },
   wait: { padding: '60px', textAlign: 'center', color: chrome.text3 },
 
   head: { display: 'flex', flexDirection: 'column', gap: '4px' },
-  crumbs: { margin: '0 0 2px', fontSize: '12.5px', color: chrome.text3 },
+  crumbs: { margin: '0 0 2px', fontSize: size.md, color: chrome.text3 },
   headRow: { display: 'flex', alignItems: 'flex-end', gap: '20px', flexWrap: 'wrap' },
-  h1: { fontSize: '26px', fontWeight: 400, letterSpacing: '-0.012em', margin: 0 },
-  sub: { margin: '4px 0 0', fontSize: '13.5px', color: chrome.text2, maxWidth: '80ch' },
+  h1: { fontSize: '28px', fontWeight: 400, letterSpacing: '-0.012em', margin: 0 },
+  sub: { margin: '4px 0 0', fontSize: size.base, color: chrome.text2, maxWidth: '80ch' },
   acts: { marginLeft: 'auto', display: 'flex', gap: '8px', flexWrap: 'wrap' },
 
   panel: { display: 'flex', flexDirection: 'column', minWidth: 0 },
@@ -436,14 +560,14 @@ const styles = stylex.create({
     paddingBottom: 0,
   },
   h2: {
-    fontSize: '16px',
+    fontSize: size.lg,
     fontWeight: 500,
     letterSpacing: '-0.008em',
     textTransform: 'none',
     color: chrome.text,
     margin: 0,
   },
-  note: { fontSize: '12.5px', color: chrome.text3 },
+  note: { fontSize: size.md, color: chrome.text3 },
   panelActs: { marginLeft: 'auto', display: 'flex', gap: '6px' },
   in_: { paddingTop: '16px', paddingInline: '20px', paddingBottom: '20px', minWidth: 0 },
   /** No padding: for a chart or a table that should reach the edges. */
@@ -457,7 +581,7 @@ const styles = stylex.create({
     paddingInline: '18px',
     paddingBottom: '18px',
   },
-  tileK: { fontSize: '12.5px', color: chrome.text3 },
+  tileK: { fontSize: size.md, color: chrome.text3 },
   tileV: {
     fontSize: '26px',
     fontWeight: 500,
@@ -466,5 +590,5 @@ const styles = stylex.create({
     fontVariantNumeric: 'tabular-nums',
     marginTop: '3px',
   },
-  tileN: { fontSize: '11.5px', color: chrome.text3 },
+  tileN: { fontSize: size.sm, color: chrome.text3 },
 });

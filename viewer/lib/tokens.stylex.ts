@@ -81,6 +81,32 @@ export const figure = stylex.defineVars({
   narrate: '#d6392b',
 });
 
+/**
+ * The chrome's type scale.
+ *
+ * These were forty-odd literal pixel values spread over twenty components, so
+ * "make the text bigger" meant finding all of them and hoping. As tokens it is
+ * one edit, and it is themeable like everything else — a lecture theatre and a
+ * laptop want different answers, and now they can have them.
+ *
+ * The figure does not use these. Text inside the drawing is sized in the
+ * drawing's own units so that a film is the same picture at any scale.
+ */
+export const size = stylex.defineVars({
+  /** Counts, tags, axis labels — the smallest thing worth reading. */
+  xs: '12px',
+  /** Captions, hints, the sentence under a control. */
+  sm: '12.5px',
+  /** Secondary body: table cells, notes, most of the console's prose. */
+  md: '13.5px',
+  /** The default. Body copy, buttons, rail items. */
+  base: '15px',
+  /** A panel heading. */
+  lg: '16px',
+  /** A page title. */
+  xl: '19px',
+});
+
 export const font = stylex.defineVars({
   sans: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif",
   serif: "Charter, XCharter, 'Bitstream Charter', 'Source Serif 4', 'Iowan Old Style', Georgia, serif",

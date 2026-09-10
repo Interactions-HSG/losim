@@ -13,7 +13,7 @@
  */
 import * as stylex from '@stylexjs/stylex';
 
-import { chrome, font, radius, shadow } from './tokens.stylex.ts';
+import { chrome, font, radius, shadow, size } from './tokens.stylex.ts';
 
 export const ui = stylex.create({
   /**
@@ -26,11 +26,11 @@ export const ui = stylex.create({
     display: 'inline-flex',
     alignItems: 'center',
     gap: '6px',
-    height: '34px',
+    height: '36px',
     paddingBlock: 0,
     paddingInline: '16px',
     font: 'inherit',
-    fontSize: '13px',
+    fontSize: size.md,
     fontWeight: 500,
     color: { default: chrome.text, ':disabled': chrome.text3 },
     backgroundColor: { default: chrome.surface, ':hover': chrome.surface2 },
@@ -52,7 +52,7 @@ export const ui = stylex.create({
     backgroundColor: { default: chrome.accent, ':hover': chrome.accentStrong },
     borderColor: 'transparent',
   },
-  icon: { width: '34px', paddingInline: 0, justifyContent: 'center' },
+  icon: { width: '36px', paddingInline: 0, justifyContent: 'center' },
   /**
    * A button that is a toggle, showing whether it is on.
    *
@@ -79,11 +79,11 @@ export const ui = stylex.create({
   },
   segButton: {
     minWidth: '34px',
-    height: '24px',
+    height: '25px',
     paddingBlock: 0,
-    paddingInline: '7px',
+    paddingInline: '8px',
     font: 'inherit',
-    fontSize: '12px',
+    fontSize: size.sm,
     fontWeight: 500,
     fontVariantNumeric: 'tabular-nums',
     color: { default: chrome.text2, ':hover': chrome.text },
@@ -100,13 +100,13 @@ export const ui = stylex.create({
   segOn: { color: chrome.text, backgroundColor: chrome.surface, boxShadow: shadow.s1 },
 
   picker: {
-    height: '30px',
+    height: '32px',
     maxWidth: '260px',
     paddingBlock: 0,
     paddingRight: '28px',
     paddingLeft: '10px',
     font: 'inherit',
-    fontSize: '13px',
+    fontSize: size.md,
     fontWeight: 500,
     color: chrome.text,
     backgroundColor: chrome.surface,
@@ -137,10 +137,10 @@ export const ui = stylex.create({
     display: 'inline-flex',
     alignItems: 'center',
     gap: '5px',
-    height: '22px',
+    height: '23px',
     paddingBlock: 0,
-    paddingInline: '8px',
-    fontSize: '11.5px',
+    paddingInline: '9px',
+    fontSize: size.xs,
     fontWeight: 500,
     color: chrome.text2,
     backgroundColor: chrome.surface2,

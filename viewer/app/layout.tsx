@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import * as stylex from '@stylexjs/stylex';
 
 import './globals.css';
-import { chrome, font } from '../lib/tokens.stylex.ts';
+import { chrome, font, size } from '../lib/tokens.stylex.ts';
 import { hsg, hsgBar, hsgType } from '../lib/themes.stylex.ts';
 
 export const metadata = {
@@ -32,7 +32,7 @@ const sx = stylex.create({
   body: {
     color: chrome.text,
     fontFamily: font.sans,
-    fontSize: '14.5px',
+    fontSize: size.base,
     lineHeight: 1.55,
     WebkitFontSmoothing: 'antialiased',
     textRendering: 'optimizeLegibility',

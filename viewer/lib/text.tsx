@@ -15,14 +15,14 @@
 import type { ComponentProps, ReactNode } from 'react';
 import * as stylex from '@stylexjs/stylex';
 
-import { chrome, font, radius } from './tokens.stylex.ts';
+import { chrome, font, radius, size } from './tokens.stylex.ts';
 
 type Styles = stylex.StyleXStyles;
 
 export const text = stylex.create({
-  h1: { fontSize: '15px', fontWeight: 600, letterSpacing: '-0.011em', margin: 0 },
+  h1: { fontSize: size.lg, fontWeight: 600, letterSpacing: '-0.011em', margin: 0 },
   h2: {
-    fontSize: '12px',
+    fontSize: size.sm,
     fontWeight: 600,
     letterSpacing: '0.04em',
     textTransform: 'uppercase',
@@ -45,7 +45,7 @@ export const text = stylex.create({
     paddingBlock: '1px',
     paddingInline: '5px',
   },
-  table: { width: '100%', borderCollapse: 'collapse', fontSize: '13px' },
+  table: { width: '100%', borderCollapse: 'collapse', fontSize: size.md },
   cell: {
     textAlign: 'left',
     paddingTop: '10px',
@@ -60,7 +60,7 @@ export const text = stylex.create({
   th: {
     color: chrome.text3,
     fontWeight: 500,
-    fontSize: '11px',
+    fontSize: size.xs,
     letterSpacing: '0.03em',
     textTransform: 'uppercase',
   },
