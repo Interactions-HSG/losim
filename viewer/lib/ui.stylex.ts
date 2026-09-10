@@ -6,10 +6,10 @@
  * treatments. Everything that only one component used went to that component,
  * where a style and the markup it dresses can be read together.
  *
- * What stayed in globals.css is the base layer: the reset, and the defaults for
- * bare tags. StyleX has no element selectors by design, and its own installation
- * guide keeps a global stylesheet for exactly this, so `html`, `body`, `h1`, `p`
- * and `a` are still styled there rather than by every component that renders one.
+ * The bare tags they used to sit beside are gone from globals.css too: prose is
+ * lib/text.tsx, form controls are components/console/form.tsx, and what is left
+ * in the stylesheet is the reset and the scrollbar, which are the document's
+ * rather than anything's here.
  */
 import * as stylex from '@stylexjs/stylex';
 
@@ -54,6 +54,19 @@ export const ui = stylex.create({
     filter: { default: null, ':hover': 'brightness(1.07)' },
   },
   icon: { width: '34px', paddingInline: 0, justifyContent: 'center' },
+  /**
+   * A button that is a toggle, showing whether it is on.
+   *
+   * `.btn` never had an `[aria-pressed]` rule, so "failed only" and "critical
+   * path" announced their state to a screen reader and showed nothing to
+   * anybody looking at them. The seg has always drawn its pressed button; this
+   * is the same idea for a button that stands alone.
+   */
+  btnOn: {
+    color: chrome.accent,
+    backgroundColor: { default: chrome.accentSoft, ':hover': chrome.accentSoft },
+    borderColor: { default: chrome.accent, ':hover': chrome.accent },
+  },
 
   /** A segmented control, for the speeds. */
   seg: {

@@ -29,7 +29,7 @@ import type { Trace } from '../lib/trace.ts';
 import { P } from '../lib/text.tsx';
 import * as stylex from '@stylexjs/stylex';
 
-import { chrome } from '../lib/tokens.stylex.ts';
+import { chrome, font, radius } from '../lib/tokens.stylex.ts';
 import { ui } from '../lib/ui.stylex.ts';
 
 type View = 'waterfall' | 'swimlanes' | 'rollup';
@@ -157,7 +157,12 @@ export function Spans({
       <div {...stylex.props(ui.card, sp.bar)}>
         <div {...stylex.props(ui.seg)} role="group" aria-label="view">
           {(['waterfall', 'swimlanes', 'rollup'] as View[]).map((v) => (
-            <button key={v} aria-pressed={view === v} onClick={() => setView(v)}>
+            <button
+              key={v}
+              {...stylex.props(ui.segButton, view === v && ui.segOn)}
+              aria-pressed={view === v}
+              onClick={() => setView(v)}
+            >
               {v}
             </button>
           ))}
@@ -166,14 +171,24 @@ export function Spans({
         {view === 'rollup' ? (
           <div {...stylex.props(ui.seg)} role="group" aria-label="gather by">
             {BYS.map((b) => (
-              <button key={b} aria-pressed={by === b} onClick={() => setBy(b)}>
+              <button
+                key={b}
+                {...stylex.props(ui.segButton, by === b && ui.segOn)}
+                aria-pressed={by === b}
+                onClick={() => setBy(b)}
+              >
                 {b}
               </button>
             ))}
           </div>
         ) : (
           <>
-            <select value={node} onChange={(e) => setNode(e.target.value)} aria-label="node">
+            <select
+              {...stylex.props(ui.picker, sp.picker)}
+              value={node}
+              onChange={(e) => setNode(e.target.value)}
+              aria-label="node"
+            >
               <option value="">every node</option>
               {trace.nodes.map((m) => (
                 <option key={m.name} value={m.name}>
@@ -182,21 +197,31 @@ export function Spans({
               ))}
             </select>
             <input
+              {...stylex.props(sp.text)}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="method"
               aria-label="method"
               size={10}
             />
-            <button {...stylex.props(ui.btn)} aria-pressed={failing} onClick={() => setFailing(!failing)}>
+            <button
+              {...stylex.props(ui.btn, failing && ui.btnOn)}
+              aria-pressed={failing}
+              onClick={() => setFailing(!failing)}
+            >
               failed only
             </button>
-            <button {...stylex.props(ui.btn)} aria-pressed={critOnly} onClick={() => setCritOnly(!critOnly)}>
+            <button
+              {...stylex.props(ui.btn, critOnly && ui.btnOn)}
+              aria-pressed={critOnly}
+              onClick={() => setCritOnly(!critOnly)}
+            >
               critical path
             </button>
             <label {...stylex.props(sp.slow)}>
               slower than
               <input
+                {...stylex.props(sp.text, sp.slowInput)}
                 type="number"
                 value={slower || ''}
                 onChange={(e) => setSlower(Number(e.target.value) || 0)}
@@ -289,4 +314,21 @@ const sp = stylex.create({
   },
   body: { flex: 1, minHeight: 0, overflow: 'hidden', padding: 0, position: 'relative' },
   hint: { fontSize: '11px', flex: 'none', margin: 0, maxWidth: 'none' },
+  /** The two filters that are typed rather than chosen, sized to the bar. */
+  picker: { height: '28px', fontSize: '12px' },
+  text: {
+    height: '28px',
+    paddingBlock: 0,
+    paddingInline: '9px',
+    font: 'inherit',
+    fontSize: '12px',
+    fontFamily: font.mono,
+    color: chrome.text,
+    backgroundColor: chrome.surface,
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: chrome.border,
+    borderRadius: radius.sm,
+  },
+  slowInput: { width: '62px' },
 });
