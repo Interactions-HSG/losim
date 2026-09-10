@@ -205,6 +205,14 @@ export function NodePanel({ trace, m, t, money, pinned, onPin, onClose }: NodePa
               {egress(totals.raw).map(([region, sent]) => (
                 <Row key={region} k={`↳ ${region}`} v={mb(sent)} />
               ))}
+              {/* `losimMb` is the older spelling of this channel and is not a
+                  name a sweep has missed. Every trace recorded before 4.0.0
+                  carries it — all 22 frozen fixtures do — and this page reads a
+                  raw trace with no baking step, so that a student can drop a run
+                  from last term onto it. Renamed to match its neighbours, both
+                  arguments would say `dissalyMb` and every one of those runs
+                  would report a confident 0.0 for a number it did measure. Same
+                  reasoning as `egress()` above. */}
               <Row
                 k="DISSALy's own cost"
                 v={mb(num(totals.raw, 'dissalyMb', 'losimMb'))}
